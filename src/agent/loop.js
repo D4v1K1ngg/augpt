@@ -1550,12 +1550,43 @@ class Agent extends EventEmitter {
     // Modo AUTO (auto.js, 10/10): o nível sai só de regra de código, ANTES
     // da verificação de ambiguidade (5 s) e do Tev1 (4–7 s). Níveis 0 e 1
     // respondem aqui mesmo; 2 e 3 seguem com as etapas do nível.
+    //
+    // Roteador (Tev1) disparado JÁ (11/10): ele roda na CPU e não disputa a
+    // placa de vídeo (medido: o modelo principal segue a ~92 tokens/s com o
+    // decisor rodando), então a decisão dele fica pronta enquanto a
+    // verificação de ambiguidade usa a GPU — antes eram 4,5 s (mediana) de
+    // espera em fila, depois dela. Quem precisa do resultado espera a
+    // promessa mais abaixo; o caminho rápido do AUTO simplesmente a abandona.
+    const pedirRota = (texto) => {
+      const promessa = decidirRota(texto, {
+        config: this.config,
+        decidir: (args) => ollama.decidir({ host: this.config.host, ...args }),
+        signal: this.controller?.signal,
+      });
+      promessa.catch(() => {}); // abandonada ou interrompida: sem "unhandled rejection"
+      return { objetivo: texto, promessa };
+    };
+    let rotaAndando = pedirRota(objetivo);
+
     this.nivelAuto = null;
     if (this.config.modoAuto !== false && !this.skillForcada && !tarefaAnterior) {
       const classificacao = verificador.classificarPedido(objetivo);
+      // 'livre' é a regra sem opinião (quase metade dos pedidos reais): aí
+      // vale esperar um instante pelo decisor antes de escolher o nível — com
+      // o modelo rápido (0,9 s) ele chega; com o de 4B não chega e nada muda
+      let tipoParaONivel = tipoDoPedido(objetivo).tipo;
+      let rotaDoAuto = null; // a decisão do modelo, quando foi ela que definiu o nível
+      if (tipoParaONivel === 'livre' && this.config.roteadorDecisor) {
+        const espera = Number(this.config.autoEsperaDecisorMs ?? 1500);
+        const r = await Promise.race([rotaAndando.promessa.catch(() => null), new Promise((ok) => setTimeout(ok, espera, null))]);
+        if (r?.fonte === 'decisor') {
+          tipoParaONivel = r.tipo;
+          rotaDoAuto = r;
+        }
+      }
       let nivel = auto.decidirNivel({
         objetivo,
-        tipo: tipoDoPedido(objetivo).tipo,
+        tipo: tipoParaONivel,
         refereConversa: conversa.length > 0 && Boolean(prompts.referenciaConversa(objetivo, conversa)),
         multiplas: (verificador.perguntasMultiplas(objetivo) || []).length || 1,
         precisaPlanejamento: classificacao.precisaPlanejamento,
@@ -1573,7 +1604,7 @@ class Agent extends EventEmitter {
       }
       if (nivel.nivel <= 1) {
         this.aplicarNivelAuto(nivel);
-        this.emit('tipo-de-pedido', { ...tipoDoPedido(objetivo), fonte: 'regra' });
+        this.emit('tipo-de-pedido', rotaDoAuto || { ...tipoDoPedido(objetivo), fonte: 'regra' });
         const pronta = await this.respostaRapidaAuto({ objetivo, conversa, nivel });
         if (pronta !== null) return pronta;
         if (this.controller.signal.aborted) return { ok: false, motivo: 'interrompido' };
@@ -1693,11 +1724,10 @@ class Agent extends EventEmitter {
     // repassado a todo lugar que pergunta "é pedido do motor?" / "que tipo
     // é?" — senão o loop e o motor discordariam sobre o mesmo pedido.
     // Desligado, sem modelo ou com erro: a regra decide, como sempre.
-    const rota = await decidirRota(objetivo, {
-      config: this.config,
-      decidir: (args) => ollama.decidir({ host: this.config.host, ...args }),
-      signal: this.controller?.signal,
-    });
+    // já vem rodando desde o início (pedirRota, acima); só pergunta de novo
+    // se o objetivo foi reescrito no caminho
+    if (rotaAndando.objetivo !== objetivo) rotaAndando = pedirRota(objetivo);
+    const rota = await rotaAndando.promessa;
     this.rota = { ...rota, objetivo };
     if (rota.falhaDoDecisor) this.emit('aviso', { texto: `Modelo de decisão indisponível (${rota.falhaDoDecisor}); a rota ficou com as regras.` });
     const pedidoDoMotor = this.config.motorDePesquisa !== false && motorPesquisa.ehPedidoDeRecomendacao(objetivo, { rota: this.rota });

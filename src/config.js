@@ -72,6 +72,13 @@ const DEFAULTS = {
   // disputar a placa de vídeo com o modelo principal.
   roteadorDecisor: false,
   modeloDecisor: 'tev1',
+  // Cascata (11/10): modelo de decisão menor, consultado ANTES do de cima; o
+  // de cima só entra quando este não tem confiança. Vazio = só o de cima.
+  // Sugestão: "tev1-0.8b-cpu" (FROM tev1:0.8b + PARAMETER num_gpu 0).
+  modeloDecisorRapido: '',
+  // AUTO: quanto esperar pelo decisor antes de escolher o nível, quando a
+  // regra não tem opinião ('livre'). O decisor roda em paralelo desde o início.
+  autoEsperaDecisorMs: 1500,
   limiarDecisor: 0.6,
   tempoLimiteDecisorMs: 8000,
   // Controlador v2 (05/10): o "perguntar" do crítico só põe a tarefa em

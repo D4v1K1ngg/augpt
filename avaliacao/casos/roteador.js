@@ -207,4 +207,34 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'roteador em cascata (11/10): o modelo rápido decide sozinho quando tem confiança; sem confiança o principal é consultado; sem modelo rápido nada muda; rápido fora do ar não impede o principal',
+    tipo: 'unidade',
+    async executar() {
+      const chamadas = [];
+      const decidir = (respostas) => async ({ model }) => {
+        chamadas.push(model);
+        const r = respostas[model];
+        if (r instanceof Error) throw r;
+        return { rota: { choice: r[0], confidence: r[1] } };
+      };
+      const cascata = { ...ligado, modeloDecisorRapido: 'tev1-0.8b-cpu' };
+      const confiante = await decidirRota(TESLA, { config: cascata, decidir: decidir({ 'tev1-0.8b-cpu': ['explicacao', 0.93] }) });
+      const soRapido = chamadas.join();
+      chamadas.length = 0;
+      const duvida = await decidirRota(TESLA, { config: cascata, decidir: decidir({ 'tev1-0.8b-cpu': ['tarefa', 0.41], tev1: ['explicacao', 0.9] }) });
+      const osDois = chamadas.join();
+      chamadas.length = 0;
+      await decidirRota(TESLA, { config: ligado, decidir: decidir({ tev1: ['explicacao', 0.9] }) });
+      const semRapido = chamadas.join();
+      chamadas.length = 0;
+      const caiu = await decidirRota(TESLA, { config: cascata, decidir: decidir({ 'tev1-0.8b-cpu': new Error('timeout'), tev1: ['explicacao', 0.9] }) });
+      return [
+        (soRapido === 'tev1-0.8b-cpu' && confiante.tipo === 'explicacao' && confiante.decisor.modelo === 'tev1-0.8b-cpu') || `rápido confiante: chamou ${soRapido}, tipo ${confiante.tipo}`,
+        (osDois === 'tev1-0.8b-cpu,tev1' && duvida.tipo === 'explicacao' && duvida.decisor.modelo === 'tev1') || `rápido em dúvida: chamou ${osDois}, decidiu ${duvida.decisor?.modelo}`,
+        semRapido === 'tev1' || `sem modelo rápido: chamou ${semRapido}`,
+        (caiu.tipo === 'explicacao' && !caiu.falhaDoDecisor) || `rápido fora do ar: ${JSON.stringify(caiu).slice(0, 120)}`,
+      ];
+    },
+  },
 ];

@@ -1729,6 +1729,7 @@ function preencherConfig() {
   $('cfgAutoModeloRapido').value = config.autoModeloRapido || '';
   $('cfgAutoModeloProfundo').value = config.autoModeloProfundo || '';
   $('cfgModeloDecisor').value = config.modeloDecisor || 'tev1';
+  $('cfgModeloDecisorRapido').value = config.modeloDecisorRapido || '';
   $('cfgFontesComunidade').value = (config.fontesComunidade || []).join('\n');
   $('cfgNavegadorVisivel').checked = config.navegadorVisivel !== false;
   $('cfgDownloadsDoNavegador').value = config.downloadsDoNavegador === 'pasta-de-trabalho' ? 'pasta-de-trabalho' : 'perguntar';
@@ -1784,6 +1785,7 @@ $('btnSalvarConfig').addEventListener('click', async (e) => {
     autoModeloRapido: $('cfgAutoModeloRapido').value.trim(),
     autoModeloProfundo: $('cfgAutoModeloProfundo').value.trim(),
     modeloDecisor: $('cfgModeloDecisor').value.trim() || 'tev1',
+    modeloDecisorRapido: $('cfgModeloDecisorRapido').value.trim(),
     // um endereço por linha; vazio = lista padrão (dados/comunidades.json)
     fontesComunidade: $('cfgFontesComunidade')
       .value.split(/\n+/)

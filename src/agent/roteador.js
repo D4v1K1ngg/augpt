@@ -94,25 +94,43 @@ async function decidirRota(objetivo, { config = {}, decidir, signal } = {}) {
   if (!config.roteadorDecisor || !modelo || typeof decidir !== 'function') return { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo };
   // regra exata: nem vale gastar a chamada
   if (regra.tipo === 'local' || regra.tipo === 'site') return { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo };
+  // Cascata (11/10): se houver um modelo de decisão RÁPIDO configurado, ele
+  // responde primeiro e o principal só é consultado quando o rápido não tem
+  // confiança. Medido na CPU com 40 pedidos reais rotulados: o tev1 de 0,8B
+  // decide em 0,9 s e, quando confiante (75% das vezes), acerta 97%; o de 4B
+  // leva 4,5 s (p90 de 7,9 s, no limite do tempo máximo) e acerta os mesmos
+  // 97% quando confiante, em 88% das vezes.
+  const modelos = [...new Set([String(config.modeloDecisorRapido || '').trim(), modelo].filter(Boolean))];
+  const limite = typeof config.limiarDecisor === 'number' ? config.limiarDecisor : LIMITE_PADRAO;
   const inicio = Date.now();
-  try {
-    const respostas = await decidir({
-      model: modelo,
-      state: estado(objetivo),
-      questions: { rota: PERGUNTA_ROTA },
-      timeout: Number(config.tempoLimiteDecisorMs) || TEMPO_LIMITE_PADRAO_MS,
-      signal,
-    });
-    const limite = typeof config.limiarDecisor === 'number' ? config.limiarDecisor : LIMITE_PADRAO;
-    const decisao = lerRota(respostas);
-    // 200 sem a decisão (modelo que não é de decisão, endpoint de outro
-    // servidor): mesma coisa que erro — a regra decide e o motivo fica
-    if (!decisao) return { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo, falhaDoDecisor: 'resposta sem a decisão de rota', ms: Date.now() - inicio };
-    return { ...combinar(regra, decisao, { limite, modelo }), ms: Date.now() - inicio };
-  } catch (err) {
-    if (signal?.aborted) throw err;
-    return { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo, falhaDoDecisor: String(err?.message || err).slice(0, 200), ms: Date.now() - inicio };
+  let ultima = null;
+  let falha = null;
+  for (const m of modelos) {
+    try {
+      const respostas = await decidir({
+        model: m,
+        state: estado(objetivo),
+        questions: { rota: PERGUNTA_ROTA },
+        timeout: Number(config.tempoLimiteDecisorMs) || TEMPO_LIMITE_PADRAO_MS,
+        signal,
+      });
+      const decisao = lerRota(respostas);
+      // 200 sem a decisão (modelo que não é de decisão, endpoint de outro
+      // servidor): mesma coisa que erro
+      if (!decisao) {
+        falha = 'resposta sem a decisão de rota';
+        continue;
+      }
+      ultima = { decisao, modelo: m };
+      if (typeof decisao.confianca === 'number' && decisao.confianca >= limite) break;
+    } catch (err) {
+      if (signal?.aborted) throw err;
+      falha = String(err?.message || err).slice(0, 200);
+    }
   }
+  // nenhum modelo respondeu: a regra decide e o motivo fica
+  if (!ultima) return { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo, falhaDoDecisor: falha, ms: Date.now() - inicio };
+  return { ...combinar(regra, ultima.decisao, { limite, modelo: ultima.modelo }), ms: Date.now() - inicio };
 }
 
 module.exports = { decidirRota, combinar, lerRota, ROTA_PARA_TIPO, PERGUNTA_ROTA, LIMITE_PADRAO };

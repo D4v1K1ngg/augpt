@@ -47,6 +47,7 @@ function papeisDaConfig(config = {}) {
   add('redação', config.modelRedacao, 'GPU');
   add('memória (embedding)', config.embedModel, 'GPU');
   if (config.roteadorDecisor) add('roteador (Tev1)', config.modeloDecisor || 'tev1', 'CPU', 'use um Modelfile com PARAMETER num_gpu 0 (ex.: tev1-cpu)');
+  if (config.roteadorDecisor) add('roteador rápido', config.modeloDecisorRapido, 'CPU', 'use um Modelfile com PARAMETER num_gpu 0 (ex.: tev1-0.8b-cpu)');
   if (config.copiloto2Modo === 'doisModelos') add('copiloto dedicado', config.modelCopiloto2, 'CPU');
   return papeis;
 }

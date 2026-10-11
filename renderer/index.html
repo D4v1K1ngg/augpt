@@ -595,6 +595,10 @@
           <label class="linha"><span>Modelo de decisão</span>
             <input type="text" id="cfgModeloDecisor" spellcheck="false" placeholder="tev1" />
           </label>
+          <label class="linha"><span>Modelo de decisão rápido (opcional)</span>
+            <input type="text" id="cfgModeloDecisorRapido" spellcheck="false" placeholder="(nenhum) — ex.: tev1-0.8b-cpu" />
+          </label>
+          <p class="dica">Com um modelo rápido, ele decide primeiro (menos de 1 s na CPU) e o modelo de decisão acima só é consultado quando o rápido não tem certeza. O modo AUTO também passa a usar a decisão para escolher o nível dos pedidos que as regras não reconhecem.</p>
           <p class="dica">Antes de começar, um modelo de decisão do Ollama (como o <b>tev1</b>, Ollama 0.35 ou mais novo) confere se o pedido é recomendação de produto, guia, explicação ou tarefa comum, e corrige a escolha das regras quando tem certeza. Nos seus pedidos reais, isso levou o acerto de 80% para 94%. Custa cerca de meio segundo por pedido. Se o modelo não estiver instalado ou não responder, as regras decidem sozinhas. Dica: crie um <code>tev1-cpu</code> (Modelfile com <code>PARAMETER num_gpu 0</code>) para ele rodar no processador e não disputar a placa de vídeo com o modelo principal.</p>
           <label class="linha linha-bloco"><span>Fontes da comunidade</span>
             <textarea id="cfgFontesComunidade" rows="4" spellcheck="false" placeholder="reddit.com&#10;clubedohardware.com.br&#10;forum.adrenaline.com.br&#10;head-fi.org"></textarea>
