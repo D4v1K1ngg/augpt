@@ -746,11 +746,11 @@ class Agent extends EventEmitter {
         return '';
       }
     };
-    const buscar = async (consulta, foco, opcao = '', extras = {}) => {
+    const buscar = async (consulta, foco, opcao = '', extras = {}, deveCitar = false) => {
       const antes = dossie.length;
       this.passosExtras += 1;
       // extras: idioma ('all' pra Reddit/Head-Fi) e comunidade (vários tópicos do mesmo fórum)
-      await executarPasso({ nome: 'pesquisar_e_ler', argumentos: { consulta, ...extras }, foco, opcao });
+      await executarPasso({ nome: 'pesquisar_e_ler', argumentos: { consulta, ...extras }, foco, opcao, deveCitar });
       return dossie.slice(antes);
     };
     const r = await motorPesquisa.executarPesquisaPlanejada({
@@ -1161,7 +1161,7 @@ class Agent extends EventEmitter {
    * buscar_no_projeto...) continuam pelo caminho de sempre: destilar a
    * saída da ferramenta como um bloco só.
    */
-  async destilarLeitura({ nome, argumentos, saida, ctx, objetivo, fontesAntes, foco = '', opcao = '' }) {
+  async destilarLeitura({ nome, argumentos, saida, ctx, objetivo, fontesAntes, foco = '', opcao = '', deveCitar = false }) {
     ctx.estado.pesquisou = true;
     const novas = (ctx.estado.fontesLidas || []).slice(fontesAntes);
     // `consulta` marca de qual busca cada entrada do dossiê veio (correções
@@ -1183,6 +1183,15 @@ class Agent extends EventEmitter {
         const fora = foraDoEscopo({ titulo, url: fonte.url, bruto: fonte.textoCompleto || fonte.texto || '' }, ctx.escopo);
         if (fora) {
           this.emit('descarte', { etapa: 'escopo', alvo: fonte.url || titulo, motivo: fora });
+          continue;
+        }
+        // Página lida para investigar UMA opção ("Kiwi Ears Orchestra Lite
+        // especificações") que nem cita a opção: o motor já a descartava, mas
+        // só DEPOIS da destilação. Execução real de 11/10: páginas sobre a
+        // fruta kiwi e a operadora TIM destiladas à toa (48 de 66 destilações
+        // sem nenhum fato). A checagem é a mesma do motor, feita antes.
+        if (opcao && deveCitar && !motorPesquisa.mencionaNome(motorPesquisa.normalizarTexto(`${titulo}\n${fonte.textoCompleto || fonte.texto || ''}`), opcao)) {
+          this.emit('descarte', { etapa: 'antes-da-destilacao', alvo: fonte.url || titulo, motivo: `não cita ${opcao}` });
           continue;
         }
         const pedidoDeDestilacao = { objetivo, foco, opcao, origem, texto: fonte.textoCompleto || fonte.texto || '', url: fonte.url };
@@ -1955,7 +1964,7 @@ class Agent extends EventEmitter {
      * destilação e dossiê. As rotinas usam este mesmo caminho — elas pulam as
      * decisões, não as salvaguardas.
      */
-    const executarPasso = async ({ nome, argumentos, foco = '', opcao = '' }) => {
+    const executarPasso = async ({ nome, argumentos, foco = '', opcao = '', deveCitar = false }) => {
       const ferramenta = tools.get(nome, ferramentasDesativadasAtual);
       if (!ferramenta) return { erro: `ferramenta "${nome}" indisponível` };
 
@@ -1999,7 +2008,7 @@ class Agent extends EventEmitter {
       });
 
       if (!erro && LEITURAS.includes(nome)) {
-        const entradas = await this.destilarLeitura({ nome, argumentos, saida, ctx, objetivo, fontesAntes, foco, opcao });
+        const entradas = await this.destilarLeitura({ nome, argumentos, saida, ctx, objetivo, fontesAntes, foco, opcao, deveCitar });
         dossie.push(...entradas);
         this.salvarDossieNaMemoriaCurta(entradas, { memory, idConversa });
         for (const entrada of entradas) {

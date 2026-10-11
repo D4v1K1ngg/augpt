@@ -254,4 +254,22 @@ module.exports = [
       }
     },
   },
+  {
+    nome: 'busca com "site:" (execução real de 11/10): resultado fora do site pedido não é lido — "site:reddit.com Simgot EM6L" trazia tim.com.br e a linguagem R; subdomínio vale, sem "site:" tudo vale',
+    tipo: 'unidade',
+    executar() {
+      const { doSitePedido } = require('../../src/tools/web');
+      const q = 'site:reddit.com Simgot EM6L';
+      return [
+        doSitePedido(q, 'https://www.reddit.com/r/iems/comments/15moc19/simgot_em6l_review/') || 'reddit.com é do site',
+        doSitePedido(q, 'https://old.reddit.com/r/iems/') || 'subdomínio é do site',
+        !doSitePedido(q, 'https://www.tim.com.br/ajuda/conta') || 'tim.com.br não é reddit',
+        !doSitePedido(q, 'https://cran.r-project.org/bin/windows/base/') || 'r-project.org não é reddit',
+        !doSitePedido(q, 'https://notreddit.com/x') || 'domínio que só termina igual não vale',
+        !doSitePedido('site:clubedohardware.com.br fone', 'https://forum.adrenaline.com.br/t/1') || 'outro fórum não vale',
+        doSitePedido('Simgot EM6L especificações', 'https://www.tim.com.br/') || 'sem "site:" não filtra nada',
+        !doSitePedido(q, 'isto não é url') || 'endereço ilegível fica de fora',
+      ];
+    },
+  },
 ];

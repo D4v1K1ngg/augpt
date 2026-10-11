@@ -3099,7 +3099,8 @@ async function executarPesquisaPlanejada({ objetivo, nivel = 'leve', chamarModel
   const rodar = async (consulta, foco, opcao = '', tipo = '', extras = {}) => {
     buscas += 1;
     consultas.push(consulta);
-    const lidas = (await buscar(consulta, foco, opcao, extras)) || [];
+    // ficha e lacuna são sobre UMA opção: página que não a cita nem vai pra destilação (5º argumento)
+    const lidas = (await buscar(consulta, foco, opcao, extras, tipo === 'ficha' || tipo === 'lacuna')) || [];
     // marca de onde veio cada leitura: a matriz e o resumo por opção usam isso
     for (const e of lidas) {
       if (opcao) e.opcao = opcao;
@@ -3610,6 +3611,7 @@ module.exports = {
   pareceNomeDeProduto,
   escolherFinalistas,
   mencionaNome,
+  normalizarTexto: normalizar,
   consultaDeFinalista,
   consultaDeFicha,
   consultaDeComunidade,

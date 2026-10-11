@@ -519,6 +519,7 @@ async function executarCasoAgente(caso, opcoes = {}) {
     userDataPath: workspace,
     skills,
     navegador: caso.navegador || null, // o caso pode injetar uma sessão falsa
+    render: caso.render || null, // leitura de página com JavaScript (só quando a medição roda dentro do Electron)
   });
   // resposta rápida do AUTO: busca, Wikipédia e leitura viram dublês
   if (caso.depsRespostaRapida) agente.depsRespostaRapida = caso.depsRespostaRapida;

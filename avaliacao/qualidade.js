@@ -233,7 +233,7 @@ async function responder(pergunta, { cfg, modelo }) {
   const inicio = Date.now();
   try {
     const obtido = await executarCasoAgente(
-      { nome: `qualidade-${pergunta.id}`, pedido: pergunta.pedido, config: cfg },
+      { nome: `qualidade-${pergunta.id}`, pedido: pergunta.pedido, config: cfg, render: RENDER },
       { real: true, host: HOST, modelo, modeloRedacao: cfg.modelRedacao || '', gravarRegistro: null }
     );
     const r = obtido.registro || {};
@@ -252,6 +252,12 @@ async function responder(pergunta, { cfg, modelo }) {
         semLeitura: ferramentas.filter((f) => /não consegui ler nenhuma/.test(f.erro || '')).length,
       },
       fontes: (r.fontes || []).filter((f) => f.tipo === 'leitura').length,
+      // para onde foi o tempo: chamadas ao modelo por tipo, e quanto da destilação não rendeu nada
+      modeloSeg: Math.round((r.custoPorChamada || []).reduce((s, c) => s + (c.duracaoMs || 0), 0) / 1000),
+      ferramentasSeg: Math.round(ferramentas.reduce((s, f) => s + (f.duracaoMs || 0), 0) / 1000),
+      chamadas: r.chamadas || {},
+      destilacoes: { total: (r.destilacoes || []).length, semFato: (r.destilacoes || []).filter((d) => !d.fatos).length },
+      descartes: (r.descartes || []).length,
     };
   } catch (err) {
     return { resposta: '', seg: Math.round((Date.now() - inicio) / 1000), passos: 0, tokens: 0, busca: { provedores: [], ok: 0, semProvedor: 0, semLeitura: 0 }, fontes: 0, erro: err.message };
@@ -392,8 +398,25 @@ async function principal() {
   await encerrar(0);
 }
 
-if (require.main === module) {
-  principal().catch((err) => {
+/**
+ * Dentro do Electron (`npm run qualidade:app`) a medição lê páginas com
+ * JavaScript como o app — é o que abre os tópicos do Reddit. No Node puro
+ * essas páginas não são lidas, e as pesquisas de produto saem sem a
+ * comunidade: a nota dessas perguntas só vale rodando pelo Electron.
+ */
+let RENDER = null;
+async function prepararElectron() {
+  if (!process.versions.electron) return;
+  const { app } = require('electron');
+  app.on('window-all-closed', () => {}); // as janelas de leitura abrem e fecham; a medição continua
+  await app.whenReady();
+  const { renderizar } = require('../electron/render');
+  const { cfg } = configDoApp();
+  if (cfg.renderizarJs !== false) RENDER = (url) => renderizar(url, { obterConfig: () => cfg });
+}
+
+if (require.main === module || process.versions.electron) {
+  prepararElectron().then(principal).catch((err) => {
     console.error(vermelho(`\nfalhou: ${err.message}`));
     process.exit(1);
   });

@@ -92,3 +92,13 @@ Como a nota é dada:
 Cada rodada grava em `qualidade/resultados/` (fora do Git) a nota, o tempo, os passos, quem respondeu a busca e a resposta inteira, e compara com a rodada anterior nas perguntas em comum. Rode antes e depois de uma mudança no agente: é o que mostra se ela melhorou a resposta ou só deixou mais lento.
 
 Limites: o juiz é um modelo local e erra; a nota vale como comparação entre rodadas, não como verdade absoluta. Pergunta de preço ou recomendação muda com o dia. Ao acrescentar pergunta, use fato curto e estável.
+
+### Pesquisas de produto: rode pelo Electron
+
+```bash
+npm run qualidade:app -- --id=fones-pubg
+```
+
+No Node puro (`npm run qualidade`) a medição não lê páginas que precisam de JavaScript — entre elas os tópicos do Reddit, que o agente usa como a principal evidência numa recomendação. A resposta sai, mas montada só com listas de sites, e a nota não representa o app. `qualidade:app` roda a mesma medição dentro do Electron, com a leitura de páginas igual à do app. Para explicações e fatos diretos, o Node puro basta.
+
+Cada resultado guarda também para onde foi o tempo: segundos no modelo e nas ferramentas, chamadas por tipo e quantas destilações voltaram sem nenhum fato.

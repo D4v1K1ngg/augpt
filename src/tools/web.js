@@ -3,7 +3,7 @@
 const { buscar, ordenarPorQualidade, subconsultas, buscarVarias, definirAprendido } = require('./search');
 const { ler } = require('./extract');
 const { validarUrl } = require('./http');
-const { conferirDestino } = require('./rede');
+const { conferirDestino, hostClaramenteInterno } = require('./rede');
 const { ehDaComunidade } = require('./comunidade');
 const { pularSemLer } = require('../agent/escopo');
 
@@ -449,6 +449,22 @@ async function descobrirAutoridade(consultaOriginal, ctx) {
   }
 }
 
+/** A URL é do site pedido com "site:dominio" na consulta? Sem "site:" na consulta, qualquer URL serve. */
+function doSitePedido(consulta, url) {
+  const sites = [...String(consulta || '').matchAll(/\bsite:([a-z0-9.-]+)/gi)].map((m) => m[1].toLowerCase().replace(/^www\./, ''));
+  if (!sites.length) return true;
+  let host;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  // endereço local não é resultado de buscador de verdade (e é onde moram os
+  // servidores falsos da bancada, que fazem as vezes do reddit.com)
+  if (hostClaramenteInterno(host)) return true;
+  return sites.some((s) => host === s || host.endsWith(`.${s}`));
+}
+
 module.exports = [
   {
     name: 'buscar_web',
@@ -612,6 +628,14 @@ module.exports = [
         // Etapa D (14º teste real): resultado de busca que é página inicial,
         // índice de fórum/subreddit, rede social, login, canal ou agenda nem é
         // lido — não responde pergunta nenhuma e custa leitura + destilação
+        // "site:reddit.com …": buscador que ignora o operador devolve qualquer
+        // coisa. Execução real de 11/10 (SearXNG com bing/yahoo): "site:reddit.com
+        // Simgot EM6L" trouxe tim.com.br, e "site:reddit.com r/PUBATTLEGROUNDS
+        // best IEM", páginas da linguagem R — todas lidas e destiladas à toa.
+        if (!doSitePedido(consulta, r.url)) {
+          ctx.emit('descarte', { etapa: 'pagina', alvo: r.url, motivo: 'fora do site pedido na busca' });
+          return false;
+        }
         const inutil = pularSemLer(r.url, r.titulo);
         if (inutil) {
           ctx.emit('descarte', { etapa: 'pagina', alvo: r.url, motivo: `página do tipo "${inutil}" não é lida` });
@@ -741,6 +765,7 @@ module.exports = [
 
 module.exports.PROFUNDIDADES = PROFUNDIDADES;
 module.exports.adiantarBuscas = adiantarBuscas;
+module.exports.doSitePedido = doSitePedido;
 module.exports.planoDaBusca = planoDaBusca;
 module.exports.decidirWikipedia = decidirWikipedia;
 module.exports.recortarRelevante = recortarRelevante;
