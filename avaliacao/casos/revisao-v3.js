@@ -569,4 +569,18 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'tipo de pedido (300 execuções reais, 11/10): "Como um gerador funciona ?", "como que … aconteceu?", "Me conte mais sobre…" e "…o que acontece?" são explicação; "como faço X funcionar", script e top 5 não',
+    tipo: 'unidade',
+    async executar() {
+      const { tipoDoPedido } = require('../../src/agent/tipo-de-pedido');
+      const tipo = (p) => tipoDoPedido(p).tipo;
+      const sim = ['Como um gerador funciona ?', 'como que o acidente de chernobyl aconteceu?', 'Me conte mais sobre o Black bird sr71', 'Se um avião perder todos os seus motores durante um voo o que acontece ?', 'Como o plastico é feito ?', 'Me explique como que um alto falante funciona ?'];
+      const nao = ['Como eu faço o wifi funcionar no notebook', 'crie um script que mostre como um gerador funciona', 'Me recomende um top 5 melhores fones intra auriculares para se jogar pubg de pc', 'Qual o avião mais rapido do mundo ?'];
+      return [
+        ...sim.map((p) => tipo(p) === 'explicacao' || `deveria ser explicação (${tipo(p)}): ${p}`),
+        ...nao.map((p) => tipo(p) !== 'explicacao' || `não é explicação: ${p}`),
+      ];
+    },
+  },
 ];

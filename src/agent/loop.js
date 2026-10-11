@@ -2387,8 +2387,11 @@ class Agent extends EventEmitter {
           // sempre) se não achar nada aí. "alto"/"extremo" confiam menos num
           // item velho sem confirmar de novo (ver LIMITE_DIAS_MEMORIA_CURTA*).
           const cauteloso = this.config.nivelRaciocinio === 'alto' || this.config.nivelRaciocinio === 'extremo';
+          // instrução injetada pelo próprio agente ("etapa automática") não é
+          // assunto: na consulta, ela diluía a semelhança e a lembrança sumia
+          const ultima = historico.at(-1)?.content || '';
           lembrancas = await memory.buscar(
-            `${objetivo}\n${historico.at(-1)?.content?.slice(0, 800) || ''}`,
+            `${objetivo}\n${/etapa automática/.test(ultima) ? '' : ultima.slice(0, 800)}`,
             this.config.memoryTopK,
             {
               idConversa,

@@ -99,6 +99,12 @@ const PREFIXO_CORTES = /^(voce sabe|vc sabe|sabe me dizer|me diga|me diz|me expl
 const EXPLICACAO_NO_INICIO =
   /^(por que|porque|pq|por qual motivo|qual (o|a|e o|e a) (motivo|razao|origem|historia|significado)|como funciona|como funcionam|o que (e|sao)(?! (o |a )?melhor)|o que (significa|foi|aconteceu|acontece|causa)|quem (e|foi|sao|eram)|explique|explica|qual a diferenca entre|diferenca entre|quando (foi|e|surgiu|comecou)|de onde vem|para que serve|pra que serve)\b/;
 const EXPLICACAO_EM_QUALQUER_LUGAR = /\b(por que|por qual motivo|como funciona|o que (e|sao)(?! (o |a )?melhor)|o que significa|qual a diferenca entre|para que serve|pra que serve)\b/;
+// 300 execuções reais (11/10): "Como um gerador funciona ?" (sujeito no meio),
+// "como que o acidente de Chernobyl aconteceu?", "Me conte mais sobre o SR-71"
+// e "se um avião perder os motores, o que acontece?" caíam em 'livre' e
+// gastavam o laço inteiro (204 s, 14 passos) numa pergunta de enciclopédia.
+const EXPLICACAO_COM_SUJEITO =
+  /^como (que )?(\S+ ){1,7}?(funciona|funcionam|aconteceu|acontece|ocorreu|ocorre|surgiu|surgiram|e feit[oa]s?|sao feit[oa]s|foi (feit[oa]|criad[oa]|inventad[oa]|construid[oa]))\b|^(me )?(conte|conta|fale|fala|explique|explica)( me)?( um pouco)?( mais)? (sobre|como|o que|por que)\b|\bo que (acontece|aconteceria)\b/;
 
 // arquivos, pastas, documentos, gerar arquivo. Achado do revisor: "salve!
 // qual o melhor mouse", "notebook pra trabalhar com planilha", "ssd pra
@@ -206,7 +212,7 @@ function tipoDoPedido(objetivo) {
   const guia = !dev && !DINHEIRO.test(t) && (GUIA_FORTE.test(t) || (GUIA_FRACO.test(t) && CONTEXTO_DE_JOGO.test(t)));
   // explicação: a pergunta no começo, ou no meio só sem pedido de criar/código
   // ("crie um programa que mostre como funciona o bubble sort" é tarefa)
-  const explicacao = EXPLICACAO_NO_INICIO.test(t) || (!dev && EXPLICACAO_EM_QUALQUER_LUGAR.test(t));
+  const explicacao = EXPLICACAO_NO_INICIO.test(t) || EXPLICACAO_COM_SUJEITO.test(t) || (!dev && EXPLICACAO_EM_QUALQUER_LUGAR.test(t));
 
   // guia vence quando o objeto é a técnica, não o equipamento: "melhores
   // táticas de PUBG" (nenhum produto) é guia; "melhor mouse pra controlar
