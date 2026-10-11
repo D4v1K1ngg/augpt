@@ -306,6 +306,12 @@ async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emi
   }
 
   const ficha = nivel >= 1 ? fichaParaPrompt({ wikis, paginas, fatos }) : '';
+  // Nível 1 sem NENHUM material (busca e Wikipédia falharam): escrever assim
+  // mesmo dava resposta inventada, sem aviso e sem conferência (execução real
+  // de 11/10, "Como um gerador funciona ?": "girodutos", "motores
+  // eletrostáticos"). O erro devolve o pedido ao laço do agente, que pesquisa
+  // de novo e, se não achar, avisa que é conhecimento geral.
+  if (nivel >= 1 && !ficha) throw new Error('a pesquisa rápida não trouxe material');
   const historico = (Array.isArray(conversa) ? conversa : [])
     .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && m.content)
     .slice(-6)

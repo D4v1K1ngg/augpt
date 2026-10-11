@@ -97,6 +97,13 @@ function assuntoDoPedido(objetivo) {
   else {
     const p = /^(?:o que (?:é|e|são|sao|foi|foram|era|eram)|quem (?:é|e|foi|são|sao|foram|era|eram)|como (?:funciona|funcionam|funcionava|surgiu|surgiram)|qual (?:é|e|foi) a (?:história|historia|origem) d[oae]s?|hist[óo]ria d[oae]s?|origem d[oae]s?|curiosidades (?:sobre|d[oae]s?)|fatos sobre)\s+/i.exec(s);
     if (p) s = s.slice(p[0].length);
+    else {
+      // sujeito no meio: "Como um gerador funciona" → "gerador"; "como que o
+      // acidente de Chernobyl aconteceu" → "acidente de Chernobyl". Com a
+      // frase inteira, a Wikipédia não achava a página e a ficha vinha vazia.
+      const meio = /^como\s+(?:que\s+)?((?:\S+\s+){0,5}?\S+?)\s+(?:realmente\s+)?(?:funciona|funcionam|aconteceu|acontece|ocorreu|ocorre|surgiu|surgiram|(?:é|e|são|sao|foi)\s+(?:feit|criad|inventad|construid)\w+)\s*$/i.exec(s);
+      if (meio) s = meio[1];
+    }
   }
   s = s.replace(/^(?:o|a|os|as|um|uma)\s+/i, '').trim();
   return s || String(objetivo || '').trim();

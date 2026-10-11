@@ -364,4 +364,29 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'AUTO nível 1 (execução real de 11/10): o assunto de "Como um gerador funciona ?" é "gerador"; sem material nenhum a resposta rápida falha e o pedido volta ao laço, em vez de sair inventada',
+    tipo: 'unidade',
+    async executar() {
+      const autoMod = require('../../src/agent/auto');
+      const { responderRapido } = require('../../src/agent/resposta-rapida');
+      let escreveu = false;
+      const erro = await responderRapido({
+        objetivo: 'Como um gerador funciona ?',
+        config: { host: 'http://127.0.0.1:9', model: 'falso' },
+        nivel: 1,
+        deps: {
+          buscar: async () => ({ resultados: [] }),
+          wikipedia: async () => null,
+          escrever: async () => { escreveu = true; return { content: 'Girodutos e motores eletrostáticos.' }; },
+        },
+      }).then(() => null, (e) => e.message);
+      return [
+        autoMod.assuntoDoPedido('Como um gerador funciona ?') === 'gerador' || `assunto: ${autoMod.assuntoDoPedido('Como um gerador funciona ?')}`,
+        autoMod.assuntoDoPedido('como que o acidente de chernobyl aconteceu?') === 'acidente de chernobyl' || 'assunto de Chernobyl',
+        autoMod.assuntoDoPedido('Como funciona um motor a diesel') === 'motor a diesel' || 'forma antiga não pode mudar',
+        (/não trouxe material/.test(String(erro)) && !escreveu) || `sem material tinha que falhar antes de escrever (erro: ${erro}, escreveu: ${escreveu})`,
+      ];
+    },
+  },
 ];
