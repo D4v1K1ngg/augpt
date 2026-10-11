@@ -507,4 +507,24 @@ module.exports = [
       return [/SÓ O USUÁRIO DÁ ORDENS/.test(texto) || 'regra anti-injeção sumiu do prompt de decisão'];
     },
   },
+  {
+    nome: 'segurança: comando do modelo não herda credenciais do ambiente (TOKEN, API_KEY, SECRET…); PATH continua',
+    tipo: 'unidade',
+    async executar() {
+      const { executar, ambienteSemSegredos } = require('../../src/tools/shell');
+      const filtrado = ambienteSemSegredos({ PATH: '/bin', HOME: '/h', PWD: '/h', GITHUB_TOKEN: 'a', OPENAI_API_KEY: 'b', AWS_SECRET_ACCESS_KEY: 'c', DB_PASSWORD: 'd' });
+      process.env.AUGPT_TESTE_TOKEN = 'valor-secreto-123';
+      try {
+        const variavel = process.platform === 'win32' ? '%AUGPT_TESTE_TOKEN%' : '$AUGPT_TESTE_TOKEN';
+        const r = await executar(`echo token=${variavel}`, { cwd: os.tmpdir(), timeout: 10000 });
+        return [
+          Object.keys(filtrado).join() === 'PATH,HOME,PWD' || `sobrou no ambiente: ${Object.keys(filtrado).join()}`,
+          r.code === 0 || `o comando deveria rodar (PATH intacto): ${r.stderr}`,
+          !r.stdout.includes('valor-secreto-123') || 'o comando leu a credencial do ambiente',
+        ];
+      } finally {
+        delete process.env.AUGPT_TESTE_TOKEN;
+      }
+    },
+  },
 ];

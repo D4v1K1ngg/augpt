@@ -20,6 +20,18 @@ const BLOQUEADOS = [
   /\bwget\b[^|]*\|\s*(ba)?sh\b/i,
 ];
 
+/**
+ * O comando (e o código) que o modelo roda não herda credenciais do ambiente
+ * — GITHUB_TOKEN, OPENAI_API_KEY, AWS_SECRET_ACCESS_KEY e afins. Sem isto, uma
+ * página com injeção de prompt podia pedir um `echo %GITHUB_TOKEN%` e levar o
+ * valor pra resposta. PATH e o resto do ambiente continuam.
+ */
+const NOME_DE_SEGREDO = /(TOKEN|SECRET|PASSWORD|PASSWD|KEY|CREDENTIALS?)(_|$)/i;
+
+function ambienteSemSegredos(ambiente = process.env) {
+  return Object.fromEntries(Object.entries(ambiente).filter(([nome]) => !NOME_DE_SEGREDO.test(nome)));
+}
+
 function executar(comando, { cwd, timeout, env }) {
   return new Promise((resolve) => {
     const isWin = process.platform === 'win32';
@@ -28,7 +40,7 @@ function executar(comando, { cwd, timeout, env }) {
 
     const child = spawn(shell, args, {
       cwd,
-      env: { ...process.env, ...env },
+      env: { ...ambienteSemSegredos(), ...env },
       windowsHide: true,
     });
 
@@ -94,4 +106,5 @@ module.exports = [
 
 module.exports.executar = executar;
 module.exports.formatar = formatar;
+module.exports.ambienteSemSegredos = ambienteSemSegredos;
 module.exports.BLOQUEADOS = BLOQUEADOS;

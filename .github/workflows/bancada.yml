@@ -1,0 +1,17 @@
+name: bancada
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  avaliar:
+    # Windows: os casos do ollama-runtime usam tasklist/setx
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # sem npm install: a bancada não usa o Electron nem nenhuma dependência
+      - run: node avaliacao/executar.js

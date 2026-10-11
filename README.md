@@ -86,6 +86,7 @@ O AuGPT é um agente: ele age no seu computador. Vale saber exatamente o que iss
 - **Sem "sempre permitir" pra comando, código e exclusão de arquivo.** Essas ações são aprovadas uma de cada vez.
 - **A pasta de trabalho não vaza por atalho.** Links e junções que apontam pra fora dela são recusados.
 - **Programas só rodam com a sua confirmação.** Todo servidor MCP novo mostra o comando num aviso do sistema antes de iniciar, e "Abrir com o app padrão" não executa `.exe`, `.bat`, scripts e afins.
+- **Comandos não enxergam suas credenciais.** Variáveis de ambiente com cara de segredo (`*_TOKEN`, `*_API_KEY`, `*_SECRET`, `*_PASSWORD`) não são repassadas ao terminal nem ao código que o agente roda.
 - **O navegador do app não ganha permissões.** Câmera, microfone, notificações e localização são sempre negados.
 
 **O que ainda depende de você:**
@@ -118,7 +119,7 @@ Conversas, memória e registros de execução ficam em arquivos JSON na pasta de
 ## Para quem quer mexer no código
 
 ```bash
-npm run avaliar     # 827 casos de teste em ~15 s, sem precisar do Ollama nem de internet
+npm run avaliar     # 828 casos de teste em ~15 s, sem precisar do Ollama nem de internet
 npm run dev         # abre o app com as ferramentas de desenvolvedor
 npm run comparar -- llama3.1:8b qwen2.5:7b   # compara modelos em tarefas reais (precisa do Ollama)
 node avaliacao/decisores.js                  # regras × modelos de decisão (tev1…) nos seus pedidos (Ollama ≥ 0.35)
