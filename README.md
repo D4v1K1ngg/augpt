@@ -119,7 +119,7 @@ Conversas, memória e registros de execução ficam em arquivos JSON na pasta de
 ## Para quem quer mexer no código
 
 ```bash
-npm run avaliar     # 828 casos de teste em ~15 s, sem precisar do Ollama nem de internet
+npm run avaliar     # 832 casos de teste em ~15 s, sem precisar do Ollama nem de internet
 npm run dev         # abre o app com as ferramentas de desenvolvedor
 npm run comparar -- llama3.1:8b qwen2.5:7b   # compara modelos em tarefas reais (precisa do Ollama)
 node avaliacao/decisores.js                  # regras × modelos de decisão (tev1…) nos seus pedidos (Ollama ≥ 0.35)
