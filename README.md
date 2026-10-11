@@ -37,7 +37,7 @@ Modelos muito pequenos (2–3B) erram mais o formato que o agente usa pra decidi
 2. Baixe o AuGPT e instale as dependências (só o Electron, uns 100 MB):
 
    ```bash
-   git clone <endereço deste repositório>
+   git clone https://github.com/D4v1K1ngg/augpt.git
    cd augpt
    npm install
    npm start
