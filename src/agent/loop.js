@@ -2877,7 +2877,12 @@ class Agent extends EventEmitter {
         // insistir errado ou algum item for genuinamente impossível —
         // depois disso deixa passar mesmo incompleto, mesmo padrão de
         // "falha após N tentativas" já usado no resto do arquivo.
-        const ITENS_PENDENTES_MAX_VETOS = 3;
+        // 3 → 1 (300 execuções reais, 11/10): das 98 com este veto, 72 gastaram
+        // os 3; um terço dos itens seguia pendente no fim e a verificação não
+        // saía melhor que nas execuções sem veto — só mais lenta (~85 s de
+        // ferramenta depois do 1º veto). Um lembrete basta; o que faltar vai
+        // dito na resposta.
+        const ITENS_PENDENTES_MAX_VETOS = 1;
         //
         // Teto próprio (`TAREFA_ESTADO_MAX_VETOS`) pro gate logo abaixo —
         // achado revisando o sistema de Tarefa (2026-09-17): diferente de

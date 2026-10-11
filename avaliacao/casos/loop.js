@@ -750,7 +750,7 @@ module.exports = [
   {
     // O teto (ITENS_PENDENTES_MAX_VETOS) existe pra não travar pra sempre se
     // o modelo insistir errado ou algum item for genuinamente impossível de
-    // resolver — depois de barrar 3 vezes, a 4ª tentativa de "responder" deve
+    // resolver — depois de barrar 1 vez (era 3 até 11/10), a 2ª tentativa de "responder" deve
     // passar mesmo com itens ainda pendentes (mesmo padrão de "falha após N
     // tentativas" já usado no resto do arquivo, ex.: mensagemDeAcaoRepetida).
     nome: 'gate de checklist pendente para de barrar depois do teto (ITENS_PENDENTES_MAX_VETOS) e deixa passar mesmo incompleto',
@@ -774,8 +774,7 @@ module.exports = [
         plano: ['Responder o que é NP-completo', 'Responder o que é thrashing', 'Responder como funciona o Paxos'],
       },
       {
-        // 4ª tentativa: vetosChecklistFeitos já chegou a 3 (o teto) — o gate
-        // deixa passar mesmo com os 3 itens ainda pendentes.
+        // sobra do roteiro de quando o teto era 3: a 2ª tentativa já passa
         ferramenta: 'responder',
         argumentos: { foco: 'insistindo' },
         plano: ['Responder o que é NP-completo', 'Responder o que é thrashing', 'Responder como funciona o Paxos'],
@@ -784,13 +783,11 @@ module.exports = [
     redacao: 'Resposta parcial, só sobre NP-completo.',
     espera: {
       ok: true,
-      passos: { min: 4, max: 4 },
+      passos: { min: 2, max: 2 },
       ferramentasChamadas: ['responder'],
       erroContem: ['Seu plano ainda tem 3 item(ns) pendente(s)'],
-      // Backlog do Copiloto, item m1: 3 vetoes (a 4ª passa) — confere que o
-      // contador consolidado (`vetoDoCopiloto`) soma 1-2-3 mesmo repetindo o
-      // MESMO gate, não um contador por gate.
-      copilotoGates: ['checklist-pendente', 'checklist-pendente', 'checklist-pendente'],
+      // um veto só (a 2ª tentativa passa)
+      copilotoGates: ['checklist-pendente'],
     },
   },
 
@@ -2601,6 +2598,19 @@ module.exports = [
       // pedaço até o fim do documento (que teria mais de 3)
       chamadasDeDestilacao: 3,
       eventos: ['aviso'],
+    },
+  },
+  {
+    nome: 'item de síntese (registros reais de 11/10) conta como entrega e não barra responder: "Resumir a informação…", "Concluir que…", "Gerar um resumo comparativo…"; pesquisar, ler e comparar preços continuam sendo trabalho',
+    tipo: 'unidade',
+    async executar() {
+      const { ehItemDeEntregaFinal } = require('../../src/agent/loop');
+      const sim = ['Resumir a informação sobre os modos de latência baixa', 'Concluir que o modo Ultra é mais recomendado para PUBG', 'Gerar um resumo comparativo das informações coletadas', 'Responder sobre as percepções auditivas dos dois fones'];
+      const nao = ['Pesquisar sobre o modo Ultra da NVIDIA em jogos', 'Ler relatórios oficiais da NVIDIA sobre o modo Ultra', 'Comparar preços e características com outros modelos em marketplaces', 'Calcular a média dos preços observados'];
+      return [
+        ...sim.map((t) => ehItemDeEntregaFinal(t) || `síntese deveria contar como entrega: ${t}`),
+        ...nao.map((t) => !ehItemDeEntregaFinal(t) || `trabalho de verdade não é entrega: ${t}`),
+      ];
     },
   },
 ];

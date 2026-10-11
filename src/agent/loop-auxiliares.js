@@ -929,6 +929,10 @@ const ehItemDeEntregaFinal = (texto) => {
       t
     ) ||
     /\bresponder\s+(ao\s+)?usu[aá]rio\b/.test(t) ||
+    // síntese do que já foi coletado é o que a redação faz ("Resumir a
+    // informação sobre…", "Concluir que o modo Ultra é mais recomendado",
+    // "Gerar um resumo comparativo…" — pendentes nos registros reais de 11/10)
+    /^(resumir|sintetizar|sumarizar|destilar|concluir que|responder sobre|(gerar|fazer|escrever|montar) (um |o )?resumo)\b/.test(t) ||
     /\b(gera|gerar|escrev|escrever|produzi|produzir|complet)\w*.{0,25}\barquivo\s+final\b/.test(t)
   );
 };
