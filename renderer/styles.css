@@ -1344,3 +1344,68 @@ body.sem-lateral .lateral > * { min-width: calc(var(--lateral) - 32px); }
 .tabela-modelos .situacao-atencao { color: var(--amber); }
 .tabela-modelos .situacao-ocioso, .tabela-modelos .situacao-outro { color: var(--muted); }
 .tabela-modelos .dica-linha { color: var(--muted); font-size: 11px; margin-top: 3px; }
+
+/* ================== barra limpa e coluna centrada (2026-10-11) ================== */
+/* Pedido do Davi: um único botão no centro da barra abre o painel com o estado
+   do Ollama, os modelos e as escolhas da execução; os medidores foram para o
+   cabeçalho da resposta; nada fica embaixo do campo de digitação; a conversa
+   fica centrada na janela e não se desloca quando a lateral abre. */
+.barra { position: relative; z-index: 50; }
+.titulo-conversa { font-size: 12px; color: var(--muted); max-width: 26vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.titulo-conversa:empty { display: none; }
+.titulo-conversa::before { content: "·"; margin-right: 10px; color: var(--fraco); }
+body:has(#viewAgente[hidden]) #tituloConversaAgente,
+body:has(#viewConversa[hidden]) #tituloConversaChat { display: none; }
+
+.barra-centro { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.btn-execucao {
+  display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 13px; max-width: 46vw;
+  background: var(--panel-2); border: 1px solid var(--line-forte); border-radius: 999px;
+  color: var(--text); font: inherit; font-size: 12px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.btn-execucao:hover, .btn-execucao[aria-expanded="true"] { border-color: var(--line-viva); background: #222227; }
+.btn-execucao > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-execucao .ponto { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
+.btn-execucao.ok .ponto { background: var(--green); box-shadow: 0 0 0 3px rgba(69, 200, 120, 0.14); }
+.btn-execucao.atencao .ponto { background: var(--amber); box-shadow: 0 0 0 3px rgba(217, 130, 46, 0.14); }
+.btn-execucao.offline .ponto { background: var(--red); box-shadow: 0 0 0 3px rgba(224, 90, 78, 0.14); }
+.btn-execucao .seta { font-weight: 400; font-size: 10px; color: var(--muted); }
+
+.painel-execucao {
+  position: absolute; left: 50%; top: calc(100% + 12px); transform: translateX(-50%); z-index: 60;
+  width: min(430px, 92vw); padding: 16px; display: flex; flex-direction: column; gap: 13px;
+  background: var(--panel); border: 1px solid var(--line-forte); border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+}
+.painel-execucao[hidden] { display: none; }
+.pe-estado { display: flex; flex-wrap: wrap; gap: 8px 18px; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
+.painel-execucao .campo { justify-content: space-between; gap: 14px; }
+.painel-execucao .campo > span { display: block; width: 86px; }
+.painel-execucao .campo select { flex: 1; min-width: 0; max-width: none; }
+
+.estado-barra { margin-left: auto; max-width: 30vw; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* medidores no cabeçalho da resposta do agente, à direita de "skills" e "raciocínio" */
+.msg.turno { position: relative; }
+.turno-medidores { position: absolute; top: 24px; right: 0; }
+.turno-medidores .medidores { display: flex; gap: 16px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.turno-medidores .medidor b { font-size: 13px; }
+@media (max-width: 760px) { .turno-medidores { position: static; margin: 6px 0 10px; } }
+
+/* nada embaixo do campo de digitação */
+.composer { padding-bottom: 22px; }
+
+/* As duas laterais ficam POR CIMA da área da conversa, que ocupa a largura
+   toda: a coluna fica no centro da janela (margens iguais) e não anda quando a
+   lateral esquerda abre ou fecha. As páginas largas (Skills, Execuções,
+   Ajustes) continuam abrindo espaço para ela. */
+.corpo { position: relative; }
+.lateral { position: absolute; left: 0; top: 0; bottom: 0; z-index: 40; box-shadow: 10px 0 30px rgba(0, 0, 0, 0.45); }
+body.sem-lateral .lateral { box-shadow: none; }
+.lateral-direita { position: absolute; right: 12px; top: 0; bottom: 0; z-index: 5; pointer-events: none; background: none; }
+.lateral-direita > * { pointer-events: auto; }
+body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin-left 0.22s ease; }
+@media (max-width: 980px) {
+  .lateral { position: static; box-shadow: none; }
+  body:not(.sem-lateral) .pagina { margin-left: 0; }
+}

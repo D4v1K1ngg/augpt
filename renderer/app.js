@@ -188,6 +188,10 @@ $('btnAnexoChat').addEventListener('click', () => anexar('chat'));
 
 /* ============================ turno do agente ============================ */
 
+// guardado numa variável: quando a conversa é limpa, o bloco sai da tela junto
+// com a resposta antiga, mas continua existindo para a próxima
+const blocoDeMedidores = document.querySelector('.medidores');
+
 function criarTurno(pedido) {
   el.aAbertura.hidden = true;
 
@@ -215,6 +219,7 @@ function criarTurno(pedido) {
   dele.className = 'msg ia turno';
   dele.innerHTML = `
     <div class="msg-quem">agente</div>
+    <div class="turno-medidores"></div>
     <div class="andamento">
       <span class="digitando"><i></i><i></i><i></i></span>
       <span class="andamento-txt">preparando…</span>
@@ -244,6 +249,9 @@ function criarTurno(pedido) {
     arquivosGerados: [],
   };
   dele.querySelector('.parar').addEventListener('click', () => api.agent.stop());
+  // passos, tokens, tempo e contexto acompanham a resposta em andamento (são
+  // os mesmos elementos de sempre, só mudam de lugar a cada pedido)
+  dele.querySelector('.turno-medidores').appendChild(blocoDeMedidores);
   agente.turno = turno;
   rolar(el.aRolagem, true);
   return turno;
@@ -3924,3 +3932,43 @@ $('btnLimparExec').addEventListener('click', async () => {
   await api.runs.clear(alvo);
   carregarExecucoes();
 });
+
+/* ------------------ botão central da barra (2026-10-11) ------------------ */
+// Um botão só resume modelo · autonomia · raciocínio e abre o painel com os
+// seletores e o estado do Ollama. Os seletores e indicadores são os de
+// sempre (mesmos ids); aqui só mora o abre/fecha e o texto do botão.
+(function botaoDaExecucao() {
+  const botao = $('btnExecucao');
+  const painel = $('painelExecucao');
+  if (!botao || !painel) return;
+  const abrir = (aberto) => {
+    painel.hidden = !aberto;
+    botao.setAttribute('aria-expanded', String(aberto));
+  };
+  botao.addEventListener('click', (e) => {
+    e.stopPropagation();
+    abrir(painel.hidden);
+  });
+  painel.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', () => abrir(false));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !painel.hidden) abrir(false);
+  });
+
+  const curto = (select) => (select?.selectedOptions?.[0]?.textContent || '').split('·')[0].trim();
+  const resumir = () => {
+    const ollama = $('statusOllama');
+    const modelos = $('btnModelos');
+    const partes = [$('modelo').value || 'sem modelo', curto($('autonomia')), curto($('nivelRaciocinio'))].filter(Boolean);
+    const desligado = ollama.classList.contains('offline');
+    const texto = desligado ? `Ollama desligado · ${partes.join(' · ')}` : partes.join(' · ');
+    if ($('resumoExecucao').textContent !== texto) $('resumoExecucao').textContent = texto;
+    botao.classList.toggle('offline', desligado);
+    botao.classList.toggle('atencao', !desligado && modelos.classList.contains('modelos-atencao'));
+    botao.classList.toggle('ok', ollama.classList.contains('online') && !modelos.classList.contains('modelos-atencao'));
+  };
+  // ponytail: releitura a cada 600 ms — os seletores também mudam por código
+  // (carregar ajustes, lista de modelos), sem evento; trocar por eventos se pesar
+  setInterval(resumir, 600);
+  resumir();
+})();

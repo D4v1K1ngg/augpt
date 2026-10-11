@@ -13,73 +13,74 @@
     <span></span><span></span><span></span>
   </button>
 
-  <!-- Rótulo da seção atual — substitui as abas, que se mudaram pra
-       navegação lateral esquerda (ver #navPrincipal abaixo). Atualizado por
-       trocarAba() em app.js. -->
+  <!-- Rótulo da seção atual (atualizado por trocarAba() em app.js) e, ao
+       lado, o título da conversa aberta — que antes ficava embaixo do campo
+       de digitação. -->
   <div class="secao-atual" id="secaoAtual">Agente</div>
+  <span class="titulo-conversa" id="tituloConversaAgente"></span>
+  <span class="titulo-conversa" id="tituloConversaChat"></span>
 
-  <div class="divisor-barra"></div>
-
-  <!-- Indicadores de estado (Ollama + Copiloto), agrupados visualmente —
-       pedido do Davi (2026-09-18): "encontrar uma forma melhor de
-       posicionar as informações... no canto superior". -->
-  <div class="grupo-barra">
-    <div class="status" id="statusOllama" title="Estado do servidor Ollama">
-      <i class="ponto"></i><span>verificando…</span>
-    </div>
-
-    <!-- Indicador "2ª IA" (Copiloto nível 2, modo "doisModelos") — só aparece
-         com esse modo ativo. Mostra se o modelo dedicado está carregado agora
-         e se foi pra CPU (esperado, numGpu:0) ou GPU (ver
-         ipcMain.handle('ollama:copilotoStatus', ...), electron/main.js). -->
-    <div class="status" id="statusCopiloto" title="Estado do Copiloto (2ª IA)" hidden>
-      <i class="ponto"></i><span>copiloto</span>
-    </div>
-
-    <!-- Onde cada modelo está rodando agora (GPU, CPU ou dividido) — pedido
-         do Davi, 2026-10-10. Verde: tudo onde deveria; âmbar: algum fora do
-         lugar. Clique abre o quadro (ollama:modelosCarregados). -->
-    <button type="button" class="status status-botao" id="btnModelos" title="Ver onde cada modelo está rodando (GPU ou CPU)">
-      <i class="ponto"></i><span>modelos</span>
+  <!-- Barra limpa (pedido do Davi, 2026-10-11): estado do Ollama, modelos
+       carregados, modelo, autonomia, raciocínio e modo da resposta moram num
+       único painel, aberto por este botão no centro. Os elementos e os ids
+       são os de antes — só mudaram de lugar. -->
+  <div class="barra-centro">
+    <button type="button" class="btn-execucao" id="btnExecucao" aria-haspopup="true" aria-expanded="false" title="Modelo, autonomia, raciocínio e estado do Ollama">
+      <i class="ponto"></i><span id="resumoExecucao">carregando…</span><b class="seta" aria-hidden="true">▾</b>
     </button>
+    <div class="painel-execucao" id="painelExecucao" hidden>
+      <div class="pe-estado">
+        <div class="status" id="statusOllama" title="Estado do servidor Ollama">
+          <i class="ponto"></i><span>verificando…</span>
+        </div>
+        <div class="status" id="statusCopiloto" title="Estado do Copiloto (2ª IA)" hidden>
+          <i class="ponto"></i><span>copiloto</span>
+        </div>
+        <button type="button" class="status status-botao" id="btnModelos" title="Ver onde cada modelo está rodando (GPU ou CPU)">
+          <i class="ponto"></i><span>modelos</span>
+        </button>
+      </div>
+        <label class="campo" title="Modelo de IA usado pelo agente e pela conversa">
+          <span>modelo</span>
+          <select id="modelo" aria-label="Modelo de IA"><option value="">—</option></select>
+        </label>
+        <label class="campo" id="campoAutonomia" title="Autonomia: o que o agente pode fazer sem pedir sua confirmação">
+          <span>autonomia</span>
+          <select id="autonomia" aria-label="Autonomia do agente">
+            <option value="manual">manual · confirma tudo</option>
+            <option value="guiado">guiado · confirma o que é arriscado</option>
+            <option value="auto">automático · não pergunta</option>
+          </select>
+        </label>
+        <label class="campo" id="campoNivelRaciocinio" title="Raciocínio: quanto esforço o agente põe em cada pedido (mais esforço, mais lento)">
+          <span>raciocínio</span>
+          <select id="nivelRaciocinio" aria-label="Nível de raciocínio">
+            <option value="leve">leve · rápido, esforço padrão</option>
+            <option value="medio">médio · sempre planeja, busca mais fontes</option>
+            <option value="alto">alto · pesquisa a fundo, crítico revisa cada parte</option>
+            <option value="extremo">extremo · máximo esforço, bem mais lento</option>
+          </select>
+        </label>
+      <label class="campo" title="Como a resposta deve ser escrita">
+        <span>resposta</span>
+        <select id="modoResposta" aria-label="Modo da resposta">
+          <option value="normal">direta</option>
+          <option value="detalhada">detalhada</option>
+          <option value="tecnica">técnica</option>
+        </select>
+      </label>
+    </div>
   </div>
 
-  <div class="divisor-barra"></div>
+  <!-- O que o agente está fazendo agora ("pronto", "executando…") — também
+       saiu de baixo do campo de digitação. -->
+  <div class="estado-barra" id="rodapeAgente">pronto</div>
+</header>
 
-  <!-- Configuração da execução atual, também agrupada. -->
-  <div class="grupo-barra">
-    <label class="campo" title="Modelo de IA usado pelo agente e pela conversa">
-      <span>modelo</span>
-      <select id="modelo" aria-label="Modelo de IA"><option value="">—</option></select>
-    </label>
-
-    <label class="campo" id="campoAutonomia" title="Autonomia: o que o agente pode fazer sem pedir sua confirmação">
-      <span>autonomia</span>
-      <select id="autonomia" aria-label="Autonomia do agente">
-        <option value="manual">manual · confirma tudo</option>
-        <option value="guiado">guiado · confirma o que é arriscado</option>
-        <option value="auto">automático · não pergunta</option>
-      </select>
-    </label>
-
-    <!-- Pedido do Davi (2026-09-19): unifica em um seletor só o que antes
-         era espalhado (profundidade de busca sozinha tinha seletor;
-         planejamento forçado e cadência de crítica não tinham nenhum) — ver
-         Config.aplicarNivelRaciocinio, src/config.js, e o plano da rodada
-         em AuGPT-plano-de-implementacao.md. -->
-    <label class="campo" id="campoNivelRaciocinio" title="Raciocínio: quanto esforço o agente põe em cada pedido (mais esforço, mais lento)">
-      <span>raciocínio</span>
-      <select id="nivelRaciocinio" aria-label="Nível de raciocínio">
-        <option value="leve">leve · rápido, esforço padrão</option>
-        <option value="medio">médio · sempre planeja, busca mais fontes</option>
-        <option value="alto">alto · pesquisa a fundo, crítico revisa cada parte</option>
-        <option value="extremo">extremo · máximo esforço, bem mais lento</option>
-      </select>
-    </label>
-  </div>
-
-  <div class="divisor-barra divisor-final"></div>
-
+<!-- Passos, tokens, tempo e contexto da execução: ficam guardados aqui até
+     existir uma resposta do agente; aí criarTurno() (app.js) os leva para o
+     cabeçalho dela, ao lado de "skills" e "raciocínio". -->
+<div hidden id="medidoresGuardados">
   <div class="medidores">
     <span class="medidor"><b id="mIteracao">0</b><i>/<span id="mMax">25</span> passos</i></span>
     <span class="medidor"><b id="mTokens">0</b><i>tokens</i></span>
@@ -92,7 +93,7 @@
       <b id="mContexto">—</b><i>contexto</i>
     </span>
   </div>
-</header>
+</div>
 
 <!-- Oferta de início automático do Ollama — aparece quando uma checagem de
      saúde detecta o Ollama desligado E o binário está instalado (ver
@@ -278,18 +279,6 @@
         <textarea id="entradaAgente" rows="1" placeholder="Peça alguma coisa ao agente…"></textarea>
         <button class="btn-enviar" id="btnEnviarAgente" title="Enviar (Enter)" aria-label="Enviar">↑</button>
       </div>
-      <div class="composer-rodape">
-        <span id="rodapeAgente">pronto</span>
-        <label class="seletor-modo" title="Como a resposta deve ser escrita">
-          resposta:
-          <select id="modoResposta">
-            <option value="normal">direta</option>
-            <option value="detalhada">detalhada</option>
-            <option value="tecnica">técnica</option>
-          </select>
-        </label>
-        <span id="tituloConversaAgente"></span>
-      </div>
     </div>
   </section>
 
@@ -310,10 +299,7 @@
         <textarea id="entradaChat" rows="1" placeholder="Pergunte alguma coisa…"></textarea>
         <button class="btn-enviar" id="btnEnviar" title="Enviar (Enter)" aria-label="Enviar">↑</button>
       </div>
-      <div class="composer-rodape">
-        <span id="chatModelo">—</span>
-        <span id="tituloConversaChat"></span>
-      </div>
+      <span id="chatModelo" hidden>—</span>
     </div>
   </section>
 
