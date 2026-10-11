@@ -1171,8 +1171,7 @@ class Agent extends EventEmitter {
     const consulta = String(argumentos?.consulta || '').trim() || null;
 
     if (novas.length) {
-      const entradas = [];
-      for (const fonte of novas) {
+      const umaFonte = async (fonte) => {
         const origem = `${nome}(${fonte.dominio || fonte.titulo || fonte.url || ''})`;
         // título da página vai junto (10º teste real): a checagem de
         // categoria dos candidatos usa ("Os 10 melhores fones..." × "iPhone 15")
@@ -1183,7 +1182,7 @@ class Agent extends EventEmitter {
         const fora = foraDoEscopo({ titulo, url: fonte.url, bruto: fonte.textoCompleto || fonte.texto || '' }, ctx.escopo);
         if (fora) {
           this.emit('descarte', { etapa: 'escopo', alvo: fonte.url || titulo, motivo: fora });
-          continue;
+          return [];
         }
         // Página lida para investigar UMA opção ("Kiwi Ears Orchestra Lite
         // especificações") que nem cita a opção: o motor já a descartava, mas
@@ -1192,7 +1191,7 @@ class Agent extends EventEmitter {
         // sem nenhum fato). A checagem é a mesma do motor, feita antes.
         if (opcao && deveCitar && !motorPesquisa.mencionaNome(motorPesquisa.normalizarTexto(`${titulo}\n${fonte.textoCompleto || fonte.texto || ''}`), opcao)) {
           this.emit('descarte', { etapa: 'antes-da-destilacao', alvo: fonte.url || titulo, motivo: `não cita ${opcao}` });
-          continue;
+          return [];
         }
         const pedidoDeDestilacao = { objetivo, foco, opcao, origem, texto: fonte.textoCompleto || fonte.texto || '', url: fonte.url };
         // retomada: só leitura da web pública (página logada do navegador do
@@ -1205,9 +1204,25 @@ class Agent extends EventEmitter {
           destiladas = await this._destilarGrande(pedidoDeDestilacao);
           if (chaveRetomada) ctx.retomada.guardarDestilacao(chaveRetomada, destiladas);
         }
-        entradas.push(...destiladas.map((e) => (titulo ? { ...e, titulo } : e)));
-      }
-      return entradas.map((e) => ({ ...e, consulta }));
+        return destiladas.map((e) => (titulo ? { ...e, titulo } : e));
+      };
+      // Até `destilacaoParalela` páginas ao mesmo tempo (11/10). Com o Ollama
+      // em 2 vagas (OLLAMA_NUM_PARALLEL=2) a placa destila 1,39x mais rápido
+      // — medido: 3,0 s → 2,2 s por página, +0,6 GB de memória de vídeo; com 1
+      // vaga os pedidos só fazem fila, como antes. A ordem das páginas é mantida.
+      const vagas = Math.max(1, Math.min(Number(this.config.destilacaoParalela) || 1, novas.length));
+      const porFonte = new Array(novas.length);
+      let proxima = 0;
+      await Promise.all(
+        Array.from({ length: vagas }, async () => {
+          while (proxima < novas.length) {
+            const i = proxima;
+            proxima += 1;
+            porFonte[i] = await umaFonte(novas[i]);
+          }
+        })
+      );
+      return porFonte.flat().map((e) => ({ ...e, consulta }));
     }
 
     const origem = `${nome}(${String(

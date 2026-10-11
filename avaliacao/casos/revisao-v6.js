@@ -281,4 +281,19 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'categoria (execução real de 11/10): "the new best gaming headset now is the Audeze Maxwell" — o tipo dito logo ANTES do nome tira o headset do top de intra-auriculares; "troquei meu headset pelo Simgot EM6L" não tira o IEM',
+    tipo: 'unidade',
+    executar() {
+      const m = require('../../src/agent/motor-pesquisa');
+      const topico = (texto) => [{ url: 'https://www.reddit.com/r/PUBATTLEGROUNDS/comments/z/iem', titulo: 'headsets or earbuds for pubg', bruto: `TÓPICO DO REDDIT (r/PUBATTLEGROUNDS): headsets or earbuds for pubg\n- [1 votos] ${texto}` }];
+      const termos = m.categoriaDoPedido('Me recomende um top 5 melhores fones intra auriculares para se jogar pubg');
+      return [
+        m.deOutroTipo('Audeze Maxwell', topico('I have been told the new best gaming headset now is the Audeze Maxwell. Although I have not purchased any yet.'), termos) || 'o Maxwell apresentado como "gaming headset" deveria sair',
+        m.deOutroTipo('Astro A50', topico('O melhor headset é o Astro A50, sem dúvida.'), termos) || '"o melhor headset é o X" em português também',
+        !m.deOutroTipo('Simgot EM6L', topico('I replaced my old headset with the Simgot EM6L and footsteps are much clearer.'), termos) || 'headset que foi TROCADO pelo IEM não tira o IEM',
+        !m.deOutroTipo('Simgot EM6L', topico('The Simgot EM6L is the best IEM for footsteps.'), termos) || 'IEM dito como IEM fica',
+      ];
+    },
+  },
 ];

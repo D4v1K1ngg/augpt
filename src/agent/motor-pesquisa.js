@@ -1421,6 +1421,9 @@ function categoriaDoPedido(objetivo) {
   return termos;
 }
 
+// palavras que podem ficar entre "headset" e o nome sem mudar de quem se fala
+const LIGACAO_ANTES_DO_NOME = new Set(['is', 'are', 'was', 'now', 'the', 'a', 'an', 'called', 'named', 'currently', 'right', 'e', 'o', 'os', 'as', 'um', 'uma', 'sao', 'chamado', 'chamada', 'atualmente', 'hoje', 'agora']);
+
 /** Só aparece junto de OUTRO tipo (headset, over-ear) e nunca junto de um termo específico do pedido. */
 function deOutroTipo(nome, entradas, termos) {
   if (!termos?.exclui) return false;
@@ -1443,6 +1446,17 @@ function deOutroTipo(nome, entradas, termos) {
       // dizia era uma só, e a ficha veio da Wikipédia errada
       const depois = ` ${t} `.split(alvo)[1]?.trim().split(' ').slice(0, 3) || [];
       if (depois.some((p) => termos.exclui.has(p)) || termos.excluiBigrama.test(depois.join(' '))) {
+        outro += 2;
+        continue;
+      }
+      // 11/10 (Audeze Maxwell num "top 5 intra-auriculares"): o tipo dito
+      // logo ANTES do nome, ligado só por verbo de ligação e artigo, também é
+      // o tipo do produto — "the new best gaming headset now is the Audeze
+      // Maxwell". Com outra palavra no meio ("troquei meu headset pelo EM6L")
+      // não vale: aí o headset é outro aparelho.
+      const antes = ` ${t} `.split(alvo)[0].trim().split(' ').slice(-6);
+      const iTipo = antes.map((p) => termos.exclui.has(p)).lastIndexOf(true);
+      if (iTipo >= 0 && antes.slice(iTipo + 1).every((p) => LIGACAO_ANTES_DO_NOME.has(p))) {
         outro += 2;
         continue;
       }

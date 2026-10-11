@@ -59,7 +59,15 @@ function prompt(objetivo, origem, texto, foco = '', maximo = MAXIMO_ENVIADO) {
   const aberto = !foco && ehPedidoAberto(objetivo);
   const tarefa = aberto
     ? `O usuário quer CONHECER o assunto do pedido. Extraia do material os fatos mais marcantes sobre ele: números (velocidade, tamanho, quantidades, custos), datas, recordes, quem criou ou participou, como funciona, episódios importantes e curiosidades. Deixe de fora detalhe administrativo e lista de nomes sem importância. Só escreva NADA se o material não for sobre esse assunto.`
-    : 'Extraia do material apenas o que serve para responder ao pedido.';
+    : foco
+      ? // 11/10 (captura de uma pesquisa real de fones): com o critério "serve
+        // ao pedido", a página OFICIAL do Simgot EM6L, lida para a ficha dele,
+        // voltava "NADA" — ela não fala de PUBG. A leitura tem um foco: é ele
+        // que decide o que serve. Nas 3 páginas de ficha testadas: 0 fatos
+        // antes; 13, 18 e 26 depois. Lista de loja e página fora do assunto
+        // continuaram dando NADA.
+        'Extraia do material os fatos sobre o foco desta leitura (indicado acima). O material não precisa falar do resto do pedido: se ele traz dados do item do foco, registre-os.'
+      : 'Extraia do material apenas o que serve para responder ao pedido.';
   return `PEDIDO DO USUÁRIO:
 ${objetivo}
 ${linhaFoco}
@@ -74,7 +82,7 @@ REGRAS:
 - Copie números, datas, nomes e valores EXATAMENTE como estão. Não arredonde, não converta.
 - Nada de menu, rodapé, publicidade, "leia também", banner de cookies ou navegação.
 - Não interprete nem conclua: só registre o que o material afirma.
-- Se o material não tiver nada relevante ao pedido, escreva apenas: NADA
+- Se o material não tiver nada relevante ao pedido${foco ? ' nem ao foco' : ''}, escreva apenas a palavra NADA, uma única vez, e pare.
 - Escreva os fatos em português, mesmo que o material esteja em outra língua.
 - No máximo 25 linhas.
 
@@ -289,6 +297,7 @@ function materialOriginal(dossie, orcamentoTotal = 12000) {
 }
 
 module.exports = {
+  prompt,
   destilar, limpar, fundir, chaveDoFato, materialOriginal, limparRuido, MINIMO_PARA_DESTILAR,
   // Exportado pro "chunking" de documento grande (loop.js, _destilarGrande):
   // cada pedaço enviado pra destilar() precisa ficar dentro deste mesmo teto,

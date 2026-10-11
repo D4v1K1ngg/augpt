@@ -120,6 +120,10 @@ const DEFAULTS = {
   // as próximas buscas já correm (busca + download das páginas) enquanto o
   // modelo destila a atual. false = uma busca de cada vez, como antes.
   preBusca: true,
+  // Páginas destiladas ao mesmo tempo (11/10). Só rende com o Ollama em 2+
+  // vagas (variável de ambiente OLLAMA_NUM_PARALLEL=2): 1,39x na destilação,
+  // +0,6 GB de memória de vídeo. Com 1 vaga não muda nada (os pedidos fazem fila).
+  destilacaoParalela: 2,
   // Imagens nas respostas (src/tools/imagens.js, 11/10): foto de cada produto
   // nos cartões da recomendação e imagem de referência nas explicações.
   imagensNasRespostas: true,
