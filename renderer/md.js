@@ -71,6 +71,13 @@
         citacao = false;
       }
     };
+    let cartao = false;
+    const fecharCartao = () => {
+      if (cartao) {
+        saida.push('</section>');
+        cartao = false;
+      }
+    };
 
     for (let i = 0; i < linhas.length; i += 1) {
       const linha = linhas[i];
@@ -123,7 +130,14 @@
       if (cabecalho) {
         fecharLista();
         fecharCitacao();
+        fecharCartao();
         const n = cabecalho[1].length + 1;
+        // "#### 1. Nome do produto": cada opção de uma recomendação vira um
+        // cartão, que vai até o próximo título
+        if (cabecalho[1].length === 4 && /^\d+\.\s/.test(cabecalho[2])) {
+          saida.push('<section class="cartao-produto">');
+          cartao = true;
+        }
         saida.push(`<h${n}>${inline(cabecalho[2])}</h${n}>`);
         continue;
       }
@@ -166,6 +180,7 @@
     }
     fecharLista();
     fecharCitacao();
+    fecharCartao();
 
     return saida
       .join('\n')

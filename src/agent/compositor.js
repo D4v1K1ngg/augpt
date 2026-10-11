@@ -376,9 +376,9 @@ function linhasDeLimitacoes(f, criterios, critica, traducaoDe) {
   if (discordam.length) itens.push(`as fontes discordam sobre ${discordam.join(', ')}`);
   const semAlto = criterios.filter((k) => k.peso === 'alto' && (f.status?.[k.nome] || 'sem dados') === 'sem dados').map((k) => k.nome);
   if (semAlto.length) itens.push(`sem evidência sobre ${semAlto.join(', ')}, que pesa muito para esse uso`);
-  if (!itens.length && !critica) return ['- **Limitações:** o material lido não trouxe críticas nem pontos fracos deste modelo.'];
-  const linhas = [`- **Limitações:** ${itens.length ? `${itens.join('; ')}.` : 'a crítica abaixo é a única que apareceu no material.'}`];
-  if (critica) linhas.push(`  ${citacaoFormatada(critica, traducaoDe(critica))}`);
+  if (!itens.length && !critica) return ['**Ponto de atenção:** o material lido não trouxe críticas nem pontos fracos deste modelo.'];
+  const linhas = [`**Ponto de atenção:** ${itens.length ? `${itens.join('; ')}.` : 'a crítica abaixo é a única que apareceu no material.'}`];
+  if (critica) linhas.push(citacaoFormatada(critica, traducaoDe(critica)));
   return linhas;
 }
 
@@ -429,24 +429,32 @@ function montarRecomendacao(r, frases = new Map()) {
     partes.push('', 'A ordem abaixo vem da evidência nesses critérios e de quantas conversas da comunidade recomendam cada opção para esse uso — não da quantidade de sites que citam o nome.');
   }
 
+  // Um cartão por opção (11/10, formato pedido pelo Davi a partir de uma
+  // resposta de referência): nome numerado, selo, faixa de preço, pontos
+  // fortes, o que quem usa diz e o ponto de atenção — parágrafos rotulados em
+  // vez de lista. O status por critério saiu daqui: repetia "comentado por 2+
+  // fontes" sete vezes por opção, e a Tabela logo abaixo já mostra isso.
+  // (renderer/md.js desenha cada "#### N. Nome" como cartão.)
+  const maisRecomendado = [...finalistas].sort((a, b) => (b.consenso?.topicos || 0) - (a.consenso?.topicos || 0))[0];
+  const baratos = opcoesMaisBaratas(finalistas, r.precos).filter((x) => x.f !== topo);
+  const seloDe = (f) => {
+    if (f === topo) return 'Recomendação principal';
+    if (f === maisRecomendado && f.consenso?.topicos) return 'Mais recomendado pela comunidade';
+    if (baratos.some((x) => x.f === f)) return 'Menor preço observado';
+    return '';
+  };
   partes.push('', '### As opções');
   finalistas.forEach((f, i) => {
     partes.push('', `#### ${i + 1}. ${f.nome}`);
-    partes.push(frases.get(f.nome.toUpperCase()) || fraseRecomendacaoPadrao(f, r));
-    if (r.precos?.[f.nome]) partes.push(`- **Preço observado:** ${textoDoPreco(r.precos[f.nome])}`);
-    partes.push(`- **Comunidade:** ${respaldoCurto(f)}.`);
+    if (seloDe(f)) partes.push(`*${seloDe(f)}*`, '');
+    if (r.precos?.[f.nome]) partes.push(`**Faixa de preço:** ${textoDoPreco(r.precos[f.nome])}`, '');
+    partes.push(`**Pontos fortes:** ${frases.get(f.nome.toUpperCase()) || fraseRecomendacaoPadrao(f, r)}`, '');
+    partes.push(`**Na comunidade:** ${respaldoCurto(f)}.`);
     const { aFavor, critica } = citacoesDoProduto(f, r);
-    if (aFavor.length) {
-      partes.push('- **O que os usuários dizem:**');
-      for (const c of aFavor) partes.push(`  ${citacaoFormatada(c, traducaoDe(c))}`);
-    }
-    partes.push(...linhasDeLimitacoes(f, criterios, critica, traducaoDe));
+    for (const c of aFavor) partes.push(citacaoFormatada(c, traducaoDe(c)));
+    partes.push('', ...linhasDeLimitacoes(f, criterios, critica, traducaoDe));
     const resumo = r.matriz?.resumos?.get?.(f.nome) || {};
-    if (resumo.ficha?.texto) partes.push(`- **Ficha:** ${curto(resumo.ficha.texto, 200)}`);
-    const status = criterios
-      .filter((k) => f.status?.[k.nome])
-      .map((k) => `${k.nome}: ${ROTULO_STATUS[f.status[k.nome]] || f.status[k.nome]}`);
-    if (status.length) partes.push(`- **Nos critérios:** ${status.join(' · ')}`);
+    if (resumo.ficha?.texto) partes.push('', `**Ficha:** ${curto(resumo.ficha.texto, 200)}`);
   });
 
   // tabela curta: o que o material diz de cada opção em cada critério
@@ -470,9 +478,7 @@ function montarRecomendacao(r, frases = new Map()) {
   // qual escolher: só cenário com opção diferente e com motivo
   const cenarios = [];
   if (topo) cenarios.push(`- **Melhor no geral:** ${topo.nome} — ${porQueNaFrente(topo, finalistas[1], criterios)}.`);
-  const maisRecomendado = [...finalistas].sort((a, b) => (b.consenso?.topicos || 0) - (a.consenso?.topicos || 0))[0];
   if (maisRecomendado && maisRecomendado !== topo && maisRecomendado.consenso?.topicos) cenarios.push(`- **Mais recomendado pela comunidade:** ${maisRecomendado.nome} — ${respaldoCurto(maisRecomendado)}.`);
-  const baratos = opcoesMaisBaratas(finalistas, r.precos).filter((x) => x.f !== topo);
   const maisBarato = baratos[0] || null;
   if (baratos.length) {
     // 10/10: comparava só os preços em real (QKZ a R$ 160) com o Vivace a US$ 30 ao lado — sem converter moeda, diz cada uma

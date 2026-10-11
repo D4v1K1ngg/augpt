@@ -85,11 +85,13 @@ module.exports = [
       const bloco = (nome) => texto.split(/\n#### /).find((b) => b.includes(nome) && /^\d\./.test(b)) || '';
       const kefine = bloco('Kefine Delci AE');
       const arete = bloco('Ziigaat Arete');
-      const usuarios = (kefine.split('**O que os usuários dizem:**')[1] || '').split('- **Limitações')[0];
+      // 11/10: formato de cartão — "Faixa de preço", "Na comunidade" e "Ponto de atenção"
+      const usuarios = (kefine.split('**Na comunidade:**')[1] || '').split('**Ponto de atenção')[0];
       const semNada = c.montar({ ...cenario(), finalistas: [{ ...cenario().finalistas[0], status: { 'passos e posicionamento': 'corroborado', 'palco sonoro': 'corroborado', isolamento: 'corroborado' }, consenso: { topicos: 2, citacoes: [] } }] }, new Map());
       return [
-        /\*\*Preço observado:\*\* R\$ 480 a R\$ 560/.test(kefine) || `preço do Kefine: ${kefine.slice(0, 300)}`,
-        /\*\*Limitações:\*\*/.test(kefine) && /hurts after a few hours/.test(kefine.split('**Limitações:**')[1] || '') || 'a crítica do usuário tem que ir em Limitações',
+        /\*\*Faixa de preço:\*\* R\$ 480 a R\$ 560/.test(kefine) || `preço do Kefine: ${kefine.slice(0, 300)}`,
+        /^1\. Kefine Delci AE\n\*Recomendação principal\*\n/.test(kefine) || `o 1º leva o selo logo abaixo do nome: ${kefine.slice(0, 80)}`,
+        /\*\*Ponto de atenção:\*\*/.test(kefine) && /hurts after a few hours/.test(kefine.split('**Ponto de atenção:**')[1] || '') || 'a crítica do usuário tem que ir em Ponto de atenção',
         !/hurts after/.test(usuarios) || 'a crítica não pode aparecer como "o que os usuários dizem" a favor',
         /discordam sobre palco sonoro/.test(arete) || `fontes que discordam viram limitação: ${arete}`,
         /sem evidência sobre/.test(arete) === false || 'isolamento é peso médio: não entra como limitação de peso alto',
@@ -255,6 +257,25 @@ module.exports = [
           const nada = listaSemOsComparados('### Lista\n1. **Kefine Delci AE** — x', texto);
           return (/Moondrop Chu 2/.test(so) && !/Kefine/.test(so) && nada === '') || `lista final: ${JSON.stringify(so)} / ${JSON.stringify(nada)}`;
         })(),
+      ];
+    },
+  },
+  {
+    nome: 'cartão de produto (11/10): na tela, cada "#### N. Nome" vira um cartão que fecha no próximo título; título sem número não vira cartão',
+    tipo: 'unidade',
+    executar() {
+      const antes = global.window;
+      global.window = global;
+      delete require.cache[require.resolve('../../renderer/md.js')];
+      require('../../renderer/md.js');
+      const html = global.md.render('### As opções\n\n#### 1. Kefine Delci AE\n*Recomendação principal*\n\n**Pontos fortes:** passos claros.\n\n#### 2. Ziigaat Arete\n**Pontos fortes:** palco.\n\n### Tabela\n\n#### Observação\ntexto');
+      global.window = antes;
+      return [
+        (html.match(/<section class="cartao-produto">/g) || []).length === 2 || `esperava 2 cartões: ${html}`,
+        /<section class="cartao-produto">\n<h5>1\. Kefine Delci AE<\/h5>\n<p><em>Recomendação principal<\/em><\/p>/.test(html) || 'o selo vem logo abaixo do nome',
+        /<\/section>\n<section class="cartao-produto">\n<h5>2\. /.test(html) || 'o 2º cartão fecha o 1º',
+        /<\/section>\n<h4>Tabela<\/h4>/.test(html) || 'o próximo título fecha o cartão',
+        !/<section[^>]*>\n<h5>Observação/.test(html) || 'título sem número não é cartão',
       ];
     },
   },

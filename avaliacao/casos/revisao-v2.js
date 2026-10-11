@@ -601,10 +601,12 @@ module.exports = [
           !/REDATOR LIVRE/.test(r) || 'o redator livre não escreve a resposta montada',
           /### Resposta direta\nRecomendo o Truthear Hexa/.test(r) || r.slice(0, 300),
           /### Como escolhi[^\n]*\n- \*\*passos e posicionamento\*\* — ouvir de onde vem cada passo/.test(r) || 'como escolhi',
-          /#### 1\. Truthear Hexa\nO imaging preciso/.test(r) || `bloco do produto: ${r.slice(r.indexOf('#### 1.'), r.indexOf('#### 1.') + 300)}`,
+          // 11/10: cartão — selo e "Pontos fortes" no lugar da frase solta
+          /#### 1\. Truthear Hexa\n\*Recomendação principal\*\n\n\*\*Pontos fortes:\*\* O imaging preciso/.test(r) || `bloco do produto: ${r.slice(r.indexOf('#### 1.'), r.indexOf('#### 1.') + 300)}`,
           /> "truthear hexa, ótimo imaging para passos" — [^\n]*\(tradução do inglês\)/.test(r) || 'citação traduzida com a fonte',
           // 10/10: "confirmado" virou "comentado" (a matriz mede menção, não elogio)
-          /\*\*Nos critérios:\*\* passos e posicionamento: comentado por (2\+ fontes|1 fonte)/.test(r) || 'status por critério',
+          // o status por critério saiu do cartão (11/10): fica só na Tabela
+          (!/Nos critérios:/.test(r) && /\n\| passos e posicionamento \|/.test(r)) || 'status por critério só na tabela',
           /### Tabela\n\| Critério \|/.test(r) || 'tabela',
           /### O que não foi confirmado/.test(r) || 'o que não foi confirmado',
         ];
