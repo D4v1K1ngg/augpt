@@ -83,6 +83,17 @@ async function tituloNaWikipedia(assunto, idioma, resultados, signal) {
     .map((r) => new RegExp(`^https?://${idioma}\\.(?:m\\.)?wikipedia\\.org/wiki/([^#?]+)`, 'i').exec(r.url || ''))
     .find(Boolean);
   if (doResultado) return decodeURIComponent(doResultado[1]).replace(/_/g, ' ');
+  // Termo em português não serve de busca na Wikipédia em inglês ("gerador"
+  // achava "CPF number", execução real de 11/10): a página em inglês vem do
+  // link entre idiomas da página em português. Sem página em português
+  // (nome próprio, "SR-71"), vale a busca de sempre.
+  if (idioma === 'en') {
+    const pt = await tituloNaWikipedia(assunto, 'pt', resultados, signal).catch(() => null);
+    if (pt) {
+      const l = await jsonDe(`https://pt.wikipedia.org/w/api.php?action=query&prop=langlinks&lllang=en&redirects=1&format=json&formatversion=2&titles=${encodeURIComponent(pt)}`, signal);
+      return l?.query?.pages?.[0]?.langlinks?.[0]?.title || null;
+    }
+  }
   const d = await jsonDe(`https://${idioma}.wikipedia.org/w/api.php?action=query&list=search&srlimit=1&format=json&srsearch=${encodeURIComponent(assunto)}`, signal);
   return d?.query?.search?.[0]?.title || null;
 }
@@ -97,7 +108,14 @@ async function wikipedia(assunto, idioma, resultados, signal) {
   ]);
   const pagina = intro.status === 'fulfilled' ? Object.values(intro.value?.query?.pages || {})[0] : null;
   const wikitexto = wiki.status === 'fulfilled' ? wiki.value?.parse?.wikitext || '' : '';
-  const texto = String(pagina?.extract || '').trim();
+  let texto = String(pagina?.extract || '').trim();
+  // introdução de uma frase ("Gerador elétrico": 140 caracteres) não explica
+  // nada: pega o começo do artigo inteiro
+  if (texto.length < 600) {
+    const longo = await jsonDe(`https://${idioma}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exchars=3000&redirects=1&format=json&titles=${t}`, signal).catch(() => null);
+    const maior = String(Object.values(longo?.query?.pages || {})[0]?.extract || '').trim();
+    if (maior.length > texto.length) texto = maior;
+  }
   if (!texto && !wikitexto) return null;
   return {
     idioma,
@@ -296,7 +314,8 @@ async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emi
       comTempo(d.wikipedia(assunto, 'en', resultados), 12000),
       ...candidatas.map((r) => comTempo(d.ler(r.url), TEMPO_DA_PAGINA_MS).then((p) => ({ ...p, url: r.url }))),
     ]);
-    wikis = [pt, en].filter((r) => r.status === 'fulfilled' && r.value).map((r) => r.value);
+    // página sem texto nem ficha não é material (e não conta para o guarda abaixo)
+    wikis = [pt, en].filter((r) => r.status === 'fulfilled' && r.value && (r.value.introducao || r.value.campos?.length)).map((r) => r.value);
     paginas = lidas
       .filter((r) => r.status === 'fulfilled' && r.value?.texto && r.value.texto.length > 400)
       .map((r) => ({ url: r.value.url, dominio: dominioDe(r.value.url), texto: String(r.value.texto).replace(/\n{3,}/g, '\n\n') }));
