@@ -138,7 +138,10 @@ function carregarPasta(dir, origem) {
     const arquivo = path.join(dir, entrada.name, 'SKILL.md');
     let bruto;
     try {
-      bruto = fs.readFileSync(arquivo, 'utf8');
+      // CRLF vira LF: arquivo salvo no Windows (ou baixado pelo Git com
+      // autocrlf) contava um caractere a mais por linha no `tamanho`, e a
+      // skill estourava o limite total e ficava de fora da seleção.
+      bruto = fs.readFileSync(arquivo, 'utf8').replace(/\r\n/g, '\n');
     } catch {
       continue; // pasta sem SKILL.md é ignorada em silêncio
     }
