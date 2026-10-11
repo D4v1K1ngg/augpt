@@ -686,7 +686,11 @@ function calcularConfianca({ verificacao, cobertura, cruzamento, fontes = 0, mar
     motivos.push('fonte única, sem corroboração');
   }
 
-  if (verificacao?.totalSuspeitas) {
+  if (verificacao?.totalSuspeitas && verificacao.conhecimentoGeral && (verificacao.semMaterial || verificacao.proporcao < 0.4)) {
+    // sem material o "sem material sobre o pedido" acima já pesou
+    if (!verificacao.semMaterial) pontos -= 1;
+    motivos.push(`${verificacao.totalSuspeitas} dado(s) fora das fontes lidas — conhecimento geral do modelo, não conferido`);
+  } else if (verificacao?.totalSuspeitas) {
     pontos -= 2;
     motivos.push(`${verificacao.totalSuspeitas} valor(es) sem respaldo nas fontes`);
   }
@@ -754,8 +758,14 @@ function inconsistenciasNumericas(texto) {
   return achadas.slice(0, 6);
 }
 
-function verificar({ resposta, dossie = [], objetivo = '', assunto = [] }) {
+function verificar({ resposta, dossie = [], objetivo = '', assunto = [], conhecimentoGeral = false }) {
   const texto = String(resposta || '');
+  // Pergunta explicativa ("como um gerador funciona?") sem dinheiro na
+  // resposta: o modelo completa com o que sabe (Faraday, 1831), e isso não é
+  // invenção — só não dá pra conferir. Medido em 300 execuções reais
+  // (11/10): 69% das respostas saíam "reprovadas", a maioria por isto.
+  // Resposta com preço fica de fora: ali número sem fonte é o risco real.
+  const geral = conhecimentoGeral && !/R\$|US\$|\bd[oó]lar(?:es)?\b|\breais\b/i.test(texto);
   const material = dossie.map((d) => (typeof d === 'string' ? d : d.texto)).join('\n');
 
   const numerosDoMaterial = extrairNumeros(material).map((n) => n.valor);
@@ -836,6 +846,7 @@ function verificar({ resposta, dossie = [], objetivo = '', assunto = [] }) {
     termosDoPedido: termos.length,
     termosNaResposta: cobertos.length,
     semMaterial,
+    conhecimentoGeral: geral,
     // Duas razões pra reescrever, e elas NÃO precisam de material pra valer:
     //
     // 1. Vários valores/datas sem respaldo (3+ afirmações, 40%+ suspeitas) —
@@ -853,8 +864,9 @@ function verificar({ resposta, dossie = [], objetivo = '', assunto = [] }) {
     //    matemática, por exemplo, não repete as palavras da pergunta) e
     //    dispararia reescrita à toa.
     inconsistencias,
-    reescrever: (totalAfirmacoes >= 3 && proporcao >= 0.4) || (!semMaterial && !respondeAoPedido) || inconsistencias.length > 0,
-    aprovado: suspeitas.length === 0 && respondeAoPedido && !inconsistencias.length,
+    // conhecimento geral sem material nenhum: não há contra o que reescrever
+    reescrever: (!(geral && semMaterial) && totalAfirmacoes >= 3 && proporcao >= 0.4) || (!semMaterial && !respondeAoPedido) || inconsistencias.length > 0,
+    aprovado: (suspeitas.length === 0 || (geral && (semMaterial || proporcao < 0.4))) && respondeAoPedido && !inconsistencias.length,
   };
 }
 

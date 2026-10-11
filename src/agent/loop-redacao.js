@@ -12,6 +12,7 @@ const tools = require('../tools');
 const prompts = require('./prompts');
 const { Skills } = require('../skills');
 const verificador = require('./verificador');
+const serieDePrecos = require('./serie-de-precos');
 const { fundir, materialOriginal } = require('./destilador');
 const { ESTADOS: ESTADOS_TAREFA } = require('./tarefa');
 const { produtosNomeados } = require('./tipo-de-pedido');
@@ -416,7 +417,16 @@ class Redacao {
         // aparecem no material? Uma reescrita no máximo — insistir com
         // modelo pequeno costuma degradar em vez de corrigir.
         const dossieBruto = dossie.map((d) => ({ texto: d.bruto || d.texto }));
-        let verificacao = verificador.verificar({ resposta: texto, dossie: dossieBruto, objetivo, assunto: this.opcoesDaPesquisa || [] });
+        const conferir = (resposta) => {
+          const v = verificador.verificar({
+            resposta, dossie: dossieBruto, objetivo, assunto: this.opcoesDaPesquisa || [],
+            conhecimentoGeral: this.tipoDoPedido === 'livre' || this.tipoDoPedido === 'explicacao',
+          });
+          // o texto do redator contra a série que o código calculou
+          const daSerie = serieDePrecos.contradicoesComASerie(resposta, ctx.estado.serieDePrecos?.resultado?.analise);
+          return daSerie.length ? { ...v, inconsistencias: [...v.inconsistencias, ...daSerie], reescrever: true, aprovado: false } : v;
+        };
+        let verificacao = conferir(texto);
         // Etapa I: afirmação numérica → evidência do livro (produto, valor E
         // condição) — "113 FPS em 1440p" quando o 113 é de 4K é contexto errado
         {
@@ -514,7 +524,7 @@ class Redacao {
               }
             }
 
-            const revisada = verificador.verificar({ resposta: acumulado, dossie: dossieBruto, objetivo, assunto: this.opcoesDaPesquisa || [] });
+            const revisada = conferir(acumulado);
             this.emit('verificacao', { ...revisada, tentativa: 2 });
 
             const persistentes = revisada.suspeitas.filter((s) =>
@@ -551,7 +561,7 @@ class Redacao {
               tamanho,
               cruzamento: cruzamentoTexto,
             });
-            const revisada = verificador.verificar({ resposta: corrigida, dossie: dossieBruto, objetivo, assunto: this.opcoesDaPesquisa || [] });
+            const revisada = conferir(corrigida);
             this.emit('verificacao', { ...revisada, tentativa: 2 });
 
             // Caso real de produção: a instrução de correção pediu pra

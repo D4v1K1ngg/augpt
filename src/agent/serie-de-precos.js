@@ -570,6 +570,32 @@ function graficoDaSerie(analise) {
   return `\`\`\`chart\n${JSON.stringify(spec, null, 1)}\n\`\`\``;
 }
 
+/**
+ * Texto do redator × série calculada (11/10, "RTX 5080 na Black Friday"): a
+ * resposta dizia "janeiro de 2025: R$ 23.000" e o gráfico do código, logo
+ * abaixo, 6.108. Linha que cita um mês da série com preço na moeda dela, sem
+ * que nenhum bata (±2%) com um preço observado naquele mês, é contradição.
+ */
+function contradicoesComASerie(texto, analise) {
+  if (!analise) return [];
+  const achadas = [];
+  for (const linha of String(texto || '').replace(/```[\s\S]*?```/g, '').split('\n')) {
+    const mes = mesDaFrase(linha);
+    if (!mes) continue;
+    const observados = analise.usadas.filter((o) => o.mes === mes).map((o) => o.preco);
+    const ditos = precosDaFrase(linha).filter((p) => p.moeda === analise.moeda).map((p) => p.valor);
+    if (!observados.length || !ditos.length) continue;
+    if (!ditos.some((d) => observados.some((o) => Math.abs(d - o) / o <= 0.02))) {
+      achadas.push({
+        tipo: 'serie',
+        valor: linha.trim().slice(0, 100),
+        detalhe: `nos dados calculados, ${rotuloDoMes(mes)} tem ${[...new Set(observados)].slice(0, 4).join(' / ')}`,
+      });
+    }
+  }
+  return achadas.slice(0, 4);
+}
+
 /** Texto pro redator: metodologia, tabela, médias e observações com fonte. */
 function blocoParaRedator(analise) {
   const { moeda, meses, resumo, usadas, outraMoeda, semData } = analise;
@@ -746,6 +772,7 @@ module.exports = {
   extrairObservacoes,
   analisar,
   graficoDaSerie,
+  contradicoesComASerie,
   blocoParaRedator,
   montarSerie,
   estatisticasDaPagina,

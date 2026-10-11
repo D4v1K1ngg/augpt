@@ -953,4 +953,40 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'calibragem (300 execuções reais, 11/10): pergunta explicativa não é reprovada por conhecimento geral; com preço na resposta a regra antiga vale; texto que contradiz a série calculada é pego',
+    tipo: 'unidade',
+    async executar() {
+      const v = require('../../src/agent/verificador');
+      const serie = require('../../src/agent/serie-de-precos');
+      const resposta = 'Um gerador converte energia mecânica em elétrica pela indução eletromagnética, descoberta por Michael Faraday em 1831.';
+      const objetivo = 'Como um gerador funciona?';
+      const antes = v.verificar({ resposta, objetivo });
+      const geral = v.verificar({ resposta, objetivo, conhecimentoGeral: true });
+      const comPreco = v.verificar({ resposta: `${resposta} Um modelo de 1831 custava R$ 4.500 em 12 lojas de 7 cidades.`, objetivo, conhecimentoGeral: true });
+      const confianca = v.calcularConfianca({ verificacao: geral, cobertura: { nivel: 'ausente' } });
+
+      const analise = serie.analisar(
+        {
+          observacoes: [
+            { produto: 'RTX 5080', mes: '2025-01', preco: 6108, moeda: 'BRL' },
+            { produto: 'RTX 5080', mes: '2025-04', preco: 9999, moeda: 'BRL' },
+            { produto: 'RTX 5080', mes: '2026-10', preco: 6500, moeda: 'BRL' },
+          ],
+          semData: 0,
+        },
+        [{ nome: 'RTX 5080' }]
+      );
+      const contradiz = serie.contradicoesComASerie('- **janeiro de 2025:** R$ 23.000,00\n- **abril de 2025:** R$ 9.999,00\n- Em 2027 deve cair.', analise);
+      const bate = serie.contradicoesComASerie('- **janeiro de 2025:** R$ 6.108,00\n- **outubro de 2026:** R$ 6.500,00 (menor valor)\n- março de 2025: R$ 1.234,00', analise);
+      return [
+        (antes.totalSuspeitas > 0 && !antes.aprovado) || 'sem a marca, o comportamento antigo não pode mudar',
+        (geral.aprovado && !geral.reescrever) || `explicação de conhecimento geral reprovada: ${JSON.stringify({ a: geral.aprovado, r: geral.reescrever })}`,
+        !confianca.motivos.some((m) => /sem respaldo/.test(m)) || `motivo enganoso: ${confianca.motivos.join(' | ')}`,
+        (!comPreco.aprovado && !comPreco.conhecimentoGeral) || 'resposta com preço tem que seguir a regra rígida',
+        (contradiz.length === 1 && /23\.000/.test(contradiz[0].valor) && /6108/.test(contradiz[0].detalhe)) || `contradição com a série: ${JSON.stringify(contradiz)}`,
+        bate.length === 0 || `valor que bate (ou mês sem dado) não é contradição: ${JSON.stringify(bate)}`,
+      ];
+    },
+  },
 ];

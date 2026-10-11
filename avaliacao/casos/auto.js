@@ -277,7 +277,7 @@ module.exports = [
         nome: 'reescrita vazia',
         pedido: 'Explique o que é fotossíntese',
         roteiro: [{ ferramenta: 'responder', argumentos: { foco: 'fotossíntese' } }],
-        redacao: (prompt, n) => (n === 1 ? 'O campeonato de 1987 teve 4521 torcedores, 77% de ocupação e 9 gols de Zico em 12 jogos no Maracanã.' : ''),
+        redacao: (prompt, n) => (n === 1 ? 'O campeonato de 1987 teve 4521 torcedores, 77% de ocupação e 9 gols de Zico em 12 jogos no Maracanã, com ingresso a R$ 45.' : ''),
       });
       return [
         (reescrita.chamadasRedacao >= 2 && /campeonato de 1987/.test(reescrita.resposta)) || `reescrita vazia não pode substituir a original: ${JSON.stringify(reescrita.resposta.slice(0, 80))}`,
