@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; frame-src 'self' data:" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: augpt-img:; frame-src 'self' data:" />
 <title>AuGPT</title>
 <link rel="stylesheet" href="styles.css" />
 </head>
@@ -589,6 +589,10 @@
             <input type="text" id="cfgAutoModeloProfundo" spellcheck="false" placeholder="(modelo principal)" />
           </label>
           <p class="dica">Cada pedido ganha um nível: <b>0 · direto</b> (saudação, texto criativo, conta — só o modelo), <b>1 · conversa com pesquisa</b> ("me fale sobre X", "quem foi" — uma busca, Wikipédia e escrita livre, com os números conferidos), <b>2 · pesquisa padrão</b> (o agente sem plano forçado nem crítico periódico) e <b>3 · pesquisa profunda</b> (compra, comparação, guia — tudo o que está ligado aqui). O que você marcou nestes Ajustes é o teto: o AUTO só desliga etapas. O relatório de cada conversa mostra o nível escolhido e por quê. Os modelos vazios usam o principal; o das respostas rápidas pode ser um maior (ex.: qwen3.5:9b) — o raciocínio dele é desligado nas etapas.</p>
+          <label class="linha"><span>Mostrar imagens nas respostas</span>
+            <input type="checkbox" id="cfgImagensNasRespostas" class="caixa" />
+          </label>
+          <p class="dica">Foto de cada produto nos cartões de uma recomendação e uma imagem de referência nas explicações. As imagens vêm da busca de imagens (SearXNG) ou da Wikipédia, são baixadas pelo app e guardadas na pasta de dados dele.</p>
           <label class="linha"><span>Modelo de decisão confere o tipo do pedido</span>
             <input type="checkbox" id="cfgRoteadorDecisor" class="caixa" />
           </label>

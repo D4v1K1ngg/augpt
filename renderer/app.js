@@ -1725,6 +1725,7 @@ function preencherConfig() {
   $('cfgNavegacao').checked = config.navegacaoInterativa !== false;
   $('cfgMotorPesquisa').checked = config.motorDePesquisa !== false;
   $('cfgRoteadorDecisor').checked = config.roteadorDecisor === true;
+  $('cfgImagensNasRespostas').checked = config.imagensNasRespostas !== false;
   $('cfgModoAuto').checked = config.modoAuto !== false;
   $('cfgAutoModeloRapido').value = config.autoModeloRapido || '';
   $('cfgAutoModeloProfundo').value = config.autoModeloProfundo || '';
@@ -1781,6 +1782,7 @@ $('btnSalvarConfig').addEventListener('click', async (e) => {
     navegacaoInterativa: $('cfgNavegacao').checked,
     motorDePesquisa: $('cfgMotorPesquisa').checked,
     roteadorDecisor: $('cfgRoteadorDecisor').checked,
+    imagensNasRespostas: $('cfgImagensNasRespostas').checked,
     modoAuto: $('cfgModoAuto').checked,
     autoModeloRapido: $('cfgAutoModeloRapido').value.trim(),
     autoModeloProfundo: $('cfgAutoModeloProfundo').value.trim(),

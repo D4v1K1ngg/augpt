@@ -7,8 +7,11 @@
  * de comportamento.
  */
 
+const path = require('path');
 const ollama = require('../llm/ollama');
 const tools = require('../tools');
+const imagens = require('../tools/imagens');
+const { assuntoDoPedido } = require('./auto');
 const prompts = require('./prompts');
 const { Skills } = require('../skills');
 const verificador = require('./verificador');
@@ -42,9 +45,21 @@ class Redacao {
    * frases curtas numa chamada, cada uma conferida — a que não passa vira a
    * frase-padrão feita da evidência.
    */
+  /** Onde as imagens das respostas ficam gravadas (src/tools/imagens.js). */
+  dirImagens() {
+    return this.userDataPath ? path.join(this.userDataPath, 'imagens') : null;
+  }
+
   async comporResposta({ objetivo }) {
     const r = this.composicaoDaPesquisa;
     this.emit('redigindo', { fontes: (r.entradas || []).length, cobertura: 'montada pelo código' });
+    // fotos dos produtos: buscadas pela rede enquanto o modelo escreve as
+    // frases (não somam tempo); o que não chegar em 15 s fica sem foto
+    const fotos = imagens.comLimite(
+      imagens.imagensDosProdutos((r.finalistas || []).map((f) => f.nome), { config: this.config, dir: this.dirImagens() }),
+      15000,
+      new Map()
+    );
     let frases = new Map();
     if (r.modo !== 'uso-profissional') {
       try {
@@ -71,6 +86,7 @@ class Redacao {
         this.emit('aviso', { texto: `resposta montada: as frases do modelo falharam (${err.message}); usando as frases feitas da evidência` });
       }
     }
+    r.imagens = await fotos;
     const texto = compositor.montar(r, frases);
     this.respostaComposta = true;
     this.emit('resposta-token', { pedaco: texto });
@@ -740,6 +756,15 @@ class Redacao {
     }
     const graficos = ctx.estado.graficos || [];
     if (graficos.length && !/```chart/.test(final)) final = `${final}\n\n${graficos.join('\n\n')}`;
+
+    // Imagem de referência nas explicações que passaram pelo laço (as do
+    // caminho rápido do AUTO ganham a delas em resposta-rapida.js). Depois da
+    // verificação de propósito: é enfeite, não afirmação.
+    if (this.tipoDoPedido === 'explicacao' && !this.respostaComposta && !final.includes(`${imagens.ESQUEMA}://`)) {
+      const assunto = assuntoDoPedido(objetivo);
+      const figura = await imagens.comLimite(imagens.imagemDeReferencia(assunto, { config: this.config, dir: this.dirImagens() }), 8000);
+      if (figura) final = `${imagens.marcacao(assunto, figura)}\n\n${final}`;
+    }
 
     // Contrato de conclusão (2026-09-27): item do plano que só uma
     // ferramenta cumpre e que ficou sem ela — a resposta diz, com todas as

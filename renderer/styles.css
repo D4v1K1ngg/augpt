@@ -437,12 +437,19 @@ body:not(.mostrar-tecnico) .tecnico { display: none !important; }
 .msg-corpo hr { border: 0; border-top: 1px solid var(--line); margin: 22px 0; }
 
 /* Cartão de produto: cada "#### N. Nome" de uma recomendação (renderer/md.js) */
-.cartao-produto { margin: 0 0 14px; padding: 15px 18px 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+/* Imagem da resposta (`![…](augpt-img://…)`, src/tools/imagens.js) */
+.md-figura { margin: 0 0 16px; }
+.md-figura img { display: block; max-width: min(100%, 440px); max-height: 300px; border-radius: 10px; border: 1px solid var(--line); background: #fff; }
+/* no cartão, a foto fica numa coluna à esquerda e o texto na outra */
+.cartao-produto:has(> .md-figura) { position: relative; padding-left: 168px; min-height: 166px; }
+.cartao-produto > .md-figura { position: absolute; left: 18px; top: 17px; margin: 0; }
+.cartao-produto > .md-figura img { width: 132px; height: 132px; object-fit: cover; }
+.cartao-produto { display: flow-root; margin: 0 0 14px; padding: 15px 18px 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
 .cartao-produto h5 { margin: 0 0 9px; font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-forte); }
 .cartao-produto p { margin: 0 0 10px; }
 .cartao-produto p strong:first-child { color: var(--text-forte); }
 /* selo: o parágrafo logo abaixo do nome que é só um itálico */
-.cartao-produto h5 + p > em:only-child { display: inline-block; padding: 1px 9px; font-style: normal; font-size: 11.5px; color: var(--green); background: rgba(76, 179, 126, 0.12); border-radius: 999px; }
+.cartao-produto > p > em:only-child { display: inline-block; padding: 1px 9px; font-style: normal; font-size: 11.5px; color: var(--green); background: rgba(76, 179, 126, 0.12); border-radius: 999px; }
 .cartao-produto blockquote { margin: -3px 0 10px; font-size: 12.8px; }
 .cartao-produto blockquote p { margin: 0 0 5px; }
 .msg-corpo table { border-collapse: collapse; width: 100%; margin: 0 0 14px; font-size: 12.5px; }

@@ -1,6 +1,8 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, session, protocol, net } = require('electron');
+const { pathToFileURL } = require('url');
+const imagens = require('../src/tools/imagens');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -1353,7 +1355,17 @@ ipcMain.handle('chat:stop', () => {
 
 // --------------------------- ciclo de vida ---------------------------
 
+// Imagens das respostas (src/tools/imagens.js): a tela pede `augpt-img://arquivo`
+// e quem entrega é este processo, lendo SÓ da pasta de imagens do app. Assim a
+// janela continua sem carregar nada direto da internet (ver a CSP do index.html).
+protocol.registerSchemesAsPrivileged([{ scheme: imagens.ESQUEMA, privileges: { standard: true, secure: true } }]);
+
 app.whenReady().then(() => {
+  protocol.handle(imagens.ESQUEMA, (pedido) => {
+    const nome = new URL(pedido.url).hostname;
+    if (!imagens.NOME_VALIDO.test(nome)) return new Response('', { status: 404 });
+    return net.fetch(pathToFileURL(path.join(app.getPath('userData'), 'imagens', nome)).toString());
+  });
   // Fase 1 de segurança (2026-09-23): a sessão padrão (janela principal e a
   // de Execuções) não precisa de câmera, microfone, notificação nem nada do
   // tipo — o Electron concede tudo por padrão se ninguém disser o contrário.

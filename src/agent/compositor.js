@@ -446,6 +446,9 @@ function montarRecomendacao(r, frases = new Map()) {
   partes.push('', '### As opções');
   finalistas.forEach((f, i) => {
     partes.push('', `#### ${i + 1}. ${f.nome}`);
+    // foto do produto (src/tools/imagens.js), quando a busca de imagens achou uma
+    const foto = r.imagens?.get?.(f.nome);
+    if (foto) partes.push(`![${f.nome.replace(/[[\]]/g, ' ')}](${foto})`, '');
     if (seloDe(f)) partes.push(`*${seloDe(f)}*`, '');
     if (r.precos?.[f.nome]) partes.push(`**Faixa de preço:** ${textoDoPreco(r.precos[f.nome])}`, '');
     partes.push(`**Pontos fortes:** ${frases.get(f.nome.toUpperCase()) || fraseRecomendacaoPadrao(f, r)}`, '');

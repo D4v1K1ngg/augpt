@@ -142,6 +142,21 @@
         continue;
       }
 
+      // Imagem numa linha só: `![texto](augpt-img://arquivo.jpg)`. SÓ esse
+      // endereço é aceito — é o app que serve o arquivo (electron/main.js), a
+      // tela nunca carrega imagem direto da internet. Dentro de um cartão de
+      // produto, logo depois do nome, a foto vai para ANTES do título, pra
+      // ficar à esquerda do cartão inteiro.
+      const imagem = /^\s*!\[([^\]]*)\]\((augpt-img:\/\/[a-z]{20,64}\.(?:jpg|png|webp))\)\s*$/.exec(linha);
+      if (imagem) {
+        fecharLista();
+        fecharCitacao();
+        const figura = `<figure class="md-figura"><img src="${imagem[2]}" alt="${imagem[1]}" loading="lazy" /></figure>`;
+        if (cartao && /^<h5>/.test(saida[saida.length - 1] || '')) saida.splice(saida.length - 1, 0, figura);
+        else saida.push(figura);
+        continue;
+      }
+
       if (/^\s*([-*_])\s*\1\s*\1[\s\1]*$/.test(linha)) {
         fecharLista();
         fecharCitacao();

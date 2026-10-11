@@ -27,6 +27,7 @@ const { conferirDestino } = require('../tools/rede');
 const ollama = require('../llm/ollama');
 const { assuntoDoPedido } = require('./auto');
 const calculadora = require('../../ferramentas/calculadora');
+const imagens = require('../tools/imagens');
 
 const TEMPO_DA_PAGINA_MS = 9000;
 
@@ -104,7 +105,7 @@ async function wikipedia(assunto, idioma, resultados, signal) {
   if (!titulo) return null;
   const t = encodeURIComponent(titulo);
   const [intro, wiki] = await Promise.allSettled([
-    jsonDe(`https://${idioma}.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&format=json&titles=${t}`, signal),
+    jsonDe(`https://${idioma}.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages&piprop=thumbnail&pithumbsize=640&exintro=1&explaintext=1&redirects=1&format=json&titles=${t}`, signal),
     jsonDe(`https://${idioma}.wikipedia.org/w/api.php?action=parse&prop=wikitext&redirects=1&format=json&formatversion=2&page=${t}`, signal),
   ]);
   const pagina = intro.status === 'fulfilled' ? Object.values(intro.value?.query?.pages || {})[0] : null;
@@ -123,6 +124,7 @@ async function wikipedia(assunto, idioma, resultados, signal) {
     titulo: pagina?.title || titulo,
     url: `https://${idioma}.wikipedia.org/wiki/${encodeURIComponent(String(pagina?.title || titulo).replace(/ /g, '_'))}`,
     introducao: texto,
+    imagem: pagina?.thumbnail?.source || null, // imagem principal do artigo (vira a referência da resposta)
     campos: camposDaInfobox(wikitexto),
   };
 }
@@ -290,8 +292,9 @@ const PULAR_PAGINA = /(youtube\.com|youtu\.be|facebook\.com|instagram\.com|tikto
  * { texto, fontes, correcoes, wikis, paginas } ou lança erro — quem chama
  * cai para o laço normal se falhar.
  */
-async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emit = () => {}, signal, deps = {} }) {
+async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emit = () => {}, signal, deps = {}, dirImagens = null }) {
   const d = {
+    imagem: (assunto, wikis) => imagens.imagemDeReferencia(assunto, { daWikipedia: wikis.map((w) => w.imagem), config, dir: dirImagens }),
     buscar: (consulta) => buscar(consulta, { searxngUrl: config.searxngUrl, marginaliaKey: config.marginaliaKey, jinaKey: config.jinaKey }),
     wikipedia: (assunto, idioma, resultados) => wikipedia(assunto, idioma, resultados, signal),
     ler: (url) => ler(url, { render: null, permitirExterno: false, conferir: (destino) => conferirDestino(destino, config) }),
@@ -315,6 +318,7 @@ async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emi
   let wikis = [];
   let paginas = [];
   let fatos = [];
+  let figura = null;
   if (nivel >= 1) {
     const assunto = assuntoDoPedido(objetivo).split(/[,;]|\s+em (uma|poucas|duas|tr[eê]s) (frase|linha|palavra)/i)[0].trim();
     emit('auto-pesquisa', { assunto });
@@ -335,6 +339,8 @@ async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emi
     for (const w of wikis) emit('fonte', { tipo: 'leitura', provedor: 'api-wikipedia', url: w.url, falhas: 0 });
     for (const p of paginas) emit('fonte', { tipo: 'leitura', provedor: 'leitura-rapida', url: p.url, falhas: 0 });
     fatos = fatosDaFicha(wikis);
+    // imagem de referência: baixada enquanto o modelo escreve (não soma tempo)
+    if (dirImagens && config.imagensNasRespostas !== false && (wikis.length || paginas.length)) figura = imagens.comLimite(d.imagem(assunto, wikis), 10000);
   }
 
   const ficha = nivel >= 1 ? fichaParaPrompt({ wikis, paginas, fatos }) : '';
@@ -377,6 +383,7 @@ async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emi
     wikis: wikis.map((w) => ({ idioma: w.idioma, titulo: w.titulo, campos: w.campos.length })),
     paginas: paginas.map((p) => p.url),
     fatos: fatos.length,
+    imagem: figura ? await figura : null,
     uso: { promptTokens: r.promptTokens || 0, completionTokens: r.completionTokens || 0, duracaoMs: r.durationMs || 0 },
   };
 }

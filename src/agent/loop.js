@@ -23,6 +23,7 @@ const { Retomada } = require('./retomada');
 const { classificarErro, anotarErro, comNovaTentativa } = require('../tools/erros');
 const { montarQuadroDeModelos } = require('../modelos-carregados');
 const { adiantarBuscas } = require('../tools/web');
+const imagens = require('../tools/imagens');
 const auto = require('./auto');
 const { responderRapido } = require('./resposta-rapida');
 const { rotuloDoElemento, tipoDoElemento, ACOES_QUE_DEVEM_MUDAR } = require('../tools/navegador');
@@ -1435,6 +1436,7 @@ class Agent extends EventEmitter {
         signal: this.controller.signal,
         // os testes trocam a rede (busca, Wikipédia, leitura) por dublês
         deps: this.depsRespostaRapida || {},
+        dirImagens: this.dirImagens(),
         emit: (evento, dados) => {
           if (evento === 'resposta-token') recebeuTexto = true;
           this.emit(evento, dados);
@@ -1447,7 +1449,9 @@ class Agent extends EventEmitter {
         nivel: nivel.nivel, wikis: r.wikis, paginas: r.paginas, fatosConferiveis: r.fatos,
         correcoes: r.correcoes, ms: Date.now() - inicio,
       });
-      const final = r.fontes.length ? `${r.texto}\n\n---\n**Fontes**\n${r.fontes.map((f) => `- ${f}`).join('\n')}` : r.texto;
+      // imagem de referência (src/tools/imagens.js) no topo, quando a pesquisa achou uma
+      const corpo = r.imagem ? `${imagens.marcacao(auto.assuntoDoPedido(objetivo), r.imagem)}\n\n${r.texto}` : r.texto;
+      const final = r.fontes.length ? `${corpo}\n\n---\n**Fontes**\n${r.fontes.map((f) => `- ${f}`).join('\n')}` : corpo;
       await this.fotografarModelos();
       this.emit('concluido', { resumo: final, resposta: true, iteracoes: 0, uso: this.uso, verificacao: null, confianca: null });
       this.rodando = false;

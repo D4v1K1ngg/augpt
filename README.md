@@ -9,6 +9,7 @@ Um agente de IA para o seu computador. Você escreve um objetivo em português, 
 - **Pesquisa de verdade.** Busca em várias fontes, lê as páginas, cruza números e opiniões entre sites, avisa quando as fontes divergem e confere a resposta final contra o material lido.
 - **Trabalha com arquivos.** Lê PDF (inclusive boleto protegido), Word, Excel, PowerPoint, OpenDocument, ePub e texto. Gera `.docx`, `.xlsx`, `.pdf`, `.html` e gráficos sem instalar nada além do app.
 - **Compara preços** entre lojas e guarda um histórico pra identificar desconto falso.
+- **Mostra imagens.** Foto de cada produto nos cartões de uma recomendação e uma imagem de referência nas explicações. As imagens são baixadas pelo app (a tela não carrega nada direto da internet); dá pra desligar em **Ajustes → Pesquisa na web**.
 - **Navega em sites** que exigem clique ou formulário, numa janela de navegador separada.
 - **Lembra** do que foi lido na conversa, do que funciona em cada site e de fatos sobre você que você pedir pra guardar.
 - **Segue métodos (skills)** para tipos comuns de tarefa: pesquisa acadêmica, redação do ENEM, análise de documento, revisão de código, tradução e outros 18.
@@ -119,7 +120,7 @@ Conversas, memória e registros de execução ficam em arquivos JSON na pasta de
 ## Para quem quer mexer no código
 
 ```bash
-npm run avaliar     # 836 casos de teste em ~15 s, sem precisar do Ollama nem de internet
+npm run avaliar     # 841 casos de teste em ~15 s, sem precisar do Ollama nem de internet
 npm run qualidade   # roda o agente de verdade em 24 perguntas e um modelo-juiz dá a nota (precisa do Ollama)
 npm run dev         # abre o app com as ferramentas de desenvolvedor
 npm run comparar -- llama3.1:8b qwen2.5:7b   # compara modelos em tarefas reais (precisa do Ollama)

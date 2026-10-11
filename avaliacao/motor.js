@@ -498,6 +498,9 @@ async function executarCasoAgente(caso, opcoes = {}) {
     // Etapa H: resposta montada pelo código desligada por padrão na bancada
     // (os casos antigos conferem o que chega ao redator); os da Etapa H ligam
     respostaMontada: false,
+    // imagens nas respostas (11/10): desligadas na bancada — a busca de imagens
+    // é uma chamada a mais ao SearXNG falso, e os casos contam as buscas
+    imagensNasRespostas: false,
     // revisão v3 (Fase 1): o modo explicação tira o pipeline forçado de
     // "por que…/o que é…" — os casos antigos do Copiloto usam justamente
     // perguntas assim pra exercitar crítico e portões; os casos v3 ligam

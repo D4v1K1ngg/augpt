@@ -120,6 +120,9 @@ const DEFAULTS = {
   // as próximas buscas já correm (busca + download das páginas) enquanto o
   // modelo destila a atual. false = uma busca de cada vez, como antes.
   preBusca: true,
+  // Imagens nas respostas (src/tools/imagens.js, 11/10): foto de cada produto
+  // nos cartões da recomendação e imagem de referência nas explicações.
+  imagensNasRespostas: true,
   preBuscaConcorrencia: 2,
   // Modo AUTO (auto.js, 2026-10-10): cada pedido ganha um nível —
   // 0 direto (conversa), 1 conversa com pesquisa rápida, 2 pesquisa padrão,
