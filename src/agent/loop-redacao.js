@@ -591,6 +591,9 @@ class Redacao {
             // suspeitas, como sempre foi.
             const regrediuRespondeAoPedido = verificacao.respondeAoPedido && !revisada.respondeAoPedido;
             const revisadaMelhora =
+              // reescrita VAZIA tem zero suspeitas e "ganhava" da original: a
+              // resposta saía em branco, só com o aviso (SR-71, 10/10)
+              Boolean(String(corrigida || '').trim()) &&
               !regrediuRespondeAoPedido &&
               revisada.totalSuspeitas <= verificacao.totalSuspeitas &&
               // número que não fecha (moeda, "média" que é faixa) não pode piorar
