@@ -29,6 +29,9 @@ interno/
 # gerado a cada `npm run avaliar`
 avaliacao/ultimo-resultado.json
 
+# gerado a cada `npm run qualidade` (traz as respostas inteiras)
+avaliacao/qualidade/resultados/
+
 # sobras de depuração
 skills-inexistente/
 skills-vazias-debug/

@@ -26,6 +26,7 @@ const { ler } = require('../tools/extract');
 const { conferirDestino } = require('../tools/rede');
 const ollama = require('../llm/ollama');
 const { assuntoDoPedido } = require('./auto');
+const calculadora = require('../../ferramentas/calculadora');
 
 const TEMPO_DA_PAGINA_MS = 9000;
 
@@ -298,6 +299,18 @@ async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emi
     ...deps,
   };
   const comTempo = (promessa, ms) => Promise.race([promessa, new Promise((_, rej) => setTimeout(() => rej(new Error('tempo esgotado')), ms))]);
+
+  // Conta: quem calcula é o código. Na medição de qualidade de 11/10 o modelo
+  // respondeu 2991,64 para "(12783,23 * 0,17) + 823,42", que dá 2996,57.
+  // Expressão que o avaliador não entende segue para o modelo, como antes.
+  if (nivel === 0) {
+    const expressao = String(objetivo).replace(/^\s*quanto\s+(é|e|dá|da)\s+/i, '').replace(/[?=\s]+$/, '').replace(/x/gi, '*');
+    const conta = /\d\s*[-+*/^%]\s*[\d(]/.test(expressao) ? await calculadora.run({ expressao }).catch(() => null) : null;
+    if (conta) {
+      emit('resposta-token', { pedaco: conta });
+      return { texto: conta, fontes: [], correcoes: [], wikis: [], paginas: [], fatos: 0, uso: { promptTokens: 0, completionTokens: 0, duracaoMs: 0 } };
+    }
+  }
 
   let wikis = [];
   let paginas = [];

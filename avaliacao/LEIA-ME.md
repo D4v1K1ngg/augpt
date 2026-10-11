@@ -70,3 +70,25 @@ execução anterior: 35/36 em 1s
 ## O limite honesto
 
 A bancada pega **regressão no nosso código**. Ela não descobre que o modelo passou a errar de um jeito novo — isso continua vindo dos seus logs. Quando aparecer um, o caminho é: virar caso aqui, ver falhar, corrigir, ver passar.
+
+## Medição de qualidade (`npm run qualidade`)
+
+A bancada acima diz se o código em volta do modelo quebrou. Ela não diz se a resposta que o usuário recebe é boa. Para isso existe a medição de qualidade: roda o agente **de verdade** (Ollama, internet, os seus Ajustes) num conjunto fixo de perguntas, e um modelo-juiz dá nota de 0 a 10 a cada resposta.
+
+```bash
+npm run qualidade                        # as 24 perguntas (30–60 min)
+npm run qualidade -- --so=explicacao     # só um tipo: explicacao, fato, produto, guia
+npm run qualidade -- --id=gerador,lua    # só estas
+npm run qualidade -- --juiz=qwen2.5:14b  # modelo que corrige (padrão: qwen2.5:14b, se instalado)
+npm run qualidade -- --modelo=qwen2.5:7b # modelo do agente (padrão: o dos Ajustes)
+```
+
+Como a nota é dada:
+
+- Cada pergunta de `qualidade/perguntas.js` tem um gabarito: `fatos` que a resposta deve trazer e, para pedidos sem resposta única (recomendação, preço), `criterios` que ela deve cumprir.
+- O juiz não avalia de cabeça. Ele marca cada fato como presente, ausente ou contradito e cada critério como cumprido ou não; a conta é do código: `10 × itens atendidos ÷ itens`, menos 3 pontos por fato contradito.
+- Antes de corrigir, o juiz é **calibrado**: recebe respostas erradas de propósito (campo `errada`), o próprio gabarito e um "não sei". Se não der nota baixa, alta e zero, a rodada para — troque o modelo em `--juiz`.
+
+Cada rodada grava em `qualidade/resultados/` (fora do Git) a nota, o tempo, os passos, quem respondeu a busca e a resposta inteira, e compara com a rodada anterior nas perguntas em comum. Rode antes e depois de uma mudança no agente: é o que mostra se ela melhorou a resposta ou só deixou mais lento.
+
+Limites: o juiz é um modelo local e erra; a nota vale como comparação entre rodadas, não como verdade absoluta. Pergunta de preço ou recomendação muda com o dia. Ao acrescentar pergunta, use fato curto e estável.

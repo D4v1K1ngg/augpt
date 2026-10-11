@@ -389,4 +389,24 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'AUTO nível 0 (medição de qualidade, 11/10): conta é calculada pelo código, sem chamar o modelo — "(12783,23 * 0,17) + 823,42" dá 2.996,5691, não os 2991,64 que o modelo respondeu; o que não é conta segue para o modelo',
+    tipo: 'unidade',
+    async executar() {
+      const { responderRapido } = require('../../src/agent/resposta-rapida');
+      let chamadas = 0;
+      const deps = { escrever: async () => { chamadas += 1; return { content: 'Olá! Tudo bem.' }; } };
+      const config = { host: 'http://127.0.0.1:9', model: 'falso' };
+      const conta = await responderRapido({ objetivo: 'Quanto é (12783,23 * 0,17) + 823,42?', config, nivel: 0, deps });
+      const vezes = await responderRapido({ objetivo: '12 x 12', config, nivel: 0, deps });
+      const antes = chamadas;
+      const oi = await responderRapido({ objetivo: 'bom dia', config, nivel: 0, deps });
+      return [
+        /2\.996,5691/.test(conta.texto) || `conta: ${conta.texto}`,
+        /= 144$/.test(vezes.texto) || `12 x 12: ${vezes.texto}`,
+        antes === 0 || 'conta não pode chamar o modelo',
+        (chamadas === 1 && /Olá/.test(oi.texto)) || 'saudação continua indo para o modelo',
+      ];
+    },
+  },
 ];
