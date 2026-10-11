@@ -1276,7 +1276,7 @@ const manipuladores = {
       'pesquisa-planejada',
       'hipóteses conferidas',
       `<ul class="pp-lista">${hipoteses
-        .map((h) => `<li>${esc(h.hipotese)} <span class="pp-peso">${marca[h.veredito] || h.veredito}</span></li>`)
+        .map((h) => `<li>${esc(h.hipotese)} <span class="pp-peso">${esc(marca[h.veredito] || h.veredito)}</span></li>`)
         .join('')}</ul>`
     );
   },
