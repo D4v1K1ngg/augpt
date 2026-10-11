@@ -30,6 +30,22 @@ const argumentos = Object.fromEntries(
   })
 );
 
+// Bancada hermética (2026-10-11): fora do --real, nenhum caso sai pra
+// internet. As URLs dos roteiros (loja.com, kabum.com.br…) batiam em sites de
+// verdade, e o resultado e a duração dependiam da rede do dia. Agora só os
+// servidores falsos em 127.0.0.1 respondem; o resto falha na hora, como num
+// computador offline.
+const barrados = new Set();
+if (!argumentos.real) {
+  const fetchReal = globalThis.fetch;
+  globalThis.fetch = (entrada, opcoes) => {
+    const host = new URL(entrada?.url ?? entrada).hostname;
+    if (/^(127\.\d+\.\d+\.\d+|localhost|\[::1\])$/.test(host)) return fetchReal(entrada, opcoes);
+    barrados.add(host);
+    return Promise.reject(Object.assign(new TypeError('fetch failed'), { cause: { code: 'ENOTFOUND', hostname: host } }));
+  };
+}
+
 const PLACAR = path.join(__dirname, 'ultimo-resultado.json');
 const COR = process.stdout.isTTY;
 const c = (codigo, texto) => (COR ? `\u001b[${codigo}m${texto}\u001b[0m` : texto);
@@ -197,6 +213,8 @@ async function executarAgente(caso) {
   console.log(
     `\n${falharam ? vermelho(`${passaram}/${resultados.length} casos`) : verde(`${passaram}/${resultados.length} casos`)} · ${duracao}s`
   );
+
+  if (barrados.size) console.log(cinza(`rede externa barrada: ${barrados.size} endereço(s) fora da bancada`));
 
   // comparação com a execução anterior: é isto que denuncia regressão
   let anterior = null;
