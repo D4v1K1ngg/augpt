@@ -178,8 +178,36 @@ function gerarSettingsYml({ secretKey, porta }) {
     '  formats:',
     '    - html',
     '    - json',
+    // Medido em 11/10: os três buscadores ligados por padrão (brave,
+    // duckduckgo, google cse) estavam todos suspensos por "too many requests"
+    // ou timeout, e o SearXNG devolvia zero resultados; bing e yahoo, que vêm
+    // desligados, respondiam. Mais buscadores independentes = um bloqueio
+    // não derruba a busca. (google "puro", qwant e mojeek foram testados e
+    // recusam: access denied / CAPTCHA.)
+    'engines:',
+    '  - name: bing',
+    '    disabled: false',
+    '  - name: yahoo',
+    '    disabled: false',
     '',
   ].join('\n');
+}
+
+/** Instalação antiga (settings.yml sem a lista de buscadores): regrava com a
+ * mesma chave e a mesma porta. */
+function atualizarSettingsYml(arquivo) {
+  let atual;
+  try {
+    atual = fs.readFileSync(arquivo, 'utf8');
+  } catch {
+    return false;
+  }
+  if (/name: bing/.test(atual)) return false;
+  const secretKey = /secret_key: "([^"]+)"/.exec(atual)?.[1];
+  const porta = Number(/^\s*port: (\d+)/m.exec(atual)?.[1]);
+  if (!secretKey || !porta) return false;
+  fs.writeFileSync(arquivo, gerarSettingsYml({ secretKey, porta }));
+  return true;
 }
 
 /** Acha o arquivo `python3XX._pth` dentro da pasta do Python embeddable
@@ -469,6 +497,7 @@ class RuntimeSearXNG extends EventEmitter {
     // pra sempre, mesmo depois de atualizar o app, porque `instalar()` só
     // roda de novo se o usuário reinstalar de propósito.
     garantirStubPwdWindows(dirSitePackages);
+    atualizarSettingsYml(path.join(this.dirInstancia, 'settings.yml'));
 
     const env = {
       ...process.env,
@@ -550,6 +579,7 @@ module.exports = {
   RuntimeSearXNG,
   portaLivre,
   gerarSettingsYml,
+  atualizarSettingsYml,
   extrairZipPara,
   habilitarSitePackages,
   adicionarAoPth,

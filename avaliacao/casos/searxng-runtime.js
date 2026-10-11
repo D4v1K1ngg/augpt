@@ -385,4 +385,26 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'searxng-runtime: settings.yml liga bing e yahoo (11/10: os 3 buscadores padrão suspensos, zero resultados); instalação antiga é regravada com a MESMA chave e porta, e só uma vez',
+    tipo: 'unidade',
+    async executar() {
+      const { atualizarSettingsYml } = require('../../src/searxng-runtime');
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-sx-settings-'));
+      const arquivo = path.join(dir, 'settings.yml');
+      const antigo = 'use_default_settings: true\nserver:\n  secret_key: "chave-antiga"\n  bind_address: "127.0.0.1"\n  port: 8123\nsearch:\n  formats:\n    - html\n    - json\n';
+      fs.writeFileSync(arquivo, antigo);
+      const mudou = atualizarSettingsYml(arquivo);
+      const novo = fs.readFileSync(arquivo, 'utf8');
+      const deNovo = atualizarSettingsYml(arquivo);
+      fs.rmSync(dir, { recursive: true, force: true });
+      return [
+        /engines:\n {2}- name: bing\n {4}disabled: false\n {2}- name: yahoo\n {4}disabled: false/.test(gerarSettingsYml({ secretKey: 'x', porta: 1 })) || 'instalação nova sem bing/yahoo',
+        mudou === true || 'instalação antiga deveria ser regravada',
+        (/secret_key: "chave-antiga"/.test(novo) && /port: 8123/.test(novo) && /name: bing/.test(novo)) || `chave/porta perdidas: ${novo}`,
+        deNovo === false || 'já atualizada: não regrava',
+        atualizarSettingsYml(path.join(dir, 'nao-existe.yml')) === false || 'arquivo ausente não pode dar erro',
+      ];
+    },
+  },
 ];
