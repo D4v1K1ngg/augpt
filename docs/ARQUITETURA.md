@@ -65,6 +65,9 @@ src/
   llm/ollama.js    cliente HTTP: chat, embeddings, tags, version
   agent/
     loop.js        o ciclo: raciocinar → aprovar → executar → memorizar
+    loop-auxiliares.js  funções de apoio do laço, sem `this`
+    loop-critico.js     métodos do Agent: o Copiloto (crítico do plano)
+    loop-redacao.js     métodos do Agent: redação e encerramento com resposta
     prompts.js     prompt de sistema e protocolo JSON
     memory.js      memória vetorial com fallback léxico
     memoria-operacional.js  fatos de evento + reflexão de estratégia (pasta de trabalho)
