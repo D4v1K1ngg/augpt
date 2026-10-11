@@ -409,4 +409,69 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'AUTO · resposta imediata (11/10): o modelo escreve SEM esperar a pesquisa; depois a resposta é conferida contra a ficha — contradição vira nota de atenção, alarme falso com o mesmo número é descartado, sem material a resposta avisa que não foi conferida; desligada, nada muda',
+    tipo: 'unidade',
+    async executar() {
+      const { responderRapido, lerConferencia } = require('../../src/agent/resposta-rapida');
+      const ordem = [];
+      const wiki = { idioma: 'pt', titulo: 'Acidente de Chernobil', url: 'https://pt.wikipedia.org/wiki/Acidente_de_Chernobil', introducao: 'O acidente ocorreu em 26 de abril de 1986, no reator 4.', campos: [] };
+      const rede = (comMaterial) => ({
+        buscar: async () => { await new Promise((ok) => setTimeout(ok, 30)); ordem.push('pesquisa pronta'); return { resultados: [] }; },
+        wikipedia: async (_a, idioma) => (comMaterial && idioma === 'pt' ? wiki : null),
+        escrever: async (o) => { ordem.push(`escreveu ${/FICHA DE CONFERÊNCIA/.test(o.messages.at(-1).content) ? 'COM' : 'sem'} ficha`); return { content: 'O acidente foi em 12 de março de 1991, no reator 2.' }; },
+      });
+      const config = { host: 'http://127.0.0.1:9', model: 'falso', autoRespostaImediata: true };
+      const pedido = { objetivo: 'Como o acidente de Chernobyl aconteceu?', config, nivel: 1 };
+
+      const comErro = await responderRapido({ ...pedido, deps: { ...rede(true), conferir: async ({ ficha }) => { ordem.push(`conferiu (${/26 de abril de 1986/.test(ficha) ? 'ficha certa' : 'sem ficha'})`); return { content: 'ERRO: O acidente foi em 12 de março de 1991 | FICHA: ocorreu em 26 de abril de 1986\nERRO: no reator 2 | FICHA: no reator 4' }; } } });
+      const sequencia = ordem.join(' → ');
+      const semErro = await responderRapido({ ...pedido, deps: { ...rede(true), conferir: async () => ({ content: 'OK' }) } });
+      const semMaterial = await responderRapido({ ...pedido, deps: { ...rede(false), conferir: async () => { throw new Error('não deveria conferir sem material'); } } });
+      const quebrou = await responderRapido({ ...pedido, deps: { ...rede(true), conferir: async () => { throw new Error('modelo caiu'); } } });
+      ordem.length = 0;
+      await responderRapido({ ...pedido, config: { ...config, autoRespostaImediata: false }, deps: { ...rede(true), conferir: async () => { ordem.push('conferiu'); return { content: 'OK' }; } } });
+      const desligada = ordem.join(' → ');
+
+      const lidas = lerConferencia('ERRO: nascido em 1912 | FICHA: Londres, 23 de junho de 1912\nERRO: nascido em 1935 | FICHA: nascido em 1912\n- ERRO: era físico americano | FICHA: matemático britânico\ntexto solto\nOK');
+      return [
+        sequencia === 'escreveu sem ficha → pesquisa pronta → conferiu (ficha certa)' || `ordem: ${sequencia}`,
+        (/Conferência com as fontes — atenção/.test(comErro.texto) && /26 de abril de 1986/.test(comErro.texto) && comErro.conferencia.erros.length === 2) || `contradição tem que virar nota: ${comErro.texto}`,
+        comErro.fontes.length === 1 || 'as fontes lidas acompanham a resposta',
+        /Conferido com 1 fonte\(s\): nenhuma contradição/.test(semErro.texto) || `sem contradição: ${semErro.texto}`,
+        (/Não consegui conferir esta resposta na internet/.test(semMaterial.texto) && semMaterial.conferencia.conferida === false) || `sem material: ${semMaterial.texto}`,
+        /a conferência automática falhou/.test(quebrou.texto) || `conferência que falha não derruba a resposta: ${quebrou.texto}`,
+        desligada === 'pesquisa pronta → escreveu COM ficha' || `desligada, o nível 1 de sempre: ${desligada}`,
+        (lidas.length === 2 && lidas[0].resposta === 'nascido em 1935' && /físico americano/.test(lidas[1].resposta)) || `leitura da conferência: ${JSON.stringify(lidas)}`,
+      ];
+    },
+  },
+  {
+    nome: 'AUTO · resposta curta no nível 1 (11/10, medição: 9,3 em 5 s contra 8,6 em 12 s): com as fontes na mão, pede até 200 palavras e limita os tokens; pedido de detalhe ("história completa", "mais sobre") e a opção desligada mantêm a resposta longa',
+    tipo: 'unidade',
+    async executar() {
+      const { responderRapido } = require('../../src/agent/resposta-rapida');
+      const wiki = { idioma: 'pt', titulo: 'Gerador elétrico', url: 'https://pt.wikipedia.org/wiki/Gerador', introducao: 'Um gerador converte energia mecânica em elétrica.', campos: [] };
+      const rodar = async (objetivo, config) => {
+        let pedido = null;
+        await responderRapido({
+          objetivo,
+          config: { host: 'http://127.0.0.1:9', model: 'falso', ...config },
+          nivel: 1,
+          deps: { buscar: async () => ({ resultados: [] }), wikipedia: async (_a, idioma) => (idioma === 'pt' ? wiki : null), escrever: async (o) => { pedido = o; return { content: 'Um gerador converte energia.' }; } },
+        });
+        return { breve: /SEJA BREVE/.test(pedido.messages[0].content), tokens: pedido.numPredict, comFicha: /FICHA DE CONFERÊNCIA/.test(pedido.messages.at(-1).content) };
+      };
+      const curta = await rodar('Como um gerador funciona ?', {});
+      const detalhe = await rodar('Me conte a história completa do gerador elétrico', {});
+      const mais = await rodar('Me conte mais sobre o gerador elétrico', {});
+      const desligada = await rodar('Como um gerador funciona ?', { autoRespostaCurta: false });
+      return [
+        (curta.breve && curta.tokens === 700 && curta.comFicha) || `curta: ${JSON.stringify(curta)}`,
+        (!detalhe.breve && detalhe.tokens > 700) || `quem pede a história completa recebe a longa: ${JSON.stringify(detalhe)}`,
+        !mais.breve || '"mais sobre" pede detalhe',
+        (!desligada.breve && desligada.tokens > 700) || `desligada: ${JSON.stringify(desligada)}`,
+      ];
+    },
+  },
 ];

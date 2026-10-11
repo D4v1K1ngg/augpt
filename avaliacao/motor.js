@@ -501,6 +501,9 @@ async function executarCasoAgente(caso, opcoes = {}) {
     // imagens nas respostas (11/10): desligadas na bancada — a busca de imagens
     // é uma chamada a mais ao SearXNG falso, e os casos contam as buscas
     imagensNasRespostas: false,
+    // resposta curta do nível 1 (11/10): os casos antigos do AUTO conferem o
+    // pedido de escrita e o teto de tokens da resposta completa
+    autoRespostaCurta: false,
     // revisão v3 (Fase 1): o modo explicação tira o pipeline forçado de
     // "por que…/o que é…" — os casos antigos do Copiloto usam justamente
     // perguntas assim pra exercitar crítico e portões; os casos v3 ligam

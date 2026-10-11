@@ -583,4 +583,18 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'tipo de pedido (medição de qualidade, 11/10): "Como um processador é fabricado?" respondia com uma tabela de Xeon — "é fabricado/produzido" e "se formam" são explicação, e o assunto é o sujeito',
+    tipo: 'unidade',
+    async executar() {
+      const { tipoDoPedido } = require('../../src/agent/tipo-de-pedido');
+      const autoMod = require('../../src/agent/auto');
+      return [
+        ...['Como um processador é fabricado?', 'Como o vidro é produzido?', 'Como as estrelas se formam?'].map((p) => tipoDoPedido(p).tipo === 'explicacao' || `deveria ser explicação: ${p}`),
+        autoMod.assuntoDoPedido('Como um processador é fabricado?') === 'processador' || `assunto: ${autoMod.assuntoDoPedido('Como um processador é fabricado?')}`,
+        autoMod.assuntoDoPedido('Como as estrelas se formam?') === 'estrelas' || 'assunto das estrelas',
+        tipoDoPedido('Como eu faço o wifi funcionar no notebook').tipo !== 'explicacao' || 'pedido de ajuda prática não é explicação',
+      ];
+    },
+  },
 ];

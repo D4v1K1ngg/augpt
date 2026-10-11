@@ -262,7 +262,11 @@ function fichaParaPrompt({ wikis, paginas, fatos }) {
   return blocos.join('\n\n');
 }
 
-function sistemaLivre(config, comMaterial) {
+/** Quem pede detalhe ("história completa", "mais sobre", "a fundo") recebe a resposta longa mesmo com a curta ligada. */
+const pedeDetalhe = (objetivo) => /(complet[ao]s?|detalh|a fundo|aprofund|tudo sobre|mais sobre|hist[oó]ria)/i.test(String(objetivo || ''));
+const respostaCurta = (config, objetivo) => config.autoRespostaCurta !== false && !pedeDetalhe(objetivo);
+
+function sistemaLivre(config, comMaterial, curta = false) {
   const base = config.chatSystem || 'Você é um assistente prestativo, direto e preciso. Responda em português do Brasil, em markdown quando ajudar a clareza.';
   if (!comMaterial) return base;
   return `${base}
@@ -272,7 +276,11 @@ Responda com liberdade: escolha a estrutura, o tom e o que destacar, como faria 
 Junto com o pedido vem uma FICHA DE CONFERÊNCIA (Wikipédia e páginas da web). Use-a para acertar os fatos:
 - números, datas, quantidades e nomes têm de bater com a ficha; se o que você lembra divergir, vale a ficha;
 - número de que você não tem certeza e que não está na ficha: descreva sem o número;
-- não escreva marcadores de fonte como [1] nem uma seção de fontes — elas entram no fim automaticamente.`;
+- não escreva marcadores de fonte como [1] nem uma seção de fontes — elas entram no fim automaticamente.${
+    curta
+      ? '\n\nSEJA BREVE: responda em até 200 palavras, direto ao ponto, sem introdução nem conclusão. Só o essencial para responder bem.'
+      : ''
+  }`;
 }
 
 /* ------------------------------ execução ------------------------------ */
@@ -299,6 +307,22 @@ async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emi
     wikipedia: (assunto, idioma, resultados) => wikipedia(assunto, idioma, resultados, signal),
     ler: (url) => ler(url, { render: null, permitirExterno: false, conferir: (destino) => conferirDestino(destino, config) }),
     escrever: (opcoes) => ollama.chatStream(opcoes),
+    // conferência da resposta imediata: chamada curta ao modelo PRINCIPAL
+    conferir: ({ ficha, texto }) =>
+      ollama.chat({
+        host: config.host,
+        model: config.model,
+        messages: [
+          { role: 'system', content: SISTEMA_DA_CONFERENCIA },
+          { role: 'user', content: pedidoDaConferencia(ficha, texto) },
+        ],
+        temperature: 0,
+        numCtx: config.numCtx || 8192,
+        numPredict: 260,
+        pensar: false,
+        manterVivo: config.manterModeloVivo,
+        signal,
+      }),
     ...deps,
   };
   const comTempo = (promessa, ms) => Promise.race([promessa, new Promise((_, rej) => setTimeout(() => rej(new Error('tempo esgotado')), ms))]);
@@ -319,7 +343,8 @@ async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emi
   let paginas = [];
   let fatos = [];
   let figura = null;
-  if (nivel >= 1) {
+  /** Busca + Wikipédia (pt e en) + até duas páginas: o material de conferência. */
+  const pesquisar = async () => {
     const assunto = assuntoDoPedido(objetivo).split(/[,;]|\s+em (uma|poucas|duas|tr[eê]s) (frase|linha|palavra)/i)[0].trim();
     emit('auto-pesquisa', { assunto });
     const busca = await comTempo(d.buscar(assunto), 12000).catch((err) => ({ resultados: [], falhas: [err.message] }));
@@ -341,7 +366,75 @@ async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emi
     fatos = fatosDaFicha(wikis);
     // imagem de referência: baixada enquanto o modelo escreve (não soma tempo)
     if (dirImagens && config.imagensNasRespostas !== false && (wikis.length || paginas.length)) figura = imagens.comLimite(d.imagem(assunto, wikis), 10000);
+  };
+  const historico = (Array.isArray(conversa) ? conversa : [])
+    .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && m.content)
+    .slice(-6)
+    .map((m) => ({ role: m.role, content: String(m.content).slice(0, 3000) }));
+  const escrever = (mensagens, numPredict) =>
+    d.escrever({
+      host: config.host,
+      model: config.autoModeloRapido || config.model,
+      messages: mensagens,
+      temperature: Math.max(0.5, Number(config.temperature) || 0.6),
+      numCtx: config.numCtxRedacao || config.numCtx || 8192,
+      numPredict,
+      manterVivo: config.manterModeloVivo,
+      pensar: false,
+      signal,
+      onToken: (pedaco) => emit('resposta-token', { pedaco }),
+    });
+  const resultado = (texto, usos, extra = {}) => ({
+    texto,
+    fontes: [...wikis.map((w) => w.url), ...paginas.map((p) => p.url)],
+    correcoes: [],
+    wikis: wikis.map((w) => ({ idioma: w.idioma, titulo: w.titulo, campos: w.campos.length })),
+    paginas: paginas.map((p) => p.url),
+    fatos: fatos.length,
+    uso: {
+      promptTokens: usos.reduce((n, u) => n + (u?.promptTokens || 0), 0),
+      completionTokens: usos.reduce((n, u) => n + (u?.completionTokens || 0), 0),
+      duracaoMs: usos.reduce((n, u) => n + (u?.durationMs || 0), 0),
+    },
+    ...extra,
+  });
+
+  // Resposta imediata (11/10, ideia do Davi a partir da aba Conversa): o
+  // modelo começa a escrever JÁ, como na Conversa, enquanto a pesquisa corre
+  // em paralelo; quando o texto termina, ele é CONFERIDO contra o material
+  // (números pelo código, o resto por uma chamada curta ao modelo principal)
+  // e a resposta ganha a nota da conferência, as fontes e a imagem.
+  if (nivel === 1 && config.autoRespostaImediata === true) {
+    const pesquisa = pesquisar().catch(() => {});
+    emit('redigindo', { fontes: 0, cobertura: 'resposta imediata (a conferência com as fontes vem em seguida)' });
+    emit('chamada', { tipo: 'redacao' });
+    const r = await escrever([{ role: 'system', content: sistemaLivre(config, false) }, ...historico, { role: 'user', content: objetivo }], Math.min(config.numPredictResposta || 1024, 1024));
+    let texto = String(r?.content || '').trim();
+    if (!texto) throw new Error('o modelo devolveu uma resposta vazia');
+    await comTempo(pesquisa, 15000).catch(() => {});
+    const ficha = fichaParaPrompt({ wikis, paginas, fatos });
+    if (!ficha) {
+      const nota = '*(Não consegui conferir esta resposta na internet: a pesquisa não trouxe material. O texto acima é conhecimento geral do modelo.)*';
+      emit('resposta-token', { pedaco: `\n\n${nota}` });
+      return resultado(`${texto}\n\n${nota}`, [r], { imagem: null, conferencia: { conferida: false, erros: [] } });
+    }
+    const conferida = conferirNumeros(texto, fatos);
+    texto = conferida.texto;
+    emit('chamada', { tipo: 'conferencia' });
+    const c = await comTempo(d.conferir({ ficha, texto }), 20000).catch(() => null);
+    const erros = c ? lerConferencia(c.content) : null;
+    const fontes = wikis.length + paginas.length;
+    const nota =
+      erros === null
+        ? `*(Li ${fontes} fonte(s), mas a conferência automática falhou — confira os dados importantes.)*`
+        : erros.length
+          ? `**Conferência com as fontes — atenção:**\n${erros.map((e) => `- A resposta diz "${e.resposta}". As fontes dizem: ${e.ficha}`).join('\n')}`
+          : `*Conferido com ${fontes} fonte(s): nenhuma contradição encontrada.*`;
+    emit('resposta-token', { pedaco: `\n\n${nota}` });
+    return resultado(`${texto}\n\n${nota}`, [r, c], { correcoes: conferida.correcoes, imagem: figura ? await figura : null, conferencia: { conferida: erros !== null, erros: erros || [] } });
   }
+
+  if (nivel >= 1) await pesquisar();
 
   const ficha = nivel >= 1 ? fichaParaPrompt({ wikis, paginas, fatos }) : '';
   // Nível 1 sem NENHUM material (busca e Wikipédia falharam): escrever assim
@@ -350,42 +443,49 @@ async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emi
   // eletrostáticos"). O erro devolve o pedido ao laço do agente, que pesquisa
   // de novo e, se não achar, avisa que é conhecimento geral.
   if (nivel >= 1 && !ficha) throw new Error('a pesquisa rápida não trouxe material');
-  const historico = (Array.isArray(conversa) ? conversa : [])
-    .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && m.content)
-    .slice(-6)
-    .map((m) => ({ role: m.role, content: String(m.content).slice(0, 3000) }));
   const pedido = ficha ? `${objetivo}\n\n---\nFICHA DE CONFERÊNCIA (não copie, use para acertar os fatos):\n${ficha}` : objetivo;
 
   emit('redigindo', { fontes: wikis.length + paginas.length, cobertura: ficha ? 'boa' : 'sem pesquisa' });
   emit('chamada', { tipo: 'redacao' });
-  const r = await d.escrever({
-    host: config.host,
-    model: config.autoModeloRapido || config.model,
-    messages: [{ role: 'system', content: sistemaLivre(config, Boolean(ficha)) }, ...historico, { role: 'user', content: pedido }],
-    temperature: Math.max(0.5, Number(config.temperature) || 0.6),
-    numCtx: config.numCtxRedacao || config.numCtx || 8192,
-    numPredict: Math.min(config.numPredictResposta || 2048, 2048),
-    manterVivo: config.manterModeloVivo,
-    pensar: false,
-    signal,
-    onToken: (pedaco) => emit('resposta-token', { pedaco }),
-  });
+  const r = await escrever([{ role: 'system', content: sistemaLivre(config, Boolean(ficha), respostaCurta(config, objetivo)) }, ...historico, { role: 'user', content: pedido }], respostaCurta(config, objetivo) ? 700 : Math.min(config.numPredictResposta || 2048, 2048));
   let texto = String(r?.content || '').trim();
   if (!texto) throw new Error('o modelo devolveu uma resposta vazia');
 
   const conferida = conferirNumeros(texto, fatos);
   texto = conferida.texto;
-  const fontes = [...wikis.map((w) => w.url), ...paginas.map((p) => p.url)];
-  return {
-    texto,
-    fontes,
-    correcoes: conferida.correcoes,
-    wikis: wikis.map((w) => ({ idioma: w.idioma, titulo: w.titulo, campos: w.campos.length })),
-    paginas: paginas.map((p) => p.url),
-    fatos: fatos.length,
-    imagem: figura ? await figura : null,
-    uso: { promptTokens: r.promptTokens || 0, completionTokens: r.completionTokens || 0, duracaoMs: r.durationMs || 0 },
-  };
+  return resultado(texto, [r], { correcoes: conferida.correcoes, imagem: figura ? await figura : null });
 }
 
-module.exports = { responderRapido, conferirNumeros, fatosDaFicha, camposDaInfobox, limparValor, numero, fichaParaPrompt };
+/* ------------------------------ conferência da resposta imediata ------------------------------ */
+
+const SISTEMA_DA_CONFERENCIA =
+  'Você confere uma RESPOSTA contra uma FICHA de fontes. Aponte SOMENTE o que a RESPOSTA afirma e a FICHA contradiz (outra data, outro número, outro nome, outro lugar, o oposto). ' +
+  'O que a RESPOSTA diz e a FICHA não menciona NÃO é erro. Quando a FICHA diz a mesma coisa com mais detalhe, NÃO é erro. Não comente estilo.';
+
+function pedidoDaConferencia(ficha, texto) {
+  return `FICHA:\n${String(ficha).slice(0, 9000)}\n\nRESPOSTA:\n"""\n${String(texto).slice(0, 5000)}\n"""\n\nSe a FICHA contradiz algo da RESPOSTA, escreva uma linha por erro, no máximo 3, neste formato exato:\nERRO: <o que a resposta diz> | FICHA: <o que a ficha diz>\nSe não houver contradição, escreva só: OK`;
+}
+
+/**
+ * Lê as linhas "ERRO: … | FICHA: …". Descarta alarme falso evidente: quando a
+ * frase apontada tem números e TODOS aparecem no trecho da ficha, a ficha
+ * está confirmando, não contradizendo (protótipo de 11/10: "nascido em 1912"
+ * acusado contra "23 de junho de 1912").
+ */
+function lerConferencia(conteudo) {
+  const numeros = (t) => String(t).match(/\d[\d.,]*\d|\d/g) || [];
+  const erros = [];
+  for (const linha of String(conteudo || '').split('\n')) {
+    const m = /^\s*[-*]?\s*ERRO:\s*(.+?)\s*\|\s*FICHA:\s*(.+?)\s*$/i.exec(linha);
+    if (!m) continue;
+    const [, resposta, ficha] = m;
+    const daResposta = numeros(resposta);
+    if (daResposta.length && daResposta.every((n) => numeros(ficha).includes(n))) continue;
+    // "a ficha não menciona isso" não é contradição (medição de 11/10: "As fontes dizem: Não menciona nenhuma forma…")
+    if (/\bn[aã]o\s+(menciona|cita|fala|diz|informa|consta|aborda|trata)\b/i.test(ficha)) continue;
+    erros.push({ resposta: resposta.replace(/^["“]|["”.]+$/g, '').slice(0, 220), ficha: ficha.replace(/["“”]/g, '').slice(0, 260) });
+  }
+  return erros.slice(0, 3);
+}
+
+module.exports = { responderRapido, conferirNumeros, fatosDaFicha, camposDaInfobox, limparValor, numero, fichaParaPrompt, lerConferencia, pedidoDaConferencia, SISTEMA_DA_CONFERENCIA };

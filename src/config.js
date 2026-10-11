@@ -133,6 +133,18 @@ const DEFAULTS = {
   // modelos por nível (vazio = modelo principal). O rápido escreve os níveis
   // 0 e 1; o profundo, a redação do nível 3.
   autoModeloRapido: '',
+  // Resposta imediata (11/10): no nível 1 o modelo escreve já, como na aba
+  // Conversa, e a pesquisa (que corre em paralelo) serve para CONFERIR o
+  // texto depois — ver resposta-rapida.js.
+  autoRespostaImediata: false,
+  // Resposta curta no nível 1 (11/10): mesma pesquisa, texto de até ~200
+  // palavras. O que deixa o nível 1 mais lento que a aba Conversa é o tamanho
+  // do texto (a pesquisa leva ~2 s), então encurtar é o jeito de ganhar tempo
+  // sem abrir mão de escrever com as fontes na mão.
+  // Medido em 12 perguntas de explicação: completa 8,6 em 12 s; curta 9,3 em
+  // 5 s. Pedido que fala em "completa", "detalhes", "mais sobre", "história"
+  // continua recebendo a resposta longa.
+  autoRespostaCurta: true,
   autoModeloProfundo: '',
   // Raciocínio explícito ("think") dos modelos que pensam (qwen3.5, R1) nas
   // etapas internas. Desligado: o limite curto de crítica/plano/destilação

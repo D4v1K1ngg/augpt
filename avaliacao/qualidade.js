@@ -185,6 +185,12 @@ function configDoApp() {
   }
   const cfg = { ...DEFAULTS, ...salvo };
   for (const chave of ['workspace', 'alwaysAllow', 'host', 'model']) delete cfg[chave]; // a pasta de trabalho é a da medição
+  // --ajuste=chave:valor[,chave:valor]: mede uma opção sem mexer nos Ajustes do app
+  for (const par of String(args.ajuste === true ? '' : args.ajuste || '').split(',').filter(Boolean)) {
+    const [chave, ...resto] = par.split(':');
+    const valor = resto.join(':');
+    cfg[chave] = valor === 'true' ? true : valor === 'false' ? false : /^-?\d+(\.\d+)?$/.test(valor) ? Number(valor) : valor;
+  }
   cfg.autonomy = 'auto';
   cfg.ferramentasDesativadas = [...new Set([...(cfg.ferramentasDesativadas || []), ...FERRAMENTAS_FORA])];
   return { cfg, modelo: args.modelo || salvo.model || DEFAULTS.model || 'llama3.1:8b' };
@@ -263,7 +269,7 @@ function rodadaAnterior() {
 
 async function principal() {
   let perguntas = PERGUNTAS;
-  if (args.so) perguntas = perguntas.filter((p) => p.tipo === args.so);
+  if (args.so) perguntas = perguntas.filter((p) => String(args.so).split(',').includes(p.tipo));
   if (args.id) perguntas = perguntas.filter((p) => String(args.id).split(',').includes(p.id));
   if (args.n) perguntas = perguntas.slice(0, Number(args.n));
   if (!perguntas.length) {

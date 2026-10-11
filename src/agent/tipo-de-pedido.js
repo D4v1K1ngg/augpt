@@ -104,7 +104,7 @@ const EXPLICACAO_EM_QUALQUER_LUGAR = /\b(por que|por qual motivo|como funciona|o
 // e "se um avião perder os motores, o que acontece?" caíam em 'livre' e
 // gastavam o laço inteiro (204 s, 14 passos) numa pergunta de enciclopédia.
 const EXPLICACAO_COM_SUJEITO =
-  /^como (que )?(\S+ ){1,7}?(funciona|funcionam|aconteceu|acontece|ocorreu|ocorre|surgiu|surgiram|e feit[oa]s?|sao feit[oa]s|foi (feit[oa]|criad[oa]|inventad[oa]|construid[oa]))\b|^(me )?(conte|conta|fale|fala|explique|explica)( me)?( um pouco)?( mais)? (sobre|como|o que|por que)\b|\bo que (acontece|aconteceria)\b/;
+  /^como (que )?(\S+ ){1,7}?(funciona|funcionam|aconteceu|acontece|ocorreu|ocorre|surgiu|surgiram|se forma|se formam|se formou|se formaram|(e|sao|foi|foram) (feit|criad|inventad|construid|fabricad|produzid|formad|montad)[oa]s?)\b|^(me )?(conte|conta|fale|fala|explique|explica)( me)?( um pouco)?( mais)? (sobre|como|o que|por que)\b|\bo que (acontece|aconteceria)\b/;
 
 // arquivos, pastas, documentos, gerar arquivo. Achado do revisor: "salve!
 // qual o melhor mouse", "notebook pra trabalhar com planilha", "ssd pra

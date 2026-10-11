@@ -101,7 +101,7 @@ function assuntoDoPedido(objetivo) {
       // sujeito no meio: "Como um gerador funciona" → "gerador"; "como que o
       // acidente de Chernobyl aconteceu" → "acidente de Chernobyl". Com a
       // frase inteira, a Wikipédia não achava a página e a ficha vinha vazia.
-      const meio = /^como\s+(?:que\s+)?((?:\S+\s+){0,5}?\S+?)\s+(?:realmente\s+)?(?:funciona|funcionam|aconteceu|acontece|ocorreu|ocorre|surgiu|surgiram|(?:é|e|são|sao|foi)\s+(?:feit|criad|inventad|construid)\w+)\s*$/i.exec(s);
+      const meio = /^como\s+(?:que\s+)?((?:\S+\s+){0,5}?\S+?)\s+(?:realmente\s+)?(?:funciona|funcionam|aconteceu|acontece|ocorreu|ocorre|surgiu|surgiram|se\s+forma|se\s+formam|se\s+formou|se\s+formaram|(?:é|e|são|sao|foi|foram)\s+(?:feit|criad|inventad|construid|fabricad|produzid|formad|montad)\w+)\s*$/i.exec(s);
       if (meio) s = meio[1];
     }
   }

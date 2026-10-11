@@ -589,6 +589,14 @@
             <input type="text" id="cfgAutoModeloProfundo" spellcheck="false" placeholder="(modelo principal)" />
           </label>
           <p class="dica">Cada pedido ganha um nível: <b>0 · direto</b> (saudação, texto criativo, conta — só o modelo), <b>1 · conversa com pesquisa</b> ("me fale sobre X", "quem foi" — uma busca, Wikipédia e escrita livre, com os números conferidos), <b>2 · pesquisa padrão</b> (o agente sem plano forçado nem crítico periódico) e <b>3 · pesquisa profunda</b> (compra, comparação, guia — tudo o que está ligado aqui). O que você marcou nestes Ajustes é o teto: o AUTO só desliga etapas. O relatório de cada conversa mostra o nível escolhido e por quê. Os modelos vazios usam o principal; o das respostas rápidas pode ser um maior (ex.: qwen3.5:9b) — o raciocínio dele é desligado nas etapas.</p>
+          <label class="linha"><span>Respostas curtas nas perguntas simples</span>
+            <input type="checkbox" id="cfgAutoRespostaCurta" class="caixa" />
+          </label>
+          <p class="dica">No nível 1, a resposta sai em até cerca de 200 palavras, escrita com as fontes na mão — fica pronta em uns 5 s em vez de 12 s. Quando o pedido fala em "completa", "em detalhes", "mais sobre" ou "história", a resposta longa continua valendo.</p>
+          <label class="linha"><span>Resposta imediata, conferida em seguida</span>
+            <input type="checkbox" id="cfgAutoRespostaImediata" class="caixa" />
+          </label>
+          <p class="dica">Nas perguntas do nível 1 ("me fale sobre X", "como funciona", "quem foi"), o modelo começa a escrever na hora, como na aba Conversa, enquanto a pesquisa corre em paralelo. Quando o texto termina, ele é conferido contra as fontes lidas: o que elas contradizem aparece numa nota no fim. Desligado, a pesquisa vem antes e o modelo já escreve com as fontes na mão. Na medição, o modo imediato começou a escrever em menos de 1 s, mas errou mais (o modelo escreve de memória) e a conferência não pega tudo: prefira as respostas curtas, acima.</p>
           <label class="linha"><span>Mostrar imagens nas respostas</span>
             <input type="checkbox" id="cfgImagensNasRespostas" class="caixa" />
           </label>
