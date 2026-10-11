@@ -92,10 +92,12 @@ function lerVeredito(texto, pergunta) {
     const v = k?.cumprido ?? k;
     return v === true || /^(sim|true|cumprido)$/i.test(String(v));
   });
-  if (fatos.length !== nFatos || criterios.length !== nCriterios) {
+  // item a mais é tolerado (pergunta só com critérios: o juiz às vezes
+  // preenche "fatos" também — 1ª rodada, 4 perguntas sem nota); item a menos não
+  if (fatos.length < nFatos || criterios.length < nCriterios) {
     throw new Error(`o juiz devolveu ${fatos.length} fatos e ${criterios.length} critérios (esperado ${nFatos} e ${nCriterios})`);
   }
-  return { fatos, criterios };
+  return { fatos: fatos.slice(0, nFatos), criterios: criterios.slice(0, nCriterios) };
 }
 
 async function julgar({ juiz, pergunta, resposta }) {
@@ -302,11 +304,14 @@ async function principal() {
     console.log();
   }
 
-  // 1ª fase: o agente responde tudo
-  console.log(cinza('  respondendo'));
+  // 1ª fase: o agente responde tudo (--rejulgar: reaproveita as respostas da
+  // última rodada e só corrige de novo — para testar outro juiz ou gabarito)
+  const guardadas = args.rejulgar ? new Map((rodadaAnterior()?.resultados || []).map((r) => [r.id, r])) : null;
+  if (guardadas) perguntas = perguntas.filter((p) => guardadas.has(p.id));
+  console.log(cinza(guardadas ? '  respostas da última rodada' : '  respondendo'));
   const respostas = [];
   for (const p of perguntas) {
-    const r = await responder(p, { cfg, modelo });
+    const r = guardadas ? guardadas.get(p.id) : await responder(p, { cfg, modelo });
     respostas.push(r);
     console.log(`    ${p.id.padEnd(18)} ${String(r.seg).padStart(4)}s ${String(r.passos).padStart(2)}p ${r.erro ? vermelho(`erro: ${r.erro.slice(0, 80)}`) : cinza(`${r.resposta.length} caracteres`)}`);
   }
@@ -319,7 +324,7 @@ async function principal() {
     const p = perguntas[i];
     const r = respostas[i];
     const v = r.erro || !r.resposta.trim() ? { fatos: [], criterios: [], nota: 0, erro: r.erro || 'resposta vazia' } : await julgar({ juiz, pergunta: p, resposta: r.resposta });
-    resultados.push({ id: p.id, tipo: p.tipo, pedido: p.pedido, nota: v.nota, veredito: { fatos: v.fatos, criterios: v.criterios }, erroDoJuiz: v.erro || null, ...r });
+    resultados.push({ ...r, id: p.id, tipo: p.tipo, pedido: p.pedido, nota: v.nota, veredito: { fatos: v.fatos, criterios: v.criterios }, erroDoJuiz: v.erro || null });
     const faltou = [
       ...(p.fatos || []).filter((_, k) => v.fatos[k] === 'ausente'),
       ...(p.criterios || []).filter((_, k) => v.criterios[k] === false),
