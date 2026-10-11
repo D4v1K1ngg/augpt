@@ -1,0 +1,38 @@
+AuGPT — como rodar (resumo)
+===========================
+
+1) Instale o Ollama:  https://ollama.com/download
+
+2) Nesta pasta, rode:
+     npm install
+     npm start
+
+   Requisito: Node.js 20 ou mais novo. O "npm install" baixa o Electron
+   (~100 MB) e só precisa de internet nessa primeira vez.
+
+3) Na primeira vez, a tela do Agente mostra um guia em três passos:
+   instalar o Ollama, ligar o Ollama e baixar o modelo recomendado pra
+   memória do seu computador. É só seguir os botões — o modelo baixado
+   já fica escolhido no seletor "modelo" do topo.
+
+   Se preferir o terminal:
+     ollama pull llama3.1:8b        (16 GB de memória ou mais)
+     ollama pull llama3.2:3b        (8 GB de memória)
+     ollama pull nomic-embed-text   (opcional: melhora a memória)
+
+   Modelos de embedding (como o nomic-embed-text) não aparecem no
+   seletor "modelo": servem só pra memória.
+
+Se o indicador no topo mostrar "ollama offline", o Ollama não está
+respondendo — use o botão do guia, abra o app do Ollama ou rode num
+terminal:  ollama serve
+
+Mexeu em algum ajuste e piorou? Ajustes > Restaurar padrões.
+
+Antes de usar o modo automático, leia a seção "Segurança e rede" do
+README.md.
+
+Testes (não precisam do Ollama):  npm run avaliar
+
+Guia completo, problemas comuns e segurança: README.md
+Como o agente funciona por dentro: docs/ARQUITETURA.md

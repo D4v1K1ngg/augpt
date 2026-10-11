@@ -1,0 +1,553 @@
+{
+  "pergunta": "Quais são os 5 melhores fones intra-auriculares (IEM) para jogar PUBG no PC? Explique os critérios do ranking, as vantagens e limitações de cada um e a recomendação final.",
+  "modelo": "qwen2.5:7b",
+  "modeloRedacao": "qwen2.5:7b",
+  "numCtx": 9216,
+  "numCtxRedacao": 9216,
+  "nivelRaciocinio": "leve",
+  "motorAcionado": true,
+  "modoDoMotor": "recomendacao",
+  "resultadoDaExecucao": "ok",
+  "tempoDaPesquisaAteAResposta": "119.0 s",
+  "tempoTotal": "132.5 s",
+  "acoesNegadas": [],
+  "versoes": {
+    "A": {
+      "duracao": "2.0 s",
+      "tokens": {
+        "prompt": 414,
+        "completion": 178
+      },
+      "verificador": {
+        "aprovado": false,
+        "reescreveria": true,
+        "respondeAoPedido": false,
+        "valoresSemRespaldo": 1,
+        "inconsistencias": [],
+        "suspeitas": [
+          {
+            "tipo": "entidade",
+            "valor": "Recomendo QKZ AK"
+          }
+        ]
+      },
+      "afirmacoesNumericas": {
+        "total": 0,
+        "porStatus": {}
+      },
+      "tamanho": {
+        "caracteres": 3744,
+        "palavras": 644
+      }
+    },
+    "B": {
+      "duracao": "11.5 s",
+      "tokens": {
+        "prompt": 4610,
+        "completion": 915
+      },
+      "verificador": {
+        "aprovado": false,
+        "reescreveria": false,
+        "respondeAoPedido": true,
+        "valoresSemRespaldo": 1,
+        "inconsistencias": [],
+        "suspeitas": [
+          {
+            "tipo": "numero",
+            "valor": "32mm"
+          }
+        ]
+      },
+      "afirmacoesNumericas": {
+        "total": 0,
+        "porStatus": {}
+      },
+      "tamanho": {
+        "caracteres": 2964,
+        "palavras": 431
+      }
+    },
+    "C": {
+      "duracao": "9.2 s",
+      "tokens": {
+        "prompt": 80,
+        "completion": 879
+      },
+      "verificador": {
+        "aprovado": false,
+        "reescreveria": true,
+        "respondeAoPedido": true,
+        "valoresSemRespaldo": 3,
+        "inconsistencias": [],
+        "suspeitas": [
+          {
+            "tipo": "entidade",
+            "valor": "Series Arctis Pro Carbon"
+          },
+          {
+            "tipo": "entidade",
+            "valor": "Cloud Stinger"
+          },
+          {
+            "tipo": "entidade",
+            "valor": "Anker Soundcore Liberty Air"
+          }
+        ]
+      },
+      "afirmacoesNumericas": {
+        "total": 0,
+        "porStatus": {}
+      },
+      "tamanho": {
+        "caracteres": 3197,
+        "palavras": 500
+      }
+    }
+  },
+  "janelaDeContexto": {
+    "chamadas": 36,
+    "chamadasComCorte": 0,
+    "chamadasAcimaDe90PorCento": 0,
+    "maiorUso": {
+      "etapa": "execução",
+      "promptTokens": 5771,
+      "numCtx": 9216,
+      "uso": 0.63
+    }
+  },
+  "chamadas": [
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 400,
+      "promptTokens": 721,
+      "completionTokens": 116,
+      "usoDaJanela": 0.08,
+      "contextoReduzido": null,
+      "duracaoMs": 3172
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 550,
+      "promptTokens": 681,
+      "completionTokens": 236,
+      "usoDaJanela": 0.07,
+      "contextoReduzido": null,
+      "duracaoMs": 2688
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 600,
+      "promptTokens": 743,
+      "completionTokens": 235,
+      "usoDaJanela": 0.08,
+      "contextoReduzido": null,
+      "duracaoMs": 2700
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 450,
+      "promptTokens": 1093,
+      "completionTokens": 197,
+      "usoDaJanela": 0.12,
+      "contextoReduzido": null,
+      "duracaoMs": 2423
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4252,
+      "completionTokens": 4,
+      "usoDaJanela": 0.46,
+      "contextoReduzido": null,
+      "duracaoMs": 1483
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 869,
+      "completionTokens": 3,
+      "usoDaJanela": 0.09,
+      "contextoReduzido": null,
+      "duracaoMs": 292
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4385,
+      "completionTokens": 4,
+      "usoDaJanela": 0.48,
+      "contextoReduzido": null,
+      "duracaoMs": 1456
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4393,
+      "completionTokens": 356,
+      "usoDaJanela": 0.48,
+      "contextoReduzido": null,
+      "duracaoMs": 5284
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4361,
+      "completionTokens": 4,
+      "usoDaJanela": 0.47,
+      "contextoReduzido": null,
+      "duracaoMs": 1481
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 1897,
+      "completionTokens": 4,
+      "usoDaJanela": 0.21,
+      "contextoReduzido": null,
+      "duracaoMs": 630
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 240,
+      "promptTokens": 647,
+      "completionTokens": 20,
+      "usoDaJanela": 0.07,
+      "contextoReduzido": null,
+      "duracaoMs": 440
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 1559,
+      "completionTokens": 412,
+      "usoDaJanela": 0.17,
+      "contextoReduzido": null,
+      "duracaoMs": 4835
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 2251,
+      "completionTokens": 302,
+      "usoDaJanela": 0.24,
+      "contextoReduzido": null,
+      "duracaoMs": 3889
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4367,
+      "completionTokens": 268,
+      "usoDaJanela": 0.47,
+      "contextoReduzido": null,
+      "duracaoMs": 4340
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 3187,
+      "completionTokens": 247,
+      "usoDaJanela": 0.35,
+      "contextoReduzido": null,
+      "duracaoMs": 3668
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 1334,
+      "completionTokens": 4,
+      "usoDaJanela": 0.14,
+      "contextoReduzido": null,
+      "duracaoMs": 451
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 1680,
+      "completionTokens": 198,
+      "usoDaJanela": 0.18,
+      "contextoReduzido": null,
+      "duracaoMs": 2611
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 2403,
+      "completionTokens": 4,
+      "usoDaJanela": 0.26,
+      "contextoReduzido": null,
+      "duracaoMs": 786
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 1034,
+      "completionTokens": 4,
+      "usoDaJanela": 0.11,
+      "contextoReduzido": null,
+      "duracaoMs": 348
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 400,
+      "promptTokens": 932,
+      "completionTokens": 98,
+      "usoDaJanela": 0.1,
+      "contextoReduzido": null,
+      "duracaoMs": 1341
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 400,
+      "promptTokens": 1032,
+      "completionTokens": 52,
+      "usoDaJanela": 0.11,
+      "contextoReduzido": null,
+      "duracaoMs": 871
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 400,
+      "promptTokens": 757,
+      "completionTokens": 21,
+      "usoDaJanela": 0.08,
+      "contextoReduzido": null,
+      "duracaoMs": 465
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4088,
+      "completionTokens": 100,
+      "usoDaJanela": 0.44,
+      "contextoReduzido": null,
+      "duracaoMs": 2441
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4033,
+      "completionTokens": 800,
+      "usoDaJanela": 0.44,
+      "contextoReduzido": null,
+      "duracaoMs": 9947
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 2163,
+      "completionTokens": 255,
+      "usoDaJanela": 0.23,
+      "contextoReduzido": null,
+      "duracaoMs": 3388
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 400,
+      "promptTokens": 1229,
+      "completionTokens": 172,
+      "usoDaJanela": 0.13,
+      "contextoReduzido": null,
+      "duracaoMs": 2226
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 400,
+      "promptTokens": 1032,
+      "completionTokens": 53,
+      "usoDaJanela": 0.11,
+      "contextoReduzido": null,
+      "duracaoMs": 591
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 400,
+      "promptTokens": 757,
+      "completionTokens": 21,
+      "usoDaJanela": 0.08,
+      "contextoReduzido": null,
+      "duracaoMs": 247
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 300,
+      "promptTokens": 699,
+      "completionTokens": 57,
+      "usoDaJanela": 0.08,
+      "contextoReduzido": null,
+      "duracaoMs": 826
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 1024,
+      "promptTokens": 5501,
+      "completionTokens": 146,
+      "usoDaJanela": 0.6,
+      "contextoReduzido": null,
+      "duracaoMs": 3491
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 90,
+      "promptTokens": 1835,
+      "completionTokens": 90,
+      "usoDaJanela": 0.2,
+      "contextoReduzido": null,
+      "duracaoMs": 1623
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 1024,
+      "promptTokens": 5771,
+      "completionTokens": 158,
+      "usoDaJanela": 0.63,
+      "contextoReduzido": null,
+      "duracaoMs": 2447
+    },
+    {
+      "etapa": "A: montada",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 700,
+      "promptTokens": 414,
+      "completionTokens": 178,
+      "usoDaJanela": 0.04,
+      "contextoReduzido": null,
+      "duracaoMs": 2048
+    },
+    {
+      "etapa": "B: redigida",
+      "funcao": "chatStream",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 3072,
+      "promptTokens": 4610,
+      "completionTokens": 915,
+      "usoDaJanela": 0.5,
+      "contextoReduzido": null,
+      "duracaoMs": 11499
+    },
+    {
+      "etapa": "execução (pós-resposta)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 120,
+      "promptTokens": 210,
+      "completionTokens": 4,
+      "usoDaJanela": 0.02,
+      "contextoReduzido": null,
+      "duracaoMs": 197
+    },
+    {
+      "etapa": "C: direta",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 3072,
+      "promptTokens": 80,
+      "completionTokens": 879,
+      "usoDaJanela": 0.01,
+      "contextoReduzido": null,
+      "duracaoMs": 9186
+    }
+  ]
+}

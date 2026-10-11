@@ -1,0 +1,120 @@
+/* =========================================================================
+   AuGPT — janela "Visualizar Execuções"
+   Pedido de Davi 2026-09-23: janela própria (não mais uma aba dentro da
+   janela principal), lista em 3 colunas com buscador, e um gráfico de
+   linhas sombreado pra tempo máximo de execução / uso de tokens / qual fase
+   do raciocínio custou mais. Reaproveita os tokens de cor e classes (.chip,
+   .execucao/.exec-medidas etc.) de styles.css — aqui só o layout novo.
+   ========================================================================= */
+
+html, body.exec-corpo {
+  height: 100%;
+  margin: 0;
+  background: var(--void);
+  overflow: hidden;
+}
+
+.exec-3col {
+  display: grid;
+  /* colunas laterais encolhem em janela estreita pra coluna do detalhe não ficar espremida (Fase 2) */
+  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr) minmax(270px, 340px);
+  height: 100vh;
+}
+
+.exec-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  overflow: hidden;
+}
+.exec-col:last-child { border-right: 0; }
+
+.exec-col-topo {
+  flex: none;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.exec-col-topo h1 { font-size: 16px; font-weight: 500; margin: 0; color: var(--text-forte); }
+.exec-col-topo h2 { font-size: 12px; font-weight: 500; margin: 0; color: var(--text-forte);
+  text-transform: uppercase; letter-spacing: 0.1em; }
+
+.exec-busca {
+  width: 100%;
+  background: var(--void);
+  border: 1px solid var(--line-forte);
+  border-radius: var(--r);
+  padding: 7px 10px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.exec-busca:focus { outline: none; border-color: var(--amber); }
+.exec-busca::placeholder { color: var(--fraco); }
+
+.exec-col-rolagem { flex: 1; overflow-y: auto; padding: 10px; }
+
+.exec-toggle { display: flex; gap: 6px; }
+
+/* --------------------------- coluna 1: linhas compactas --------------------------- */
+
+.exec-linha {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  margin-bottom: 6px;
+  cursor: pointer;
+  background: var(--panel);
+  transition: border-color 0.12s, background 0.12s;
+}
+.exec-linha:hover { border-color: var(--line-forte); }
+.exec-linha.selecionada { border-color: var(--amber); background: rgba(217, 130, 46, 0.07); }
+.exec-linha-topo { display: flex; align-items: center; gap: 8px; }
+.exec-linha-topo .exec-modelo { font-size: 11px; }
+.exec-linha-topo .exec-quando { margin-left: auto; font-size: 10px; }
+.exec-linha-pedido {
+  font-size: 11.5px; color: var(--text); line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.exec-linha-medidas { font-size: 10px; color: var(--fraco); display: flex; gap: 10px; }
+.exec-linha-medidas b { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.exec-vazio-lista { color: var(--fraco); font-style: italic; font-size: 12px; padding: 10px; }
+
+/* --------------------------- coluna 2: detalhe --------------------------- */
+
+.exec-col-detalhe .exec-col-rolagem { padding: 20px 22px; }
+.exec-dica { color: var(--fraco); font-style: italic; font-size: 12.5px; }
+
+.exec-detalhe-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.exec-detalhe-pedido { font-size: 14px; color: var(--text-forte); line-height: 1.5; margin: 8px 0 16px; }
+
+.exec-secao { margin-top: 20px; }
+.exec-secao > h3 {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted);
+  margin: 0 0 10px; font-weight: 500;
+}
+
+/* --------------------------- gráfico (linhas sombreado, type:'area') --------------------------- */
+/* O desenho em si vem de renderer/grafico.js (Canvas, mesmo módulo que o
+   chat usa pros blocos ```chart) — aqui só o encaixe no layout de 3 colunas.
+   Reaproveitado em dois lugares: coluna 2 (custo por FASE do raciocínio de
+   uma execução) e coluna 3 (tendência de tempo/tokens entre execuções). */
+.exec-grafico-slot { width: 100%; }
+.exec-grafico-slot .grafico { width: 100%; }
+.exec-grafico-resumo { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.exec-grafico-resumo b { color: var(--text-forte); font-variant-numeric: tabular-nums; }
+.exec-grafico-vazio { color: var(--fraco); font-style: italic; font-size: 11.5px; }
+
+/* --------------------------- coluna 3: tendência --------------------------- */
+.exec-col-tendencia .exec-col-rolagem { padding: 16px; }
+
+/* IAs auxiliares e modelos (2026-10-10) */
+.exec-lista { margin: 6px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.6; }
+.exec-lista li.ruim { color: var(--amber, #d9822e); }
+.exec-dica-inline { color: var(--muted, #86868c); font-size: 11px; }

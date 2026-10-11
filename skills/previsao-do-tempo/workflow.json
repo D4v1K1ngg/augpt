@@ -1,0 +1,15 @@
+{
+  "nome": "Previsão do tempo",
+  "quando": "o pedido pede a previsão do tempo de uma cidade",
+  "parametros": [
+    { "nome": "cidade", "descricao": "cidade e estado citados no pedido, ex.: Vitória-ES", "obrigatorio": true },
+    { "nome": "dias", "descricao": "quantos dias o usuário quer, número; use 7 se não disser", "obrigatorio": false }
+  ],
+  "passos": [
+    {
+      "ferramenta": "pesquisar_e_ler",
+      "argumentos": { "consulta": "previsão do tempo {cidade} {dias} dias", "paginas": 2, "caracteres_por_pagina": 3500 }
+    }
+  ],
+  "foco": "Tabela com um dia por linha: data, mínima e máxima em °C, chance de chuva em %. Depois da tabela, duas ou três linhas sobre o que muda no período em {cidade}."
+}

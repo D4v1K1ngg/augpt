@@ -1,0 +1,591 @@
+{
+  "pergunta": "Quais são os 5 melhores fones intra-auriculares (IEM) para jogar PUBG no PC? Explique os critérios do ranking, as vantagens e limitações de cada um e a recomendação final.",
+  "modelo": "qwen2.5:7b",
+  "modeloRedacao": "qwen2.5:7b",
+  "numCtx": 9216,
+  "numCtxRedacao": 9216,
+  "nivelRaciocinio": "leve",
+  "leituraComJavaScript": true,
+  "motorAcionado": true,
+  "modoDoMotor": "recomendacao",
+  "resultadoDaExecucao": "ok",
+  "tempoDaPesquisaAteAResposta": "154.1 s",
+  "tempoTotal": "167.7 s",
+  "acoesNegadas": [],
+  "dominiosLidos": [
+    "amazon.com.br",
+    "techtudo.com.br",
+    "reddit.com",
+    "mercadolivre.com.br",
+    "shopee.com.br",
+    "clubedohardware.com.br",
+    "doctormouse.com.br",
+    "linsoul.com",
+    "iemsandmusic.com",
+    "hangout.audio",
+    "primeaudio.org",
+    "kabum.com.br",
+    "audioreviews.org",
+    "primeinhp.com.br",
+    "mobileaudiophile.com",
+    "geekmartbd.com",
+    "powerplanetonline.com",
+    "maxesport.gg",
+    "pricezen.com"
+  ],
+  "dominiosDaComunidade": [
+    "reddit.com",
+    "clubedohardware.com.br"
+  ],
+  "versoes": {
+    "A": {
+      "duracao": "3.5 s",
+      "tokens": {
+        "prompt": 751,
+        "completion": 305
+      },
+      "verificador": {
+        "aprovado": false,
+        "reescreveria": false,
+        "respondeAoPedido": true,
+        "valoresSemRespaldo": 1,
+        "inconsistencias": [],
+        "suspeitas": [
+          {
+            "tipo": "entidade",
+            "valor": "Recomendo Simgot EM"
+          }
+        ]
+      },
+      "afirmacoesNumericas": {
+        "total": 0,
+        "porStatus": {}
+      },
+      "tamanho": {
+        "caracteres": 5026,
+        "palavras": 864
+      }
+    },
+    "B": {
+      "duracao": "10.0 s",
+      "tokens": {
+        "prompt": 4610,
+        "completion": 749
+      },
+      "verificador": {
+        "aprovado": false,
+        "reescreveria": false,
+        "respondeAoPedido": true,
+        "valoresSemRespaldo": 1,
+        "inconsistencias": [],
+        "suspeitas": [
+          {
+            "tipo": "entidade",
+            "valor": "SEM DADOS"
+          }
+        ]
+      },
+      "afirmacoesNumericas": {
+        "total": 0,
+        "porStatus": {}
+      },
+      "tamanho": {
+        "caracteres": 2570,
+        "palavras": 363
+      }
+    },
+    "C": {
+      "duracao": "14.2 s",
+      "tokens": {
+        "prompt": 80,
+        "completion": 1323
+      },
+      "verificador": {
+        "aprovado": false,
+        "reescreveria": true,
+        "respondeAoPedido": true,
+        "valoresSemRespaldo": 3,
+        "inconsistencias": [],
+        "suspeitas": [
+          {
+            "tipo": "entidade",
+            "valor": "Corsair HS"
+          },
+          {
+            "tipo": "entidade",
+            "valor": "Technica ATH"
+          },
+          {
+            "tipo": "entidade",
+            "valor": "Comfort Earbuds"
+          }
+        ]
+      },
+      "afirmacoesNumericas": {
+        "total": 0,
+        "porStatus": {}
+      },
+      "tamanho": {
+        "caracteres": 4384,
+        "palavras": 597
+      }
+    }
+  },
+  "janelaDeContexto": {
+    "chamadas": 37,
+    "chamadasComCorte": 0,
+    "chamadasAcimaDe90PorCento": 0,
+    "maiorUso": {
+      "etapa": "execução",
+      "promptTokens": 5477,
+      "numCtx": 9216,
+      "uso": 0.59
+    }
+  },
+  "chamadas": [
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 400,
+      "promptTokens": 721,
+      "completionTokens": 136,
+      "usoDaJanela": 0.08,
+      "contextoReduzido": null,
+      "duracaoMs": 1702
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 550,
+      "promptTokens": 681,
+      "completionTokens": 248,
+      "usoDaJanela": 0.07,
+      "contextoReduzido": null,
+      "duracaoMs": 2868
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 600,
+      "promptTokens": 743,
+      "completionTokens": 238,
+      "usoDaJanela": 0.08,
+      "contextoReduzido": null,
+      "duracaoMs": 2817
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 450,
+      "promptTokens": 1091,
+      "completionTokens": 185,
+      "usoDaJanela": 0.12,
+      "contextoReduzido": null,
+      "duracaoMs": 2367
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4325,
+      "completionTokens": 800,
+      "usoDaJanela": 0.47,
+      "contextoReduzido": null,
+      "duracaoMs": 10338
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 1854,
+      "completionTokens": 4,
+      "usoDaJanela": 0.2,
+      "contextoReduzido": null,
+      "duracaoMs": 641
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4252,
+      "completionTokens": 4,
+      "usoDaJanela": 0.46,
+      "contextoReduzido": null,
+      "duracaoMs": 1445
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 869,
+      "completionTokens": 3,
+      "usoDaJanela": 0.09,
+      "contextoReduzido": null,
+      "duracaoMs": 302
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 947,
+      "completionTokens": 4,
+      "usoDaJanela": 0.1,
+      "contextoReduzido": null,
+      "duracaoMs": 318
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 220,
+      "promptTokens": 918,
+      "completionTokens": 119,
+      "usoDaJanela": 0.1,
+      "contextoReduzido": null,
+      "duracaoMs": 1592
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 220,
+      "promptTokens": 1491,
+      "completionTokens": 99,
+      "usoDaJanela": 0.16,
+      "contextoReduzido": null,
+      "duracaoMs": 1552
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 220,
+      "promptTokens": 1405,
+      "completionTokens": 152,
+      "usoDaJanela": 0.15,
+      "contextoReduzido": null,
+      "duracaoMs": 2100
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 220,
+      "promptTokens": 1251,
+      "completionTokens": 84,
+      "usoDaJanela": 0.14,
+      "contextoReduzido": null,
+      "duracaoMs": 1316
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 240,
+      "promptTokens": 2936,
+      "completionTokens": 62,
+      "usoDaJanela": 0.32,
+      "contextoReduzido": null,
+      "duracaoMs": 1667
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 1505,
+      "completionTokens": 4,
+      "usoDaJanela": 0.16,
+      "contextoReduzido": null,
+      "duracaoMs": 579
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 3253,
+      "completionTokens": 800,
+      "usoDaJanela": 0.35,
+      "contextoReduzido": null,
+      "duracaoMs": 9887
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 2020,
+      "completionTokens": 3,
+      "usoDaJanela": 0.22,
+      "contextoReduzido": null,
+      "duracaoMs": 693
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 3969,
+      "completionTokens": 488,
+      "usoDaJanela": 0.43,
+      "contextoReduzido": null,
+      "duracaoMs": 6732
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 881,
+      "completionTokens": 4,
+      "usoDaJanela": 0.1,
+      "contextoReduzido": null,
+      "duracaoMs": 331
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 1814,
+      "completionTokens": 4,
+      "usoDaJanela": 0.2,
+      "contextoReduzido": null,
+      "duracaoMs": 599
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 2296,
+      "completionTokens": 4,
+      "usoDaJanela": 0.25,
+      "contextoReduzido": null,
+      "duracaoMs": 791
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 2121,
+      "completionTokens": 4,
+      "usoDaJanela": 0.23,
+      "contextoReduzido": null,
+      "duracaoMs": 726
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 2177,
+      "completionTokens": 4,
+      "usoDaJanela": 0.24,
+      "contextoReduzido": null,
+      "duracaoMs": 725
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 1530,
+      "completionTokens": 4,
+      "usoDaJanela": 0.17,
+      "contextoReduzido": null,
+      "duracaoMs": 513
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 1846,
+      "completionTokens": 4,
+      "usoDaJanela": 0.2,
+      "contextoReduzido": null,
+      "duracaoMs": 655
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 1229,
+      "completionTokens": 4,
+      "usoDaJanela": 0.13,
+      "contextoReduzido": null,
+      "duracaoMs": 425
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 1456,
+      "completionTokens": 313,
+      "usoDaJanela": 0.16,
+      "contextoReduzido": null,
+      "duracaoMs": 3795
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 400,
+      "promptTokens": 1596,
+      "completionTokens": 307,
+      "usoDaJanela": 0.17,
+      "contextoReduzido": null,
+      "duracaoMs": 3852
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 400,
+      "promptTokens": 1290,
+      "completionTokens": 230,
+      "usoDaJanela": 0.14,
+      "contextoReduzido": null,
+      "duracaoMs": 2897
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 400,
+      "promptTokens": 1317,
+      "completionTokens": 121,
+      "usoDaJanela": 0.14,
+      "contextoReduzido": null,
+      "duracaoMs": 1747
+    },
+    {
+      "etapa": "pesquisa (motor)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 300,
+      "promptTokens": 721,
+      "completionTokens": 67,
+      "usoDaJanela": 0.08,
+      "contextoReduzido": null,
+      "duracaoMs": 978
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 1024,
+      "promptTokens": 5477,
+      "completionTokens": 354,
+      "usoDaJanela": 0.59,
+      "contextoReduzido": null,
+      "duracaoMs": 5891
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 90,
+      "promptTokens": 2077,
+      "completionTokens": 90,
+      "usoDaJanela": 0.23,
+      "contextoReduzido": null,
+      "duracaoMs": 1711
+    },
+    {
+      "etapa": "A: montada",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 700,
+      "promptTokens": 751,
+      "completionTokens": 305,
+      "usoDaJanela": 0.08,
+      "contextoReduzido": null,
+      "duracaoMs": 3543
+    },
+    {
+      "etapa": "B: redigida",
+      "funcao": "chatStream",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 3072,
+      "promptTokens": 4610,
+      "completionTokens": 749,
+      "usoDaJanela": 0.5,
+      "contextoReduzido": null,
+      "duracaoMs": 9996
+    },
+    {
+      "etapa": "execução (pós-resposta)",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 120,
+      "promptTokens": 210,
+      "completionTokens": 4,
+      "usoDaJanela": 0.02,
+      "contextoReduzido": null,
+      "duracaoMs": 170
+    },
+    {
+      "etapa": "C: direta",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 3072,
+      "promptTokens": 80,
+      "completionTokens": 1323,
+      "usoDaJanela": 0.01,
+      "contextoReduzido": null,
+      "duracaoMs": 14182
+    }
+  ]
+}

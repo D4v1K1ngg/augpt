@@ -1,0 +1,1077 @@
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/avaliacao/casos/modelos-e-acionamentos.js augpt/avaliacao/casos/modelos-e-acionamentos.js
+--- a/avaliacao/casos/modelos-e-acionamentos.js	1969-12-31 21:00:00.000000000 -0300
++++ b/avaliacao/casos/modelos-e-acionamentos.js	2026-10-10 11:09:48.359811486 -0300
+@@ -0,0 +1,93 @@
++'use strict';
++
++/**
++ * Quadro de modelos (GPU/CPU) e linha do tempo das IAs auxiliares no
++ * registro (pedido do Davi, 2026-10-10). Ver src/modelos-carregados.js.
++ */
++
++const ollama = require('../../src/llm/ollama');
++const { montarQuadroDeModelos } = require('../../src/modelos-carregados');
++const { executarCasoAgente } = require('../motor');
++
++const GB = 1024 ** 3;
++const CONFIG = {
++  model: 'qwen2.5:7b',
++  embedModel: 'nomic-embed-text',
++  roteadorDecisor: true,
++  modeloDecisor: 'tev1',
++  copiloto2Modo: 'doisModelos',
++  modelCopiloto2: 'llama3.2:3b',
++};
++
++module.exports = [
++  {
++    nome: 'modelos: principal e nomic na GPU = ok; tev1 ("tev1:latest") na CPU = ok; copiloto na GPU = atenção; modelo alheio = outro',
++    tipo: 'unidade',
++    executar() {
++      const linhas = montarQuadroDeModelos({
++        config: CONFIG,
++        carregados: [
++          { name: 'qwen2.5:7b', size: 5 * GB, sizeVram: 5 * GB },
++          { name: 'nomic-embed-text:latest', size: 0.3 * GB, sizeVram: 0.3 * GB },
++          { name: 'tev1:latest', size: 3 * GB, sizeVram: 0 },
++          { name: 'llama3.2:3b', size: 2 * GB, sizeVram: 2 * GB },
++          { name: 'deepseek-r1:8b', size: 6 * GB, sizeVram: 1 * GB },
++        ],
++      });
++      const de = (papel) => linhas.find((l) => l.papel.startsWith(papel)) || {};
++      return [
++        de('principal').situacao === 'ok' && de('principal').onde === 'GPU' || `principal: ${JSON.stringify(de('principal'))}`,
++        de('memória').situacao === 'ok' || `embedding: ${JSON.stringify(de('memória'))}`,
++        de('roteador').situacao === 'ok' && de('roteador').onde === 'CPU' || `tev1: ${JSON.stringify(de('roteador'))}`,
++        de('copiloto').situacao === 'atencao' || `copiloto na GPU deveria ser atenção: ${JSON.stringify(de('copiloto'))}`,
++        /CPU/.test(de('copiloto').dica || '') || 'a dica do copiloto deveria dizer que ele deveria estar na CPU',
++        de('outro').modelo === 'deepseek-r1:8b' && de('outro').onde === 'GPU+CPU' && de('outro').gpuPct === 17 || `modelo alheio: ${JSON.stringify(de('outro'))}`,
++      ];
++    },
++  },
++  {
++    nome: 'modelos: principal dividido entre GPU e CPU é atenção; nada carregado = ocioso; roteador desligado não aparece',
++    tipo: 'unidade',
++    executar() {
++      const dividido = montarQuadroDeModelos({ config: { model: 'qwen2.5:14b' }, carregados: [{ name: 'qwen2.5:14b', size: 10 * GB, sizeVram: 7 * GB }] });
++      const vazio = montarQuadroDeModelos({ config: { ...CONFIG, roteadorDecisor: false }, carregados: [] });
++      return [
++        dividido[0].situacao === 'atencao' && dividido[0].gpuPct === 70 || `dividido: ${JSON.stringify(dividido[0])}`,
++        vazio.every((l) => l.situacao === 'ocioso') || 'sem nada carregado, tudo ocioso',
++        !vazio.some((l) => /roteador/.test(l.papel)) || 'roteador desligado não deveria aparecer',
++      ];
++    },
++  },
++  {
++    nome: 'registro: Tev1 acionado entra na linha do tempo ("trocou a regra") e o quadro de modelos do fim da execução é gravado',
++    tipo: 'unidade',
++    async executar() {
++      const original = ollama.decidir;
++      ollama.decidir = async () => ({ rota: { choice: 'explicacao', confidence: 0.9 } });
++      try {
++        const obtido = await executarCasoAgente({
++          nome: 'acionamentos: tev1',
++          pedido: 'O que é o protocolo TCP three-way handshake? Qual a diferença entre um switch e um roteador?',
++          config: { roteadorDecisor: true, modeloDecisor: 'tev1', limiarDecisor: 0.6, motorDePesquisa: true },
++          modelosCarregados: [
++            { name: 'falso', size: 4 * GB, size_vram: 4 * GB },
++            { name: 'tev1:latest', size: 3 * GB, size_vram: 0 },
++          ],
++          roteiro: [{ ferramenta: 'responder', argumentos: { foco: 'tcp' } }],
++          redacao: 'Resposta de teste.',
++        });
++        const ac = obtido.registro?.acionamentos || [];
++        const roteador = ac.find((a) => a.quem === 'roteador');
++        const quadro = obtido.registro?.modelosNaExecucao || [];
++        return [
++          Boolean(roteador) || `o Tev1 deveria aparecer na linha do tempo: ${JSON.stringify(ac)}`,
++          /trocou a regra/.test(roteador?.detalhe || '') || `detalhe: ${roteador?.detalhe}`,
++          quadro.some((l) => /principal/.test(l.papel) && l.onde === 'GPU') || `quadro: ${JSON.stringify(quadro)}`,
++          quadro.some((l) => /roteador/.test(l.papel) && l.onde === 'CPU' && l.situacao === 'ok') || `tev1 no quadro: ${JSON.stringify(quadro)}`,
++        ];
++      } finally {
++        ollama.decidir = original;
++      }
++    },
++  },
++];
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/avaliacao/casos/qualidade-recomendacao.js augpt/avaliacao/casos/qualidade-recomendacao.js
+--- a/avaliacao/casos/qualidade-recomendacao.js	1969-12-31 21:00:00.000000000 -0300
++++ b/avaliacao/casos/qualidade-recomendacao.js	2026-10-10 11:14:10.008098321 -0300
+@@ -0,0 +1,149 @@
++'use strict';
++
++/**
++ * Qualidade da resposta de recomendação (diagnóstico de 10/10, itens que a
++ * revisão v6 não cobriu): frase-formulário repetida em todo produto, falta de
++ * limitações e de preço, "qual escolher" de uma linha e tabela com trecho em
++ * inglês cortado. Cenário baseado no experimento dos 5 IEMs (09/10).
++ */
++
++const c = require('../../src/agent/compositor');
++const m = require('../../src/agent/motor-pesquisa');
++
++const CRITERIOS = [
++  { nome: 'passos e posicionamento', peso: 'alto', porque: 'ouvir de onde vem cada passo' },
++  { nome: 'palco sonoro', peso: 'alto', porque: 'separar perto de longe' },
++  { nome: 'isolamento', peso: 'medio', porque: 'o barulho da casa não cobre os passos' },
++];
++
++const celulas = {
++  'Kefine Delci AE|passos e posicionamento': { dominios: new Set(['reddit.com', 'site.com']), trechos: [{ texto: 'Waiting for my simgot eg280 I have heard the Kefine images well' }] },
++  'Kefine Delci AE|palco sonoro': { dominios: new Set(['reddit.com', 'outro.com']), trechos: [{ texto: 'The Kefine stage is wide for the price' }], veredito: 'palco amplo para o preço' },
++  'Ziigaat Arete|passos e posicionamento': { dominios: new Set(['reddit.com']), trechos: [{ texto: 'Arete has precise imaging' }] },
++};
++
++function cenario() {
++  return {
++    modo: 'recomendacao',
++    plano: { criterios: CRITERIOS, uso: 'jogar PUBG no PC', tipoDeUso: 'FPS competitivo' },
++    finalistas: [
++      {
++        nome: 'Kefine Delci AE',
++        status: { 'passos e posicionamento': 'corroborado', 'palco sonoro': 'corroborado', isolamento: 'sem dados' },
++        consenso: {
++          topicos: 3,
++          criticas: 1,
++          citacoes: [
++            { texto: 'Kefine Delci AE is my go-to for PUBG, footsteps are very clear.', fonte: 'r/PUBATTLEGROUNDS', votos: 12, tom: 'recomenda' },
++            { texto: 'The Kefine Delci AE fit is bulky and hurts after a few hours.', fonte: 'r/iems', votos: 4, tom: 'critica' },
++          ],
++        },
++      },
++      {
++        nome: 'Ziigaat Arete',
++        status: { 'passos e posicionamento': 'fonte única', 'palco sonoro': 'contraditório', isolamento: 'sem dados' },
++        consenso: { topicos: 2, criticas: 0, citacoes: [{ texto: 'Ziigaat Arete sounds great in shooters.', fonte: 'r/iems', votos: 3, tom: 'recomenda' }] },
++      },
++    ],
++    matriz: { celula: (o, k) => celulas[`${o}|${k}`] || null, resumos: new Map() },
++    precos: {
++      'Kefine Delci AE': { moeda: 'BRL', mediana: 520, min: 480, max: 560, n: 3 },
++      'Ziigaat Arete': { moeda: 'BRL', mediana: 890, min: 890, max: 890, n: 1 },
++    },
++  };
++}
++
++module.exports = [
++  {
++    nome: 'qualidade: frase-formulário ("entrou devido à sua excelente…" ou 3+ critérios numa frase) é recusada e vira a frase feita da evidência',
++    tipo: 'unidade',
++    executar() {
++      const r = cenario();
++      const lidas = c.lerFrases(
++        [
++          'Kefine Delci AE: Esta opção entrou devido à sua excelente passos e posicionamento, palco sonoro e isolamento.',
++          'Ziigaat Arete: Ótimo em passos e posicionamento, palco sonoro e isolamento segundo as fontes.',
++          'DIRETA: Recomendo o Kefine Delci AE: quem joga diz que os passos ficam claros.',
++        ].join('\n'),
++        { produtos: r.finalistas.map((f) => f.nome), numerosPermitidos: c.numerosDaComposicao(r), criterios: CRITERIOS.map((k) => k.nome) }
++      );
++      const texto = c.montar(r, lidas);
++      return [
++        !lidas.has('KEFINE DELCI AE') || 'a frase "entrou devido" deveria ser recusada',
++        !lidas.has('ZIIGAAT ARETE') || 'frase com 3 critérios listados deveria ser recusada',
++        lidas.has('DIRETA') || 'a resposta direta com fato concreto continua',
++        !/entrou devido/.test(texto) || 'a frase-formulário não pode chegar à resposta',
++      ];
++    },
++  },
++  {
++    nome: 'qualidade: cada opção tem preço observado e "Limitações" (crítica do usuário, fontes que discordam, critério de peso alto sem evidência); sem nada, diz que o material não trouxe',
++    tipo: 'unidade',
++    executar() {
++      const r = cenario();
++      const texto = c.montar(r, new Map());
++      const bloco = (nome) => texto.split(/\n#### /).find((b) => b.includes(nome) && /^\d\./.test(b)) || '';
++      const kefine = bloco('Kefine Delci AE');
++      const arete = bloco('Ziigaat Arete');
++      const usuarios = (kefine.split('**O que os usuários dizem:**')[1] || '').split('- **Limitações')[0];
++      const semNada = c.montar({ ...cenario(), finalistas: [{ ...cenario().finalistas[0], status: { 'passos e posicionamento': 'corroborado', 'palco sonoro': 'corroborado', isolamento: 'corroborado' }, consenso: { topicos: 2, citacoes: [] } }] }, new Map());
++      return [
++        /\*\*Preço observado:\*\* R\$ 480 a R\$ 560/.test(kefine) || `preço do Kefine: ${kefine.slice(0, 300)}`,
++        /\*\*Limitações:\*\*/.test(kefine) && /hurts after a few hours/.test(kefine.split('**Limitações:**')[1] || '') || 'a crítica do usuário tem que ir em Limitações',
++        !/hurts after/.test(usuarios) || 'a crítica não pode aparecer como "o que os usuários dizem" a favor',
++        /discordam sobre palco sonoro/.test(arete) || `fontes que discordam viram limitação: ${arete}`,
++        /sem evidência sobre/.test(arete) === false || 'isolamento é peso médio: não entra como limitação de peso alto',
++        /não trouxe críticas nem pontos fracos/.test(semNada) || 'sem crítica nem lacuna, a resposta diz que o material não trouxe',
++      ];
++    },
++  },
++  {
++    nome: 'qualidade: "Qual escolher" explica por que o 1º ganha do 2º e aponta o mais barato; a tabela não mostra trecho em inglês cortado',
++    tipo: 'unidade',
++    executar() {
++      const r = cenario();
++      r.finalistas[1].consenso.topicos = 1;
++      r.precos['Ziigaat Arete'].mediana = 300;
++      const texto = c.montar(r, new Map());
++      const tabela = (texto.split('### Tabela')[1] || '').split('###')[0];
++      return [
++        /\*\*Melhor no geral:\*\* Kefine Delci AE — ficou à frente do Ziigaat Arete por ter mais recomendações na comunidade \(3 tópicos contra 1\)/.test(texto) || `motivo do 1º: ${(texto.match(/Melhor no geral.*$/m) || [''])[0]}`,
++        /\*\*Pelo preço:\*\* Ziigaat Arete — o menor preço observado/.test(texto) || `pelo preço: ${(texto.match(/Pelo preço.*$/m) || ['(ausente)'])[0]}`,
++        !/Waiting for my|I have heard/.test(tabela) || `trecho em inglês na tabela: ${tabela}`,
++        /palco amplo para o preço/.test(tabela) || 'veredito curto em português continua na célula',
++        /2\+ fontes a favor/.test(tabela) || 'sem veredito, a célula diz quanto o material sustenta',
++      ];
++    },
++  },
++  {
++    nome: 'qualidade: o modelo recebe o que o material diz de cada produto (trecho, preço, crítica), não a lista de critérios com evidência',
++    tipo: 'unidade',
++    executar() {
++      const pedido = c.pedidoDeFrases(cenario(), 'Quais os melhores IEMs para PUBG no PC?');
++      const linhaKefine = pedido.split('\n').find((l) => /^1\. Kefine/.test(l)) || '';
++      return [
++        !/evidência a favor em:/.test(pedido) || 'a lista de critérios com evidência não deveria ir para o modelo',
++        /palco amplo para o preço/.test(linhaKefine) || `trecho do material: ${linhaKefine}`,
++        /preço observado: R\$ 480 a R\$ 560/.test(linhaKefine) || 'o preço observado vai junto',
++        /crítica de um usuário/.test(linhaKefine) || 'a crítica vai junto, para a frase poder trazer a ressalva',
++        /frases diferentes para cada um/.test(pedido) || 'a instrução contra frase repetida tem que estar no pedido',
++      ];
++    },
++  },
++  {
++    nome: 'qualidade: preço por opção vem só de frase que cita a opção e nenhuma outra; real tem preferência; parcela não conta',
++    tipo: 'unidade',
++    executar() {
++      const entradas = [
++        { bruto: 'O Kefine Delci AE sai por R$ 499 na loja. O Ziigaat Arete custa US$ 129 lá fora.' },
++        { bruto: 'Kefine Delci AE e Ziigaat Arete juntos por R$ 999 no combo.' },
++        { bruto: 'Ziigaat Arete em 10x de R$ 89 sem juros. Kefine Delci AE agora por R$ 459.' },
++      ];
++      const p = m.precosDasOpcoes(entradas, [{ nome: 'Kefine Delci AE' }, { nome: 'Ziigaat Arete' }]);
++      return [
++        p['Kefine Delci AE']?.moeda === 'BRL' && p['Kefine Delci AE'].min === 459 && p['Kefine Delci AE'].max === 499 || `Kefine: ${JSON.stringify(p['Kefine Delci AE'])}`,
++        p['Ziigaat Arete']?.moeda === 'USD' && p['Ziigaat Arete'].mediana === 129 || `Arete (sem real, vale o dólar; combo e parcela fora): ${JSON.stringify(p['Ziigaat Arete'])}`,
++      ];
++    },
++  },
++];
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/avaliacao/motor.js augpt/avaliacao/motor.js
+--- a/avaliacao/motor.js	2026-10-10 11:15:47.916400835 -0300
++++ b/avaliacao/motor.js	2026-10-10 11:09:29.883071339 -0300
+@@ -24,6 +24,7 @@
+ /* ------------------------------ servidor falso ------------------------------ */
+ 
+ function servidorFalso({
++  modelosCarregados = [],
+   roteiro = [], redacao = null, destilacao = null, parametros = null, embeddings = false,
+   // resposta da verificação de ambiguidade (item 4): 'suficiente' por padrão,
+   // pra não afetar nenhum caso que não testa isso de propósito — só os casos
+@@ -110,6 +111,18 @@
+       res.setHeader('Content-Type', 'application/json');
+       return res.end('{"version":"falso"}');
+     }
++    // 2026-10-10: quadro de modelos (GET /api/ps) e roteador (POST
++    // /v1/systemone) não são chamadas de modelo — sem isto caíam no roteiro
++    // e consumiam um passo. /v1/systemone responde 404, como um Ollama
++    // anterior à 0.35 (o caso que quer um decisor troca `ollama.decidir`).
++    if (/\/api\/ps/.test(req.url)) {
++      res.setHeader('Content-Type', 'application/json');
++      return res.end(JSON.stringify({ models: modelosCarregados }));
++    }
++    if (/\/v1\/systemone/.test(req.url)) {
++      res.writeHead(404, { 'Content-Type': 'application/json' });
++      return res.end('{"error":"404 page not found"}');
++    }
+     // revisão v5: o agente consulta as capacidades do modelo (POST /api/show)
+     // no início — não é chamada de modelo, não entra na contagem
+     if (/\/api\/show/.test(req.url)) {
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/docs/ARQUITETURA.md augpt/docs/ARQUITETURA.md
+--- a/docs/ARQUITETURA.md	2026-10-10 11:15:47.917838971 -0300
++++ b/docs/ARQUITETURA.md	2026-10-10 11:15:14.928013400 -0300
+@@ -686,6 +686,19 @@
+ - **Retomada** (`src/agent/retomada.js`): `retomarDe()` só repassava o checklist. Agora páginas baixadas (`tools/web.js: lerComCache`) e destilações (`destilarLeitura`, chave = objetivo + foco + opção + texto) ficam em `<pasta>/.augpt/retomada/<conversa>.json` e a execução seguinte da mesma conversa, quando a anterior foi interrompida (`tarefaAnterior`), não baixa nem destila de novo. Anterior concluída ou ausente: o arquivo é apagado no início. Tudo expira em 12 h. Só leitura da web pública (`pesquisar_e_ler`, `abrir_pagina`): arquivo do usuário e página do navegador do app não vão para o disco por este caminho. A busca em si continua sendo refeita (é barata). `retomarLeituras: false` desliga. Registro: `retomada.disponiveis`, `paginasUsadas`, `destilacoesUsadas`.
+ - **Erro temporário × definitivo** (`src/tools/erros.js`): `buscar_web`, `abrir_pagina` e `pesquisar_e_ler` ganham UMA nova tentativa quando a falha é rápida e passageira (HTTP 429/5xx, conexão derrubada) e a primeira tentativa levou menos de 8 s. Timeout e "nenhum provedor de busca respondeu" não repetem: a primeira versão repetia e a bancada foi de 16 s para 293 s. Erro definitivo (404, 403, endereço bloqueado, arquivo inexistente) volta ao modelo com a marca "erro definitivo: repetir a mesma chamada não adianta", e a `Tarefa` bloqueia a mesma assinatura. Escrever, executar e agir em site nunca são repetidos.
+ 
++## Diagnóstico e qualidade (10/10/2026, segunda rodada)
++
++Casos em `avaliacao/casos/modelos-e-acionamentos.js` e `qualidade-recomendacao.js`.
++
++- **IAs auxiliares no relatório**: o registro guarda `acionamentos` — linha do tempo, com o passo, de cada vez que o roteador (Tev1) respondeu (e se trocou a regra) e de cada consulta ao crítico/copiloto (origem, modelo dedicado ou principal, falha). Aparece no relatório da execução ("IAS AUXILIARES ACIONADAS") e na janela Visualizar Execuções.
++- **Onde cada modelo roda** (`src/modelos-carregados.js`): a partir do `/api/ps` do Ollama, um quadro por papel da configuração (principal, decisão, redação, memória/embedding, roteador, copiloto dedicado) com GPU, CPU ou dividido (% na GPU) e onde deveria estar (principal e embedding na GPU; Tev1 e copiloto na CPU). Botão "modelos" na barra superior (verde = tudo no lugar, âmbar = algum fora) abre o quadro; o fim de cada execução concluída grava uma foto do quadro no registro (`modelosNaExecucao`). A bancada responde `/api/ps` e `/v1/systemone` no Ollama falso, para essas consultas não consumirem passo do roteiro.
++- **Resposta de recomendação** (itens do diagnóstico que a revisão v6 não cobria):
++  - o modelo recebe, por produto, o que o material diz (trecho/veredito, preço, crítica) em vez da lista de critérios com evidência; `lerFrases` recusa frase com "entrou devido" ou com 3+ nomes de critério (a frase-formulário) e o código põe a frase da evidência;
++  - **Preço observado** por opção (`motor-pesquisa.precosDasOpcoes`): frase que cita a opção e nenhuma outra, parcela fora, real com preferência e dólar quando não há real;
++  - **Limitações** por opção: crítica de usuário (que sai de "O que os usuários dizem"), critério em que as fontes discordam e critério de peso alto sem evidência; sem nada disso, a resposta diz que o material não trouxe pontos fracos;
++  - **Qual escolher** explica por que o 1º ficou na frente do 2º (recomendações, critérios com 2+ fontes, críticas) e aponta o mais barato quando 2+ opções têm preço;
++  - a **tabela** mostra o veredito curto em português ou quanto o material sustenta ("2+ fontes a favor", "1 fonte", "fontes discordam"), nunca o começo de um trecho em inglês.
++
+ ## Quando a pesquisa não acha
+ 
+ Nem toda pergunta tem página na web. Perguntas conceituais ("X consegue fazer Y?") costumam voltar com material sobre assunto vizinho, e o risco é o agente montar uma resposta plausível que não responde nada.
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/electron/main.js augpt/electron/main.js
+--- a/electron/main.js	2026-10-10 11:15:47.885688621 -0300
++++ b/electron/main.js	2026-10-10 11:07:36.315693624 -0300
+@@ -7,6 +7,7 @@
+ 
+ const { Config } = require('../src/config');
+ const ollama = require('../src/llm/ollama');
++const { montarQuadroDeModelos } = require('../src/modelos-carregados');
+ const { Agent } = require('../src/agent/loop');
+ const { Sandbox, podeAbrirComAppPadrao } = require('../src/tools/sandbox');
+ const { Memory } = require('../src/agent/memory');
+@@ -622,6 +623,20 @@
+   }
+ });
+ 
++/**
++ * Quadro "onde está rodando cada modelo" (2026-10-10): GPU, CPU ou
++ * dividido, por papel da configuração (principal, embedding, Tev1,
++ * copiloto). Ver src/modelos-carregados.js.
++ */
++ipcMain.handle('ollama:modelosCarregados', async () => {
++  try {
++    const carregados = await ollama.psModels(config.data.host);
++    return { ok: true, linhas: montarQuadroDeModelos({ config: config.data, carregados }) };
++  } catch (err) {
++    return { ok: false, erro: err.message, linhas: montarQuadroDeModelos({ config: config.data, carregados: [] }) };
++  }
++});
++
+ ipcMain.handle('workspace:choose', async () => {
+   const r = await dialog.showOpenDialog(win, {
+     title: 'Escolher pasta de trabalho do agente',
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/electron/preload.js augpt/electron/preload.js
+--- a/electron/preload.js	2026-10-10 11:15:47.885753068 -0300
++++ b/electron/preload.js	2026-10-10 11:07:36.316029097 -0300
+@@ -20,6 +20,7 @@
+     iniciar: (lembrar) => ipcRenderer.invoke('ollama:iniciar', { lembrar }),
+     pull: (nome) => ipcRenderer.invoke('ollama:pull', { nome }),
+     copilotoStatus: () => ipcRenderer.invoke('ollama:copilotoStatus'),
++    modelosCarregados: () => ipcRenderer.invoke('ollama:modelosCarregados'),
+     maxModelosCarregados: () => ipcRenderer.invoke('ollama:maxModelosCarregados'),
+     definirMaxModelosCarregados: (valor) => ipcRenderer.invoke('ollama:definirMaxModelosCarregados', { valor }),
+     confirmarReinicioMaxModelos: () => ipcRenderer.invoke('ollama:confirmarReinicioMaxModelos'),
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/renderer/app.js augpt/renderer/app.js
+--- a/renderer/app.js	2026-10-10 11:15:47.918225826 -0300
++++ b/renderer/app.js	2026-10-10 11:08:34.350521403 -0300
+@@ -2077,6 +2077,7 @@
+   if (saude.online) {
+     await carregarModelos();
+     await carregarStatusCopiloto();
++    await carregarBadgeModelos();
+   }
+   // Fase 2: o guia de primeira execução se atualiza sozinho quando o Ollama
+   // liga ou desliga — sem rodar o diagnóstico a cada 20 s (ele procura o
+@@ -2135,6 +2136,72 @@
+   }
+ }
+ 
++/**
++ * Quadro "onde cada modelo está rodando" (pedido do Davi, 2026-10-10) —
++ * botão #btnModelos na barra superior: verde quando todo modelo carregado
++ * está onde deveria (principal/embedding na GPU, Tev1/copiloto na CPU),
++ * âmbar quando algum está fora do lugar. Atualizado junto com a saúde do
++ * Ollama (polling de 20 s) e ao abrir a janela.
++ */
++const SITUACAO_MODELO = { ok: 'onde deveria', atencao: 'fora do lugar', ocioso: 'não carregado', outro: 'fora da configuração' };
++
++async function carregarBadgeModelos() {
++  const botao = $('btnModelos');
++  if (!botao) return null;
++  let r;
++  try {
++    r = await api.ollama.modelosCarregados();
++  } catch {
++    return null;
++  }
++  const linhas = r?.linhas || [];
++  const carregados = linhas.filter((l) => l.carregado);
++  const atencao = linhas.filter((l) => l.situacao === 'atencao');
++  botao.classList.remove('modelos-ok', 'modelos-atencao');
++  if (atencao.length) botao.classList.add('modelos-atencao');
++  else if (carregados.length) botao.classList.add('modelos-ok');
++  botao.querySelector('span').textContent = carregados.length ? `modelos · ${carregados.length} carregado${carregados.length > 1 ? 's' : ''}` : 'modelos';
++  botao.title = atencao.length
++    ? `Atenção: ${atencao.map((l) => `${l.modelo} (${l.papel}) está na ${l.onde}`).join('; ')}. Clique para ver.`
++    : 'Ver onde cada modelo está rodando (GPU ou CPU)';
++  return r;
++}
++
++function pintarQuadroDeModelos(r) {
++  const corpo = $('dlgModelosCorpo');
++  const linhas = r?.linhas || [];
++  if (!linhas.length) {
++    corpo.innerHTML = `<p class="dica">${r?.ok === false ? `Não consegui consultar o Ollama: ${esc(r.erro || '')}` : 'Nenhum modelo configurado nem carregado.'}</p>`;
++    return;
++  }
++  corpo.innerHTML = `
++    ${r?.ok === false ? `<p class="dica">Não consegui consultar o Ollama (${esc(r.erro || '')}); mostrando só a configuração.</p>` : ''}
++    <table class="tabela-modelos">
++      <thead><tr><th>papel</th><th>modelo</th><th>onde está</th><th>esperado</th><th>situação</th></tr></thead>
++      <tbody>
++        ${linhas
++          .map(
++            (l) => `<tr>
++              <td>${esc(l.papel)}</td>
++              <td>${esc(l.modelo)}${l.tamanhoMB ? ` <span class="dica-linha">${(l.tamanhoMB / 1024).toFixed(1)} GB</span>` : ''}</td>
++              <td>${l.carregado ? `${esc(l.onde)}${l.onde === 'GPU+CPU' ? ` (${l.gpuPct}% na GPU)` : ''}` : '—'}</td>
++              <td>${esc(l.esperado || '—')}</td>
++              <td class="situacao-${esc(l.situacao)}">${esc(SITUACAO_MODELO[l.situacao] || l.situacao)}${l.dica ? `<div class="dica-linha">${esc(l.dica)}</div>` : ''}</td>
++            </tr>`
++          )
++          .join('')}
++      </tbody>
++    </table>`;
++}
++
++$('btnModelos')?.addEventListener('click', async () => {
++  $('dlgModelosCorpo').innerHTML = '<p class="dica">consultando o Ollama…</p>';
++  $('dlgModelos').showModal();
++  pintarQuadroDeModelos(await carregarBadgeModelos());
++});
++$('btnAtualizarModelos')?.addEventListener('click', async () => pintarQuadroDeModelos(await carregarBadgeModelos()));
++$('btnFecharModelos')?.addEventListener('click', () => $('dlgModelos').close());
++
+ function rotuloDoModelo(nome, pensa) {
+   return pensa ? `${nome} · pensa antes de responder (lento)` : nome;
+ }
+@@ -3650,6 +3717,17 @@
+   }
+ }
+ 
++const ROTULO_FONTE_ROTA = { regra: 'regras', decisor: 'modelo de decisão (trocou a regra)', 'regra+decisor': 'regras, confirmadas pelo modelo de decisão' };
++
++/** Mesmo texto de src/modelos-carregados.js (resumoDoQuadro) — o renderer não faz require. */
++function resumoDosModelos(linhas = []) {
++  return linhas.map((l) => {
++    const onde = l.carregado ? `${l.onde}${l.onde === 'GPU+CPU' ? ` (${l.gpuPct}% na GPU)` : ''}` : 'não carregado';
++    const marca = l.situacao === 'ok' ? '✓' : l.situacao === 'atencao' ? '⚠' : '·';
++    return `${marca} ${l.papel}: ${l.modelo} — ${onde}${l.esperado ? ` (esperado: ${l.esperado})` : ''}`;
++  });
++}
++
+ /** Relatório detalhado de uma execução, no formato de laudo. */
+ async function abrirRelatorio(id) {
+   const r = await api.runs.read(id);
+@@ -3699,7 +3777,9 @@
+         )
+       : ['  nenhuma']),
+     ...(r.statusDaTarefa ? ['', `STATUS DA TAREFA: ${r.statusDaTarefa.status}${r.statusDaTarefa.motivos?.length ? ` — ${r.statusDaTarefa.motivos.join('; ')}` : ''}`] : []),
+-    ...(r.tipoDePedido ? ['', `TIPO DE PEDIDO: ${r.tipoDePedido.tipo} (${r.tipoDePedido.motivo || ''})`] : []),
++    ...(r.tipoDePedido
++      ? ['', `TIPO DE PEDIDO: ${r.tipoDePedido.tipo} (${r.tipoDePedido.motivo || ''})${r.tipoDePedido.fonte ? ` · decidido por: ${ROTULO_FONTE_ROTA[r.tipoDePedido.fonte] || r.tipoDePedido.fonte}` : ''}`]
++      : []),
+     ...(r.assuntoDaConversa ? [`ASSUNTO DA CONVERSA: ${r.assuntoDaConversa.motivo || ''}`] : []),
+     ...(r.planoInicial?.length ? ['', 'PLANO INICIAL', ...r.planoInicial.map((p) => `  - ${p}`)] : []),
+     ...(r.checklist?.length ? ['', 'CHECKLIST (estado final)', ...r.checklist.map((i) => `  [${i.status === 'feito' ? 'x' : ' '}] ${i.texto}`)] : []),
+@@ -3735,6 +3815,18 @@
+     // linha de origem vem do evento 'copiloto-consulta' (ver
+     // Agent._perguntarAoCritico, loop.js) — é a contagem real de chamadas,
+     // não uma estimativa.
++    // Pedido do Davi (2026-10-10): ver QUANDO o Tev1 e o crítico entraram,
++    // e onde cada modelo estava rodando (GPU/CPU) no fim da execução.
++    'IAS AUXILIARES ACIONADAS (em ordem)',
++    ...(r.acionamentos?.length
++      ? r.acionamentos.map(
++          (a) => `  ${a.ok === false ? '✗' : '•'} passo ${a.n} · ${a.quem}${a.modelo ? ` (${a.modelo})` : ''}: ${a.detalhe}${typeof a.ms === 'number' ? ` · ${a.ms} ms` : ''}`
++        )
++      : ['  nenhuma (roteador desligado e nenhuma consulta ao crítico), ou execução anterior a esta versão']),
++    '',
++    'ONDE CADA MODELO ESTAVA NO FIM DA EXECUÇÃO',
++    ...(r.modelosNaExecucao?.length ? resumoDosModelos(r.modelosNaExecucao).map((l) => `  ${l}`) : ['  não registrado (execução sem conclusão normal, ou anterior a esta versão)']),
++    '',
+     'COPILOTO ("2 IAs") — CONSULTAS AO CRÍTICO',
+     ...(r.copiloto?.consultas
+       ? [
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/renderer/execucoes.css augpt/renderer/execucoes.css
+--- a/renderer/execucoes.css	2026-10-10 11:15:47.913055742 -0300
++++ b/renderer/execucoes.css	2026-10-10 11:08:50.055066794 -0300
+@@ -113,3 +113,8 @@
+ 
+ /* --------------------------- coluna 3: tendência --------------------------- */
+ .exec-col-tendencia .exec-col-rolagem { padding: 16px; }
++
++/* IAs auxiliares e modelos (2026-10-10) */
++.exec-lista { margin: 6px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.6; }
++.exec-lista li.ruim { color: var(--amber, #d9822e); }
++.exec-dica-inline { color: var(--muted, #86868c); font-size: 11px; }
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/renderer/execucoes.js augpt/renderer/execucoes.js
+--- a/renderer/execucoes.js	2026-10-10 11:15:47.913022780 -0300
++++ b/renderer/execucoes.js	2026-10-10 11:08:50.054545046 -0300
+@@ -190,6 +190,33 @@
+     </div>
+ 
+     <div class="exec-secao">
++      <h3>IAs auxiliares acionadas</h3>
++      ${
++        r.acionamentos?.length
++          ? `<ul class="exec-lista">${r.acionamentos
++              .map((a) => `<li class="${a.ok === false ? 'ruim' : ''}"><b>passo ${a.n} · ${esc(a.quem)}</b>${a.modelo ? ` (${esc(a.modelo)})` : ''}: ${esc(a.detalhe)}${typeof a.ms === 'number' ? ` · ${a.ms} ms` : ''}</li>`)
++              .join('')}</ul>`
++          : '<p class="exec-dica">Nenhuma nesta execução (roteador desligado e nenhuma consulta ao crítico), ou execução anterior a esta versão.</p>'
++      }
++    </div>
++
++    <div class="exec-secao">
++      <h3>Onde cada modelo estava no fim</h3>
++      ${
++        r.modelosNaExecucao?.length
++          ? `<ul class="exec-lista">${r.modelosNaExecucao
++              .map(
++                (l) =>
++                  `<li class="${l.situacao === 'atencao' ? 'ruim' : ''}"><b>${esc(l.papel)}</b>: ${esc(l.modelo)} — ${
++                    l.carregado ? `${esc(l.onde)}${l.onde === 'GPU+CPU' ? ` (${l.gpuPct}% na GPU)` : ''}` : 'não carregado'
++                  }${l.esperado ? ` <span class="exec-dica-inline">(esperado: ${esc(l.esperado)})</span>` : ''}</li>`
++              )
++              .join('')}</ul>`
++          : '<p class="exec-dica">Não registrado (execução sem conclusão normal, ou anterior a esta versão).</p>'
++      }
++    </div>
++
++    <div class="exec-secao">
+       <h3>Qual parte do raciocínio levou mais tempo</h3>
+       ${fases.length ? `<div class="exec-grafico-resumo">fase mais cara: <b>${esc(rotulo1(fases))}</b> (${ms(fases[0].duracaoMs)} em ${fases[0].chamadas} chamada(s))</div>` : ''}
+       <div class="exec-grafico-slot" id="execGraficoFaseTempo"></div>
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/renderer/index.html augpt/renderer/index.html
+--- a/renderer/index.html	2026-10-10 11:15:47.918642189 -0300
++++ b/renderer/index.html	2026-10-10 11:08:34.346896649 -0300
+@@ -35,6 +35,13 @@
+     <div class="status" id="statusCopiloto" title="Estado do Copiloto (2ª IA)" hidden>
+       <i class="ponto"></i><span>copiloto</span>
+     </div>
++
++    <!-- Onde cada modelo está rodando agora (GPU, CPU ou dividido) — pedido
++         do Davi, 2026-10-10. Verde: tudo onde deveria; âmbar: algum fora do
++         lugar. Clique abre o quadro (ollama:modelosCarregados). -->
++    <button type="button" class="status status-botao" id="btnModelos" title="Ver onde cada modelo está rodando (GPU ou CPU)">
++      <i class="ponto"></i><span>modelos</span>
++    </button>
+   </div>
+ 
+   <div class="divisor-barra"></div>
+@@ -808,6 +815,18 @@
+   </aside>
+ </main>
+ 
++<dialog id="dlgModelos">
++  <div class="dialogo dialogo-modelos">
++    <h2>Onde cada modelo está rodando agora</h2>
++    <p class="dica">O modelo principal e o de memória (nomic-embed-text) deveriam estar na <b>GPU</b>; o roteador (Tev1) e o copiloto dedicado, na <b>CPU</b>, pra não disputar a placa de vídeo. "Não carregado" é normal: o Ollama carrega o modelo na primeira chamada e descarrega depois de alguns minutos parado.</p>
++    <div id="dlgModelosCorpo"></div>
++    <footer>
++      <button class="btn-secundario" id="btnAtualizarModelos">Atualizar</button>
++      <button class="btn-primario" id="btnFecharModelos">Fechar</button>
++    </footer>
++  </div>
++</dialog>
++
+ <dialog id="dlgSkill">
+   <div class="dialogo">
+     <h2 id="dlgSkillNome">Skill</h2>
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/renderer/styles.css augpt/renderer/styles.css
+--- a/renderer/styles.css	2026-10-10 11:15:47.913072659 -0300
++++ b/renderer/styles.css	2026-10-10 11:08:34.347771694 -0300
+@@ -1311,3 +1311,19 @@
+ .modo-resposta select:hover { color: var(--amber); }
+ .modo-resposta select:focus { outline: none; color: var(--amber); }
+ .composer-rodape { gap: 14px; }
++
++/* Quadro de modelos (GPU/CPU) — botão na barra superior e janela, 2026-10-10 */
++.status-botao { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
++.status-botao:hover span { color: var(--text-forte); }
++.status.modelos-ok .ponto { background: var(--green); box-shadow: 0 0 0 3px rgba(69, 200, 120, 0.14); }
++.status.modelos-ok span { color: var(--green); }
++.status.modelos-atencao .ponto { background: var(--amber); box-shadow: 0 0 0 3px rgba(217, 130, 46, 0.14); }
++.status.modelos-atencao span { color: var(--amber); }
++.dialogo-modelos { width: min(760px, 92vw); }
++.tabela-modelos { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 14px; }
++.tabela-modelos th { text-align: left; font-weight: 400; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line-forte); }
++.tabela-modelos td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
++.tabela-modelos .situacao-ok { color: var(--green); }
++.tabela-modelos .situacao-atencao { color: var(--amber); }
++.tabela-modelos .situacao-ocioso, .tabela-modelos .situacao-outro { color: var(--muted); }
++.tabela-modelos .dica-linha { color: var(--muted); font-size: 11px; margin-top: 3px; }
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/src/agent/compositor.js augpt/src/agent/compositor.js
+--- a/src/agent/compositor.js	2026-10-10 11:15:47.743165249 -0300
++++ b/src/agent/compositor.js	2026-10-10 11:13:00.022564976 -0300
+@@ -70,7 +70,8 @@
+     return lista.slice(0, 10);
+   }
+   for (const f of r.finalistas || []) {
+-    for (const c of (f.consenso?.citacoes || []).slice(0, 2)) {
++    // as citações que a montagem mostra: até 2 a favor + a crítica (em "Limitações")
++    for (const c of citacoesMostradas(f)) {
+       if (!emIngles(c.texto) || vistos.has(c.texto)) continue;
+       vistos.add(c.texto);
+       lista.push(c);
+@@ -80,18 +81,45 @@
+ }
+ const indiceDaTraducao = (traducoes, c) => traducoes.findIndex((x) => x === c || x.texto === c?.texto);
+ 
++/** Até 2 citações a favor (vão em "O que os usuários dizem") e a crítica, se houver (vai em "Limitações"). */
++function citacoesDoProduto(f) {
++  const todas = f.consenso?.citacoes || [];
++  return { aFavor: todas.filter((c) => c.tom !== 'critica').slice(0, 2), critica: todas.find((c) => c.tom === 'critica') || null };
++}
++function citacoesMostradas(f) {
++  const { aFavor, critica } = citacoesDoProduto(f);
++  return critica ? [...aFavor, critica] : aFavor;
++}
++
++/** "R$ 389" · "R$ 350 a R$ 420 (mediana de 4 preços)" · "US$ 120 (em dólar…)". */
++function textoDoPreco(p) {
++  if (!p) return '';
++  const fmt = (v) => `${p.moeda === 'BRL' ? 'R$' : 'US$'} ${Math.round(v).toLocaleString('pt-BR')}`;
++  const faixa = p.n > 1 && p.max > p.min ? `${fmt(p.min)} a ${fmt(p.max)} (mediana ${fmt(p.mediana)}, ${p.n} preços nas páginas lidas)` : `${fmt(p.mediana)} (${p.n > 1 ? `${p.n} preços` : '1 preço'} nas páginas lidas)`;
++  return p.moeda === 'USD' ? `${faixa} — em dólar; o material não trouxe preço em real` : faixa;
++}
++
+ /** Fatos compactos de cada produto (o que o modelo pode usar numa frase). */
+ function fatosDoProduto(f, r) {
+   const partes = [];
+   const k = f.consenso || {};
+   if (k.topicos) partes.push(`recomendado em ${k.topicos} tópico(s) da comunidade`);
+   if (k.criticas) partes.push(`${k.criticas} crítica(s)`);
+-  const fortes = Object.entries(f.status || {}).filter(([, st]) => st === 'corroborado' || st === 'fonte única').map(([c]) => c);
+-  if (fortes.length) partes.push(`evidência a favor em: ${fortes.join(', ')}`);
+-  const celulas = (r.plano?.criterios || []).map((c) => r.matriz?.celula?.(f.nome, c.nome)).filter((c) => c?.veredito).map((c) => c.veredito);
+-  if (celulas.length) partes.push(`o material diz: ${celulas.slice(0, 3).join('; ')}`);
+-  const cit = (k.citacoes || [])[0];
+-  if (cit) partes.push(`um usuário disse: "${curto(cit.texto, 160)}"`);
++  // Diagnóstico de 10/10: com a lista de critérios "com evidência" aqui, o 7B
++  // devolvia a lista ("entrou devido à sua excelente passos e posicionamento,
++  // palco sonoro…") para TODOS os produtos. O modelo recebe o que o material
++  // diz de cada um — o trecho, não o rótulo; a lista de critérios já está na tabela.
++  const ditos = (r.plano?.criterios || [])
++    .map((c) => ({ c, cel: r.livro?.celula?.(f.nome, c.nome) || r.matriz?.celula?.(f.nome, c.nome) }))
++    .filter(({ cel }) => cel?.dominios?.size && (cel.veredito || cel.trechos?.[0]?.texto))
++    .slice(0, 3)
++    .map(({ c, cel }) => `${c.nome}: "${curto(cel.veredito || cel.trechos[0].texto, 140)}"`);
++  if (ditos.length) partes.push(`o material diz — ${ditos.join('; ')}`);
++  const preco = r.precos?.[f.nome];
++  if (preco) partes.push(`preço observado: ${textoDoPreco(preco)}`);
++  const { aFavor, critica } = citacoesDoProduto(f);
++  if (aFavor[0]) partes.push(`um usuário disse: "${curto(aFavor[0].texto, 160)}"`);
++  if (critica) partes.push(`crítica de um usuário: "${curto(critica.texto, 160)}"`);
+   return partes.join(' | ') || 'pouca evidência';
+ }
+ 
+@@ -193,7 +221,7 @@
+ ${citacoes.map((_, i) => `C${i + 1}: <tradução>`).join('\n')}`.replace(/\n{3,}/g, '\n\n');
+   }
+   const finalistas = r.finalistas || [];
+-  return `Você escreve frases curtas em português para uma resposta que o sistema já montou (a ordem e as opções já estão decididas). NÃO invente dado, número, preço ou nota: use só os fatos abaixo.
++  return `Você escreve frases curtas em português para uma resposta que o sistema já montou (a ordem e as opções já estão decididas). NÃO invente dado, número, preço ou nota: use só os fatos abaixo. Cada produto tem fatos diferentes: escreva frases diferentes para cada um, sem começar todas do mesmo jeito, sem repetir a lista de critérios e sem "excelente" que o fato não mostre.
+ 
+ PEDIDO: ${objetivo}
+ USO: ${r.plano?.uso || ''}
+@@ -206,7 +234,7 @@
+       ? `DIRETA: <2 frases: responda a pergunta sobre o ${finalistas[0]?.nome} — serve ou não para esse uso, e com que ressalvas —, só com os fatos dele>`
+       : `DIRETA: <2 frases: recomende ${finalistas[0]?.nome || 'a 1ª opção'} e diga por quê, com os fatos dela>`
+   }
+-${finalistas.map((f) => `${f.nome}: <1 frase: por que esta opção entrou, com os fatos dela>`).join('\n')}
++${finalistas.map((f) => `${f.nome}: <2 frases: o que o material diz de concreto sobre ele (um fato da linha dele) e, se a linha tiver crítica, a principal ressalva>`).join('\n')}
+ ${citacoes.map((_, i) => `C${i + 1}: <tradução>`).join('\n')}`.replace(/\n{3,}/g, '\n\n');
+ }
+ 
+@@ -215,7 +243,7 @@
+  * fatos, que é longa demais ou que fala de outro produto da lista é
+  * descartada (o código põe a frase-padrão).
+  */
+-function lerFrases(texto, { produtos = [], numerosPermitidos = '' } = {}) {
++function lerFrases(texto, { produtos = [], numerosPermitidos = '', criterios = [] } = {}) {
+   const saida = new Map();
+   const permitidos = new Set((String(numerosPermitidos).match(/\d+(?:[.,]\d+)?/g) || []).map((n) => n.replace(',', '.')));
+   for (const bruta of String(texto || '').split('\n')) {
+@@ -230,6 +258,11 @@
+     // frase de um produto que fala de OUTRO produto da lista
+     const outro = produtos.find((p) => normalizar(p) !== normalizar(chave) && normalizar(frase).includes(normalizar(p)));
+     if (produtos.some((p) => normalizar(p) === normalizar(chave)) && outro) continue;
++    // frase-formulário (diagnóstico de 10/10): "entrou devido à sua excelente
++    // passos, palco sonoro, separação…" — 3+ critérios numa frase é a lista
++    // repetida, não um fato; sai e o código põe a frase feita da evidência
++    const nf = normalizar(frase);
++    if (/entrou devido|entrou por causa/.test(nf) || criterios.filter((c) => normalizar(c) && nf.includes(normalizar(c))).length >= 3) continue;
+     frase = frase.replace(/\s+/g, ' ');
+     if (!saida.has(chave.toUpperCase())) saida.set(chave.toUpperCase(), frase);
+   }
+@@ -272,6 +305,52 @@
+   return `${base}.`;
+ }
+ 
++/** Rótulo curto da célula da tabela quando não há veredito em português. */
++const ROTULO_CELULA = { corroborado: '2+ fontes a favor', 'fonte única': '1 fonte', contraditório: 'fontes discordam', indireto: 'deduzido', 'sem dados': 'sem dados', 'não se aplica': '—' };
++
++/**
++ * Limitações de cada opção (diagnóstico de 10/10: o pedido pedia "vantagens e
++ * limitações" e a resposta não tinha nenhuma). Só do material: a crítica de
++ * um usuário, critério em que as fontes discordam e critério de peso alto sem
++ * evidência. Sem nada disso, a resposta diz que o material não trouxe — não
++ * inventa ponto fraco.
++ */
++function linhasDeLimitacoes(f, criterios, critica, traducaoDe) {
++  const itens = [];
++  const discordam = criterios.filter((k) => f.status?.[k.nome] === 'contraditório').map((k) => k.nome);
++  if (discordam.length) itens.push(`as fontes discordam sobre ${discordam.join(', ')}`);
++  const semAlto = criterios.filter((k) => k.peso === 'alto' && (f.status?.[k.nome] || 'sem dados') === 'sem dados').map((k) => k.nome);
++  if (semAlto.length) itens.push(`sem evidência sobre ${semAlto.join(', ')}, que pesa muito para esse uso`);
++  if (!itens.length && !critica) return ['- **Limitações:** o material lido não trouxe críticas nem pontos fracos deste modelo.'];
++  const linhas = [`- **Limitações:** ${itens.length ? `${itens.join('; ')}.` : 'a crítica abaixo é a única que apareceu no material.'}`];
++  if (critica) linhas.push(`  ${citacaoFormatada(critica, traducaoDe(critica))}`);
++  return linhas;
++}
++
++/** Por que o 1º ficou na frente do 2º, pelos números que decidem a ordem. */
++function porQueNaFrente(a, b, criterios) {
++  if (!b) return 'a única opção com respaldo suficiente no material';
++  const fortes = (f) => criterios.filter((k) => f.status?.[k.nome] === 'corroborado').length;
++  const ka = a.consenso || {};
++  const kb = b.consenso || {};
++  const razoes = [];
++  if ((ka.topicos || 0) > (kb.topicos || 0)) razoes.push(`mais recomendações na comunidade (${ka.topicos} tópico${ka.topicos === 1 ? '' : 's'} contra ${kb.topicos || 0})`);
++  if (fortes(a) > fortes(b)) razoes.push(`evidência de 2+ fontes em mais critérios (${fortes(a)} contra ${fortes(b)})`);
++  if ((ka.criticas || 0) < (kb.criticas || 0)) razoes.push(`menos críticas (${ka.criticas || 0} contra ${kb.criticas})`);
++  if (!razoes.length) return `ficou à frente do ${b.nome} por pouco — no material, os dois estão praticamente empatados`;
++  return `ficou à frente do ${b.nome} por ter ${razoes.join(' e ')}`;
++}
++
++/** A opção mais barata, só quando 2+ opções têm preço na mesma moeda. */
++function opcaoMaisBarata(finalistas, precos) {
++  if (!precos) return null;
++  for (const moeda of ['BRL', 'USD']) {
++    const com = finalistas.map((f) => ({ f, p: precos[f.nome] })).filter((x) => x.p?.moeda === moeda);
++    if (com.length >= 2) return com.sort((x, y) => x.p.mediana - y.p.mediana)[0];
++  }
++  return null;
++}
++
+ function montarRecomendacao(r, frases = new Map()) {
+   const finalistas = r.finalistas || [];
+   const criterios = r.plano?.criterios || [];
+@@ -297,12 +376,14 @@
+   finalistas.forEach((f, i) => {
+     partes.push('', `#### ${i + 1}. ${f.nome}`);
+     partes.push(frases.get(f.nome.toUpperCase()) || fraseRecomendacaoPadrao(f, r));
++    if (r.precos?.[f.nome]) partes.push(`- **Preço observado:** ${textoDoPreco(r.precos[f.nome])}`);
+     partes.push(`- **Comunidade:** ${respaldoCurto(f)}.`);
+-    const cits = (f.consenso?.citacoes || []).slice(0, 2);
+-    if (cits.length) {
++    const { aFavor, critica } = citacoesDoProduto(f);
++    if (aFavor.length) {
+       partes.push('- **O que os usuários dizem:**');
+-      for (const c of cits) partes.push(`  ${citacaoFormatada(c, traducaoDe(c))}`);
++      for (const c of aFavor) partes.push(`  ${citacaoFormatada(c, traducaoDe(c))}`);
+     }
++    partes.push(...linhasDeLimitacoes(f, criterios, critica, traducaoDe));
+     const resumo = r.matriz?.resumos?.get?.(f.nome) || {};
+     if (resumo.ficha?.texto) partes.push(`- **Ficha:** ${curto(resumo.ficha.texto, 200)}`);
+     const status = criterios
+@@ -314,10 +395,16 @@
+   // tabela curta: o que o material diz de cada opção em cada critério
+   if (finalistas.length >= 2 && criterios.length) {
+     // Etapa I: a tabela é uma visão do livro de evidências (com a matriz de reserva)
++    // diagnóstico de 10/10: a célula mostrava o começo de um trecho em inglês
++    // ("- [1 votos] Waiting for my simgot eg280 I have…"), que não diz nada.
++    // Agora: o veredito curto quando existe e está em português; senão, quanto
++    // o material sustenta (o trecho inteiro continua no bloco de cada produto).
+     const cel = (f, k) => {
+       const c = r.livro?.celula?.(f.nome, k.nome) || r.matriz?.celula?.(f.nome, k.nome);
+       if (!c?.dominios?.size) return 'sem dados';
+-      return curto(c.veredito || c.trechos?.[0]?.texto || 'citado', 48).replace(/\|/g, '/');
++      if (c.veredito && !emIngles(c.veredito) && c.veredito.length <= 60) return c.veredito.replace(/\|/g, '/');
++      const st = f.status?.[k.nome] || (c.dominios.size >= 2 ? 'corroborado' : 'fonte única');
++      return ROTULO_CELULA[st] || ROTULO_STATUS[st] || st;
+     };
+     partes.push('', '### Tabela', `| Critério | ${finalistas.map((f) => f.nome).join(' | ')} |`, `|---|${finalistas.map(() => '---').join('|')}|`);
+     for (const k of criterios) partes.push(`| ${k.nome} | ${finalistas.map((f) => cel(f, k)).join(' | ')} |`);
+@@ -325,10 +412,12 @@
+ 
+   // qual escolher: só cenário com opção diferente e com motivo
+   const cenarios = [];
+-  if (topo) cenarios.push(`- **Melhor no geral:** ${topo.nome} — a mais bem colocada na evidência.`);
++  if (topo) cenarios.push(`- **Melhor no geral:** ${topo.nome} — ${porQueNaFrente(topo, finalistas[1], criterios)}.`);
+   const maisRecomendado = [...finalistas].sort((a, b) => (b.consenso?.topicos || 0) - (a.consenso?.topicos || 0))[0];
+   if (maisRecomendado && maisRecomendado !== topo && maisRecomendado.consenso?.topicos) cenarios.push(`- **Mais recomendado pela comunidade:** ${maisRecomendado.nome} — ${respaldoCurto(maisRecomendado)}.`);
+-  const preco = criterios.find((k) => /pre[cç]o|custo/i.test(k.nome));
++  const maisBarato = opcaoMaisBarata(finalistas, r.precos);
++  if (maisBarato && maisBarato.f !== topo) cenarios.push(`- **Pelo preço:** ${maisBarato.f.nome} — o menor preço observado entre as opções (${textoDoPreco(maisBarato.p)}).`);
++  const preco = maisBarato ? null : criterios.find((k) => /pre[cç]o|custo/i.test(k.nome));
+   if (preco) {
+     const barato = finalistas.find((f) => f !== topo && ['corroborado', 'fonte única'].includes(f.status?.[preco.nome]));
+     if (barato) cenarios.push(`- **Pelo preço:** ${barato.nome} — ${curto(r.matriz?.celula?.(barato.nome, preco.nome)?.veredito || 'o material destaca o preço', 90)}.`);
+@@ -466,4 +555,4 @@
+   return montarRecomendacao(r, frases);
+ }
+ 
+-module.exports = { pedidoDeFrases, lerFrases, montar, montarRecomendacao, montarDesempenho, montarUso, montarGuia, numerosDaComposicao, citacoesParaTraduzir };
++module.exports = { pedidoDeFrases, lerFrases, montar, montarRecomendacao, montarDesempenho, montarUso, montarGuia, numerosDaComposicao, citacoesParaTraduzir, textoDoPreco, porQueNaFrente };
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/src/agent/loop.js augpt/src/agent/loop.js
+--- a/src/agent/loop.js	2026-10-10 11:15:47.919522533 -0300
++++ b/src/agent/loop.js	2026-10-10 11:13:00.027807102 -0300
+@@ -21,6 +21,7 @@
+ const { decidirRota } = require('./roteador');
+ const { Retomada } = require('./retomada');
+ const { classificarErro, anotarErro, comNovaTentativa } = require('../tools/erros');
++const { montarQuadroDeModelos } = require('../modelos-carregados');
+ const { rotuloDoElemento, tipoDoElemento, ACOES_QUE_DEVEM_MUDAR } = require('../tools/navegador');
+ const { segredosDoTexto, mascarar, mascararProfundo } = require('./segredos');
+ const { resolverReferencia } = require('./assunto-da-conversa');
+@@ -2306,6 +2307,7 @@
+         frases = compositor.lerFrases(c.content, {
+           produtos: (r.finalistas || []).map((f) => f.nome),
+           numerosPermitidos: compositor.numerosDaComposicao(r),
++          criterios: (r.plano?.criterios || []).map((k) => k.nome),
+         });
+       } catch (err) {
+         if (!this.rodando) throw err;
+@@ -2558,6 +2560,21 @@
+   }
+ 
+   /**
++   * Onde cada modelo estava no fim da execução (GPU, CPU ou dividido) — vai
++   * pro registro e aparece no relatório (pedido do Davi, 2026-10-10: ver se
++   * o principal e o nomic estão na GPU e o Tev1/copiloto na CPU). Uma
++   * chamada ao /api/ps, com tempo curto; falha não atrapalha nada.
++   */
++  async fotografarModelos() {
++    try {
++      const carregados = await ollama.psModels(this.config.host);
++      this.emit('modelos-na-execucao', { linhas: montarQuadroDeModelos({ config: this.config, carregados }) });
++    } catch {
++      /* Ollama ocupado ou versão sem /api/ps: o relatório só não mostra o quadro */
++    }
++  }
++
++  /**
+    * Roda a ferramenta; leitura que falhou por motivo passageiro tenta de novo
+    * uma vez (tools/erros.js). O erro que sobra sai anotado — definitivo diz
+    * ao modelo que repetir não adianta.
+@@ -3268,6 +3285,7 @@
+     this.memorizar(memory, `Concluído: ${final.slice(0, 600)}`, 'conclusao');
+     this.refletir({ objetivo, operacional: ctx.operacional });
+     await Promise.allSettled(this.aprendizado);
++    await this.fotografarModelos();
+     this.emit('concluido', {
+       resumo: final,
+       resposta: true,
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/src/agent/motor-pesquisa.js augpt/src/agent/motor-pesquisa.js
+--- a/src/agent/motor-pesquisa.js	2026-10-10 11:15:47.920116693 -0300
++++ b/src/agent/motor-pesquisa.js	2026-10-10 11:11:52.400055684 -0300
+@@ -2790,6 +2790,39 @@
+   return r;
+ }
+ 
++/**
++ * Preço observado de cada opção da recomendação (2026-10-10, diagnóstico da
++ * qualidade: a resposta dos 5 IEMs não trazia preço nenhum). Mesma regra de
++ * `precosObservados`: a frase tem que citar a opção e nenhuma outra, e
++ * parcela não conta (`precosDaFrase`). Real tem preferência; sem nenhum
++ * preço em real, vale o em dólar (Reddit, reviews em inglês). Mediana, faixa
++ * e quantos preços entraram — o código mostra, o modelo não inventa.
++ */
++function precosDasOpcoes(entradas, finalistas) {
++  const nomes = finalistas.map((f) => f.nome);
++  const porOpcao = {};
++  for (const nome of nomes) porOpcao[nome] = { BRL: [], USD: [] };
++  for (const e of entradas || []) {
++    if (e.foraDoEscopo) continue;
++    for (const fr of frases(e.bruto || e.texto)) {
++      const n = normalizar(fr);
++      const donos = nomes.filter((nome) => citaNaFrase(n, nome));
++      if (donos.length !== 1) continue;
++      const nome = donos[0];
++      if (falaDeOutroProduto(fr, nome, { nomes: nomes.filter((x) => x !== nome), marcas: new Set() })) continue;
++      for (const pr of precosDaFrase(fr)) porOpcao[nome][pr.moeda].push(pr.valor);
++    }
++  }
++  const saida = {};
++  for (const [nome, moedas] of Object.entries(porOpcao)) {
++    const moeda = moedas.BRL.length ? 'BRL' : moedas.USD.length ? 'USD' : null;
++    if (!moeda) continue;
++    const vs = moedas[moeda];
++    saida[nome] = { moeda, mediana: mediana(vs), min: Math.min(...vs), max: Math.max(...vs), n: vs.length };
++  }
++  return saida;
++}
++
+ async function comparativoDeDesempenho({ objetivo, nivel, rodar, emitir, config, livro, entradas, consultas, buscas }) {
+   const produtos = produtosDoPedido(objetivo).slice(0, 2);
+   const [A, B] = produtos.map((p) => p.nome);
+@@ -3473,6 +3506,7 @@
+     buscas,
+     consultas,
+     entradas,
++    precos: precosDasOpcoes(entradas, finalistas),
+     planoDeResposta: planoDeResposta({ plano, finalistas, outros, matriz, quantidade, mapa, hipoteses, comparacao }),
+     listaNumerada: listaNumerada({ finalistas, outros, quantidade }),
+     resumo: resumoParaDecisao({ plano, finalistas, matriz, buscas }),
+@@ -3480,6 +3514,8 @@
+ }
+ 
+ module.exports = {
++  // 2026-10-10: preço observado por opção da recomendação
++  precosDasOpcoes,
+   // revisão v6
+   nomesNaFrase,
+   falaDeOutroProduto,
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/src/llm/ollama.js augpt/src/llm/ollama.js
+--- a/src/llm/ollama.js	2026-10-10 11:15:47.921276211 -0300
++++ b/src/llm/ollama.js	2026-10-10 11:07:36.305893780 -0300
+@@ -199,6 +199,7 @@
+     name: m.name,
+     size: m.size ?? 0,
+     sizeVram: m.size_vram ?? 0,
++    expiraEm: m.expires_at || null,
+   }));
+ }
+ 
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/src/modelos-carregados.js augpt/src/modelos-carregados.js
+--- a/src/modelos-carregados.js	1969-12-31 21:00:00.000000000 -0300
++++ b/src/modelos-carregados.js	2026-10-10 11:06:44.047815701 -0300
+@@ -0,0 +1,116 @@
++'use strict';
++
++/**
++ * Quadro "onde está rodando cada modelo" (pedido do Davi, 2026-10-10): o
++ * modelo principal e o nomic-embed-text deveriam estar na GPU; o Tev1
++ * (roteador) e o copiloto dedicado, na CPU, pra não disputar a VRAM.
++ *
++ * Fonte: GET /api/ps do Ollama (`ollama.psModels`), que diz, para cada
++ * modelo carregado agora, o tamanho total e quanto está na VRAM —
++ * sizeVram === 0 → 100% CPU; sizeVram === size → 100% GPU; entre os dois →
++ * dividido (não coube inteiro na placa). Função pura: a tela (renderer) e o
++ * registro de cada execução usam a mesma montagem.
++ */
++
++/** "tev1" casa com "tev1:latest"; "qwen2.5:7b" só com ele mesmo. */
++function mesmoModelo(a, b) {
++  const n = (x) => String(x || '').trim().toLowerCase().replace(/:latest$/, '');
++  return Boolean(a && b) && n(a) === n(b);
++}
++
++function ondeEsta(m) {
++  if (!m) return null;
++  const size = Number(m.size) || 0;
++  const vram = Number(m.sizeVram) || 0;
++  if (!size) return { onde: vram ? 'GPU' : 'CPU', gpuPct: vram ? 100 : 0 };
++  const gpuPct = Math.round((vram / size) * 100);
++  if (gpuPct >= 99) return { onde: 'GPU', gpuPct: 100 };
++  if (gpuPct <= 1) return { onde: 'CPU', gpuPct: 0 };
++  return { onde: 'GPU+CPU', gpuPct };
++}
++
++/** Os papéis que a configuração atual usa, com onde cada um DEVERIA rodar. */
++function papeisDaConfig(config = {}) {
++  const papeis = [];
++  const add = (papel, modelo, esperado, nota = '') => {
++    if (!modelo) return;
++    // o mesmo modelo em dois papéis (ex.: decisão = principal) aparece uma vez, com os dois nomes
++    const ja = papeis.find((p) => mesmoModelo(p.modelo, modelo));
++    if (ja) {
++      ja.papel += ` + ${papel}`;
++      return;
++    }
++    papeis.push({ papel, modelo, esperado, nota });
++  };
++  add('principal', config.model, 'GPU');
++  add('decisão', config.modelDecisao, 'GPU');
++  add('redação', config.modelRedacao, 'GPU');
++  add('memória (embedding)', config.embedModel, 'GPU');
++  if (config.roteadorDecisor) add('roteador (Tev1)', config.modeloDecisor || 'tev1', 'CPU', 'use um Modelfile com PARAMETER num_gpu 0 (ex.: tev1-cpu)');
++  if (config.copiloto2Modo === 'doisModelos') add('copiloto dedicado', config.modelCopiloto2, 'CPU');
++  return papeis;
++}
++
++/**
++ * `carregados`: saída de `ollama.psModels`. Devolve uma linha por papel
++ * configurado (carregado ou não) + uma por modelo carregado que nenhum papel
++ * usa (outro programa, ou um modelo trocado nos ajustes).
++ */
++function montarQuadroDeModelos({ config = {}, carregados = [] } = {}) {
++  const linhas = [];
++  const usados = new Set();
++  for (const p of papeisDaConfig(config)) {
++    const m = carregados.find((c) => mesmoModelo(c.name, p.modelo));
++    if (m) usados.add(m.name);
++    const local = ondeEsta(m);
++    let situacao;
++    if (!m) situacao = 'ocioso';
++    else if (local.onde === p.esperado) situacao = 'ok';
++    else situacao = 'atencao';
++    linhas.push({
++      papel: p.papel,
++      modelo: m?.name || p.modelo,
++      carregado: Boolean(m),
++      onde: local?.onde || null,
++      gpuPct: local ? local.gpuPct : null,
++      tamanhoMB: m ? Math.round((Number(m.size) || 0) / 1048576) : null,
++      esperado: p.esperado,
++      situacao,
++      dica:
++        situacao === 'atencao'
++          ? p.esperado === 'CPU'
++            ? `está na ${local.onde}, deveria estar na CPU — ${p.nota || 'carregue com num_gpu 0'}`
++            : `está ${local.onde === 'CPU' ? 'só na CPU' : 'dividido entre GPU e CPU'} — fica bem mais lento; feche outros modelos ou reduza a janela de contexto`
++          : situacao === 'ocioso'
++            ? 'não carregado agora (o Ollama carrega na primeira chamada e descarrega depois de alguns minutos parado)'
++            : '',
++    });
++  }
++  for (const m of carregados) {
++    if (usados.has(m.name)) continue;
++    const local = ondeEsta(m);
++    linhas.push({
++      papel: 'outro',
++      modelo: m.name,
++      carregado: true,
++      onde: local.onde,
++      gpuPct: local.gpuPct,
++      tamanhoMB: Math.round((Number(m.size) || 0) / 1048576),
++      esperado: null,
++      situacao: 'outro',
++      dica: 'carregado, mas não é usado pela configuração atual do AuGPT (ocupa memória)',
++    });
++  }
++  return linhas;
++}
++
++/** Uma linha de texto por modelo, para o relatório da execução. */
++function resumoDoQuadro(linhas = []) {
++  return linhas.map((l) => {
++    const onde = l.carregado ? `${l.onde}${l.onde === 'GPU+CPU' ? ` (${l.gpuPct}% na GPU)` : ''}` : 'não carregado';
++    const marca = l.situacao === 'ok' ? '✓' : l.situacao === 'atencao' ? '⚠' : '·';
++    return `${marca} ${l.papel}: ${l.modelo} — ${onde}${l.esperado ? ` (esperado: ${l.esperado})` : ''}`;
++  });
++}
++
++module.exports = { montarQuadroDeModelos, papeisDaConfig, ondeEsta, mesmoModelo, resumoDoQuadro };
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' '--exclude=node_modules' antes2/src/registro.js augpt/src/registro.js
+--- a/src/registro.js	2026-10-10 11:15:47.921551665 -0300
++++ b/src/registro.js	2026-10-10 11:07:36.313446470 -0300
+@@ -257,7 +257,33 @@
+     // "com 100% de certeza" que Davi pediu: toda consulta REAL ao crítico,
+     // não só as que geraram texto (uma recusa "ok, nenhum problema" também
+     // conta como consulta de verdade, e uma falha de rede também).
++    // Linha do tempo de quando cada IA auxiliar entrou (pedido do Davi,
++    // 2026-10-10): roteador (Tev1) e crítico/copiloto, com o passo em que
++    // aconteceu. O resumo por contagem continua em `copiloto`, acima.
++    const acionar = (item) => {
++      if ((d.acionamentos ||= []).length < 80) d.acionamentos.push({ n: agente.iteracao || 0, ...item });
++    };
++    agente.on('tipo-de-pedido', (e) => {
++      if (e?.decisor) {
++        acionar({
++          quem: 'roteador',
++          modelo: e.decisor.modelo,
++          detalhe: `respondeu "${e.decisor.valor}" (confiança ${typeof e.decisor.confianca === 'number' ? e.decisor.confianca.toFixed(2) : '?'}) — ${e.fonte === 'decisor' ? `trocou a regra ("${e.tipoDaRegra}" → "${e.tipo}")` : 'a regra foi mantida'}`,
++          ms: e.ms ?? null,
++          ok: true,
++        });
++      } else if (e?.falhaDoDecisor) {
++        acionar({ quem: 'roteador', detalhe: `não respondeu (${e.falhaDoDecisor}) — a regra decidiu`, ms: e.ms ?? null, ok: false });
++      }
++    });
++    agente.on('critica-por-evento', (e) => {
++      acionar({ quem: 'crítico', detalhe: `acionado por evento: ${e?.evento || '?'}`, ok: true });
++    });
++    agente.on('modelos-na-execucao', (e) => {
++      d.modelosNaExecucao = Array.isArray(e?.linhas) ? e.linhas.slice(0, 20) : [];
++    });
+     agente.on('copiloto-consulta', (e) => {
++      acionar({ quem: 'crítico', modelo: e.modelo || null, detalhe: `${e.origem || 'consulta'}${e.dedicado ? ' · modelo dedicado' : ' · modelo principal'}${e.ok === false ? ` · falhou: ${String(e.erro || '').slice(0, 120)}` : ''}`, ok: e.ok !== false });
+       const c = d.copiloto;
+       c.consultas += 1;
+       if (e.ok === false) c.falhas += 1;

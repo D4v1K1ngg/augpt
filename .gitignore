@@ -1,0 +1,38 @@
+# dependências e build
+node_modules/
+dist/
+out/
+*.log
+npm-debug.log*
+
+# sistema e editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# ferramentas de IA locais (só existem no PC de quem desenvolve)
+.claude/
+.agents/
+skills-lock.json
+graphify-out/
+Claude outputs/
+CLAUDE.local.md
+
+# documentos internos de desenvolvimento
+AuGPT-plano-de-implementacao.md
+AuGPT-vs-referencias-2026.md
+AuGPT-analise-comparativa-projetos-referencia.md
+interno/
+
+# gerado a cada `npm run avaliar`
+avaliacao/ultimo-resultado.json
+
+# sobras de depuração
+skills-inexistente/
+skills-vazias-debug/
+
+# segredos (defensivo — o projeto não usa .env hoje)
+.env
+.env.*

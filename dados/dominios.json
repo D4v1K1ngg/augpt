@@ -1,0 +1,2979 @@
+{
+ "atualizadoEm": "2026-08-14",
+ "origens": [
+  "Fake.br Corpus: 4 falsos + 13 verificados",
+  "OpenSources: 725",
+  "Bloqueio judicial BR: 49663"
+ ],
+ "aviso": "Categorias de fabricação apenas. Classificações de viés político são ignoradas de propósito. A base é majoritariamente de sites em inglês — a cobertura em português é baixa.",
+ "dominios": {
+  "ceticismopolitico.com": {
+   "risco": "alto",
+   "motivo": "portal catalogado como fonte de notícia falsa (Fake.br/USP)"
+  },
+  "afolhabrasil.com.br": {
+   "risco": "alto",
+   "motivo": "portal catalogado como fonte de notícia falsa (Fake.br/USP)"
+  },
+  "thejornalbrasil.com.br": {
+   "risco": "alto",
+   "motivo": "portal catalogado como fonte de notícia falsa (Fake.br/USP)"
+  },
+  "diariodobrasil.org": {
+   "risco": "alto",
+   "motivo": "portal catalogado como fonte de notícia falsa (Fake.br/USP)"
+  },
+  "politica.estadao.com.br": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "www1.folha.uol.com.br": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "g1.globo.com": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "internacional.estadao.com.br": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "cultura.estadao.com.br": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "opiniao.estadao.com.br": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "brasil.estadao.com.br": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "alias.estadao.com.br": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "economia.estadao.com.br": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "esportes.estadao.com.br": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "saude.estadao.com.br": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "sao-paulo.estadao.com.br": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "sustentabilidade.estadao.com.br": {
+   "risco": "nenhum",
+   "reforco": "imprensa verificada no corpus Fake.br (USP)"
+  },
+  "365usanews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "4threvolutionarywar.wordpress.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "americablog.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "americanlookout.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "americanpatriotdaily.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "americasfreedomfighters.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "anotherdayintheempire.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "antiwar.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "antoniusaquinas.wp.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "bignuggetnews.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "brotherjohnf.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "centerforsecuritypolicy.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "conservativefiringline.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "conservativespirit.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "conservativetribune.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "cowgernation.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailynewsbin.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "dailytelegraph.com.au": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "darkpolitricks.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "deadlyclear.wordpress.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "debunkingskeptics.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "eaglerising.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "endtime.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "extraclubmagazine.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "freedomsphoenix.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "freedomworldnews.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "frontpagemag.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "heresyblog.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ihavethetruth.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ilovemyfreedom.org": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "informetoday.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "investmentwatchblog.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "lewrockwell.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "lifenews.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "makeamericagreattoday.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "meanlefthook.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "molonlabemedia.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newslogue.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "occupyliberals.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "off-guardian.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "oftwominds.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "openmindmagazine.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "orientalreview.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "patdollar.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "patriotchronicle.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "patriotnewsdaily.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "patriotrising.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "patriotupdate.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "paulcraigroberts.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "platosguns.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "politicalcult.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "pravda.ru": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "pravdareport.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "presstv.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "presstv.ir": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "projectveritas.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "qpolitical.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "readconservatives.news": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "reagancoalition.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "realtimepolitics.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "redflagnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "redstatewatcher.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "rightalert.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "rightwingnews.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "russia-insider.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "sputniknews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thefederalistpapers.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thegatewaypundit.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "therealstrategy.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thewatchtowers.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "truepundit.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "truthandaction.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "truthkings.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "truthrevolt.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usapoliticstoday.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "uschronicle.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usherald.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "vdare.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "veteranstoday.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "washingtonsblog.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "wearechange.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "westernjournalism.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "winningdemocrats.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "wnd.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "youngcons.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "addictinginfo.org": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "amplifyingglass.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "amusmentic.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "automotostar.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "bients.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "bigbluevision.org": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "bipartisanreport.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "blacklistednews.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "bluenationreview.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "breaking911.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "chicksontheright.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "educateinspirechange.org/health": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "elitereaders.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "heatst.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "indiaarising.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "liberalamerica.org": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "libertywritersnews.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "lifesitenews.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "lifezette.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "livevote.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "lovethispic.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "notallowedto.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "nymeta.co": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "occupydemocrats.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "other98.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "politicususa.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "remedydaily.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "topinfopost.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "trueactivist.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "twitchy.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "uslifetoday.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "usuncut.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "viraltube.nl": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "yournationnews.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "yournewswire.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "21stcenturywire.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "82.221.129.208": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "abeldanger.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "abovetopsecret.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "activistpost.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "alt-market.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "americanfreepress.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "americanreviewer.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "angrypatriotmovement.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "assassinationscience.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "awarenessact.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "awdnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "bb4sp.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "blackgenocide.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "bullionbullscanada.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "canadafreepress.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "concisepolitics.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "conservativerefocus.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "conspiracyplanet.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "conspiracywire.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "corbettreport.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "countdowntozerotime.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "counterpsyops.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "cryptogon.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailyoccupation.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dataasylum.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "davidwolfe.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dcclothesline.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "disclosuremedia.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dont-tread-on.me": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dutchsinse.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ebolahoax.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "educate-yourself.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "electionnightgatekeepers.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "endoftheamericandream.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "expose1933.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "eyeopening.info": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "familysecuritymatters.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "fellowshipoftheminds.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "fourwinds10.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "fprnradio.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "freedomforceinternational.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "freedomoutpost.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "fromthetrenchesworldreport.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "gaia.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "gangstergovernment.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "globalresearch.ca": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "godlikeproductions.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "govtslaves.info": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "greanvillepost.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "hangthebankers.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "henrymakow.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "humansarefree.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "illuminati-news.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "infiniteunknown.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "informationclearinghouse.info": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "infowars.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "intellihub.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "investmentresearchdynamics.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "itccs.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "jesus-is-savior.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "jihadwatch.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "jonesreport.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "knowledgeoftoday.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "libertymovementradio.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "libertytalk.fm": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "libertyvideos.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "militianews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "nasamoonhoax.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "nationalufocenter.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "nationindistress.weebly.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "neonnettle.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newstarget.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "nodisinfo.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "nomorefakenews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "nowtheendbegins.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "offgridsurvival.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "oilgeopolitics.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "pamelageller.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "politicalblindspot.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "prepperwebsite.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "prisonplanet.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "prisonplanet.tv": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "rense.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "rumormillnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "secretsofthefed.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "sentinelblog.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "sheepkillers.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "shoebat.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "silver-coin-investor. com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "silverbearcafe.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "silverdoctors.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "silverstealers.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "skeptiko.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "sonsoflibertyradio.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thedailysheeple.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "theeconomiccollapseblog.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "theeventchronicle.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "theextinctionprotocol.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "theforbiddenknowledge.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thelibertybeacon.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "themindunleashed.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "themindunleashed.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thephaser.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thepoliticalinsider.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "truthbroadcastnetwork.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "truthfrequencyradio.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ufoholic.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "wakeupthesheep.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "wakingupwisconsin.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "weshapelife.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "whatdoesitmean.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "whatreallyhappened.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "whowhatwhy.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "wikispooks.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "willyloman.wordpress.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "worldtruth.tv": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "x22report.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "zerohedge.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "zootfeed.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "16wmpo.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "24newsflash.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "24wpn.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "70news.wordpress.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "abcnews.com.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "abcnewsgo.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "alternativemediasyndicate.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "americannews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "americanoverlook.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "americanpoliticnews.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "americanpresident.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "amposts.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "anews24.org/": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "anonjekloy.tk": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "aurora-news.us": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "beforeitsnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "bighairynews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "blackinusrancenews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "bostonleader.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "buzzfeedusa.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "cannasos.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "cap-news.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "cbsnews.com.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "channel-7-news.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "channel18news.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "cityworldnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "civictribune.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "clashdaily.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "cnnews3.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "coed.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "conservativebyte.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "conservativedailypost.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "conservativefighters.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "conservativeflashnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "conservativeinfidel.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailybuzzlive.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailyheadlines.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailyheadlines.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailyinfobox.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailynews10.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailynews5.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailynewsposts.info": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailysurge.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailyusaupdate.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "damnleaks.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dcgazette.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ddemocraticunderground.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "denverguardian.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "departed.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "departedmedia.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "diyhours.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "donaldtrumpnews.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "donaldtrumppotus45.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "downtrend.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "drudgereport.com.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "embols.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "empirehearland.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "empireherald.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "empirenews.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "en-vovle.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "enabon.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "enduringvision.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "enhlive.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "eutopia.buzz": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "fakingnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "fedsalert.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "flashnewscorner.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "floridasunpost.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "freedomdaily.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "freshdailyreport.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "givemeliberity01.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "globalpoliticsnow.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "goneleft.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "gopthedailydose.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "gummypost.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "healthycareandbeauty.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "healthyworldhouse.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "immediatesafety.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "infostormer.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "interestingdailynews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "intrendtoday.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "itaglive.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "itmakessenseblog.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "iwanttoexplore.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "kmt11.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "konkonsagh.biz": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "krbcnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ky12news.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ladylibertynews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "lastdeplorables.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "learnprogress.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "liberalplug.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "libertyalliance.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "libertyblitzkrieg.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "local31news.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "madworldnews.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "maganews.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "majorthoughts.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "mediamass.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "megynkelly.us": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "mentor2day.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "metropolitanworlds.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "mpidailymagazine.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "mrconservative.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "msnbc.website": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "myfreshnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "myzonetoday.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "nationonenews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "nbc.com.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "nephef.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newpoliticstoday.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "news4ktla.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newsbbc.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newsbreakshere.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newsbysquad.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newsdaily12.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newsexaminer.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newsfrompolitics.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newsleak.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newslo.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newsmagazine.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newswatch28.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newswatch33.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newswithviews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "now8news.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "onepoliticalplaza.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "onlineconservativepress.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "openmagazines.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "pakalertpress.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "politicalo.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "politicalsitenews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "politicalupdator.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "politicono.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "politicsusanews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "president45donaldtrump.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "prntly.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "proamericanews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "proudcons.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "react365.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "realnewsrightnow.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "redcountry.us": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "redrocktribune.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "religionmind.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "rhotv.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "rickwells.us": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "rilenews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "rogue-nation3.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "rumorjournal.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "smag31.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "socialeverythings.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "stormcloudsgathering.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "subjectpolitics.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "success-street.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "supremepatriot.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "tdtalliance.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "teaparty.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thatviralfeed.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "the-insider.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "theamericanindependent.wordpress.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thebigriddle.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thebostontribune.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thecommonsenseshow.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thecontroversialfiles.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thefreepatriot.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "theinternetpost.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thelastgreatstand.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "themoralofthestory.us": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thenet24h.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thenewyorkevening.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "theracketreport.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thereporterz.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "therightscoop.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thetrumpmedia.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thetruthdivision.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thetruthseeker.co.uk": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "theusa-news.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thewashingtonpress.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "threepercenternation.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "times.com.mx": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "tmzworldnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "trueamericans.me": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "truetrumpers.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "trumpvision365.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "undergroundnewsreport.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "undergroundworldnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "unitedmediapublishing.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "universepolitics.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usa-radio.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usa-television.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usa2016elections.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usadailyinfo.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usadailypolitics.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usadailytime.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usadosenews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usafirstinformation.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usahitman.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usainfobox.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usamagazinestudio.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usanewsflash.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usanewsinsider.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usanewspolitics.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usanewstoday.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usaonlinepolitics.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usaphase.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usapolitics24hrs.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usapoliticsnow.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usapoliticszone.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usasnich.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usasupreme.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usatoday.com.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usatodaynews.me": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usatwentyfour.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usconservativetoday.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usfanzone.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ushealthyadvisor.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ushealthylife.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usinfonews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "uspoliticslive.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "uspoln.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "uspostman.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "vigilantcitizen.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "viralactions.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "viralliberty.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "voxtribune.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "washingtonfed.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "washingtonpost.com.co": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "webdaily.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "weeklyworldnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "worldpoliticsus.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "worldrumor.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "worldstoriestoday.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "wtoe5news.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "yesimright.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "yourfunpage.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "worldpoliticsnow.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "farmwars.info": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "actforamerica.org/news": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "adflegal.org/media": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "americanborderpatrol.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "amren.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "aryannationswordwide1488.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "barenakedislam.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "barnesreview.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "bigbluevision.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "centerforsecuritypolicy.org/#articles": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "christianfightback.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "creativitymovement.net/category/news/": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailyken.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailystormer.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "darkmoon.me": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "davidduke.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "drrichswier.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "eutimes.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "gatesofvienna.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "glaringhypocrisy.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ihr.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "libertyfederation.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "nationalvanguard.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "npiamerica.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "returnofkings.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "themuslimissue.wordpress.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "therightstuff.biz": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "truthfeed.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "whitepower.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "americankabuki.blogspot.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ancient-code.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "checkoutthehealthyworld.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "collective-evolution.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "collectivelyconscious.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "consciouslifenews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dineal.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ewao.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "experimentalvaccines.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "foodbabe.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "galacticconnection.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "geoengineeringwatch.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "greenmedinfo.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "healthimpactnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "healthnutnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "healthy-holistic-living.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "icr.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "in5d.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "lifeprevention.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "naturalblaze.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "naturalnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "naturalnewsblogs.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "rawforbeauty.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "realfarmacy.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "realplanetnews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "responsibletechnology.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "revolutions2040.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thetruthaboutcancer.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thetruthwins.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "wakingtimes.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "whydontyoutrythis.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "worldwidehealthy.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "dailyleak.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "americannewsx.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "attn.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "breitbart.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "commondreams.org": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "countercurrents.org": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "dailycaller.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "dailykos.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "deadlinelive.info": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "economicnoise.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "ijr.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "presidentialvoting2016.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "rawstory.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "redstate.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "resistancereport.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "theblaze.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "tomwoods.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "washingtonexaminer.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "americantoday.news": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "amtvmedia.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "bigbluedimension.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "christiantimesnewspaper.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "express.co.uk": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "loanpride.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "magafeed.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "mediazone.news": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "megafreshnews.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "newswire-24.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "pollhype.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "abriluno.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "aceflashman.wordpress.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "actualidadpanamericana.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "adobochronicles.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "associatedmediacoverage.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "awazetribune.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "beehivebugle.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "betootaadvocate.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "bigamericannews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "borowitzreport.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "bostontribune.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "burrardstreetjournal.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "callthecops.net": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "celebtricity.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "chaser.com.au": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "christwire.org": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "chronicle.su": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "clickhole.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "creambmp.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "crystalair.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "dailycurrant.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "dailydiscord.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "dailysnark.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "dailysquib.co.uk": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "dandygoat.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "der-postillon.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "derfmagazine.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "disclose.tv": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "diversitychronicle.wordpress.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "duffleblog.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "duhprogressive.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "elkoshary.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "elmundotoday.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "empiresports.co": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "fmobserver.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "fognews.ru": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "freepatriot.org": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "freewoodpost.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "fridaymash.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "glossynews.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "gomerblog.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "holyobserver.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "humortimes.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "huzlers.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "ironictimes.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "islamicanews.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "johnnyrobish.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "landoverbaptist.org": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "liberalbias.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "liberaldarkness.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "lushforlife.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "nahadaily.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "nationalreport.net": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ncscooper.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "newsbiscuit.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "newsbreakers.org": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "newsmutiny.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "newsthump.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "newstoad.net": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "newyorker.com/humor": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "objectiveministries.org": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "politicops.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "politicot.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "reductress.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "religionlo.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "rockcitytimes.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "satiratribune.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "satirewire.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "scrappleface.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "sensationalisttimes.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "speld.nl": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "sportspickle.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "stneotscitizen.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "stuppid.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "surrealscoop.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "thebeaverton.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "thedailymash.co.uk": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "thedailywtf.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "thehardtimes.net": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "theineptowl.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "thelastlineofdefense.org": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "themadisonmisnomer.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "themideastbeast.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "thenewsnerd.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "theonion.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "thepoke.co.uk": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "therightists.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "theseattletribune.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "theshovel.com.au": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "theskunk.org": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "thespoof.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "thestatelyharold.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "thetimesoftheworld.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "theunrealtimes.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "theuspatriot.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thevalleyreport.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "topekasnews.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "unconfirmedsources.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "us.blastingnews.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "waterfordwhispersnews.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "williambanzai7.blogspot.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "winkprogress.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "witscience.org": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "wonkie.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "worldnewsdailyreport.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "wundergroundmusic.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "aanirfan.blogspot.co.uk": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "acting-man.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "ahtribune.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "allnewspipeline.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "anonews.co": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "anonhq.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "anonnews.co": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "asia-pacificresearch.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "automaticearth.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "awm.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "blackagendareport.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "boilingfrogspost.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "breakpoint.org": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "bvanews.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "cnnnext.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "cnsnews.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "coasttocoastam.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "conservativeoutfitters.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "davejanda.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "dcleaks.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "financialsurvivalnetwork.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "guccifer2.wordpress.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "ifyouonlynews.com": {
+   "risco": "satira",
+   "motivo": "site de sátira — não é notícia real"
+  },
+  "jewsnews.co.il": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "libertynews.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "mad-yet.blogspot.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "madpatriots.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "morningledger.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "morningnewsusa.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "nevo.news": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "newcenturytimes.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "newsmax.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "northcrane.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "nutritionalanarchy.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "politicalears.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "politicsintheusa.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "powerpoliticians.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "shareblue.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "sovereignman.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "theantimedia.org": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "theduran.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "thefreethoughtproject.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "thegoldandoilguy.com/articles": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "theinformedamerican.net": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "thelibertymill.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "usdefensewatch.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "usviewer.com": {
+   "risco": "alto",
+   "motivo": "histórico de conteúdo fabricado"
+  },
+  "veteransnewsnow.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "wallstreetonparade.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "weaselzippers.us": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "whowhatwhy.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "wikileaks.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "wikileaks.org": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  },
+  "wolfstreet.com": {
+   "risco": "medio",
+   "motivo": "apuração fraca ou sensacionalista"
+  }
+ }
+}

@@ -1,0 +1,16 @@
+{
+  "aviso": "Fontes da comunidade usadas pela pesquisa de produtos (motor de pesquisa, Fase A da estratégia de 2026-09-26). O usuário pode trocar a lista nos Ajustes (campo 'Fontes da comunidade'); este arquivo é o padrão. 'assuntos' vazio = vale para qualquer assunto; com palavras, a fonte só entra quando o assunto do pedido cita uma delas.",
+  "fontes": [
+    { "nome": "Reddit", "dominio": "reddit.com", "tipo": "reddit", "idioma": "en", "assuntos": [] },
+    { "nome": "Clube do Hardware", "dominio": "clubedohardware.com.br", "tipo": "forum", "idioma": "pt-BR", "assuntos": [] },
+    { "nome": "Fórum Adrenaline", "dominio": "forum.adrenaline.com.br", "tipo": "forum", "idioma": "pt-BR", "assuntos": [] },
+    {
+      "nome": "Head-Fi",
+      "dominio": "head-fi.org",
+      "tipo": "forum",
+      "idioma": "en",
+      "assuntos": ["fone", "fones", "headphone", "headset", "iem", "earbud", "audio", "som", "dac", "amplificador"]
+    },
+    { "nome": "YouTube", "dominio": "youtube.com", "tipo": "video", "idioma": "all", "assuntos": [] }
+  ]
+}

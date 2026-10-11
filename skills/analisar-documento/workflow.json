@@ -1,0 +1,11 @@
+{
+  "nome": "Analisar documento anexado",
+  "quando": "o usuário anexou um arquivo e pede análise, resumo ou extração de dados",
+  "parametros": [
+    { "nome": "arquivo", "descricao": "nome exato do arquivo citado no pedido", "obrigatorio": true }
+  ],
+  "passos": [
+    { "ferramenta": "ler_documento", "argumentos": { "caminho": "{arquivo}", "limite": 40000 } }
+  ],
+  "foco": "Tabela de campo e valor com os dados principais do documento, reproduzindo números exatamente. Depois, duas ou três linhas com o que mais importa."
+}

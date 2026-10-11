@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; frame-src 'self' data:" />
+<title>AuGPT</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="barra">
+  <button class="btn-recolher" id="btnLateral" title="Ocultar painel (Ctrl+B)" aria-label="Ocultar painel">
+    <span></span><span></span><span></span>
+  </button>
+
+  <!-- Rótulo da seção atual — substitui as abas, que se mudaram pra
+       navegação lateral esquerda (ver #navPrincipal abaixo). Atualizado por
+       trocarAba() em app.js. -->
+  <div class="secao-atual" id="secaoAtual">Agente</div>
+
+  <div class="divisor-barra"></div>
+
+  <!-- Indicadores de estado (Ollama + Copiloto), agrupados visualmente —
+       pedido do Davi (2026-09-18): "encontrar uma forma melhor de
+       posicionar as informações... no canto superior". -->
+  <div class="grupo-barra">
+    <div class="status" id="statusOllama" title="Estado do servidor Ollama">
+      <i class="ponto"></i><span>verificando…</span>
+    </div>
+
+    <!-- Indicador "2ª IA" (Copiloto nível 2, modo "doisModelos") — só aparece
+         com esse modo ativo. Mostra se o modelo dedicado está carregado agora
+         e se foi pra CPU (esperado, numGpu:0) ou GPU (ver
+         ipcMain.handle('ollama:copilotoStatus', ...), electron/main.js). -->
+    <div class="status" id="statusCopiloto" title="Estado do Copiloto (2ª IA)" hidden>
+      <i class="ponto"></i><span>copiloto</span>
+    </div>
+
+    <!-- Onde cada modelo está rodando agora (GPU, CPU ou dividido) — pedido
+         do Davi, 2026-10-10. Verde: tudo onde deveria; âmbar: algum fora do
+         lugar. Clique abre o quadro (ollama:modelosCarregados). -->
+    <button type="button" class="status status-botao" id="btnModelos" title="Ver onde cada modelo está rodando (GPU ou CPU)">
+      <i class="ponto"></i><span>modelos</span>
+    </button>
+  </div>
+
+  <div class="divisor-barra"></div>
+
+  <!-- Configuração da execução atual, também agrupada. -->
+  <div class="grupo-barra">
+    <label class="campo" title="Modelo de IA usado pelo agente e pela conversa">
+      <span>modelo</span>
+      <select id="modelo" aria-label="Modelo de IA"><option value="">—</option></select>
+    </label>
+
+    <label class="campo" id="campoAutonomia" title="Autonomia: o que o agente pode fazer sem pedir sua confirmação">
+      <span>autonomia</span>
+      <select id="autonomia" aria-label="Autonomia do agente">
+        <option value="manual">manual · confirma tudo</option>
+        <option value="guiado">guiado · confirma o que é arriscado</option>
+        <option value="auto">automático · não pergunta</option>
+      </select>
+    </label>
+
+    <!-- Pedido do Davi (2026-09-19): unifica em um seletor só o que antes
+         era espalhado (profundidade de busca sozinha tinha seletor;
+         planejamento forçado e cadência de crítica não tinham nenhum) — ver
+         Config.aplicarNivelRaciocinio, src/config.js, e o plano da rodada
+         em AuGPT-plano-de-implementacao.md. -->
+    <label class="campo" id="campoNivelRaciocinio" title="Raciocínio: quanto esforço o agente põe em cada pedido (mais esforço, mais lento)">
+      <span>raciocínio</span>
+      <select id="nivelRaciocinio" aria-label="Nível de raciocínio">
+        <option value="leve">leve · rápido, esforço padrão</option>
+        <option value="medio">médio · sempre planeja, busca mais fontes</option>
+        <option value="alto">alto · pesquisa a fundo, crítico revisa cada parte</option>
+        <option value="extremo">extremo · máximo esforço, bem mais lento</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="divisor-barra divisor-final"></div>
+
+  <div class="medidores">
+    <span class="medidor"><b id="mIteracao">0</b><i>/<span id="mMax">25</span> passos</i></span>
+    <span class="medidor"><b id="mTokens">0</b><i>tokens</i></span>
+    <span class="medidor"><b id="mTempo">0s</b><i>decorrido</i></span>
+    <!-- Item 2 da análise comparativa (2026-09-21, "indicador de uso de
+         contexto", inspirado no medidor de % do deer-flow): percentual real
+         (prompt_eval_count do Ollama / janela configurada), atualizado a
+         cada decisão — ver evento 'janela-contexto', src/agent/loop.js. -->
+    <span class="medidor" id="medidorContexto" title="quanto da janela de contexto o último passo usou">
+      <b id="mContexto">—</b><i>contexto</i>
+    </span>
+  </div>
+</header>
+
+<!-- Oferta de início automático do Ollama — aparece quando uma checagem de
+     saúde detecta o Ollama desligado E o binário está instalado (ver
+     ipcMain.handle('ollama:health', ...), electron/main.js). Nunca liga
+     nada sozinho sem o usuário responder "Sim" aqui, a não ser que ele
+     tenha marcado "sempre iniciar automaticamente" numa vez anterior. -->
+<div class="faixa-ollama" id="faixaOllama" hidden>
+  <span class="faixa-ollama-texto">Detectei que o Ollama está desligado. Deseja que eu ative ele?</span>
+  <label class="faixa-ollama-lembrar">
+    <input type="checkbox" id="ofOllamaLembrar" class="caixa" /> sempre iniciar automaticamente, não perguntar de novo
+  </label>
+  <div class="faixa-ollama-botoes">
+    <button class="btn-secundario" id="btnOfOllamaSim">Sim, ativar</button>
+    <button class="btn-secundario" id="btnOfOllamaNao">Não</button>
+  </div>
+</div>
+
+<!-- "2 IAs" precisa que o Ollama mantenha o modelo principal, o crítico e o
+     modelo de embeddings carregados ao mesmo tempo (ver
+     ollamaRuntime.MIN_MODELOS_CARREGADOS_DOIS_MODELOS). Esse aviso já
+     existia só dentro da tela de Ajustes (#cfgMaxModelosAviso, mais abaixo)
+     — pedido do Davi (2026-09-18): "o aviso... poderia avisar direto na
+     tela inicial do chat", já que o normal é configurar uma vez e nunca
+     mais abrir Ajustes. Esta faixa espelha o MESMO estado (ver
+     estadoMaxModelosCarregados em app.js) e fica visível em qualquer aba.
+     Nunca ajusta nem reinicia nada sozinho — mesmo princípio da faixa do
+     Ollama acima. -->
+<div class="faixa-ollama" id="faixaMaxModelos" hidden>
+  <span class="faixa-ollama-texto" id="faixaMaxModelosTexto"></span>
+  <div class="faixa-ollama-botoes">
+    <button class="btn-secundario" id="btnFaixaAjustarMaxModelos" type="button" hidden>Ajustar agora</button>
+    <button class="btn-secundario" id="btnFaixaReiniciarOllamaPraMim" type="button" hidden>Reiniciar o Ollama pra mim</button>
+    <button class="btn-secundario" id="btnFaixaConfirmarReinicioMaxModelos" type="button" hidden>Já reiniciei o Ollama</button>
+  </div>
+</div>
+
+<!-- Nível "extremo" reaproveita o crítico dedicado (Copiloto "2 IAs") pra
+     deliberar skill por subtarefa (chega numa rodada futura) — este aviso
+     só avisa que o hardware/modo atual pode não aguentar bem, reaproveitando
+     a MESMA recomendação que já existe (hardware.recomendarModoCopiloto,
+     api.hardware.recomendacao() já exposto). Nunca impede a escolha — mesmo
+     princípio de recomendarModoCopiloto ("NUNCA bloqueia, só orienta"). -->
+<div class="faixa-ollama" id="faixaNivelExtremo" hidden>
+  <span class="faixa-ollama-texto" id="faixaNivelExtremoTexto"></span>
+</div>
+
+<main class="corpo">
+  <!-- ------------------------------ conversas salvas ------------------------------ -->
+  <aside class="lateral" id="lateral">
+    <div class="marca">
+      <span class="marca-au">Au</span><span class="marca-gpt">GPT</span>
+      <span class="marca-sub">agente local</span>
+    </div>
+
+    <!-- Pedido do Davi (2026-09-19): melhorar a separação entre os grupos da
+         lateral esquerda (atalhos de navegação vs. lista de conversas) — uma
+         linha fina entre cada bloco, no lugar de só espaçamento. -->
+    <div class="lateral-divisor"></div>
+
+    <!-- Navegação principal — pedido do Davi (2026-09-18, reforma visual
+         inspirada no Claude/Cowork): as abas que ficavam no topo (Agente/
+         Conversa/Skills/Execuções) e o botão "Ajustes" se mudaram pra cá,
+         como uma lista de ícones na lateral esquerda, sempre visível
+         (inclusive dentro de Skills/Execuções/Ajustes — ver trocarAba() em
+         app.js, que não esconde mais a lateral fora de Agente/Conversa). -->
+    <nav class="nav-principal" id="navPrincipal" role="tablist">
+      <button class="nav-item ativo" id="navAgente" role="tab" aria-selected="true">
+        <svg class="nav-icone" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="4" y="7" width="12" height="9" rx="2"/><path d="M10 7V4"/>
+          <circle cx="10" cy="2.6" r="1" fill="currentColor" stroke="none"/>
+          <circle cx="7.5" cy="11.5" r="1" fill="currentColor" stroke="none"/>
+          <circle cx="12.5" cy="11.5" r="1" fill="currentColor" stroke="none"/>
+          <path d="M1.5 10h2.5M16 10h2.5"/>
+        </svg>
+        Agente
+      </button>
+      <button class="nav-item" id="navConversa" role="tab" aria-selected="false">
+        <svg class="nav-icone" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 4.5h14a1 1 0 0 1 1 1V13a1 1 0 0 1-1 1H8l-4 3v-3H3a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1Z"/>
+        </svg>
+        Conversa
+      </button>
+      <button class="nav-item" id="navSkills" role="tab" aria-selected="false">
+        <svg class="nav-icone" viewBox="0 0 20 20" fill="currentColor" stroke="none" aria-hidden="true">
+          <path d="M10 2.5c.6 2.8 1.3 4.4 2.4 5.6 1.2 1.1 2.8 1.8 5.6 2.4-2.8.6-4.4 1.3-5.6 2.4-1.1 1.2-1.8 2.8-2.4 5.6-.6-2.8-1.3-4.4-2.4-5.6C6.4 11.8 4.8 11.1 2 10.5c2.8-.6 4.4-1.3 5.6-2.4C8.7 6.9 9.4 5.3 10 2.5Z"/>
+        </svg>
+        Skills
+      </button>
+      <button class="nav-item" id="navExecucoes" role="tab" aria-selected="false">
+        <svg class="nav-icone" viewBox="0 0 20 20" fill="currentColor" stroke="none" aria-hidden="true">
+          <rect x="3" y="10" width="3" height="7" rx="0.6"/><rect x="8.5" y="6" width="3" height="11" rx="0.6"/><rect x="14" y="2.5" width="3" height="14.5" rx="0.6"/>
+        </svg>
+        Execuções
+      </button>
+      <button class="nav-item" id="navConfig" role="tab" aria-selected="false">
+        <svg class="nav-icone" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2 5h9M15 5h3M2 10h3M7 10h11M2 15h9M15 15h3"/>
+          <circle cx="12" cy="5" r="2"/><circle cx="5" cy="10" r="2"/><circle cx="12" cy="15" r="2"/>
+        </svg>
+        Ajustes
+      </button>
+    </nav>
+
+    <div class="lateral-divisor"></div>
+
+    <div class="lateral-topo">
+      <button class="btn-nova" id="btnNovaConversa">
+        <span class="mais">+</span> Nova conversa
+      </button>
+      <button class="btn-icone-quadrado" id="btnSelecionar" title="Selecionar várias" aria-label="Selecionar várias conversas">
+        <svg class="nav-icone" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3.5" width="5" height="5" rx="1"/><rect x="3" y="11.5" width="5" height="5" rx="1"/>
+          <path d="M11 6h6M11 14h6"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="busca-conversas">
+      <input type="text" id="buscaConversa" placeholder="Buscar conversa…" />
+    </div>
+
+    <div class="barra-selecao" id="barraSelecao" hidden>
+      <span id="contagemSelecao">0 selecionadas</span>
+      <button class="btn-linha" id="btnExcluirSelecionadas">Excluir</button>
+      <button class="btn-linha" id="btnCancelarSelecao">Cancelar</button>
+    </div>
+
+    <ul class="conversas" id="listaConversas"></ul>
+  </aside>
+
+  <!-- ------------------------------ agente ------------------------------ -->
+  <section class="conversa" id="viewAgente">
+    <div class="conversa-rolagem" id="agenteRolagem">
+      <div class="conversa-abertura" id="agenteAbertura">
+        <h1>O que você precisa?</h1>
+        <p>Peça e o agente decide os passos sozinho: pesquisa, lê páginas e documentos, cria arquivos, roda comandos. Cada decisão fica registrada e você pode abrir o raciocínio a qualquer momento.</p>
+        <!-- Fase 2 (facilidade de uso, 2026-09-23): guia de primeira execução.
+             Só aparece enquanto falta algo (Ollama, ou um modelo de conversa) —
+             ver atualizarPrimeiroUso() em app.js e src/primeiro-uso.js. -->
+        <section class="primeiro-uso" id="primeiroUso" hidden aria-live="polite">
+          <h2>Antes de começar</h2>
+          <p class="pu-intro">O AuGPT usa o Ollama pra rodar a inteligência artificial no seu próprio computador. Falta pouco:</p>
+          <ol class="pu-passos">
+            <li class="pu-passo" id="puInstalar">
+              <span class="pu-marca" aria-hidden="true"></span>
+              <div class="pu-corpo">
+                <b>Instalar o Ollama</b>
+                <p class="pu-texto">Um programa gratuito que roda os modelos de IA no computador.</p>
+                <div class="pu-acoes"></div>
+              </div>
+            </li>
+            <li class="pu-passo" id="puLigar">
+              <span class="pu-marca" aria-hidden="true"></span>
+              <div class="pu-corpo">
+                <b>Deixar o Ollama aberto</b>
+                <p class="pu-texto">Ele precisa estar rodando enquanto você usa o AuGPT.</p>
+                <div class="pu-acoes"></div>
+              </div>
+            </li>
+            <li class="pu-passo" id="puModelo">
+              <span class="pu-marca" aria-hidden="true"></span>
+              <div class="pu-corpo">
+                <b>Baixar um modelo de IA</b>
+                <p class="pu-texto">É o "cérebro" que o agente usa. Baixa uma vez só.</p>
+                <div class="pu-acoes"></div>
+              </div>
+            </li>
+          </ol>
+        </section>
+        <ul class="exemplos">
+          <li>Qual a previsão do tempo para Vitória-ES nesta semana?</li>
+          <li>Analise o boleto que anexei e me diga o que muda se eu atrasar</li>
+          <li>Compare 3 IEMs para FPS e gere uma planilha com o comparativo</li>
+        </ul>
+      </div>
+      <div id="agenteMensagens"></div>
+    </div>
+
+    <div class="composer">
+      <div class="anexos" id="anexosAgente"></div>
+      <div class="composer-caixa">
+        <button class="btn-anexo" id="btnAnexoAgente" title="Anexar arquivos" aria-label="Anexar arquivos">+</button>
+        <textarea id="entradaAgente" rows="1" placeholder="Peça alguma coisa ao agente…"></textarea>
+        <button class="btn-enviar" id="btnEnviarAgente" title="Enviar (Enter)" aria-label="Enviar">↑</button>
+      </div>
+      <div class="composer-rodape">
+        <span id="rodapeAgente">pronto</span>
+        <label class="seletor-modo" title="Como a resposta deve ser escrita">
+          resposta:
+          <select id="modoResposta">
+            <option value="normal">direta</option>
+            <option value="detalhada">detalhada</option>
+            <option value="tecnica">técnica</option>
+          </select>
+        </label>
+        <span id="tituloConversaAgente"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------ conversa ------------------------------ -->
+  <section class="conversa" id="viewConversa" hidden>
+    <div class="conversa-rolagem" id="conversaRolagem">
+      <div class="conversa-abertura" id="conversaAbertura">
+        <h1>Converse com o modelo</h1>
+        <p>Sem agente, sem ferramentas — pergunta e resposta direto no modelo que está rodando na sua máquina. Para tarefas que exigem pesquisar, ler documentos ou criar arquivos, use a aba Agente.</p>
+      </div>
+      <div id="conversaMensagens"></div>
+    </div>
+
+    <div class="composer">
+      <div class="anexos" id="anexosChat"></div>
+      <div class="composer-caixa">
+        <button class="btn-anexo" id="btnAnexoChat" title="Anexar arquivos de texto" aria-label="Anexar arquivos">+</button>
+        <textarea id="entradaChat" rows="1" placeholder="Pergunte alguma coisa…"></textarea>
+        <button class="btn-enviar" id="btnEnviar" title="Enviar (Enter)" aria-label="Enviar">↑</button>
+      </div>
+      <div class="composer-rodape">
+        <span id="chatModelo">—</span>
+        <span id="tituloConversaChat"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------ skills e ferramentas ------------------------------ -->
+  <section class="pagina" id="viewSkills" hidden>
+    <div class="pagina-rolagem">
+      <div class="pagina-coluna">
+        <nav class="sub-abas" role="tablist">
+          <button class="sub-aba ativa" id="subSkills" role="tab">Skills</button>
+          <button class="sub-aba" id="subSugestoes" role="tab">Sugestões <span class="contador" id="sugTotal">0</span></button>
+          <button class="sub-aba" id="subFerramentas" role="tab">Ferramentas</button>
+        </nav>
+
+        <div id="painelSkills">
+          <header class="pagina-topo">
+            <div>
+              <h1>Skills</h1>
+              <p>Instruções de método que entram no prompt quando o pedido combina com os gatilhos. Cada skill é uma pasta com um <code>SKILL.md</code> dentro.</p>
+            </div>
+            <div class="pagina-acoes">
+              <button class="btn-secundario" id="btnNovaSkill">Nova skill</button>
+              <button class="btn-secundario" id="btnAbrirSkills">Abrir pasta</button>
+              <button class="btn-secundario" id="btnRecarregarSkills">Recarregar</button>
+            </div>
+          </header>
+
+          <section class="caixa-teste">
+            <label for="testeSkill">Testar quais skills seriam ativadas</label>
+            <input type="text" id="testeSkill" placeholder="Ex.: qual a previsão do tempo para amanhã?" />
+            <div class="teste-resultado" id="testeResultado"></div>
+          </section>
+
+          <div class="cartoes" id="skillsLista"></div>
+        </div>
+
+        <div id="painelSugestoes" hidden>
+          <header class="pagina-topo">
+            <div>
+              <h1>Sugestões</h1>
+              <p>Quando o mesmo tipo de pedido se repete sem nenhuma skill cobrindo, o agente rascunha uma skill nova e testa nela mesmo, sozinho, numa execução isolada — antes de qualquer coisa chegar até você. Nada aqui entra em uso enquanto você não aprovar, mesmo o que já passou no autoteste.</p>
+            </div>
+          </header>
+          <div class="cartoes" id="sugestoesLista"></div>
+        </div>
+
+        <div id="painelFerramentas" hidden>
+          <section class="grupo mcp">
+            <h2>Servidores MCP <span class="contador" id="mcpTotal">0</span></h2>
+            <p class="dica">Um servidor MCP entrega várias ferramentas prontas — sistema de arquivos, Git, banco de dados, APIs. As ferramentas dele entram no catálogo como qualquer outra, sempre com <b>risco alto</b>: é um processo externo rodando com os seus privilégios.</p>
+            <div class="mcp-lista" id="mcpLista"></div>
+            <div class="mcp-novo">
+              <input type="text" id="mcpNome" placeholder="nome (ex.: arquivos)" />
+              <input type="text" id="mcpComando" placeholder="comando (ex.: npx)" />
+              <input type="text" id="mcpArgs" placeholder="argumentos separados por espaço" />
+            </div>
+            <div class="linha-botoes">
+              <button class="btn-secundario" id="btnTestarMcp">Testar</button>
+              <button class="btn-secundario" id="btnAddMcp">Adicionar</button>
+              <button class="btn-secundario" id="btnReconectarMcp">Reconectar todos</button>
+            </div>
+            <div class="teste-resultado" id="mcpResultado"></div>
+          </section>
+
+          <header class="pagina-topo">
+            <div>
+              <h1>Ferramentas</h1>
+              <p>O que o agente sabe executar. Um arquivo <code>.js</code> na pasta de ferramentas vira uma ferramenta nova, sem mexer no código do app.</p>
+            </div>
+            <div class="pagina-acoes">
+              <button class="btn-secundario" id="btnAbrirFerramentas">Abrir pasta</button>
+              <button class="btn-secundario" id="btnRecarregarFerramentas">Recarregar</button>
+            </div>
+          </header>
+          <div class="problemas" id="problemasFerramentas" hidden></div>
+          <div class="cartoes" id="ferramentasLista"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------ execuções ------------------------------ -->
+  <section class="pagina" id="viewExecucoes" hidden>
+    <div class="pagina-rolagem">
+      <div class="pagina-coluna">
+        <header class="pagina-topo">
+          <div>
+            <h1>Execuções</h1>
+            <p>Cada execução do agente vira um registro. É o que permite comparar modelos com número em vez de impressão — e a bancada em modo real grava aqui também.</p>
+          </div>
+          <div class="pagina-acoes">
+            <button class="btn-secundario" id="btnAbrirJanelaExec">Visualizar execuções ↗</button>
+            <button class="btn-secundario" id="btnExportarExec">Exportar JSON</button>
+            <button class="btn-secundario" id="btnLimparExec">Limpar</button>
+          </div>
+        </header>
+
+        <section class="grupo">
+          <h2>Comparativo por modelo</h2>
+          <div class="tabela-rolagem"><table class="tabela-stats" id="statsModelos"></table></div>
+          <div class="filtro-origem" id="filtroOrigem">
+            <button class="chip ativo" data-origem="">tudo</button>
+            <button class="chip" data-origem="app">uso real</button>
+            <button class="chip" data-origem="bancada">bancada</button>
+          </div>
+        </section>
+
+        <div class="cartoes" id="listaExecucoes"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------ configurações ------------------------------ -->
+  <section class="pagina" id="viewConfig" hidden>
+    <div class="pagina-rolagem">
+      <div class="pagina-coluna">
+        <header class="pagina-topo">
+          <div>
+            <h1>Ajustes</h1>
+            <p>Tudo é gravado localmente e vale para as próximas execuções.</p>
+          </div>
+          <div class="pagina-acoes">
+            <button class="btn-secundario" id="btnRestaurarPadroes">Restaurar padrões</button>
+            <button class="btn-primario" id="btnSalvarConfig">Salvar</button>
+          </div>
+        </header>
+
+        <!-- Fase 2 (facilidade de uso, 2026-09-23): os ajustes se dividem em
+             "Básico" (o que qualquer pessoa entende e pode querer mudar) e
+             "Avançado" (fechado por padrão: janelas de contexto, temperatura,
+             modelos por etapa, Copiloto...). Os ids não mudaram — só a posição. -->
+        <details class="categoria-config" open>
+          <summary class="categoria-titulo">Básico</summary>
+          <div class="categoria-corpo">
+        <section class="grupo">
+          <h2>Pasta de trabalho</h2>
+          <p class="dica">O agente só lê e escreve aqui dentro. Arquivos anexados são copiados para cá.</p>
+          <div class="caminho" id="caminhoWorkspace" title="">—</div>
+          <div class="linha-botoes">
+            <button class="btn-secundario" id="btnEscolherPasta">Trocar pasta</button>
+            <button class="btn-secundario" id="btnAbrirPasta">Abrir no explorador</button>
+          </div>
+          <ul class="arvore" id="arvore"><li class="vazio">Nenhum arquivo ainda.</li></ul>
+        </section>
+        <section class="grupo">
+          <h2>Modelo e comportamento</h2>
+          <p class="dica">O modelo em uso é escolhido no seletor "modelo" do topo. Aqui dá pra baixar outros.</p>
+          <div class="baixar-modelo" id="baixarModelo">
+            <span class="baixar-modelo-titulo">Baixar modelo no Ollama</span>
+            <div class="baixar-modelo-sugestoes" id="bmSugestoes"></div>
+            <div class="linha">
+              <input type="text" id="bmNome" placeholder="ex.: llama3.2:3b" />
+              <button class="btn-secundario" id="btnBmBaixar">Baixar</button>
+            </div>
+            <div class="teste-resultado" id="bmStatus"></div>
+            <div class="bm-progresso" id="bmProgresso" hidden><i id="bmProgressoBarra" style="width:0%"></i></div>
+          </div>
+
+          <label class="linha"><span>Máximo de passos</span>
+            <input type="number" id="cfgMax" min="1" max="200" />
+          </label>
+          <label class="linha"><span>Verificar ambiguidade antes de agir</span>
+            <input type="checkbox" id="cfgVerificarAmbiguidade" class="caixa" />
+          </label>
+          <p class="dica">Antes do primeiro passo, uma checagem rápida decide se o pedido já tem informação suficiente para começar ou se falta algo que só você sabe. Só nesse segundo caso a primeira ação é uma pergunta — sem gastar uma rodada tentando adivinhar.</p>
+          <div class="linha">
+            <span>Sempre permitidas</span>
+            <div class="permitidas" id="cfgPermitidas"></div>
+          </div>
+        </section>
+          </div>
+        </details>
+
+        <details class="categoria-config">
+          <summary class="categoria-titulo">Memória</summary>
+          <div class="categoria-corpo">
+        <section class="grupo">
+          <h2>Memória <span class="contador" id="memTotal">0</span></h2>
+          <p class="dica">Fatos e resultados guardados entre os passos e entre execuções, aprendidos em paralelo enquanto o agente trabalha.</p>
+          <div class="linha-botoes">
+            <button class="btn-secundario" id="btnLimparMemoria">Esquecer tudo</button>
+          </div>
+        </section>
+        <section class="grupo">
+          <h2>Memória central <span class="contador" id="centralTotal">0</span></h2>
+          <p class="dica">O que o agente sabe sobre <em>você</em> — nome, preferências gerais — e que vale em qualquer pasta de trabalho, ao contrário da memória acima. O próprio agente grava aqui quando você conta algo duradouro sobre si.</p>
+          <ul class="operacional" id="listaCentral"></ul>
+          <div class="linha-botoes">
+            <button class="btn-secundario" id="btnLimparCentral">Esquecer tudo sobre mim</button>
+          </div>
+        </section>
+        <section class="grupo">
+          <h2>Memória operacional <span class="contador" id="opTotal">0</span></h2>
+          <p class="dica">O que o agente aprendeu sobre <em>como</em> as coisas funcionam: site que exige JavaScript, provedor de busca instável, ferramenta certa para cada formato, suas preferências. Uma observação só não vira lição — é preciso repetir.</p>
+          <ul class="operacional" id="listaOperacional"></ul>
+          <div class="linha-botoes">
+            <button class="btn-secundario" id="btnLimparOperacional">Esquecer aprendizado</button>
+          </div>
+        </section>
+          </div>
+        </details>
+
+
+
+        <details class="categoria-config">
+          <summary class="categoria-titulo">Pesquisa web e domínios</summary>
+          <div class="categoria-corpo">
+        <section class="grupo">
+          <h2>Domínios e credibilidade <span class="contador" id="domTotal">0</span></h2>
+          <p class="dica">Bases públicas usadas para ordenar as fontes: portais com histórico de conteúdo fabricado descem na fila, órgãos oficiais sobem. Nada é bloqueado em silêncio — fonte marcada continua legível, com o aviso junto.</p>
+          <div class="dom-resumo" id="domResumo"></div>
+
+          <label class="linha"><span>Consultar um domínio</span>
+            <input type="text" id="domConsulta" placeholder="ex.: g1.globo.com" />
+          </label>
+          <div class="teste-resultado" id="domResultado"></div>
+
+          <h3 class="sub-titulo">Suas marcações</h3>
+          <p class="dica">O seu julgamento vence a base pública: você conhece os sites do seu assunto melhor que uma lista genérica.</p>
+          <div class="dom-lista" id="domLista"></div>
+          <div class="mcp-novo">
+            <input type="text" id="domNovo" placeholder="domínio (ex.: portalx.com.br)" />
+            <select id="domRisco">
+              <option value="confiavel">confiável — sobe na fila</option>
+              <option value="medio">apuração fraca — desce um pouco</option>
+              <option value="alto">não confiável — desce muito</option>
+              <option value="satira">sátira — não é notícia real</option>
+            </select>
+            <input type="text" id="domMotivo" placeholder="motivo (aparece no material)" />
+          </div>
+          <div class="linha-botoes">
+            <button class="btn-secundario" id="btnAddDominio">Adicionar</button>
+          </div>
+
+          <h3 class="sub-titulo">Aprendidos automaticamente nesta pasta <span class="contador" id="domAprendidosTotal">0</span></h3>
+          <p class="dica">O agente ajusta isto sozinho ao cruzar fontes: um domínio que confirma o que outros já confirmaram sobe; um que diverge desce. Precisa de sinal repetido antes de aparecer aqui — uma coincidência isolada não conta.</p>
+          <div class="dom-lista" id="domAprendidosLista"></div>
+        </section>
+        <section class="grupo">
+          <h2>SearXNG embutido</h2>
+          <p class="dica">Alternativa ao Docker ou a uma instância manual: o AuGPT baixa e roda o próprio SearXNG local, num clique. Só na instalação ele baixa arquivos da internet (Python do python.org e o código do SearXNG do GitHub) — depois disso fica rodando junto do resto do app, sem depender de mais nada externo.</p>
+          <div class="teste-resultado" id="sxStatus">verificando…</div>
+          <div class="linha-botoes">
+            <button class="btn-secundario" id="btnSxInstalar">Instalar</button>
+            <button class="btn-secundario" id="btnSxDesinstalar" hidden>Desinstalar</button>
+          </div>
+          <label class="linha"><span>Usar SearXNG embutido na busca</span>
+            <input type="checkbox" id="cfgUsarSxEmbutido" class="caixa" disabled />
+          </label>
+        </section>
+        <section class="grupo">
+          <h2>Pesquisa na web</h2>
+          <label class="linha"><span>SearXNG (opcional)</span>
+            <input type="text" id="cfgSearx" placeholder="http://localhost:8888" />
+          </label>
+          <label class="linha"><span>Chave da Marginalia (opcional)</span>
+            <input type="text" id="cfgMarginaliaKey" placeholder="public" />
+          </label>
+          <label class="linha"><span>Chave da Jina AI (opcional)</span>
+            <input type="text" id="cfgJinaKey" placeholder="jina_..." />
+          </label>
+          <p class="dica">A busca tenta vários provedores em cadeia até um responder (SearXNG → DuckDuckGo → Marginalia → Wikipédia → Jina). A chave pública da Marginalia é compartilhada com todo mundo e costuma esgotar — pegue a sua de graça em marginalia-search.com/api. A Jina exige chave própria; sem ela, essa reserva fica de fora da cadeia em vez de falhar sempre — pegue a sua de graça em jina.ai.</p>
+          <label class="linha"><span>Pesquisa planejada em recomendações e comparações</span>
+            <input type="checkbox" id="cfgMotorPesquisa" class="caixa" />
+          </label>
+          <p class="dica">Em pedidos como "qual o melhor fone para jogar" ou "compare A e B", o agente define primeiro os critérios que importam, descobre as opções recomendadas, pesquisa cada uma e monta uma tabela opção × critério antes de responder. Demora mais, mas a comparação sai completa.</p>
+          <label class="linha"><span>Modo AUTO (potência conforme o pedido)</span>
+            <input type="checkbox" id="cfgModoAuto" class="caixa" />
+          </label>
+          <label class="linha"><span>Modelo das respostas rápidas</span>
+            <input type="text" id="cfgAutoModeloRapido" spellcheck="false" placeholder="(modelo principal)" />
+          </label>
+          <label class="linha"><span>Modelo da redação profunda</span>
+            <input type="text" id="cfgAutoModeloProfundo" spellcheck="false" placeholder="(modelo principal)" />
+          </label>
+          <p class="dica">Cada pedido ganha um nível: <b>0 · direto</b> (saudação, texto criativo, conta — só o modelo), <b>1 · conversa com pesquisa</b> ("me fale sobre X", "quem foi" — uma busca, Wikipédia e escrita livre, com os números conferidos), <b>2 · pesquisa padrão</b> (o agente sem plano forçado nem crítico periódico) e <b>3 · pesquisa profunda</b> (compra, comparação, guia — tudo o que está ligado aqui). O que você marcou nestes Ajustes é o teto: o AUTO só desliga etapas. O relatório de cada conversa mostra o nível escolhido e por quê. Os modelos vazios usam o principal; o das respostas rápidas pode ser um maior (ex.: qwen3.5:9b) — o raciocínio dele é desligado nas etapas.</p>
+          <label class="linha"><span>Modelo de decisão confere o tipo do pedido</span>
+            <input type="checkbox" id="cfgRoteadorDecisor" class="caixa" />
+          </label>
+          <label class="linha"><span>Modelo de decisão</span>
+            <input type="text" id="cfgModeloDecisor" spellcheck="false" placeholder="tev1" />
+          </label>
+          <p class="dica">Antes de começar, um modelo de decisão do Ollama (como o <b>tev1</b>, Ollama 0.35 ou mais novo) confere se o pedido é recomendação de produto, guia, explicação ou tarefa comum, e corrige a escolha das regras quando tem certeza. Nos seus pedidos reais, isso levou o acerto de 80% para 94%. Custa cerca de meio segundo por pedido. Se o modelo não estiver instalado ou não responder, as regras decidem sozinhas. Dica: crie um <code>tev1-cpu</code> (Modelfile com <code>PARAMETER num_gpu 0</code>) para ele rodar no processador e não disputar a placa de vídeo com o modelo principal.</p>
+          <label class="linha linha-bloco"><span>Fontes da comunidade</span>
+            <textarea id="cfgFontesComunidade" rows="4" spellcheck="false" placeholder="reddit.com&#10;clubedohardware.com.br&#10;forum.adrenaline.com.br&#10;head-fi.org"></textarea>
+          </label>
+          <p class="dica">Fóruns e comunidades onde o agente procura opinião de quem usa, um endereço por linha. Deixe vazio para usar a lista padrão (Reddit, Clube do Hardware, Fórum Adrenaline e Head-Fi). Tópicos desses sites são lidos como conversa, comentário por comentário.</p>
+          <label class="linha"><span>Renderizar páginas com JavaScript</span>
+            <input type="checkbox" id="cfgRenderJs" class="caixa" />
+          </label>
+          <label class="linha"><span>Usar leitor externo (r.jina.ai)</span>
+            <input type="checkbox" id="cfgLeitorExterno" class="caixa" />
+          </label>
+          <p class="dica">Quando uma página não abre direto, o endereço dela é enviado ao serviço r.jina.ai pra leitura. Desligado por padrão.</p>
+          <label class="linha"><span>Permitir endereços da rede local</span>
+            <input type="checkbox" id="cfgRedeLocal" class="caixa" />
+          </label>
+          <p class="dica">Por segurança, o agente não abre endereços do seu computador nem da sua rede (localhost, 192.168.x.x, o roteador). Ligue só se quiser que ele leia, por exemplo, um servidor de desenvolvimento local.</p>
+          <label class="linha"><span>Navegação interativa (login e formulários)</span>
+            <input type="checkbox" id="cfgNavegacao" class="caixa" />
+          </label>
+          <label class="linha"><span>Mostrar a janela do navegador</span>
+            <input type="checkbox" id="cfgNavegadorVisivel" class="caixa" />
+          </label>
+          <p class="dica">Com a janela visível você faz login uma vez e o agente continua dali — a sessão fica salva. Toda ação no navegador pede confirmação: ele age na web com as suas sessões abertas.</p>
+          <label class="linha"><span>Arquivos baixados pelo navegador</span>
+            <select id="cfgDownloadsDoNavegador">
+              <option value="perguntar">Perguntar onde salvar (janela "Salvar como")</option>
+              <option value="pasta-de-trabalho">Salvar sozinho na pasta de trabalho</option>
+            </select>
+          </label>
+          <p class="dica">Nos dois casos o agente fica sabendo que o download terminou e onde o arquivo foi salvo. Na pasta de trabalho, o arquivo também aparece anexado na conversa.</p>
+        </section>
+          </div>
+        </details>
+
+        <details class="categoria-config">
+          <summary class="categoria-titulo">Automação</summary>
+          <div class="categoria-corpo">
+        <section class="grupo">
+          <h2>Rotina automática <span class="contador" id="agTotal">0</span></h2>
+          <p class="dica">Pedidos que disparam sozinhos, sem você precisar mandar toda vez — mesmo texto que você digitaria, na hora certa. Só funciona com o AuGPT aberto: não há ícone de bandeja nem início junto com o sistema, então nada dispara com a janela fechada.</p>
+          <div class="dom-lista" id="agLista"></div>
+
+          <label class="linha"><span>Pedido a enviar</span>
+            <input type="text" id="agNovoTexto" placeholder="ex.: qual a previsão do tempo para hoje?" />
+          </label>
+          <label class="linha"><span>Quando disparar</span>
+            <select id="agNovoTipo">
+              <option value="intervalo">a cada X minutos</option>
+              <option value="horario">todo dia num horário fixo</option>
+            </select>
+          </label>
+          <label class="linha" id="agCampoIntervalo"><span>Intervalo (minutos)</span>
+            <input type="number" id="agNovoMinutos" min="1" value="60" />
+          </label>
+          <label class="linha" id="agCampoHorario" hidden><span>Horário (HH:MM)</span>
+            <input type="text" id="agNovoHorario" placeholder="09:00" />
+          </label>
+          <div class="linha-botoes">
+            <button class="btn-secundario" id="btnAddAgendamento">Adicionar</button>
+          </div>
+        </section>
+          </div>
+        </details>
+
+        <details class="categoria-config" id="cfgAvancado">
+          <summary class="categoria-titulo">Avançado</summary>
+          <div class="categoria-corpo">
+        <p class="dica">Ajustes técnicos. Os valores padrão funcionam pra maioria dos computadores — mude só se souber o que está fazendo. "Restaurar padrões", no topo desta página, desfaz tudo.</p>
+        <section class="grupo">
+          <h2>Tela</h2>
+          <label class="linha"><span>Mostrar detalhes técnicos da execução</span>
+            <input type="checkbox" id="cfgDetalhesTecnicos" class="caixa" />
+          </label>
+          <p class="dica">Cartões como "JSON inválido", "fora do protocolo" e "contexto compactado" mostram como o agente se recuperou de um tropeço. Úteis pra depurar; pra uso normal, ficam escondidos.</p>
+        </section>
+        <section class="grupo">
+          <h2>Conexão</h2>
+          <label class="linha"><span>Servidor Ollama</span>
+            <input type="text" id="cfgHost" placeholder="http://127.0.0.1:11434" />
+          </label>
+          <label class="linha"><span>Modelo das decisões</span>
+            <select id="cfgModeloDecisao"><option value="">o mesmo do topo</option></select>
+          </label>
+          <label class="linha"><span>Modelo da redação</span>
+            <select id="cfgModeloRedacao"><option value="">o mesmo do topo</option></select>
+          </label>
+          <p class="dica">Decidir é tarefa curta e redigir é tarefa longa. Um modelo pequeno decidindo e um maior escrevendo costuma sair melhor e mais rápido que um só nos dois papéis.</p>
+
+          <label class="linha"><span>Janela de contexto — decisão</span>
+            <input type="number" id="cfgCtx" min="2048" max="131072" step="1024" />
+          </label>
+          <label class="linha"><span>Janela de contexto — redação</span>
+            <input type="number" id="cfgCtxRedacao" min="2048" max="131072" step="1024" placeholder="igual à decisão" />
+          </label>
+          <p class="dica">Cada IA (decisão, redação e, se ligado, o copiloto dedicado logo abaixo em Execução) pode ter sua própria janela. Em branco, usa o mesmo valor da decisão — mesmo comportamento de antes desta separação.</p>
+          <label class="linha"><span>Temperatura</span>
+            <input type="number" id="cfgTemp" min="0" max="2" step="0.1" />
+          </label>
+          <label class="linha"><span>Modelo de embedding</span>
+            <input type="text" id="cfgEmbed" placeholder="nomic-embed-text" />
+          </label>
+          <label class="linha"><span>Lembranças por consulta</span>
+            <input type="number" id="cfgTopK" min="0" max="12" />
+          </label>
+        </section>
+        <section class="grupo">
+          <h2>Execução</h2>
+          <label class="linha"><span>Copiloto (segunda opinião)</span>
+            <select id="cfgCopiloto2Modo">
+              <option value="desligado">Desligado</option>
+              <option value="mesmoModelo">Modelo atual (leve)</option>
+              <option value="doisModelos">2 IAs (crítico dedicado)</option>
+            </select>
+          </label>
+          <p class="dica">De vez em quando (a cada poucos passos, ou antes disso se o agente tropeçar duas vezes seguidas) um subagente para e questiona se o plano ainda faz sentido — e o próprio agente também pode chamá-lo sob demanda, quando não tiver certeza do rumo. Isso vira um cartão "crítica ao plano" na conversa. <b>Modelo atual</b>: reaproveita o modelo que já está rodando — mais rápido, funciona em qualquer computador. <b>2 IAs</b>: usa um segundo modelo dedicado só pra essa segunda opinião — mais independente (pega erros que o modelo principal não enxergaria sozinho), mas usa mais RAM e é mais lento.</p>
+          <p class="dica" id="cfgCopilotoRecomendacao"></p>
+          <label class="linha"><span>Quando o crítico revisa o plano</span>
+            <select id="cfgCriticaPeriodicaModo">
+              <option value="frequencia">A cada poucos passos (como sempre)</option>
+              <option value="evento">Só quando algo dá errado (mais rápido)</option>
+            </select>
+          </label>
+          <p class="dica"><b>Só quando algo dá errado</b>: o crítico roda depois de um erro de ferramenta, de uma ação repetida, de uma página que não muda ou de uma resposta fora do protocolo — e antes de redigir. Nas execuções de 05/10 a revisão a cada passo custou de 3 a 4 minutos por execução.</p>
+          <!-- Oferta pra ajustar OLLAMA_MAX_LOADED_MODELS — aparece só quando "2 IAs"
+               está escolhido e o Ollama (Windows) mantém só 1 modelo carregado por
+               vez (ver ollamaRuntime.lerMaxModelosCarregados, electron/main.js).
+               Mesmo princípio da oferta de início automático do Ollama: nunca ajusta
+               nada sem o usuário clicar em "Ajustar agora". Depois de ajustado, o
+               segundo botão (escondido até então) cobre o caso real do Davi
+               (2026-09-18): o registro já bate, mas o Ollama rodando ainda não foi
+               reiniciado — ver ollamaMaxModelosReinicioPendente, src/config.js. -->
+          <div class="teste-resultado" id="cfgMaxModelosAviso" hidden>
+            <span id="cfgMaxModelosTexto"></span>
+            <button class="btn-secundario" id="btnAjustarMaxModelos" type="button">Ajustar agora</button>
+            <button class="btn-secundario" id="btnReiniciarOllamaPraMim" type="button" hidden>Reiniciar o Ollama pra mim</button>
+            <button class="btn-secundario" id="btnConfirmarReinicioMaxModelos" type="button" hidden>Já reiniciei o Ollama</button>
+          </div>
+          <label class="linha" id="cfgCopiloto2ModeloLinha" hidden><span>Modelo dedicado do Copiloto</span>
+            <select id="cfgModeloCopiloto2"><option value="">selecione…</option></select>
+          </label>
+          <label class="linha" id="cfgCopiloto2CtxLinha" hidden><span>Janela de contexto — copiloto</span>
+            <input type="number" id="cfgCtxCopiloto" min="2048" max="131072" step="1024" placeholder="igual à decisão" />
+          </label>
+          <label class="linha"><span>Propor skills automaticamente</span>
+            <input type="checkbox" id="cfgCriacaoAutomaticaDeSkills" class="caixa" />
+          </label>
+          <p class="dica">Quando o mesmo tipo de pedido se repete sem nenhuma skill cobrindo, o agente testa um rascunho sozinho (numa execução isolada, sem afetar sua conversa) antes de sugerir — veja em Skills → Sugestões. Nunca ativa nada sem sua aprovação.</p>
+          <label class="linha"><span>Limite do terminal e do código (s)</span>
+            <input type="number" id="cfgShell" min="5" max="900" />
+          </label>
+        </section>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------ lateral direita (fase 2 da reforma visual) ------------------------------ -->
+  <!-- Pedido do Davi (2026-09-18): "cards na lateral direita contendo outputs
+       e inputs para documentos gerados/anexado aquele chat" + "progress" como
+       lista de tarefas do agente. Só aparece na aba Agente (trocarAba() em
+       app.js) — checklist e arquivos gerados por ferramenta só existem
+       nesse modo, a aba Conversa é só pergunta/resposta direta ao modelo.
+       "Arquivos" cobre tanto o que o agente gerou (gerar_docx/xlsx/pdf/html,
+       escrever_arquivo) quanto o que você anexou — pedido de Davi
+       ("outputs e inputs"). Escopo assumido (não perguntado): só a
+       conversa atual, nesta sessão — arquivos e progresso não são
+       persistidos no JSON da conversa salva, então reabrir uma conversa
+       antiga não traz de volta o que apareceria aqui (ver AuGPT-plano-de-
+       implementacao.md, rodada da fase 2, pra decisão e trade-off). -->
+  <!-- Sem `hidden` aqui: "Agente" é a aba padrão ao abrir o app (mesmo
+       padrão de #viewAgente acima, que também não tem `hidden`) — trocarAba()
+       só reage a partir daqui quando o usuário troca de aba. -->
+  <!-- Reforma pedido do Davi (2026-09-19): a coluna deixou de ter fundo/borda
+       unificados — cada painel agora é um "card" flutuante independente
+       (.card-flutuante), que pode ser arrastado pra reordenar e ocultado
+       (vira um botãozinho em #cardsReduzidos, não some de vez). Ver
+       inicializarCardsLaterais() em app.js. -->
+  <aside class="lateral-direita" id="lateralDireita">
+    <div class="cards-reduzidos" id="cardsReduzidos"></div>
+    <div class="cards-coluna" id="cardsColuna">
+      <section class="card-flutuante" id="cardProgresso" data-card="progresso">
+        <header class="card-cabecalho" draggable="true">
+          <h2 class="card-titulo">Progresso</h2>
+          <div class="card-acoes">
+            <button class="card-btn" data-acao="ocultar" title="Ocultar" aria-label="Ocultar card Progresso">−</button>
+          </div>
+        </header>
+        <div class="card-corpo">
+          <ol class="progresso-lista" id="progressoLista"></ol>
+          <p class="painel-vazio" id="progressoVazio">Nenhum plano ativo no momento.</p>
+        </div>
+      </section>
+
+      <section class="card-flutuante" id="cardArquivos" data-card="arquivos">
+        <header class="card-cabecalho" draggable="true">
+          <h2 class="card-titulo">Arquivos</h2>
+          <div class="card-acoes">
+            <button class="card-btn" data-acao="ocultar" title="Ocultar" aria-label="Ocultar card Arquivos">−</button>
+          </div>
+        </header>
+        <div class="card-corpo">
+          <div class="arquivos-secao" id="arquivosSecaoEntrada">
+            <h3 class="arquivos-subtitulo">Você enviou</h3>
+            <ul class="saidas-lista" id="saidasListaEntrada"></ul>
+          </div>
+          <div class="arquivos-secao" id="arquivosSecaoSaida">
+            <h3 class="arquivos-subtitulo">AuGPT gerou</h3>
+            <ul class="saidas-lista" id="saidasListaSaida"></ul>
+          </div>
+          <p class="painel-vazio" id="saidasVazio">Nenhum arquivo gerado ou anexado ainda nesta conversa.</p>
+        </div>
+      </section>
+
+      <section class="card-flutuante" id="cardParagrafos" data-card="paragrafos">
+        <header class="card-cabecalho" draggable="true">
+          <h2 class="card-titulo">Parágrafos</h2>
+          <div class="card-acoes">
+            <button class="card-btn" data-acao="ocultar" title="Ocultar" aria-label="Ocultar card Parágrafos">−</button>
+          </div>
+        </header>
+        <div class="card-corpo">
+          <ol class="paragrafos-lista" id="paragrafosLista"></ol>
+          <p class="painel-vazio" id="paragrafosVazio">Nenhuma pergunta ainda nesta conversa.</p>
+        </div>
+      </section>
+    </div>
+  </aside>
+</main>
+
+<dialog id="dlgModelos">
+  <div class="dialogo dialogo-modelos">
+    <h2>Onde cada modelo está rodando agora</h2>
+    <p class="dica">O modelo principal e o de memória (nomic-embed-text) deveriam estar na <b>GPU</b>; o roteador (Tev1) e o copiloto dedicado, na <b>CPU</b>, pra não disputar a placa de vídeo. "Não carregado" é normal: o Ollama carrega o modelo na primeira chamada e descarrega depois de alguns minutos parado.</p>
+    <div id="dlgModelosCorpo"></div>
+    <footer>
+      <button class="btn-secundario" id="btnAtualizarModelos">Atualizar</button>
+      <button class="btn-primario" id="btnFecharModelos">Fechar</button>
+    </footer>
+  </div>
+</dialog>
+
+<dialog id="dlgSkill">
+  <div class="dialogo">
+    <h2 id="dlgSkillNome">Skill</h2>
+    <pre class="bloco-codigo" id="dlgSkillCorpo"></pre>
+    <footer>
+      <button class="btn-secundario" id="btnRevelarSkill">Mostrar arquivo</button>
+      <button class="btn-primario" id="btnFecharSkill">Fechar</button>
+    </footer>
+  </div>
+</dialog>
+
+<dialog id="dlgArquivo">
+  <div class="dialogo dialogo-arquivo">
+    <h2 id="dlgArquivoNome">Arquivo</h2>
+    <div class="previa-arquivo" id="dlgArquivoCorpo"></div>
+    <footer>
+      <button class="btn-secundario" id="btnAbrirExternoArquivo">Abrir com o app padrão</button>
+      <button class="btn-secundario" id="btnBaixarArquivo">Salvar como…</button>
+      <button class="btn-primario" id="btnFecharArquivo">Fechar</button>
+    </footer>
+  </div>
+</dialog>
+
+<div class="menu-flutuante" id="menuConversa" hidden>
+  <button data-acao="abrir">Abrir</button>
+  <button data-acao="renomear">Renomear</button>
+  <button data-acao="exportar">Exportar .md</button>
+  <!-- Item 2 da análise comparativa (2026-09-21, "comando manual de
+       compactação"): funde agora os turnos que já saíram da janela dos
+       últimos 6, sem esperar a próxima execução — ver IPC 'chats:compact'. -->
+  <button data-acao="compactar">Compactar</button>
+  <button data-acao="selecionar">Selecionar</button>
+  <button data-acao="excluir" class="perigo">Excluir conversa</button>
+</div>
+
+<script src="grafico.js"></script>
+<script src="md.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+{
+  "name": "augpt",
+  "version": "0.6.0",
+  "description": "Agente autônomo para desktop que planeja, pesquisa na web, lê e gera documentos — com o modelo de IA rodando no seu computador via Ollama.",
+  "main": "electron/main.js",
+  "author": "Davi",
+  "license": "MIT",
+  "keywords": [
+    "agente",
+    "ia-local",
+    "ollama",
+    "electron",
+    "llm",
+    "autogpt",
+    "pt-br"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "dist": "electron-builder",
+    "avaliar": "node avaliacao/executar.js",
+    "comparar": "node avaliacao/comparar.js",
+    "atualizar-dominios": "node ferramentas/_atualizar-dominios.js"
+  },
+  "devDependencies": {
+    "electron": "^44.4.5"
+  },
+  "build": {
+    "appId": "com.davi.augpt",
+    "productName": "AuGPT",
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "renderer/**/*",
+      "skills/**/*",
+      "ferramentas/**/*",
+      "dados/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "mac": {
+      "target": "dmg"
+    }
+  }
+}

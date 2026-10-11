@@ -1,0 +1,17 @@
+[
+ {"id": "x1", "pedido": "entre em https://loja.exemplo com meu login e clique em rastrear pedido", "esperado": {"rota": "site", "precisa_web": true, "produto_nomeado": false, "continuacao": false}},
+ {"id": "x2", "pedido": "abra https://banco.exemplo, faça login e baixe o extrato de setembro em PDF", "esperado": {"rota": "site", "precisa_web": true, "produto_nomeado": false, "continuacao": false}},
+ {"id": "x3", "pedido": "preencha o formulário de inscrição em https://evento.exemplo/inscricao com meu nome e e-mail", "esperado": {"rota": "site", "precisa_web": true, "produto_nomeado": false, "continuacao": false}},
+ {"id": "x4", "pedido": "acesse https://blog.exemplo/artigo e resuma o texto", "esperado": {"rota": "tarefa", "precisa_web": true, "produto_nomeado": false, "continuacao": false}},
+ {"id": "x5", "pedido": "O que https://docs.exemplo diz sobre login com OAuth?", "esperado": {"rota": "tarefa", "precisa_web": true, "produto_nomeado": false, "continuacao": false}},
+ {"id": "x6", "pedido": "qual o melhor fone (até R$ 300) para jogar pubg?", "esperado": {"rota": "produto", "precisa_web": true, "produto_nomeado": false, "continuacao": false}},
+ {"id": "x7", "pedido": "melhor fone para jogar (PUBG Mobile)?", "esperado": {"rota": "produto", "precisa_web": true, "produto_nomeado": false, "continuacao": false}},
+ {"id": "x8", "pedido": "vale a pena o iPhone 15 (128 GB) ou espero o próximo?", "esperado": {"rota": "produto", "precisa_web": true, "produto_nomeado": true, "continuacao": false}},
+ {"id": "x9", "pedido": "o Moondrop Chu 2 é bom para ouvir passos no valorant?", "esperado": {"rota": "produto", "precisa_web": true, "produto_nomeado": true, "continuacao": false}},
+ {"id": "x10", "pedido": "entre o Logitech G Pro X Superlight 2 e o Razer Viper V3 Pro, qual você indica para FPS?", "esperado": {"rota": "produto", "precisa_web": true, "produto_nomeado": true, "continuacao": false}},
+ {"id": "x11", "pedido": "dicas para melhorar minha mira no CS2", "esperado": {"rota": "guia", "precisa_web": true, "produto_nomeado": false, "continuacao": false}},
+ {"id": "x12", "pedido": "me ensina a rotacionar melhor no final de partida do PUBG", "esperado": {"rota": "guia", "precisa_web": true, "produto_nomeado": false, "continuacao": false}},
+ {"id": "x13", "pedido": "e o segundo colocado, como se saiu?", "esperado": {"rota": "tarefa", "precisa_web": true, "produto_nomeado": false, "continuacao": true}},
+ {"id": "x14", "pedido": "resuma em 3 tópicos o que você acabou de responder", "esperado": {"rota": "tarefa", "precisa_web": false, "produto_nomeado": false, "continuacao": true}},
+ {"id": "x15", "pedido": "por que o céu é azul?", "esperado": {"rota": "explicacao", "precisa_web": false, "produto_nomeado": false, "continuacao": false}}
+]

@@ -1,0 +1,1338 @@
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/avaliacao/casos/erros-temporarios.js augpt/avaliacao/casos/erros-temporarios.js
+--- a/avaliacao/casos/erros-temporarios.js	1969-12-31 21:00:00.000000000 -0300
++++ b/avaliacao/casos/erros-temporarios.js	2026-10-10 10:33:01.417152157 -0300
+@@ -0,0 +1,143 @@
++'use strict';
++
++/**
++ * Erro temporário × definitivo (2026-10-10, tools/erros.js): leitura que
++ * falha por motivo passageiro e rápido (429, 5xx, conexão derrubada) tenta de
++ * novo uma vez; erro definitivo (404, 403, endereço bloqueado, arquivo que
++ * não existe) volta ao modelo dizendo que repetir não adianta.
++ */
++
++const http = require('http');
++const { classificarErro, comNovaTentativa, anotarErro, MARCA_DEFINITIVO } = require('../../src/tools/erros');
++const { executarCasoAgente } = require('../motor');
++
++/** Servidor que responde a sequência de status dada, um por pedido (o último se repete). */
++async function servidorDeStatus(sequencia, corpo) {
++  let n = 0;
++  const s = http.createServer((req, res) => {
++    const status = sequencia[Math.min(n, sequencia.length - 1)];
++    n += 1;
++    res.statusCode = status;
++    res.setHeader('Content-Type', 'text/html');
++    res.end(status === 200 ? corpo : `erro ${status}`);
++  });
++  await new Promise((r) => s.listen(0, '127.0.0.1', r));
++  return { url: `http://127.0.0.1:${s.address().port}/artigo`, pedidos: () => n, fechar: () => new Promise((r) => s.close(r)) };
++}
++
++const ARTIGO =
++  '<html><body><article><p>O PUBG foi lançado em março de 2017 em acesso antecipado. ' +
++  'Contexto suficiente para o extrator aceitar este bloco como conteúdo de verdade, com mais de cem caracteres.</p></article></body></html>';
++
++module.exports = [
++  {
++    nome: 'erros: classificação — 404 e "não existe" são definitivos; 503 e "socket hang up" repetem; timeout e "nenhum provedor" são temporários mas não repetem',
++    tipo: 'unidade',
++    executar() {
++      const c = (m) => classificarErro(new Error(m));
++      return [
++        c('Não consegui ler a página. Tentativas — html direto: HTTP 404 | render-js: timeout').tipo === 'definitivo' || '404 junto de timeout é definitivo',
++        c('Bloqueado: 192.168.0.1 é endereço da rede local').tipo === 'definitivo' || 'endereço bloqueado é definitivo',
++        c('Arquivo "relatorio.pdf" não existe na pasta de trabalho').tipo === 'definitivo' || 'arquivo inexistente é definitivo',
++        c('HTTP 503').repetivel === true || '503 repete',
++        c('socket hang up').repetivel === true || 'conexão derrubada repete',
++        c('timeout').tipo === 'temporario' && c('timeout').repetivel === false || 'timeout é temporário mas não repete (custaria outro timeout)',
++        c('Nenhum provedor de busca respondeu. Detalhes — searxng: HTTP 503').repetivel === false || 'a cadeia de provedores já tentou todos',
++        c('algo estranho aconteceu').tipo === 'desconhecido' || 'texto sem sinal nenhum fica desconhecido',
++        anotarErro('HTTP 404', c('HTTP 404')).includes(MARCA_DEFINITIVO) || 'definitivo ganha a marca para o modelo',
++        anotarErro('timeout', c('timeout')) === 'timeout' || 'temporário sem nova tentativa não ganha marca',
++      ];
++    },
++  },
++  {
++    nome: 'erros: comNovaTentativa — 503 passa na 2ª; 404 não repete; tentativa lenta não repete; interrupção para na hora',
++    tipo: 'unidade',
++    async executar() {
++      let n1 = 0;
++      const ok = await comNovaTentativa(
++        async () => {
++          n1 += 1;
++          if (n1 === 1) throw new Error('HTTP 503');
++          return 'conteúdo';
++        },
++        { esperaMs: 1 }
++      );
++      let n2 = 0;
++      let def = null;
++      try {
++        await comNovaTentativa(async () => {
++          n2 += 1;
++          throw new Error('HTTP 404');
++        }, { esperaMs: 1 });
++      } catch (err) {
++        def = err;
++      }
++      let n3 = 0;
++      try {
++        await comNovaTentativa(async () => {
++          n3 += 1;
++          await new Promise((r) => setTimeout(r, 30));
++          throw new Error('HTTP 503');
++        }, { esperaMs: 1, maxDuracaoMs: 10 });
++      } catch {
++        /* esperado */
++      }
++      const ctrl = new AbortController();
++      let n4 = 0;
++      try {
++        await comNovaTentativa(async () => {
++          n4 += 1;
++          ctrl.abort(new Error('interrompido'));
++          throw new Error('HTTP 503');
++        }, { esperaMs: 1, signal: ctrl.signal });
++      } catch {
++        /* esperado */
++      }
++      return [
++        ok === 'conteúdo' && n1 === 2 || `503: ${n1} tentativa(s)`,
++        n2 === 1 || `404 foi repetido (${n2})`,
++        def?.classificacao?.tipo === 'definitivo' || 'o erro sai com a classificação',
++        n3 === 1 || `tentativa lenta foi repetida (${n3})`,
++        n4 === 1 || `interrompido e mesmo assim repetiu (${n4})`,
++      ];
++    },
++  },
++  {
++    nome: 'erros (ponta a ponta): abrir_pagina com 503 na 1ª vez lê na 2ª; com 404 o erro volta marcado como definitivo e não é repetido',
++    tipo: 'unidade',
++    async executar() {
++      const instavel = await servidorDeStatus([503, 200], ARTIGO);
++      const sumiu = await servidorDeStatus([404], 'x');
++      try {
++        const a = await executarCasoAgente({
++          nome: 'erros: 503',
++          pedido: 'Leia a página e me diga quando o PUBG foi lançado',
++          roteiro: [
++            { ferramenta: 'abrir_pagina', argumentos: { url: instavel.url } },
++            { ferramenta: 'responder', argumentos: { foco: 'pubg' } },
++          ],
++          redacao: 'Em março de 2017.',
++        });
++        const b = await executarCasoAgente({
++          nome: 'erros: 404',
++          pedido: 'Leia a página e me diga quando o PUBG foi lançado',
++          roteiro: [
++            { ferramenta: 'abrir_pagina', argumentos: { url: sumiu.url } },
++            { ferramenta: 'responder', argumentos: { foco: 'pubg' } },
++          ],
++          redacao: 'Não consegui ler a página.',
++        });
++        return [
++          instavel.pedidos() >= 2 || `o 503 deveria ter sido tentado de novo (${instavel.pedidos()} pedido(s))`,
++          !a.erros.some((e) => /abrir_pagina/.test(e)) || `a 2ª tentativa deveria ter lido: ${a.erros.join(' / ')}`,
++          /2017/.test(a.promptRedacao) || 'o conteúdo lido na 2ª tentativa tem que chegar à redação',
++          b.erros.some((e) => e.includes('erro definitivo')) || `o 404 deveria voltar marcado: ${b.erros.join(' / ')}`,
++          sumiu.pedidos() <= 2 || `404 não deveria ser repetido pela ferramenta (${sumiu.pedidos()} pedidos)`,
++        ];
++      } finally {
++        await instavel.fechar();
++        await sumiu.fechar();
++      }
++    },
++  },
++];
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/avaliacao/casos/retomada.js augpt/avaliacao/casos/retomada.js
+--- a/avaliacao/casos/retomada.js	1969-12-31 21:00:00.000000000 -0300
++++ b/avaliacao/casos/retomada.js	2026-10-10 10:23:30.279019635 -0300
+@@ -0,0 +1,124 @@
++'use strict';
++
++/**
++ * Retomada de execução interrompida (2026-10-10): páginas baixadas e
++ * destilações da execução anterior INTERROMPIDA da mesma conversa são
++ * reaproveitadas; execução anterior concluída limpa tudo. Ver src/agent/retomada.js.
++ */
++
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++const { Retomada } = require('../../src/agent/retomada');
++const { executarCasoAgente } = require('../motor');
++const { buscaFalsa, pagina } = require('../fixtures/busca-falsa');
++
++const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-retomada-'));
++const INTERROMPIDA = { estado: 'executando', subtarefas: [] };
++
++module.exports = [
++  {
++    nome: 'retomada: guarda e relê página e destilação; o que passou de 12h expira; limpar apaga o arquivo; id de conversa vira nome seguro',
++    tipo: 'unidade',
++    executar() {
++      const dir = tmp();
++      let agora = 1_000_000;
++      const r = new Retomada({ dir, idConversa: '../c:1', agora: () => agora });
++      r.guardarPagina('https://site.com/a?utm=x#y', { texto: 'conteúdo A', titulo: 'A', via: 'direto', tentativas: [{ x: 1 }] });
++      r.guardarPagina('https://site.com/vazia', { texto: '' });
++      const chave = Retomada.chaveDestilacao({ objetivo: 'o', foco: 'f', opcao: '', texto: 'conteúdo A' });
++      r.guardarDestilacao(chave, [{ texto: 'fato 1', origem: 'pesquisar_e_ler(site.com)' }]);
++      const arquivos = fs.readdirSync(path.join(dir, 'retomada'));
++      const relida = new Retomada({ dir, idConversa: '../c:1', agora: () => agora }).carregar();
++      const pag = relida.pagina('https://site.com/a?outro=1');
++      agora += 13 * 60 * 60 * 1000;
++      const expirada = new Retomada({ dir, idConversa: '../c:1', agora: () => agora }).carregar();
++      const destilacaoRelida = relida.destilacao(chave)?.[0]?.texto;
++      const vazia = relida.pagina('https://site.com/vazia');
++      const outroObjetivo = relida.destilacao(Retomada.chaveDestilacao({ objetivo: 'outro pedido', foco: 'f', opcao: '', texto: 'conteúdo A' }));
++      relida.limpar();
++      return [
++        arquivos.length === 1 && !/[./:]/.test(arquivos[0].replace(/\.json$/, '')) || `nome do arquivo: ${arquivos}`,
++        pag?.texto === 'conteúdo A' || `página relida: ${JSON.stringify(pag)}`,
++        pag && !pag.tentativas || 'diagnóstico da leitura original não vai pro disco',
++        vazia === null || 'página sem texto não é guardada',
++        destilacaoRelida === 'fato 1' || 'destilação relida',
++        outroObjetivo === null || 'outro objetivo não reaproveita a destilação',
++        expirada.vazia || 'depois de 12h nada deveria ser retomado',
++        !fs.existsSync(path.join(dir, 'retomada', arquivos[0])) || 'limpar() deveria apagar o arquivo',
++      ];
++    },
++  },
++  {
++    nome: 'retomada (ponta a ponta): execução interrompida → a seguinte na mesma conversa não baixa de novo as páginas; execução anterior concluída → começa do zero',
++    tipo: 'unidade',
++    async executar() {
++      const srv = await buscaFalsa([
++        {
++          contem: 'historia do pubg',
++          paginas: [
++            pagina('O PUBG foi lançado em março de 2017 em acesso antecipado pela Bluehole.'),
++            pagina('A versão 1.0 do PUBG saiu em dezembro de 2017 no PC.'),
++          ],
++        },
++      ]);
++      if (!srv) return [];
++      const caso = (extra) => ({
++        nome: 'retomada: pubg',
++        pedido: 'Qual a história do lançamento do PUBG?',
++        idConversa: 'conversa-retomada',
++        manterPasta: true,
++        config: { searxngUrl: `http://127.0.0.1:${srv.porta}`, permitirLeitorExterno: false, subconsultas: false },
++        roteiro: [
++          { ferramenta: 'pesquisar_e_ler', argumentos: { consulta: 'historia do pubg' } },
++          { ferramenta: 'responder', argumentos: { foco: 'pubg' } },
++        ],
++        redacao: 'Resposta de teste.',
++        ...extra,
++      });
++      try {
++        const primeira = await executarCasoAgente(caso({ manterPasta: false }));
++        const segunda = await executarCasoAgente(caso({ tarefaAnterior: INTERROMPIDA }));
++        const terceira = await executarCasoAgente(caso({ tarefaAnterior: null }));
++        const r1 = primeira.registro?.retomada;
++        const r2 = segunda.registro?.retomada || {};
++        const r3 = terceira.registro?.retomada;
++        return [
++          !r1 || (r1.paginasUsadas === 0 && r1.destilacoesUsadas === 0) || `a 1ª execução não tinha o que retomar: ${JSON.stringify(r1)}`,
++          r2.disponiveis?.paginas >= 2 || `a 2ª deveria encontrar as páginas da 1ª: ${JSON.stringify(r2)}`,
++          r2.paginasUsadas >= 2 || `a 2ª deveria reaproveitar as 2 páginas: ${JSON.stringify(r2)}`,
++          r2.destilacoesUsadas >= 2 || `a 2ª deveria reaproveitar as destilações: ${JSON.stringify(r2)}`,
++          /2017/.test(segunda.promptRedacao) || 'o material retomado tem que chegar à redação',
++          !r3 || (r3.paginasUsadas === 0 && r3.destilacoesUsadas === 0) || `anterior concluída: nada a retomar (${JSON.stringify(r3)})`,
++        ];
++      } finally {
++        await srv.fechar();
++      }
++    },
++  },
++  {
++    nome: 'retomada: arquivo lido da pasta de trabalho não vai para o cache de retomada (só leitura da web pública)',
++    tipo: 'unidade',
++    async executar() {
++      const obtido = await executarCasoAgente({
++        nome: 'retomada: arquivo',
++        pedido: 'Leia notas.txt e me diga o valor da multa',
++        idConversa: 'conversa-arquivo',
++        arquivos: { 'notas.txt': 'A multa por cancelamento é de R$ 350,00 conforme a cláusula 7.' },
++        roteiro: [
++          { ferramenta: 'ler_arquivo', argumentos: { caminho: 'notas.txt' } },
++          { ferramenta: 'responder', argumentos: { foco: 'multa' } },
++        ],
++        redacao: 'A multa é de R$ 350,00.',
++      });
++      // mesma pasta que avaliacao/motor.js (prepararPasta) monta para o caso
++      const pasta = path.join(os.tmpdir(), 'augpt-avaliacao', 'retomada-arquivo', '.augpt', 'retomada');
++      const conteudo = fs.existsSync(pasta) ? fs.readdirSync(pasta).map((n) => fs.readFileSync(path.join(pasta, n), 'utf8')).join('') : '';
++      return [
++        obtido.ferramentasChamadas.includes('ler_arquivo') || 'cenário: o arquivo deveria ter sido lido',
++        /350/.test(obtido.promptRedacao) || 'cenário: o conteúdo do arquivo deveria chegar à redação',
++        !/350/.test(conteudo) || 'o conteúdo do arquivo do usuário foi parar no cache de retomada',
++      ];
++    },
++  },
++];
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/avaliacao/casos/roteador.js augpt/avaliacao/casos/roteador.js
+--- a/avaliacao/casos/roteador.js	1969-12-31 21:00:00.000000000 -0300
++++ b/avaliacao/casos/roteador.js	2026-10-10 10:16:56.551028640 -0300
+@@ -0,0 +1,210 @@
++'use strict';
++
++/**
++ * Roteador híbrido (2026-10-10): regra de código + modelo de decisão (Tev1).
++ * Ver src/agent/roteador.js. Os casos usam um decisor falso — a bancada não
++ * depende do Ollama real nem do Tev1 instalado.
++ */
++
++const fs = require('fs');
++const path = require('path');
++const ollama = require('../../src/llm/ollama');
++const { decidirRota, combinar } = require('../../src/agent/roteador');
++const { tipoDoPedido } = require('../../src/agent/tipo-de-pedido');
++const mp = require('../../src/agent/motor-pesquisa');
++const { executarCasoAgente } = require('../motor');
++
++const TCP = 'O que é o protocolo TCP three-way handshake? Qual a diferença entre um switch e um roteador?';
++const TESLA = 'Me conte quem foi nicola tesla e quais foram as invenções mais importantes que ele criou ?';
++const ligado = { roteadorDecisor: true, modeloDecisor: 'tev1', limiarDecisor: 0.6 };
++const decisorQueDiz = (valor, confidence) => async () => ({ rota: { choice: valor, confidence, probabilities: { [valor]: confidence } } });
++
++module.exports = [
++  {
++    nome: 'roteador: com confiança ≥ limite o decisor troca a rota da regra (TCP: regra dizia produto, vira explicação)',
++    tipo: 'unidade',
++    async executar() {
++      const regra = tipoDoPedido(TCP).tipo;
++      const r = await decidirRota(TCP, { config: ligado, decidir: decisorQueDiz('explicacao', 0.9) });
++      return [
++        regra === 'produto' || `cenário: a regra deveria errar este pedido (deu ${regra})`,
++        r.tipo === 'explicacao' || `tipo: ${r.tipo}`,
++        r.fonte === 'decisor' || `fonte: ${r.fonte}`,
++        r.tipoDaRegra === 'produto' || `tipoDaRegra: ${r.tipoDaRegra}`,
++        mp.ehPedidoDeRecomendacao(TCP) === true || 'sem rota, o motor continua achando que é recomendação (comportamento antigo)',
++        mp.ehPedidoDeRecomendacao(TCP, { rota: r }) === false || 'com a rota do decisor, explicação não abre o motor de produto',
++      ];
++    },
++  },
++  {
++    nome: 'roteador: confiança abaixo do limite fica com a regra; decisor desligado nem é chamado',
++    tipo: 'unidade',
++    async executar() {
++      const baixa = await decidirRota(TESLA, { config: ligado, decidir: decisorQueDiz('explicacao', 0.4) });
++      let chamou = false;
++      const desligado = await decidirRota(TESLA, {
++        config: { ...ligado, roteadorDecisor: false },
++        decidir: async () => {
++          chamou = true;
++          return {};
++        },
++      });
++      return [
++        baixa.tipo === tipoDoPedido(TESLA).tipo || `confiança 0,4 trocou a rota: ${baixa.tipo}`,
++        baixa.fonte === 'regra' || `fonte: ${baixa.fonte}`,
++        baixa.decisor?.confianca === 0.4 || 'a decisão ignorada continua registrada (para medir depois)',
++        !chamou || 'desligado não pode chamar o modelo',
++        desligado.fonte === 'regra' || `fonte: ${desligado.fonte}`,
++      ];
++    },
++  },
++  {
++    nome: 'roteador: arquivo (local) e site com endereço nunca são trocados pelo modelo; "site" do modelo sem endereço é ignorado',
++    tipo: 'unidade',
++    async executar() {
++      const local = 'leia o contrato.pdf da pasta de trabalho e me diga as multas';
++      const site = 'entre em https://loja.exemplo.com com meu login e clique em rastrear pedido';
++      let chamadas = 0;
++      const contar = async () => {
++        chamadas += 1;
++        return { rota: { choice: 'produto', confidence: 0.99 } };
++      };
++      const rLocal = await decidirRota(local, { config: ligado, decidir: contar });
++      const rSite = await decidirRota(site, { config: ligado, decidir: contar });
++      const rSiteDoModelo = combinar({ tipo: 'livre', motivo: 'x' }, { valor: 'site', confianca: 0.99 });
++      return [
++        rLocal.tipo === 'local' || `local: ${rLocal.tipo}`,
++        rSite.tipo === 'site' || `site: ${rSite.tipo}`,
++        chamadas === 0 || `regra exata não deveria gastar chamada ao modelo (${chamadas})`,
++        rSiteDoModelo.tipo === 'livre' || `"site" do modelo sem endereço: ${rSiteDoModelo.tipo}`,
++      ];
++    },
++  },
++  {
++    nome: 'roteador: erro ou demora do modelo de decisão cai na regra, com o motivo guardado; interrupção do usuário propaga',
++    tipo: 'unidade',
++    async executar() {
++      const r = await decidirRota(TESLA, {
++        config: ligado,
++        decidir: async () => {
++          throw new Error('Ollama 404: model "tev1" not found');
++        },
++      });
++      const ctrl = new AbortController();
++      ctrl.abort(new Error('interrompido'));
++      let propagou = false;
++      try {
++        await decidirRota(TESLA, {
++          config: ligado,
++          signal: ctrl.signal,
++          decidir: async () => {
++            throw new Error('interrompido');
++          },
++        });
++      } catch {
++        propagou = true;
++      }
++      return [
++        r.fonte === 'regra' || `fonte: ${r.fonte}`,
++        /not found/.test(r.falhaDoDecisor || '') || `falhaDoDecisor: ${r.falhaDoDecisor}`,
++        propagou || 'interrupção pelo usuário não pode virar "cai na regra e segue"',
++      ];
++    },
++  },
++  {
++    nome: 'roteador: modoDaPesquisa com rota do decisor — produto vira recomendação, guia vira guia, tarefa sai do motor; rota da regra não muda nada',
++    tipo: 'unidade',
++    executar() {
++      const p = 'Fale sobre o Simgot EM6L para jogar';
++      const doDecisor = (tipo) => ({ tipo, fonte: 'decisor' });
++      const recomendacao = 'Quais os melhores fones intra-auriculares para jogar PUBG no PC?';
++      return [
++        mp.modoDaPesquisa(p, { rota: doDecisor('produto') }) === 'recomendacao' || 'produto do decisor → recomendação',
++        mp.modoDaPesquisa(p, { rota: doDecisor('guia') }) === 'guia' || 'guia do decisor → guia',
++        mp.modoDaPesquisa(recomendacao, { rota: doDecisor('livre') }) === null || 'tarefa do decisor tira do motor',
++        mp.modoDaPesquisa(recomendacao, { rota: { tipo: 'produto', fonte: 'regra' } }) === mp.modoDaPesquisa(recomendacao) || 'rota da regra = comportamento de sempre',
++      ];
++    },
++  },
++  {
++    nome: 'roteador (pedidos reais de 08/10): a política escolhida acerta mais que as regras sozinhas nas decisões gravadas do tev1',
++    tipo: 'unidade',
++    executar() {
++      // os pedidos reais e o resultado ficam fora do Git (avaliacao/decisores/.gitignore)
++      const pasta = path.join(__dirname, '..', 'decisores');
++      const arqResultado = fs.existsSync(pasta) && fs.readdirSync(pasta).filter((n) => /^resultado-.*\.json$/.test(n)).sort().pop();
++      if (!arqResultado || !fs.existsSync(path.join(pasta, 'pedidos-reais.json'))) return [true];
++      const resultado = JSON.parse(fs.readFileSync(path.join(pasta, arqResultado), 'utf8'));
++      const linhas = resultado.detalhes?.tev1;
++      if (!Array.isArray(linhas)) return [true];
++      const pedidos = [path.join(pasta, 'pedidos-reais.json'), path.join(pasta, 'pedidos-extras.json')]
++        .filter((f) => fs.existsSync(f))
++        .flatMap((f) => JSON.parse(fs.readFileSync(f, 'utf8')));
++      const porId = new Map(pedidos.map((p) => [String(p.id), p]));
++      const efetiva = (pedido, rota) => {
++        const t = rota ? rota.tipo : tipoDoPedido(pedido).tipo;
++        if (t === 'site' || t === 'explicacao') return t;
++        const modo = mp.modoDaPesquisa(pedido, { rota });
++        return modo === 'guia' ? 'guia' : modo ? 'produto' : 'tarefa';
++      };
++      let n = 0;
++      let regras = 0;
++      let hibrido = 0;
++      for (const l of linhas) {
++        const p = porId.get(String(l.id));
++        if (!p || !l.decisao?.rota) continue;
++        n += 1;
++        regras += efetiva(p.pedido, null) === p.esperado.rota ? 1 : 0;
++        hibrido += efetiva(p.pedido, combinar(tipoDoPedido(p.pedido), l.decisao.rota, { limite: 0.6 })) === p.esperado.rota ? 1 : 0;
++      }
++      if (!n) return [true];
++      return [hibrido / n >= regras / n + 0.08 || `híbrido ${(100 * hibrido / n).toFixed(1)}% × regras ${(100 * regras / n).toFixed(1)}% (${n} pedidos)`];
++    },
++  },
++  {
++    nome: 'roteador (ponta a ponta): decisor diz explicação no pedido do TCP — o motor de produto não roda e o registro guarda quem decidiu',
++    tipo: 'unidade',
++    async executar() {
++      const original = ollama.decidir;
++      ollama.decidir = decisorQueDiz('explicacao', 0.92);
++      try {
++        const obtido = await executarCasoAgente({
++          nome: 'roteador: tcp',
++          pedido: TCP,
++          config: { ...ligado, motorDePesquisa: true },
++          roteiro: [{ ferramenta: 'responder', argumentos: { foco: 'tcp' } }],
++          redacao: 'Resposta de teste.',
++        });
++        const t = obtido.registro?.tipoDePedido || {};
++        return [
++          obtido.chamadasPlanoDePesquisa === 0 || `o motor de produto rodou (${obtido.chamadasPlanoDePesquisa} plano(s))`,
++          t.tipo === 'explicacao' || `tipo no registro: ${JSON.stringify(t)}`,
++          t.fonte === 'decisor' || `fonte no registro: ${t.fonte}`,
++          t.tipoDaRegra === 'produto' || `tipoDaRegra no registro: ${t.tipoDaRegra}`,
++        ];
++      } finally {
++        ollama.decidir = original;
++      }
++    },
++  },
++  {
++    nome: 'roteador (ponta a ponta): Ollama sem /v1/systemone (servidor falso) — a execução segue com a regra e avisa uma vez',
++    tipo: 'unidade',
++    async executar() {
++      const obtido = await executarCasoAgente({
++        nome: 'roteador: sem decisor',
++        pedido: TESLA,
++        config: ligado,
++        roteiro: [{ ferramenta: 'responder', argumentos: { foco: 'tesla' } }],
++        redacao: 'Resposta de teste.',
++      });
++      const t = obtido.registro?.tipoDePedido || {};
++      return [
++        obtido.ok || `a execução deveria concluir: ${obtido.motivo}`,
++        t.fonte === 'regra' || `fonte: ${t.fonte}`,
++        Boolean(t.falhaDoDecisor) || 'o motivo da falha do decisor deveria ir pro registro',
++        obtido.eventos.filter((e) => e === 'aviso').length >= 1 || 'deveria avisar que o decisor não respondeu',
++      ];
++    },
++  },
++];
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/avaliacao/motor.js augpt/avaliacao/motor.js
+--- a/avaliacao/motor.js	2026-10-10 10:10:25.108040326 -0300
++++ b/avaliacao/motor.js	2026-10-10 10:21:34.402720989 -0300
+@@ -412,9 +412,10 @@
+ 
+ /* ------------------------------ execução de um caso ------------------------------ */
+ 
+-function prepararPasta(nome, arquivos = {}) {
++function prepararPasta(nome, arquivos = {}, { manter = false } = {}) {
+   const dir = path.join(RAIZ, nome.replace(/[^\w-]+/g, '-').slice(0, 60));
+-  fs.rmSync(dir, { recursive: true, force: true });
++  // `manter`: casos de retomada rodam duas execuções na MESMA pasta de trabalho
++  if (!manter) fs.rmSync(dir, { recursive: true, force: true });
+   fs.mkdirSync(dir, { recursive: true });
+ 
+   for (const [caminho, conteudo] of Object.entries(arquivos)) {
+@@ -441,7 +442,7 @@
+ });
+ 
+ async function executarCasoAgente(caso, opcoes = {}) {
+-  const workspace = prepararPasta(caso.nome, caso.arquivos);
++  const workspace = prepararPasta(caso.nome, caso.arquivos, { manter: caso.manterPasta === true });
+   const falso = opcoes.real ? null : await servidorFalso(caso);
+ 
+   const config = {
+@@ -647,7 +648,7 @@
+   const inicio = Date.now();
+   let retorno;
+   try {
+-    retorno = await agente.run(caso.pedido, caso.conversa || []);
++    retorno = await agente.run(caso.pedido, caso.conversa || [], caso.idConversa || null, { tarefaAnterior: caso.tarefaAnterior || null });
+   } catch (err) {
+     retorno = { ok: false, motivo: err.message };
+   }
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/docs/ARQUITETURA.md augpt/docs/ARQUITETURA.md
+--- a/docs/ARQUITETURA.md	2026-10-10 10:10:25.104177974 -0300
++++ b/docs/ARQUITETURA.md	2026-10-10 10:34:25.945200423 -0300
+@@ -678,6 +678,14 @@
+   - **Pedido de estimativa:** a palavra de estimativa precisa falar de preço ("estimativa de tempo de entrega" e "tendência de consumo" não contam).
+   - **Rótulo das observações:** preço de loja sem data aparece como "preço do dia".
+ 
++## Ajustes de 10/10/2026: roteador híbrido, retomada e erros temporários
++
++Origem: a análise do documento de arquitetura que o Davi discutiu com o Gemini e o ChatGPT, cruzada com o código atual. Casos em `avaliacao/casos/roteador.js`, `retomada.js` e `erros-temporarios.js`.
++
++- **Roteador híbrido** (`src/agent/roteador.js`): a regra de `tipo-de-pedido.js` decide primeiro; com `roteadorDecisor` ligado (Ajustes → Pesquisa na web, desligado por padrão), um modelo de decisão do Ollama (`modeloDecisor`, padrão `tev1`, via `/v1/systemone`) confere a rota e troca quando a confiança é ≥ `limiarDecisor` (0,6). Nunca troca `local` nem `site` (a regra é exata) e ignora "site" do modelo sem endereço. Decidido uma vez em `run()` e repassado a `ehPedidoDeRecomendacao`/`modoDaPesquisa`/`executarPesquisaPlanejada` (`{ rota }`), para o loop e o motor não discordarem. Erro, demora (`tempoLimiteDecisorMs`, 8 s) ou resposta sem decisão: a regra decide e o motivo vai para o aviso e para o registro (`tipoDePedido.fonte`, `tipoDaRegra`, `decisor`, `falhaDoDecisor`). Simulado com o código real sobre as decisões gravadas em 08/10 (230 pedidos): rota 80,0% (regras) → 93,9% (tev1 4B) e 87,8% (tev1:0.8b). O limite foi escolhido nesses mesmos dados; rotular pedidos novos e conferir antes de ligar por padrão.
++- **Retomada** (`src/agent/retomada.js`): `retomarDe()` só repassava o checklist. Agora páginas baixadas (`tools/web.js: lerComCache`) e destilações (`destilarLeitura`, chave = objetivo + foco + opção + texto) ficam em `<pasta>/.augpt/retomada/<conversa>.json` e a execução seguinte da mesma conversa, quando a anterior foi interrompida (`tarefaAnterior`), não baixa nem destila de novo. Anterior concluída ou ausente: o arquivo é apagado no início. Tudo expira em 12 h. Só leitura da web pública (`pesquisar_e_ler`, `abrir_pagina`): arquivo do usuário e página do navegador do app não vão para o disco por este caminho. A busca em si continua sendo refeita (é barata). `retomarLeituras: false` desliga. Registro: `retomada.disponiveis`, `paginasUsadas`, `destilacoesUsadas`.
++- **Erro temporário × definitivo** (`src/tools/erros.js`): `buscar_web`, `abrir_pagina` e `pesquisar_e_ler` ganham UMA nova tentativa quando a falha é rápida e passageira (HTTP 429/5xx, conexão derrubada) e a primeira tentativa levou menos de 8 s. Timeout e "nenhum provedor de busca respondeu" não repetem: a primeira versão repetia e a bancada foi de 16 s para 293 s. Erro definitivo (404, 403, endereço bloqueado, arquivo inexistente) volta ao modelo com a marca "erro definitivo: repetir a mesma chamada não adianta", e a `Tarefa` bloqueia a mesma assinatura. Escrever, executar e agir em site nunca são repetidos.
++
+ ## Quando a pesquisa não acha
+ 
+ Nem toda pergunta tem página na web. Perguntas conceituais ("X consegue fazer Y?") costumam voltar com material sobre assunto vizinho, e o risco é o agente montar uma resposta plausível que não responde nada.
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/renderer/app.js augpt/renderer/app.js
+--- a/renderer/app.js	2026-10-10 10:10:25.112660520 -0300
++++ b/renderer/app.js	2026-10-10 10:18:06.711595055 -0300
+@@ -1716,6 +1716,8 @@
+   $('cfgDetalhesTecnicos').checked = config.mostrarDetalhesTecnicos === true;
+   $('cfgNavegacao').checked = config.navegacaoInterativa !== false;
+   $('cfgMotorPesquisa').checked = config.motorDePesquisa !== false;
++  $('cfgRoteadorDecisor').checked = config.roteadorDecisor === true;
++  $('cfgModeloDecisor').value = config.modeloDecisor || 'tev1';
+   $('cfgFontesComunidade').value = (config.fontesComunidade || []).join('\n');
+   $('cfgNavegadorVisivel').checked = config.navegadorVisivel !== false;
+   $('cfgDownloadsDoNavegador').value = config.downloadsDoNavegador === 'pasta-de-trabalho' ? 'pasta-de-trabalho' : 'perguntar';
+@@ -1766,6 +1768,8 @@
+     permitirRedeLocal: $('cfgRedeLocal').checked,
+     navegacaoInterativa: $('cfgNavegacao').checked,
+     motorDePesquisa: $('cfgMotorPesquisa').checked,
++    roteadorDecisor: $('cfgRoteadorDecisor').checked,
++    modeloDecisor: $('cfgModeloDecisor').value.trim() || 'tev1',
+     // um endereço por linha; vazio = lista padrão (dados/comunidades.json)
+     fontesComunidade: $('cfgFontesComunidade')
+       .value.split(/\n+/)
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/renderer/index.html augpt/renderer/index.html
+--- a/renderer/index.html	2026-10-10 10:10:25.112749138 -0300
++++ b/renderer/index.html	2026-10-10 10:18:06.709987103 -0300
+@@ -572,6 +572,13 @@
+             <input type="checkbox" id="cfgMotorPesquisa" class="caixa" />
+           </label>
+           <p class="dica">Em pedidos como "qual o melhor fone para jogar" ou "compare A e B", o agente define primeiro os critérios que importam, descobre as opções recomendadas, pesquisa cada uma e monta uma tabela opção × critério antes de responder. Demora mais, mas a comparação sai completa.</p>
++          <label class="linha"><span>Modelo de decisão confere o tipo do pedido</span>
++            <input type="checkbox" id="cfgRoteadorDecisor" class="caixa" />
++          </label>
++          <label class="linha"><span>Modelo de decisão</span>
++            <input type="text" id="cfgModeloDecisor" spellcheck="false" placeholder="tev1" />
++          </label>
++          <p class="dica">Antes de começar, um modelo de decisão do Ollama (como o <b>tev1</b>, Ollama 0.35 ou mais novo) confere se o pedido é recomendação de produto, guia, explicação ou tarefa comum, e corrige a escolha das regras quando tem certeza. Nos seus pedidos reais, isso levou o acerto de 80% para 94%. Custa cerca de meio segundo por pedido. Se o modelo não estiver instalado ou não responder, as regras decidem sozinhas. Dica: crie um <code>tev1-cpu</code> (Modelfile com <code>PARAMETER num_gpu 0</code>) para ele rodar no processador e não disputar a placa de vídeo com o modelo principal.</p>
+           <label class="linha linha-bloco"><span>Fontes da comunidade</span>
+             <textarea id="cfgFontesComunidade" rows="4" spellcheck="false" placeholder="reddit.com&#10;clubedohardware.com.br&#10;forum.adrenaline.com.br&#10;head-fi.org"></textarea>
+           </label>
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/src/agent/loop.js augpt/src/agent/loop.js
+--- a/src/agent/loop.js	2026-10-10 10:10:25.104733356 -0300
++++ b/src/agent/loop.js	2026-10-10 10:35:04.561359388 -0300
+@@ -18,6 +18,9 @@
+ const { MemoriaCentral } = require('./memoria-central');
+ const { Tarefa, ESTADOS: ESTADOS_TAREFA, normalizarSubtarefa, itemDaLeitura } = require('./tarefa');
+ const { tipoDoPedido, produtosNomeados } = require('./tipo-de-pedido');
++const { decidirRota } = require('./roteador');
++const { Retomada } = require('./retomada');
++const { classificarErro, anotarErro, comNovaTentativa } = require('../tools/erros');
+ const { rotuloDoElemento, tipoDoElemento, ACOES_QUE_DEVEM_MUDAR } = require('../tools/navegador');
+ const { segredosDoTexto, mascarar, mascararProfundo } = require('./segredos');
+ const { resolverReferencia } = require('./assunto-da-conversa');
+@@ -427,6 +430,16 @@
+  */
+ const GERACOES_DE_ARQUIVO = ['gerar_docx', 'gerar_xlsx', 'gerar_pdf', 'gerar_html', 'escrever_arquivo', 'acrescentar_ao_arquivo'];
+ 
++/**
++ * Ferramentas que só LEEM e podem ser repetidas sem efeito colateral: falha
++ * rápida e passageira (HTTP 429/5xx, conexão derrubada) ganha uma segunda
++ * tentativa automática; timeout não (custaria outro timeout inteiro). Ver
++ * tools/erros.js. Escrever, executar ou agir num site nunca se repete.
++ */
++const REPETIVEIS = new Set(['buscar_web', 'abrir_pagina', 'pesquisar_e_ler']);
++/** Leituras cujo erro definitivo é anotado para o modelo não repetir a chamada. */
++const ANOTAR_ERRO = new Set([...REPETIVEIS, 'ler_arquivo', 'ler_documento', 'inspecionar_arquivo', 'buscar_no_projeto']);
++
+ /** Ferramentas cujo resultado alimenta o dossiê da redação. */
+ const LEITURAS = [
+   'buscar_web', 'abrir_pagina', 'pesquisar_e_ler',
+@@ -2056,6 +2069,7 @@
+       config: this.config,
+       // Etapa C: o motor grava a evidência estruturada no livro da Tarefa
+       ...(this.tarefa?.livro ? { livro: this.tarefa.livro } : {}),
++      rota: this.rota || null,
+     });
+     // Etapa B: o que o motor marcou como fora do escopo sai do dossiê (não
+     // vai pra redação nem pras fontes)
+@@ -2544,6 +2558,32 @@
+   }
+ 
+   /**
++   * Roda a ferramenta; leitura que falhou por motivo passageiro tenta de novo
++   * uma vez (tools/erros.js). O erro que sobra sai anotado — definitivo diz
++   * ao modelo que repetir não adianta.
++   */
++  async rodarFerramenta(nome, ferramenta, argumentos, ctx) {
++    if (!REPETIVEIS.has(nome)) {
++      try {
++        return await ferramenta.run(argumentos, ctx);
++      } catch (err) {
++        if (ANOTAR_ERRO.has(nome) && this.rodando) err.message = anotarErro(err.message, classificarErro(err));
++        throw err;
++      }
++    }
++    try {
++      return await comNovaTentativa(() => ferramenta.run(argumentos, ctx), {
++        signal: this.controller?.signal,
++        esperaMs: this.esperaNovaTentativaMs ?? 1500,
++        aoTentarDeNovo: (d) => this.emit('nova-tentativa', { nome, ...d }),
++      });
++    } catch (err) {
++      if (this.rodando) err.message = anotarErro(err.message, err.classificacao || classificarErro(err), { tentouDeNovo: err.tentouDeNovo });
++      throw err;
++    }
++  }
++
++  /**
+    * Depois de uma ferramenta de leitura: decide COMO destilar o resultado.
+    *
+    * `pesquisar_e_ler` e `abrir_pagina` registram cada página em
+@@ -2587,16 +2627,18 @@
+           this.emit('descarte', { etapa: 'escopo', alvo: fonte.url || titulo, motivo: fora });
+           continue;
+         }
+-        entradas.push(
+-          ...(await this._destilarGrande({
+-            objetivo,
+-            foco,
+-            opcao,
+-            origem,
+-            texto: fonte.textoCompleto || fonte.texto || '',
+-            url: fonte.url,
+-          })).map((e) => (titulo ? { ...e, titulo } : e))
+-        );
++        const pedidoDeDestilacao = { objetivo, foco, opcao, origem, texto: fonte.textoCompleto || fonte.texto || '', url: fonte.url };
++        // retomada: só leitura da web pública (página logada do navegador do
++        // app e arquivo do usuário não vão pro disco por este caminho)
++        const retomavel = ctx.retomada && (nome === 'pesquisar_e_ler' || nome === 'abrir_pagina');
++        const chaveRetomada = retomavel ? Retomada.chaveDestilacao(pedidoDeDestilacao) : null;
++        let destiladas = chaveRetomada ? ctx.retomada.destilacao(chaveRetomada) : null;
++        if (destiladas) this.emit('destilacao-retomada', { url: fonte.url || null });
++        else {
++          destiladas = await this._destilarGrande(pedidoDeDestilacao);
++          if (chaveRetomada) ctx.retomada.guardarDestilacao(chaveRetomada, destiladas);
++        }
++        entradas.push(...destiladas.map((e) => (titulo ? { ...e, titulo } : e)));
+       }
+       return entradas.map((e) => ({ ...e, consulta }));
+     }
+@@ -3534,7 +3576,19 @@
+     // "qualidade sonora e clareza de áudio" e "diferença entre 5070 Ti e 5080"
+     // pra "desempenho técnico" (foi o que levou ao PassMark). O motor de
+     // pesquisa já interpreta o uso (cadeia do uso).
+-    const pedidoDoMotor = this.config.motorDePesquisa !== false && motorPesquisa.ehPedidoDeRecomendacao(objetivo);
++    // Roteador híbrido (roteador.js, 2026-10-10): regra de código + modelo de
++    // decisão (Tev1) quando ligado em Ajustes. Decidido UMA vez, aqui, e
++    // repassado a todo lugar que pergunta "é pedido do motor?" / "que tipo
++    // é?" — senão o loop e o motor discordariam sobre o mesmo pedido.
++    // Desligado, sem modelo ou com erro: a regra decide, como sempre.
++    const rota = await decidirRota(objetivo, {
++      config: this.config,
++      decidir: (args) => ollama.decidir({ host: this.config.host, ...args }),
++      signal: this.controller?.signal,
++    });
++    this.rota = { ...rota, objetivo };
++    if (rota.falhaDoDecisor) this.emit('aviso', { texto: `Modelo de decisão indisponível (${rota.falhaDoDecisor}); a rota ficou com as regras.` });
++    const pedidoDoMotor = this.config.motorDePesquisa !== false && motorPesquisa.ehPedidoDeRecomendacao(objetivo, { rota: this.rota });
+     if (!houveReescritaDeConversa && ambiguidade.suficiente && ambiguidade.bifurcacao && !pedidoDoMotor) {
+       const decisao = await this.decidirInterpretacao({ objetivo, bifurcacao: ambiguidade.bifurcacao });
+       if (decisao.escolhida) {
+@@ -3560,7 +3614,10 @@
+     // (tipo-de-pedido.js). 'explicacao' não ganha plano forçado, checklist
+     // nem crítico periódico (o Gojo levou 6 min por causa disso); 'guia' e
+     // 'produto' vão pro motor; 'local'/'livre' seguem o laço de sempre.
+-    const tipoPedido = tipoDoPedido(objetivo);
++    // a interpretação escolhida acima pode ter mudado o objetivo: aí a rota
++    // decidida antes não vale mais e a regra decide sobre o texto novo
++    const tipoPedido = this.rota.objetivo === objetivo ? this.rota : { ...tipoDoPedido(objetivo), fonte: 'regra' };
++    if (tipoPedido !== this.rota) this.rota = { ...tipoPedido, tipoDaRegra: tipoPedido.tipo, objetivo };
+     this.tipoDoPedido = tipoPedido.tipo;
+     this.emit('tipo-de-pedido', tipoPedido);
+     tarefa.definirCriterios([
+@@ -3588,6 +3645,21 @@
+     this.pipelineCompleto = pipelineCompleto;
+ 
+     const sandbox = new Sandbox(this.config.workspace);
++    // Retomada (retomada.js, 2026-10-10): páginas baixadas e destilações da
++    // execução INTERROMPIDA desta conversa são reaproveitadas; se a anterior
++    // terminou (ou não houve), o que sobrou é apagado antes de começar.
++    this.retomada = new Retomada({
++      dir: this.config.retomarLeituras === false ? null : path.join(sandbox.root, '.augpt'),
++      idConversa,
++    });
++    if (tarefaAnterior) this.retomada.carregar();
++    else this.retomada.limpar();
++    if (!this.retomada.vazia) {
++      this.emit('retomada', { paginas: this.retomada.paginas.size, destilacoes: this.retomada.destilacoes.size });
++      this.emit('aviso', {
++        texto: `Retomando a execução interrompida: ${this.retomada.paginas.size} página(s) e ${this.retomada.destilacoes.size} destilação(ões) já feitas serão reaproveitadas.`,
++      });
++    }
+     const memory = new Memory({
+       dir: path.join(sandbox.root, '.augpt'),
+       config: this.config,
+@@ -3619,6 +3691,7 @@
+       // nomeados que uma leitura precisa citar. Montado pelo código.
+       escopo: escopoDoPedido(objetivo, { entidades: serieDePrecos.produtosDoPedido(objetivo) }),
+       estado: {}, // rascunho compartilhado entre ferramentas dentro da execução
++      retomada: this.retomada,
+       sandbox,
+       memory,
+       operacional,
+@@ -3754,7 +3827,7 @@
+       const fontesAntes = (ctx.estado.fontesLidas || []).length;
+       if (GERACOES_DE_ARQUIVO.includes(nome)) ctx.estado.tentouGerarArquivo = true;
+       try {
+-        saida = await ferramenta.run(argumentos, ctx);
++        saida = await this.rodarFerramenta(nome, ferramenta, argumentos, ctx);
+       } catch (err) {
+         if (!this.rodando) throw err;
+         erro = err.message;
+@@ -4059,7 +4132,7 @@
+         ambiguidade.suficiente &&
+         this.config.motorDePesquisa !== false &&
+         tools.get('pesquisar_e_ler', ferramentasDesativadasAtual) &&
+-        motorPesquisa.ehPedidoDeRecomendacao(objetivo)
++        motorPesquisa.ehPedidoDeRecomendacao(objetivo, { rota: this.rota })
+       ) {
+         pesquisaPlanejada = await this.pesquisarComPlano({ objetivo, executarPasso, dossie });
+         buscasFeitas += pesquisaPlanejada.buscas || 0;
+@@ -5127,7 +5200,7 @@
+             // mesmo espírito da bancada de avaliação (avaliacao/motor.js).
+             saida = 'Prossiga com o que você já tem — não há usuário real disponível neste autoteste.';
+           } else {
+-            saida = await ferramenta.run(argumentos, ctx);
++            saida = await this.rodarFerramenta(nome, ferramenta, argumentos, ctx);
+           }
+           tools.registrarUrlsVistas(ctx.estado, saida); // ver tools.urlPodeVazarDados
+           registrarFerramentaOk(nome);
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/src/agent/motor-pesquisa.js augpt/src/agent/motor-pesquisa.js
+--- a/src/agent/motor-pesquisa.js	2026-10-10 10:10:25.104914633 -0300
++++ b/src/agent/motor-pesquisa.js	2026-10-10 10:13:24.939222873 -0300
+@@ -99,9 +99,20 @@
+  *   'recomendacao'      — "quais os melhores", "top 10", comparação de opções
+  * null = não é pesquisa do motor (o laço de sempre cuida).
+  */
+-function modoDaPesquisa(objetivo) {
++function modoDaPesquisa(objetivo, { rota = null } = {}) {
+   const texto = normalizar(objetivo);
+   if (!texto || texto.length > 600) return null;
++  // Roteador híbrido (roteador.js, 2026-10-10): quando o modelo de decisão
++  // trocou a rota da regra, o tipo dele vale aqui também — senão o loop
++  // diria "explicação" e o motor, relendo só a regra, abriria a pesquisa de
++  // produto. Sem `rota` (ou rota da própria regra) nada muda.
++  if (rota && rota.fonte === 'decisor') {
++    if (rota.tipo === 'guia') return 'guia';
++    if (rota.tipo === 'explicacao' || rota.tipo === 'local' || rota.tipo === 'livre') return null;
++    if (desempenho.ehPedidoDeDesempenho(objetivo)) return 'desempenho';
++    if (usoPro.ehPedidoDeUsoProfissional(objetivo)) return 'uso-profissional';
++    if (rota.tipo === 'produto') return 'recomendacao';
++  }
+   // Revisão v3 (Fase 1): o OBJETO do pedido decide antes da palavra.
+   // "melhores táticas de PUBG" (técnica) vai pro guia; "por que…",
+   // "diferença entre vírus e bactéria" (conceito) e pedidos de arquivo
+@@ -120,8 +131,8 @@
+   return ehPedidoDeRecomendacaoSimples(texto) ? 'recomendacao' : null;
+ }
+ 
+-function ehPedidoDeRecomendacao(objetivo) {
+-  return modoDaPesquisa(objetivo) !== null;
++function ehPedidoDeRecomendacao(objetivo, opcoes = {}) {
++  return modoDaPesquisa(objetivo, opcoes) !== null;
+ }
+ 
+ function ehPedidoDeRecomendacaoSimples(textoNormalizado) {
+@@ -3020,7 +3031,7 @@
+  * Devolve { ok, motivo, ... }. `ok: false` nunca é erro: o agente segue o
+  * caminho normal de sempre com o que já foi coletado (se algo foi).
+  */
+-async function executarPesquisaPlanejada({ objetivo, nivel = 'leve', chamarModelo, buscar, emitir = () => {}, config = {}, livro = new Evidencias() }) {
++async function executarPesquisaPlanejada({ objetivo, nivel = 'leve', chamarModelo, buscar, emitir = () => {}, config = {}, livro = new Evidencias(), rota = null }) {
+   const orcamento = ORCAMENTO_POR_NIVEL[nivel] || ORCAMENTO_POR_NIVEL.leve;
+   const entradas = [];
+   const consultas = [];
+@@ -3050,7 +3061,7 @@
+     return novas;
+   };
+   const quantidade = quantidadePedida(objetivo);
+-  emitir('pesquisa-modo', { modo: modoDaPesquisa(objetivo) || 'recomendacao' });
++  emitir('pesquisa-modo', { modo: modoDaPesquisa(objetivo, { rota }) || 'recomendacao' });
+ 
+   // Etapa F (revisão v2, 14º teste real): "diferença de desempenho entre A e
+   // B" é outra pergunta — não "qual o melhor". Tem caminho próprio: buscas de
+@@ -3061,7 +3072,7 @@
+   }
+   // Revisão v3 (Fase 1): técnica (táticas, dicas, tutorial) tem caminho
+   // próprio — a extração é de DICA, não de produto
+-  if (modoDaPesquisa(objetivo) === 'guia') {
++  if (modoDaPesquisa(objetivo, { rota }) === 'guia') {
+     return guia.pesquisaDeGuia({
+       objetivo, nivel, rodar, emitir, chamarModelo, livro, entradas, consultas, buscas: () => buscas, prompts,
+       h: { JOGOS, ehTopico, comentariosNumerados, perguntaDoTopico, dominioDe, chaveDeFonte },
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/src/agent/retomada.js augpt/src/agent/retomada.js
+--- a/src/agent/retomada.js	1969-12-31 21:00:00.000000000 -0300
++++ b/src/agent/retomada.js	2026-10-10 10:19:44.351024802 -0300
+@@ -0,0 +1,129 @@
++'use strict';
++
++/**
++ * Retomada de execução interrompida (2026-10-10).
++ *
++ * O problema: `tarefa.retomarDe()` só repassa o CHECKLIST da execução
++ * anterior. Uma pesquisa de 20 minutos parada no meio (app fechado, botão
++ * parar, limite de passos) relia todas as páginas e refazia todas as
++ * destilações ao ser pedida de novo — as duas partes mais lentas do trabalho
++ * (renderização de página com JavaScript e uma chamada ao modelo por página).
++ *
++ * O que fica guardado, por conversa, em `<pasta de trabalho>/.augpt/retomada/`:
++ *   - páginas já baixadas (URL sem query/fragmento → texto, título, via);
++ *   - destilações já feitas (chave = objetivo + foco + opção + texto da
++ *     página → os fatos destilados).
++ * A chave da destilação inclui o objetivo e o texto: pedido diferente, ou
++ * página que mudou, não reaproveita nada. A busca em si (SearXNG) é barata e
++ * continua sendo refeita — o que muda é que a página e a destilação, quando
++ * já existem, não custam de novo.
++ *
++ * Só vale para a execução que vem logo depois de uma interrompida: quem chama
++ * (loop.js) limpa o arquivo quando a execução anterior da conversa terminou
++ * (`tarefaAnterior` nulo). E tudo expira em 12 horas: página velha não pode
++ * virar fonte de um pedido feito no dia seguinte.
++ */
++
++const fs = require('fs');
++const path = require('path');
++const crypto = require('crypto');
++
++const VALIDADE_PADRAO_MS = 12 * 60 * 60 * 1000;
++const MAX_PAGINAS = 80;
++const MAX_DESTILACOES = 240;
++const MAX_TEXTO_PAGINA = 60000;
++
++const chaveDeUrl = (url) => String(url || '').replace(/[#?].*$/, '');
++const nomeSeguro = (id) => String(id || '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
++
++class Retomada {
++  constructor({ dir, idConversa, validadeMs = VALIDADE_PADRAO_MS, agora = () => Date.now() } = {}) {
++    this.ativo = Boolean(dir && idConversa);
++    this.arquivo = this.ativo ? path.join(dir, 'retomada', `${nomeSeguro(idConversa)}.json`) : null;
++    this.validadeMs = validadeMs;
++    this.agora = agora;
++    this.paginas = new Map();
++    this.destilacoes = new Map();
++    this.usadas = { paginas: 0, destilacoes: 0 };
++  }
++
++  /** Lê o que a execução interrompida deixou (descartando o que expirou). */
++  carregar() {
++    if (!this.ativo) return this;
++    try {
++      const dados = JSON.parse(fs.readFileSync(this.arquivo, 'utf8'));
++      const limite = this.agora() - this.validadeMs;
++      for (const [k, v] of Object.entries(dados.paginas || {})) if (v?.em >= limite && v.pagina?.texto) this.paginas.set(k, v);
++      for (const [k, v] of Object.entries(dados.destilacoes || {})) if (v?.em >= limite && Array.isArray(v.entradas)) this.destilacoes.set(k, v);
++    } catch {
++      /* sem arquivo ou corrompido: começa vazio */
++    }
++    return this;
++  }
++
++  /** Execução anterior terminou (ou não há): nada a retomar. */
++  limpar() {
++    this.paginas.clear();
++    this.destilacoes.clear();
++    if (!this.ativo) return this;
++    try {
++      fs.rmSync(this.arquivo, { force: true });
++    } catch {
++      /* best-effort */
++    }
++    return this;
++  }
++
++  get vazia() {
++    return !this.paginas.size && !this.destilacoes.size;
++  }
++
++  pagina(url) {
++    const item = this.paginas.get(chaveDeUrl(url));
++    if (!item) return null;
++    this.usadas.paginas += 1;
++    return item.pagina;
++  }
++
++  guardarPagina(url, pagina) {
++    if (!this.ativo || !pagina?.texto) return;
++    const { tentativas, ...resto } = pagina; // tentativas é diagnóstico da leitura original
++    this.paginas.set(chaveDeUrl(url), { em: this.agora(), pagina: { ...resto, texto: String(resto.texto).slice(0, MAX_TEXTO_PAGINA) } });
++    this._aparar(this.paginas, MAX_PAGINAS);
++    this._salvar();
++  }
++
++  static chaveDestilacao({ objetivo = '', foco = '', opcao = '', texto = '' } = {}) {
++    return crypto.createHash('sha1').update(`${objetivo}\u0000${foco}\u0000${opcao}\u0000${texto}`).digest('hex');
++  }
++
++  destilacao(chave) {
++    const item = this.destilacoes.get(chave);
++    if (!item) return null;
++    this.usadas.destilacoes += 1;
++    return item.entradas.map((e) => ({ ...e }));
++  }
++
++  guardarDestilacao(chave, entradas) {
++    if (!this.ativo || !Array.isArray(entradas) || !entradas.length) return;
++    this.destilacoes.set(chave, { em: this.agora(), entradas });
++    this._aparar(this.destilacoes, MAX_DESTILACOES);
++    this._salvar();
++  }
++
++  _aparar(mapa, maximo) {
++    while (mapa.size > maximo) mapa.delete(mapa.keys().next().value);
++  }
++
++  _salvar() {
++    try {
++      fs.mkdirSync(path.dirname(this.arquivo), { recursive: true });
++      const dados = { versao: 1, paginas: Object.fromEntries(this.paginas), destilacoes: Object.fromEntries(this.destilacoes) };
++      fs.writeFileSync(this.arquivo, JSON.stringify(dados), 'utf8');
++    } catch {
++      /* retomada é bônus: falha de disco não pode derrubar a execução */
++    }
++  }
++}
++
++module.exports = { Retomada, chaveDeUrl, VALIDADE_PADRAO_MS };
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/src/agent/roteador.js augpt/src/agent/roteador.js
+--- a/src/agent/roteador.js	1969-12-31 21:00:00.000000000 -0300
++++ b/src/agent/roteador.js	2026-10-10 10:17:08.547028366 -0300
+@@ -0,0 +1,118 @@
++'use strict';
++
++/**
++ * Roteador híbrido (2026-10-10): regras de código + modelo de decisão (Tev1).
++ *
++ * Origem: a avaliação dos decisores (avaliacao/decisores.js, 08/10, 230
++ * pedidos reais rotulados à mão). As regras de `tipo-de-pedido.js` acertam
++ * 80% da rota e erram sobretudo explicação ("Me conte quem foi…", "como uma
++ * estrela se forma" caíam no laço comum: 17 de 48). O Tev1 (4B) acerta 87%
++ * sozinho; a combinação "Tev1 quando a confiança dele for ≥ 0,6, senão a
++ * regra" chegou a 94% nos mesmos dados (o limite foi escolhido olhando esses
++ * dados, então o número real deve ser um pouco menor).
++ *
++ * O que o modelo NÃO decide (a regra de código é exata nesses casos):
++ *   - 'local' (arquivo, pasta, documento da pasta de trabalho);
++ *   - 'site' (endereço + ação na página): o Tev1 dizer "site" sem endereço
++ *     não dá ao agente onde agir, e ele dizer outra coisa com endereço +
++ *     "faça login" seria desmontar uma regra que acertou 6 de 6.
++ *
++ * O roteador só sugere: quem age continua sendo o loop. Sem modelo
++ * configurado, com o Ollama antigo (sem /v1/systemone), com erro ou demora,
++ * a regra decide sozinha — nunca trava a execução.
++ */
++
++const { tipoDoPedido } = require('./tipo-de-pedido');
++
++const LIMITE_PADRAO = 0.6;
++const TEMPO_LIMITE_PADRAO_MS = 8000;
++
++/** Rótulo do modelo → tipo interno de `tipo-de-pedido.js`. */
++const ROTA_PARA_TIPO = Object.freeze({
++  produto: 'produto',
++  guia: 'guia',
++  explicacao: 'explicacao',
++  site: 'site',
++  tarefa: 'livre',
++});
++
++/**
++ * A mesma pergunta da avaliação de 08/10 (em inglês: a Together AI só
++ * testou o Tev1 em inglês; o pedido continua em português). Mudar o texto
++ * invalida a medição — rode `node avaliacao/decisores.js` de novo.
++ */
++const PERGUNTA_ROTA = Object.freeze({
++  type: 'choice',
++  instructions: 'The state is a message (in Portuguese) sent by a user to an AI assistant. Which kind of request is it?',
++  criteria: {
++    produto: 'Choose, compare, evaluate or get a recommendation about products to buy (best headphones for a game, A vs B, is product X good for Y, tell me about product X)',
++    guia: 'How to get better at something: practical tips, tactics, strategy, training, step-by-step tutorial',
++    explicacao: 'Explain a concept, how something works, why something happens, a story, history or biography',
++    site: 'Act on a specific website: log in, click buttons, fill a form, download something from the page',
++    tarefa: 'Anything else: prices or price history, news and game updates, weather, exam questions to solve, create or read files and documents, opinions, analysis, follow-up requests',
++  },
++});
++
++const estado = (pedido) => `Mensagem do usuário para um assistente de IA:\n"${String(pedido).slice(0, 1500)}"`;
++
++/** Lê a resposta do /v1/systemone para a pergunta "rota". */
++function lerRota(respostas) {
++  const r = respostas?.rota;
++  if (!r || typeof r.choice !== 'string') return null;
++  const confianca = typeof r.confidence === 'number' ? r.confidence : null;
++  return { valor: r.choice, confianca, probabilidades: r.probabilities || null };
++}
++
++/**
++ * Combina a regra com a decisão do modelo. Função pura (sem rede) — é o que
++ * a bancada testa e o que avaliacao/decisores.js usa para simular a política.
++ */
++function combinar(regra, decisao, { limite = LIMITE_PADRAO, modelo = 'modelo de decisão' } = {}) {
++  const base = { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo };
++  if (!decisao || !decisao.valor || !(decisao.valor in ROTA_PARA_TIPO)) return base;
++  const comDecisao = { ...base, decisor: { modelo, valor: decisao.valor, confianca: decisao.confianca } };
++  if (regra.tipo === 'local' || regra.tipo === 'site') return comDecisao;
++  if (decisao.valor === 'site') return comDecisao;
++  if (typeof decisao.confianca !== 'number' || decisao.confianca < limite) return comDecisao;
++  const tipo = ROTA_PARA_TIPO[decisao.valor];
++  if (tipo === regra.tipo) return { ...comDecisao, fonte: 'regra+decisor' };
++  return {
++    ...comDecisao,
++    tipo,
++    fonte: 'decisor',
++    motivo: `${modelo} (confiança ${decisao.confianca.toFixed(2)}); a regra dizia "${regra.tipo}"`,
++  };
++}
++
++/**
++ * Decide a rota do pedido. `decidir` é a chamada ao Ollama (injetada para a
++ * bancada poder usar um decisor falso): `({ model, state, questions, timeout, signal }) → answers`.
++ */
++async function decidirRota(objetivo, { config = {}, decidir, signal } = {}) {
++  const regra = tipoDoPedido(objetivo);
++  const modelo = String(config.modeloDecisor || '').trim();
++  if (!config.roteadorDecisor || !modelo || typeof decidir !== 'function') return { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo };
++  // regra exata: nem vale gastar a chamada
++  if (regra.tipo === 'local' || regra.tipo === 'site') return { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo };
++  const inicio = Date.now();
++  try {
++    const respostas = await decidir({
++      model: modelo,
++      state: estado(objetivo),
++      questions: { rota: PERGUNTA_ROTA },
++      timeout: Number(config.tempoLimiteDecisorMs) || TEMPO_LIMITE_PADRAO_MS,
++      signal,
++    });
++    const limite = typeof config.limiarDecisor === 'number' ? config.limiarDecisor : LIMITE_PADRAO;
++    const decisao = lerRota(respostas);
++    // 200 sem a decisão (modelo que não é de decisão, endpoint de outro
++    // servidor): mesma coisa que erro — a regra decide e o motivo fica
++    if (!decisao) return { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo, falhaDoDecisor: 'resposta sem a decisão de rota', ms: Date.now() - inicio };
++    return { ...combinar(regra, decisao, { limite, modelo }), ms: Date.now() - inicio };
++  } catch (err) {
++    if (signal?.aborted) throw err;
++    return { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo, falhaDoDecisor: String(err?.message || err).slice(0, 200), ms: Date.now() - inicio };
++  }
++}
++
++module.exports = { decidirRota, combinar, lerRota, ROTA_PARA_TIPO, PERGUNTA_ROTA, LIMITE_PADRAO };
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/src/agent/tarefa.js augpt/src/agent/tarefa.js
+--- a/src/agent/tarefa.js	2026-10-10 10:10:25.104485359 -0300
++++ b/src/agent/tarefa.js	2026-10-10 10:26:36.779379332 -0300
+@@ -247,7 +247,8 @@
+     this.acoes.push(acao);
+     if (erro) {
+       this.falhas.push({ tipo: 'acao', acao: acao.indice, motivo: acao.erro });
+-      if (/não existe na pasta|arquivo.*não existe|nomes parecidos|caminho.*fora|informe "/i.test(acao.erro)) {
++      // "erro definitivo" = marca de tools/erros.js (404, 403, endereço bloqueado…)
++      if (/não existe na pasta|arquivo.*não existe|nomes parecidos|caminho.*fora|informe "|erro definitivo:/i.test(acao.erro)) {
+         if (!this.acoesBloqueadas.includes(acao.assinatura)) this.acoesBloqueadas.push(acao.assinatura);
+       }
+     }
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/src/config.js augpt/src/config.js
+--- a/src/config.js	2026-10-10 10:10:25.106312141 -0300
++++ b/src/config.js	2026-10-10 10:24:01.343959998 -0300
+@@ -64,6 +64,16 @@
+   // revisão v3 (Fase 1): pedido de explicação ("por que…", "o que é…") sem
+   // plano forçado, checklist nem crítico periódico. false = comportamento antigo.
+   modoExplicacao: true,
++  // Roteador híbrido (roteador.js, 2026-10-10): um modelo de decisão do
++  // Ollama (Tev1, /v1/systemone, Ollama ≥ 0.35) confere a rota que as regras
++  // escolheram e troca quando tem confiança ≥ limiarDecisor. Desligado por
++  // padrão. Nos 230 pedidos reais de 08/10: 80% (regras) → 94% (tev1 4B).
++  // Sugestão: um "tev1-cpu" (Modelfile com PARAMETER num_gpu 0) pra não
++  // disputar a placa de vídeo com o modelo principal.
++  roteadorDecisor: false,
++  modeloDecisor: 'tev1',
++  limiarDecisor: 0.6,
++  tempoLimiteDecisorMs: 8000,
+   // Controlador v2 (05/10): o "perguntar" do crítico só põe a tarefa em
+   // "aguardando usuário" quando a verificação de ambiguidade confirmou que
+   // falta um dado do usuário. false = comportamento antigo.
+@@ -95,6 +105,10 @@
+   // (ver memory.js): item de dossiê entra no MESMO arquivo/teto de 500 itens
+   // que as notas de longo prazo — `false` volta ao comportamento de sempre.
+   memoriaCurta: true,
++  // Retomada (retomada.js, 2026-10-10): páginas baixadas e destilações de uma
++  // execução INTERROMPIDA são reaproveitadas pela seguinte na mesma conversa
++  // (por até 12h). false = toda execução relê tudo, como antes.
++  retomarLeituras: true,
+   reflexaoPosExecucao: true,
+   segundaOpiniaoRiscoAlto: true,
+   criticaPeriodica: true,
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/src/llm/ollama.js augpt/src/llm/ollama.js
+--- a/src/llm/ollama.js	2026-10-10 10:10:25.106266373 -0300
++++ b/src/llm/ollama.js	2026-10-10 10:14:07.140593768 -0300
+@@ -543,7 +543,20 @@
+   return { status: ultimoStatus };
+ }
+ 
++/**
++ * Modelo de decisão (Tev1, Nimble…): POST /v1/systemone, Ollama ≥ 0.35.
++ * Não conversa — devolve, para cada pergunta, a escolha e a confiança
++ * (`answers.<pergunta>.choice/confidence/probabilities`, ou `.noul` para
++ * sim/não). Usado pelo roteador híbrido (src/agent/roteador.js). Timeout
++ * curto de propósito: é uma decisão de roteamento, não pode segurar a
++ * execução — quem chama cai na regra de código se der erro.
++ */
++async function decidir({ host = DEFAULT_HOST, model, state, questions, keepAlive = '10m', timeout = 8000, signal } = {}) {
++  const data = await request(host, '/v1/systemone', { body: { model, state, questions, keep_alive: keepAlive }, timeout, signal });
++  return data?.answers || {};
++}
++
+ module.exports = {
+   DEFAULT_HOST, health, listModels, psModels, unloadModel, chat, chatStream, embed, pullModel, suportaEsquema, semBlocoDePensamento,
+-  estimarTokens, reduzirParaCaber, erroDoOllama, MARCA_DE_CORTE, capacidades, listModelsComCapacidades,
++  estimarTokens, reduzirParaCaber, erroDoOllama, MARCA_DE_CORTE, capacidades, listModelsComCapacidades, decidir,
+ };
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/src/registro.js augpt/src/registro.js
+--- a/src/registro.js	2026-10-10 10:10:25.106458949 -0300
++++ b/src/registro.js	2026-10-10 10:20:29.279023774 -0300
+@@ -346,6 +346,24 @@
+     });
+     agente.on('tipo-de-pedido', (e) => {
+       d.tipoDePedido = { tipo: e?.tipo || null, motivo: e?.motivo || null };
++      // roteador híbrido: quem decidiu e o que a regra dizia — é o que permite
++      // medir, nos registros reais, se o modelo de decisão acerta mais
++      if (e?.fonte) d.tipoDePedido.fonte = e.fonte;
++      if (e?.tipoDaRegra && e.tipoDaRegra !== e.tipo) d.tipoDePedido.tipoDaRegra = e.tipoDaRegra;
++      if (e?.decisor) d.tipoDePedido.decisor = { modelo: e.decisor.modelo, valor: e.decisor.valor, confianca: e.decisor.confianca };
++      if (typeof e?.ms === 'number') d.tipoDePedido.ms = e.ms;
++      if (e?.falhaDoDecisor) d.tipoDePedido.falhaDoDecisor = e.falhaDoDecisor;
++    });
++    // retomada (retomada.js): o que a execução interrompida deixou e o que foi de fato reaproveitado
++    const retomada = () => (d.retomada = d.retomada || { disponiveis: { paginas: 0, destilacoes: 0 }, paginasUsadas: 0, destilacoesUsadas: 0 });
++    agente.on('retomada', (e) => {
++      retomada().disponiveis = { paginas: e?.paginas || 0, destilacoes: e?.destilacoes || 0 };
++    });
++    agente.on('cache-usado', (e) => {
++      if (e?.retomada) retomada().paginasUsadas += 1;
++    });
++    agente.on('destilacao-retomada', () => {
++      retomada().destilacoesUsadas += 1;
+     });
+     agente.on('assunto-da-conversa', (e) => {
+       d.assuntoDaConversa = { assunto: e?.assunto || null, motivo: e?.motivo || null, objetivo: String(e?.objetivo || '').slice(0, 400) };
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/src/tools/erros.js augpt/src/tools/erros.js
+--- a/src/tools/erros.js	1969-12-31 21:00:00.000000000 -0300
++++ b/src/tools/erros.js	2026-10-10 10:32:04.756453810 -0300
+@@ -0,0 +1,122 @@
++'use strict';
++
++/**
++ * Erro temporário × definitivo nas ferramentas de leitura (2026-10-10).
++ *
++ * As ferramentas lançam `Error` com texto livre, e o loop devolvia esse texto
++ * ao modelo do mesmo jeito em qualquer caso. Dois desperdícios saíam disso:
++ *   - falha passageira (timeout, conexão derrubada, HTTP 429/5xx) virava erro
++ *     definitivo da execução, quando uma segunda tentativa costuma passar;
++ *   - erro que não muda com nova tentativa (404, 403 de bloqueio, arquivo que
++ *     não existe) era repetido pelo modelo, gastando passos.
++ * Aqui o texto vira uma classificação. Quem usa (loop.js) tenta de novo UMA
++ * vez o temporário — só em ferramenta que apenas lê — e diz ao modelo, no
++ * definitivo, que repetir a mesma chamada não adianta.
++ */
++
++// códigos que não mudam numa segunda tentativa logo em seguida
++const DEFINITIVO = [
++  /\bHTTP\s*(?:400|401|403|404|405|410|451)\b/i,
++  /\b(?:400|401|403|404|410|451)\s*(?:bad request|unauthorized|forbidden|not found|gone)/i,
++  /\bENOENT\b|\bEISDIR\b|\bENOTDIR\b|\bENOTFOUND\b/,
++  /^\s*bloqueado:/i,
++  /n[aã]o existe|fora da pasta|caminho.*fora|informe "|precisa come[cç]ar com http|endere[cç]o (?:interno|da rede local)|bloquead[oa] por|sem chave configurada|maior que o limite|redirecionamentos demais/i,
++];
++
++// sinais de falha passageira (rede, servidor sobrecarregado, limite de taxa)
++const TEMPORARIO = [
++  /\bHTTP\s*(?:408|425|429|500|502|503|504)\b/i,
++  /\btime-?out\b|tempo esgotado|timed out|\bETIMEDOUT\b|\bESOCKETTIMEDOUT\b/i,
++  /\bECONNRESET\b|\bECONNREFUSED\b|\bEPIPE\b|\bEAI_AGAIN\b|\bENETUNREACH\b|\bEHOSTUNREACH\b/,
++  /socket hang up|fetch failed|network (?:error|request failed)|conex[aã]o (?:recusada|encerrada|interrompida)|too many requests|service unavailable|bad gateway/i,
++  /nenhum provedor de busca respondeu/i,
++];
++
++// Dos temporários, só os que costumam passar numa segunda tentativa LOGO EM
++// SEGUIDA e falham rápido. Fora daqui de propósito (medido na bancada: a
++// primeira versão repetia tudo e a rodada foi de 16 s para 293 s):
++//   - timeout: repetir custa outro timeout inteiro;
++//   - "nenhum provedor de busca respondeu": a cadeia de provedores já tentou
++//     cada um; repetir a cadeia é esperar tudo de novo;
++//   - conexão recusada / rede inalcançável: costuma ser o serviço fora do ar.
++const REPETIVEL = [
++  /\bHTTP\s*(?:429|500|502|503|504)\b/i,
++  /\bECONNRESET\b|\bEPIPE\b|\bEAI_AGAIN\b/,
++  /socket hang up|too many requests|service unavailable|bad gateway/i,
++];
++
++/**
++ * `{ tipo: 'temporario' | 'definitivo' | 'desconhecido', motivo, repetivel }`.
++ * Definitivo vence: "html direto: HTTP 404 | render-js: timeout" é página que
++ * não existe, e tentar de novo só repetiria o timeout. Timeout junto de 503
++ * também não é repetível: o timeout já diz que a segunda tentativa é cara.
++ */
++function classificarErro(erro) {
++  const texto = String(erro?.message ?? erro ?? '');
++  if (!texto) return { tipo: 'desconhecido', motivo: '', repetivel: false };
++  const def = DEFINITIVO.find((re) => re.test(texto));
++  if (def) return { tipo: 'definitivo', motivo: (texto.match(def) || [''])[0], repetivel: false };
++  const tmp = TEMPORARIO.find((re) => re.test(texto));
++  if (tmp) {
++    const lento = TEMPORARIO[1].test(texto) || TEMPORARIO[4].test(texto);
++    return { tipo: 'temporario', motivo: (texto.match(tmp) || [''])[0], repetivel: !lento && REPETIVEL.some((re) => re.test(texto)) };
++  }
++  return { tipo: 'desconhecido', motivo: '', repetivel: false };
++}
++
++/** Sufixo que vai no erro devolvido ao modelo (e que a Tarefa reconhece). */
++const MARCA_DEFINITIVO = '[erro definitivo: repetir a mesma chamada não adianta — use outra fonte, outro endereço ou outro caminho]';
++const MARCA_TEMPORARIO = '[falha temporária: já tentei de novo e não deu — tente outra fonte ou siga com o que já tem]';
++
++function anotarErro(mensagem, classificacao, { tentouDeNovo = false } = {}) {
++  const m = String(mensagem || '');
++  if (classificacao?.tipo === 'definitivo' && !m.includes(MARCA_DEFINITIVO)) return `${m} ${MARCA_DEFINITIVO}`;
++  if (classificacao?.tipo === 'temporario' && tentouDeNovo && !m.includes(MARCA_TEMPORARIO)) return `${m} ${MARCA_TEMPORARIO}`;
++  return m;
++}
++
++const esperar = (ms, signal) =>
++  new Promise((resolve, reject) => {
++    if (signal?.aborted) return reject(signal.reason || new Error('interrompido'));
++    const t = setTimeout(resolve, ms);
++    signal?.addEventListener?.(
++      'abort',
++      () => {
++        clearTimeout(t);
++        reject(signal.reason || new Error('interrompido'));
++      },
++      { once: true }
++    );
++  });
++
++/**
++ * Roda `executar()`; se falhar com erro TEMPORÁRIO, espera um pouco e tenta
++ * de novo (uma vez, por padrão). Quem chama decide se a ferramenta pode ser
++ * repetida — só leitura: escrever arquivo, rodar comando ou clicar num site
++ * duas vezes não é "tentar de novo", é fazer duas vezes.
++ */
++async function comNovaTentativa(executar, { tentativas = 1, esperaMs = 1500, maxDuracaoMs = 8000, signal, aoTentarDeNovo = () => {} } = {}) {
++  let ultima;
++  for (let i = 0; i <= tentativas; i += 1) {
++    const inicio = Date.now();
++    try {
++      return await executar();
++    } catch (err) {
++      ultima = err;
++      if (signal?.aborted) throw err;
++      const c = classificarErro(err);
++      // tentativa que já demorou não se repete: a segunda tende a demorar igual
++      const demorou = Date.now() - inicio > maxDuracaoMs;
++      if (!c.repetivel || demorou || i === tentativas) {
++        err.classificacao = c;
++        err.tentouDeNovo = i > 0;
++        throw err;
++      }
++      aoTentarDeNovo({ tentativa: i + 1, motivo: c.motivo, erro: String(err.message || err).slice(0, 300) });
++      await esperar(esperaMs * (i + 1), signal);
++    }
++  }
++  throw ultima;
++}
++
++module.exports = { classificarErro, anotarErro, comNovaTentativa, MARCA_DEFINITIVO, MARCA_TEMPORARIO };
+diff -ruN '--exclude=ultimo-resultado.json' '--exclude=.augpt' augpt-original/src/tools/web.js augpt/src/tools/web.js
+--- a/src/tools/web.js	2026-10-10 10:10:25.106159012 -0300
++++ b/src/tools/web.js	2026-10-10 10:23:16.117453772 -0300
+@@ -187,6 +187,14 @@
+     ctx.emit('cache-usado', { url: chave });
+     return guardada;
+   }
++  // retomada (src/agent/retomada.js): página já baixada pela execução
++  // interrompida desta conversa não é baixada (nem renderizada) de novo
++  const retomada = ctx.retomada?.pagina?.(chave);
++  if (retomada) {
++    ctx.emit('cache-usado', { url: chave, retomada: true });
++    ctx.estado.cachePaginas.set(chave, retomada);
++    return retomada;
++  }
+   const pagina = await ler(String(url), {
+     render: ctx.render,
+     // Desde a Fase 1 de segurança (2026-09-23) o padrão é DESLIGADO: só
+@@ -197,6 +205,9 @@
+     conferir: (destino) => conferirDestino(destino, ctx.config),
+   });
+   ctx.estado.cachePaginas.set(chave, pagina);
++  // só página que de fato trouxe conteúdo vale ser retomada (parcial também:
++  // as tentativas caras, render incluído, já foram feitas e dariam no mesmo)
++  if (pagina?.texto) ctx.retomada?.guardarPagina?.(chave, pagina);
+   return pagina;
+ }
+ 

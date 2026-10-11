@@ -1,0 +1,366 @@
+{
+  "pergunta": "--nivel alto",
+  "modelo": "qwen2.5:7b",
+  "modeloRedacao": "qwen2.5:7b",
+  "numCtx": 9216,
+  "numCtxRedacao": 9216,
+  "nivelRaciocinio": "leve",
+  "motorAcionado": false,
+  "modoDoMotor": null,
+  "resultadoDaExecucao": "ok",
+  "tempoDaPesquisaAteAResposta": "164.7 s",
+  "tempoTotal": "164.7 s",
+  "acoesNegadas": [],
+  "versoes": {
+    "A": null,
+    "B": null,
+    "C": {
+      "duracao": "0.7 s",
+      "tokens": {
+        "prompt": 32,
+        "completion": 67
+      },
+      "verificador": {
+        "aprovado": true,
+        "reescreveria": false,
+        "respondeAoPedido": true,
+        "valoresSemRespaldo": 0,
+        "inconsistencias": [],
+        "suspeitas": []
+      },
+      "afirmacoesNumericas": {
+        "total": 0,
+        "porStatus": {}
+      },
+      "tamanho": {
+        "caracteres": 266,
+        "palavras": 43
+      }
+    }
+  },
+  "janelaDeContexto": {
+    "chamadas": 26,
+    "chamadasComCorte": 0,
+    "chamadasAcimaDe90PorCento": 2,
+    "maiorUso": {
+      "etapa": "execução",
+      "promptTokens": 8814,
+      "numCtx": 9216,
+      "uso": 0.96
+    }
+  },
+  "chamadas": [
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 400,
+      "promptTokens": 673,
+      "completionTokens": 23,
+      "usoDaJanela": 0.07,
+      "contextoReduzido": null,
+      "duracaoMs": 483
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 1024,
+      "promptTokens": 4432,
+      "completionTokens": 139,
+      "usoDaJanela": 0.48,
+      "contextoReduzido": null,
+      "duracaoMs": 3006
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4109,
+      "completionTokens": 800,
+      "usoDaJanela": 0.45,
+      "contextoReduzido": null,
+      "duracaoMs": 10064
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 779,
+      "completionTokens": 129,
+      "usoDaJanela": 0.08,
+      "contextoReduzido": null,
+      "duracaoMs": 1635
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 1024,
+      "promptTokens": 5631,
+      "completionTokens": 172,
+      "usoDaJanela": 0.61,
+      "contextoReduzido": null,
+      "duracaoMs": 2817
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 90,
+      "promptTokens": 2015,
+      "completionTokens": 90,
+      "usoDaJanela": 0.22,
+      "contextoReduzido": null,
+      "duracaoMs": 1763
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 5855,
+      "completionTokens": 4,
+      "usoDaJanela": 0.64,
+      "contextoReduzido": null,
+      "duracaoMs": 2182
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 5284,
+      "completionTokens": 493,
+      "usoDaJanela": 0.57,
+      "contextoReduzido": null,
+      "duracaoMs": 7700
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 5577,
+      "completionTokens": 4,
+      "usoDaJanela": 0.61,
+      "contextoReduzido": null,
+      "duracaoMs": 2094
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4752,
+      "completionTokens": 4,
+      "usoDaJanela": 0.52,
+      "contextoReduzido": null,
+      "duracaoMs": 1749
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 5522,
+      "completionTokens": 478,
+      "usoDaJanela": 0.6,
+      "contextoReduzido": null,
+      "duracaoMs": 7328
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4610,
+      "completionTokens": 800,
+      "usoDaJanela": 0.5,
+      "contextoReduzido": null,
+      "duracaoMs": 10570
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 4137,
+      "completionTokens": 146,
+      "usoDaJanela": 0.45,
+      "contextoReduzido": null,
+      "duracaoMs": 3180
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 2206,
+      "completionTokens": 800,
+      "usoDaJanela": 0.24,
+      "contextoReduzido": null,
+      "duracaoMs": 9493
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 1024,
+      "promptTokens": 7155,
+      "completionTokens": 196,
+      "usoDaJanela": 0.78,
+      "contextoReduzido": null,
+      "duracaoMs": 3827
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 1024,
+      "promptTokens": 7295,
+      "completionTokens": 287,
+      "usoDaJanela": 0.79,
+      "contextoReduzido": null,
+      "duracaoMs": 4633
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 5532,
+      "completionTokens": 2,
+      "usoDaJanela": 0.6,
+      "contextoReduzido": null,
+      "duracaoMs": 2050
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 5319,
+      "completionTokens": 452,
+      "usoDaJanela": 0.58,
+      "contextoReduzido": null,
+      "duracaoMs": 6957
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 5024,
+      "completionTokens": 4,
+      "usoDaJanela": 0.55,
+      "contextoReduzido": null,
+      "duracaoMs": 1830
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 3910,
+      "completionTokens": 201,
+      "usoDaJanela": 0.42,
+      "contextoReduzido": null,
+      "duracaoMs": 3569
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 3925,
+      "completionTokens": 800,
+      "usoDaJanela": 0.43,
+      "contextoReduzido": null,
+      "duracaoMs": 10191
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 800,
+      "promptTokens": 986,
+      "completionTokens": 241,
+      "usoDaJanela": 0.11,
+      "contextoReduzido": null,
+      "duracaoMs": 2947
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chatStream",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 3072,
+      "promptTokens": 8727,
+      "completionTokens": 648,
+      "usoDaJanela": 0.95,
+      "contextoReduzido": null,
+      "duracaoMs": 10673
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chatStream",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 3072,
+      "promptTokens": 8814,
+      "completionTokens": 600,
+      "usoDaJanela": 0.96,
+      "contextoReduzido": null,
+      "duracaoMs": 10200
+    },
+    {
+      "etapa": "execução",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 120,
+      "promptTokens": 161,
+      "completionTokens": 4,
+      "usoDaJanela": 0.02,
+      "contextoReduzido": null,
+      "duracaoMs": 158
+    },
+    {
+      "etapa": "C: direta",
+      "funcao": "chat",
+      "modelo": "qwen2.5:7b",
+      "numCtx": 9216,
+      "numPredict": 3072,
+      "promptTokens": 32,
+      "completionTokens": 67,
+      "usoDaJanela": 0,
+      "contextoReduzido": null,
+      "duracaoMs": 742
+    }
+  ]
+}
