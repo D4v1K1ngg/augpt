@@ -203,7 +203,7 @@ function tipoDoPedido(objetivo) {
     const semSaida = t.replace(SAIDA_EM_ARQUIVO, ' ').replace(/\s+/g, ' ').trim();
     if (semSaida && semSaida !== t && !LOCAL.test(semSaida)) {
       const resto = tipoDoPedido(semSaida);
-      if (resto.tipo === 'produto' || resto.tipo === 'guia') return { ...resto, motivo: `${resto.motivo} (com arquivo de saída)` };
+      if (resto.tipo === 'produto' || resto.tipo === 'guia') return { ...resto, motivo: `${resto.motivo} (com arquivo de saída)`, arquivoDeSaida: true };
     }
     return { tipo: 'local', motivo: 'fala de arquivo, pasta ou documento' };
   }

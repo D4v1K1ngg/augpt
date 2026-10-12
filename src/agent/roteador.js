@@ -72,6 +72,10 @@ function combinar(regra, decisao, { limite = LIMITE_PADRAO, modelo = 'modelo de 
   if (!decisao || !decisao.valor || !(decisao.valor in ROTA_PARA_TIPO)) return base;
   const comDecisao = { ...base, decisor: { modelo, valor: decisao.valor, confianca: decisao.confianca } };
   if (regra.tipo === 'local' || regra.tipo === 'site') return comDecisao;
+  // 12/10: produto com arquivo de saída ("Compare 3 IEMs e gere uma planilha") — o
+  // modelo de decisão vê a planilha e diz "tarefa", tirando o pedido da pesquisa
+  // planejada. A regra já separou as duas coisas; ela fica.
+  if (regra.arquivoDeSaida) return comDecisao;
   if (decisao.valor === 'site') return comDecisao;
   if (typeof decisao.confianca !== 'number' || decisao.confianca < limite) return comDecisao;
   const tipo = ROTA_PARA_TIPO[decisao.valor];

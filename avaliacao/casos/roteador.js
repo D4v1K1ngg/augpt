@@ -237,4 +237,18 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'roteador (medição de 12/10): produto com arquivo de saída não é trocado por "tarefa" pelo modelo de decisão — "Compare 3 IEMs para FPS e gere uma planilha" fica na pesquisa planejada',
+    tipo: 'unidade',
+    async executar() {
+      const pedido = 'Compare 3 IEMs para FPS e gere uma planilha com o comparativo';
+      const r = await decidirRota(pedido, { config: ligado, decidir: decisorQueDiz('tarefa', 0.95) });
+      const semArquivo = await decidirRota('Compare 3 IEMs para FPS', { config: ligado, decidir: decisorQueDiz('tarefa', 0.95) });
+      return [
+        (r.tipo === 'produto' && r.fonte === 'regra') || `com arquivo de saída a regra fica: ${JSON.stringify(r).slice(0, 160)}`,
+        r.decisor?.valor === 'tarefa' || 'a opinião do decisor continua registrada',
+        semArquivo.tipo === 'livre' || 'sem arquivo de saída o decisor confiante continua podendo trocar a rota',
+      ];
+    },
+  },
 ];
