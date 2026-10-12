@@ -39,6 +39,25 @@ function limparLink(href) {
 /* ------------------------------ provedores ------------------------------ */
 
 /** SearXNG local — o melhor caminho: agrega Google, DDG, Brave e outros. */
+/**
+ * Saúde dos buscadores por trás do SearXNG (11/10). Em 11/10 três dos cinco
+ * estavam suspensos ("too many requests") e o SearXNG devolvia zero
+ * resultados sem ninguém ficar sabendo. Cada resposta diz quem respondeu e
+ * quem falhou; guardamos a última para a tela mostrar (painel central).
+ */
+const saude = { em: null, respondendo: [], semResposta: [] };
+function registrarSaude(dados) {
+  const respondendo = new Set();
+  for (const x of dados.results || []) for (const e of x.engines || [x.engine]) if (e) respondendo.add(e);
+  const falhas = (dados.unresponsive_engines || []).map((u) => ({ nome: String(u[0]), motivo: String(u[1] || '').replace(/^Suspended: /, '') }));
+  // buscador que falhou nesta consulta pode ter respondido na anterior: vale a mais recente
+  saude.em = Date.now();
+  saude.respondendo = [...respondendo];
+  saude.semResposta = falhas.filter((f) => !respondendo.has(f.nome));
+}
+/** `{ em, respondendo: [nomes], semResposta: [{ nome, motivo }] }` da última busca geral no SearXNG. */
+const saudeDaBusca = () => ({ ...saude });
+
 async function searxng(consulta, { searxngUrl, idioma = 'pt-BR', categoria = '' }) {
   if (!searxngUrl) return [];
   const base = searxngUrl.replace(/\/$/, '');
@@ -52,6 +71,7 @@ async function searxng(consulta, { searxngUrl, idioma = 'pt-BR', categoria = '' 
   });
   if (!r.ok) throw new Error(`SearXNG HTTP ${r.status} (a instância precisa liberar o formato JSON)`);
   const dados = JSON.parse(r.texto);
+  if (!categoria) registrarSaude(dados);
   return normalizar(
     (dados.results || []).map((x) => ({ titulo: x.title, url: x.url, resumo: x.content })),
     'searxng'
@@ -522,7 +542,7 @@ async function buscar(consulta, opcoes = {}) {
 }
 
 module.exports = {
-  buscar, CADEIA, searxng, duckduckgoHtml, duckduckgoLite, marginalia, wikipedia, jina,
+  buscar, CADEIA, searxng, saudeDaBusca, registrarSaude, duckduckgoHtml, duckduckgoLite, marginalia, wikipedia, jina,
   ordenarPorQualidade, qualidadeDoDominio, subconsultas, buscarVarias, estaBloqueado,
   definirPersonalizados, definirAprendidos, definirAprendido,
   estatisticasDeDominios: () => {

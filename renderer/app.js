@@ -3955,6 +3955,7 @@ $('btnLimparExec').addEventListener('click', async () => {
     if (e.key === 'Escape' && !painel.hidden) abrir(false);
   });
 
+  let buscaFraca = false; // um buscador ou nenhum respondendo (ver verBusca, abaixo)
   const curto = (select) => (select?.selectedOptions?.[0]?.textContent || '').split('·')[0].trim();
   const resumir = () => {
     const ollama = $('statusOllama');
@@ -3964,9 +3965,28 @@ $('btnLimparExec').addEventListener('click', async () => {
     const texto = desligado ? `Ollama desligado · ${partes.join(' · ')}` : partes.join(' · ');
     if ($('resumoExecucao').textContent !== texto) $('resumoExecucao').textContent = texto;
     botao.classList.toggle('offline', desligado);
-    botao.classList.toggle('atencao', !desligado && modelos.classList.contains('modelos-atencao'));
-    botao.classList.toggle('ok', ollama.classList.contains('online') && !modelos.classList.contains('modelos-atencao'));
+    const atencao = modelos.classList.contains('modelos-atencao') || buscaFraca;
+    botao.classList.toggle('atencao', !desligado && atencao);
+    botao.classList.toggle('ok', ollama.classList.contains('online') && !atencao);
   };
+
+  // Buscadores do SearXNG: quantos responderam na última pesquisa (11/10 —
+  // três dos cinco estavam suspensos e a busca voltava vazia sem aviso)
+  const verBusca = async () => {
+    const s = await api.ollama.saudeDaBusca().catch(() => null);
+    if (!s?.em) return;
+    const el = $('statusBusca');
+    const ok = s.respondendo.length;
+    el.hidden = false;
+    el.querySelector('span').textContent = `busca · ${ok} de ${ok + s.semResposta.length} buscadores`;
+    el.title = [ok ? `respondendo: ${s.respondendo.join(', ')}` : 'nenhum buscador respondeu na última pesquisa', ...s.semResposta.map((f) => `${f.nome}: ${f.motivo}`)].join('\n');
+    el.classList.toggle('online', ok >= 2);
+    el.classList.toggle('copiloto-gpu', ok === 1); // o mesmo âmbar do aviso do copiloto
+    el.classList.toggle('offline', ok === 0);
+    buscaFraca = ok <= 1;
+  };
+  setInterval(verBusca, 15000);
+  verBusca();
   // ponytail: releitura a cada 600 ms — os seletores também mudam por código
   // (carregar ajustes, lista de modelos), sem evento; trocar por eventos se pesar
   setInterval(resumir, 600);

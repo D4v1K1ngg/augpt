@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('augpt', {
     pull: (nome) => ipcRenderer.invoke('ollama:pull', { nome }),
     copilotoStatus: () => ipcRenderer.invoke('ollama:copilotoStatus'),
     modelosCarregados: () => ipcRenderer.invoke('ollama:modelosCarregados'),
+    saudeDaBusca: () => ipcRenderer.invoke('busca:saude'),
     maxModelosCarregados: () => ipcRenderer.invoke('ollama:maxModelosCarregados'),
     definirMaxModelosCarregados: (valor) => ipcRenderer.invoke('ollama:definirMaxModelosCarregados', { valor }),
     confirmarReinicioMaxModelos: () => ipcRenderer.invoke('ollama:confirmarReinicioMaxModelos'),

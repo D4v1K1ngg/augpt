@@ -632,6 +632,9 @@ ipcMain.handle('ollama:copilotoStatus', async () => {
  * dividido, por papel da configuração (principal, embedding, Tev1,
  * copiloto). Ver src/modelos-carregados.js.
  */
+// quem respondeu e quem falhou na última busca do SearXNG (painel central da barra)
+ipcMain.handle('busca:saude', () => busca.saudeDaBusca());
+
 ipcMain.handle('ollama:modelosCarregados', async () => {
   try {
     const carregados = await ollama.psModels(config.data.host);
