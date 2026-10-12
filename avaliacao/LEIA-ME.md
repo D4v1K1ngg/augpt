@@ -76,7 +76,7 @@ A bancada pega **regressão no nosso código**. Ela não descobre que o modelo p
 A bancada acima diz se o código em volta do modelo quebrou. Ela não diz se a resposta que o usuário recebe é boa. Para isso existe a medição de qualidade: roda o agente **de verdade** (Ollama, internet, os seus Ajustes) num conjunto fixo de perguntas, e um modelo-juiz dá nota de 0 a 10 a cada resposta.
 
 ```bash
-npm run qualidade                        # as 24 perguntas (30–60 min)
+npm run qualidade                        # as 45 perguntas (cerca de 1 hora)
 npm run qualidade -- --so=explicacao     # só um tipo: explicacao, fato, produto, guia
 npm run qualidade -- --id=gerador,lua    # só estas
 npm run qualidade -- --juiz=qwen2.5:14b  # modelo que corrige (padrão: qwen2.5:14b, se instalado)
@@ -102,3 +102,15 @@ npm run qualidade:app -- --id=fones-pubg
 No Node puro (`npm run qualidade`) a medição não lê páginas que precisam de JavaScript — entre elas os tópicos do Reddit, que o agente usa como a principal evidência numa recomendação. A resposta sai, mas montada só com listas de sites, e a nota não representa o app. `qualidade:app` roda a mesma medição dentro do Electron, com a leitura de páginas igual à do app. Para explicações e fatos diretos, o Node puro basta.
 
 Cada resultado guarda também para onde foi o tempo: segundos no modelo e nas ferramentas, chamadas por tipo e quantas destilações voltaram sem nenhum fato.
+
+### Rodadas repetidas, checagens por código e rodada noturna
+
+```bash
+npm run qualidade:app -- --rodadas=3     # cada pergunta 3 vezes; a nota é a média
+npm run qualidade:agendar                # agenda a medição para toda madrugada (03:00)
+npm run qualidade:agendar -- --remover   # desfaz
+```
+
+- **`--rodadas=N`** (até 5): a mesma pesquisa de produto variou de 212 s a 336 s entre execuções. Com uma rodada só não dá para separar melhora de sorte; com três, a nota e o tempo são a média e as três notas aparecem ao lado.
+- **`checagens`** no gabarito: o que dá para conferir pelo texto, o código confere, sem juiz — cinco opções numeradas, nenhuma opção de outro tipo, citações com a origem, preço em reais. Entram na nota como os critérios. Nasceram de um caso real: só com critérios para o juiz, uma recomendação sem nenhuma citação da comunidade tirou 10.
+- **`qualidade:agendar`** cria uma tarefa no Agendador do Windows (em Linux e macOS, mostra a linha do crontab). O computador precisa estar ligado e o Ollama aberto.

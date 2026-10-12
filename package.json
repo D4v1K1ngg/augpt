@@ -25,6 +25,7 @@
     "comparar": "node avaliacao/comparar.js",
     "qualidade": "node avaliacao/qualidade.js",
     "qualidade:app": "electron avaliacao/qualidade.js",
+    "qualidade:agendar": "node avaliacao/agendar-qualidade.js",
     "atualizar-dominios": "node ferramentas/_atualizar-dominios.js"
   },
   "devDependencies": {

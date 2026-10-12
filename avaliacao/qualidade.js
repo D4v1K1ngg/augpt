@@ -70,11 +70,23 @@ const media = (l) => (l.length ? l.reduce((a, b) => a + b, 0) / l.length : 0);
 
 /* ------------------------------ juiz ------------------------------ */
 
+/** Checagens por código do gabarito (`checagens: [{ nome, ok(resposta) }]`): o que dá para conferir sem juiz. */
+function rodarChecagens(pergunta, resposta) {
+  return (pergunta.checagens || []).map((c) => {
+    try {
+      return c.ok(String(resposta || '')) === true;
+    } catch {
+      return false;
+    }
+  });
+}
+
 function notaDe(pergunta, veredito) {
-  const itens = (pergunta.fatos || []).length + (pergunta.criterios || []).length;
+  const checagens = veredito.checagens || [];
+  const itens = (pergunta.fatos || []).length + (pergunta.criterios || []).length + checagens.length;
   const presentes = veredito.fatos.filter((v) => v === 'presente').length;
   const contraditos = veredito.fatos.filter((v) => v === 'contradito').length;
-  const cumpridos = veredito.criterios.filter(Boolean).length;
+  const cumpridos = veredito.criterios.filter(Boolean).length + checagens.filter(Boolean).length;
   // contradizer o gabarito pesa mais do que deixar de dizer
   const nota = (10 * (presentes + cumpridos)) / itens - 3 * contraditos;
   return Math.round(Math.max(0, Math.min(10, nota)) * 10) / 10;
@@ -143,13 +155,13 @@ async function julgar({ juiz, pergunta, resposta }) {
         numPredict: 800,
         pensar: false,
       });
-      const veredito = lerVeredito(r.content, pergunta);
+      const veredito = { ...lerVeredito(r.content, pergunta), checagens: rodarChecagens(pergunta, resposta) };
       return { ...veredito, nota: notaDe(pergunta, veredito) };
     } catch (err) {
       ultimoErro = err;
     }
   }
-  return { fatos: [], criterios: [], nota: null, erro: ultimoErro?.message || 'juiz falhou' };
+  return { fatos: [], criterios: [], checagens: [], nota: null, erro: ultimoErro?.message || 'juiz falhou' };
 }
 
 /**
@@ -316,16 +328,26 @@ async function principal() {
     console.log();
   }
 
+  // Várias rodadas por pergunta (--rodadas=3): a mesma pesquisa variou de 212 s
+  // a 336 s entre execuções; com uma rodada só, não dá para separar melhora de
+  // sorte. A nota e o tempo da pergunta são a média das rodadas; a diferença
+  // entre a melhor e a pior nota aparece ao lado.
+  const rodadas = Math.max(1, Math.min(Number(args.rodadas) || 1, 5));
+
   // 1ª fase: o agente responde tudo (--rejulgar: reaproveita as respostas da
   // última rodada e só corrige de novo — para testar outro juiz ou gabarito)
   const guardadas = args.rejulgar ? new Map((rodadaAnterior()?.resultados || []).map((r) => [r.id, r])) : null;
   if (guardadas) perguntas = perguntas.filter((p) => guardadas.has(p.id));
-  console.log(cinza(guardadas ? '  respostas da última rodada' : '  respondendo'));
+  console.log(cinza(guardadas ? '  respostas da última rodada' : `  respondendo${rodadas > 1 ? ` (${rodadas} rodadas por pergunta)` : ''}`));
   const respostas = [];
   for (const p of perguntas) {
-    const r = guardadas ? guardadas.get(p.id) : await responder(p, { cfg, modelo });
-    respostas.push(r);
-    console.log(`    ${p.id.padEnd(18)} ${String(r.seg).padStart(4)}s ${String(r.passos).padStart(2)}p ${r.erro ? vermelho(`erro: ${r.erro.slice(0, 80)}`) : cinza(`${r.resposta.length} caracteres`)}`);
+    const execucoes = [];
+    if (guardadas) execucoes.push(...(guardadas.get(p.id).execucoes || [guardadas.get(p.id)]));
+    else for (let n = 0; n < rodadas; n += 1) execucoes.push(await responder(p, { cfg, modelo }));
+    respostas.push(execucoes);
+    for (const r of execucoes) {
+      console.log(`    ${p.id.padEnd(18)} ${String(r.seg).padStart(4)}s ${String(r.passos).padStart(2)}p ${r.erro ? vermelho(`erro: ${r.erro.slice(0, 80)}`) : cinza(`${r.resposta.length} caracteres`)}`);
+    }
   }
   await ollama.unloadModel?.(HOST, modelo).catch(() => {});
 
@@ -334,20 +356,38 @@ async function principal() {
   const resultados = [];
   for (let i = 0; i < perguntas.length; i += 1) {
     const p = perguntas[i];
-    const r = respostas[i];
-    const v = r.erro || !r.resposta.trim() ? { fatos: [], criterios: [], nota: 0, erro: r.erro || 'resposta vazia' } : await julgar({ juiz, pergunta: p, resposta: r.resposta });
-    resultados.push({ ...r, id: p.id, tipo: p.tipo, pedido: p.pedido, nota: v.nota, veredito: { fatos: v.fatos, criterios: v.criterios }, erroDoJuiz: v.erro || null });
+    const execucoes = [];
+    for (const r of respostas[i]) {
+      const v = r.erro || !r.resposta.trim()
+        ? { fatos: [], criterios: [], checagens: [], nota: 0, erro: r.erro || 'resposta vazia' }
+        : await julgar({ juiz, pergunta: p, resposta: r.resposta });
+      execucoes.push({ ...r, nota: v.nota, veredito: { fatos: v.fatos, criterios: v.criterios, checagens: v.checagens || [] }, erroDoJuiz: v.erro || null });
+    }
+    const notas = execucoes.map((e) => e.nota).filter((n) => n !== null);
+    const nota = notas.length ? Math.round(media(notas) * 10) / 10 : null;
+    // o que representa a pergunta: a rodada de nota mais baixa (é ela que mostra o que falta)
+    const pior = [...execucoes].sort((a, b) => (a.nota ?? 99) - (b.nota ?? 99))[0];
+    const v = pior.veredito;
+    resultados.push({
+      ...pior,
+      id: p.id, tipo: p.tipo, pedido: p.pedido, nota,
+      seg: Math.round(media(execucoes.map((e) => e.seg))),
+      notas, segs: execucoes.map((e) => e.seg),
+      execucoes: execucoes.length > 1 ? execucoes : undefined,
+    });
     const faltou = [
       ...(p.fatos || []).filter((_, k) => v.fatos[k] === 'ausente'),
       ...(p.criterios || []).filter((_, k) => v.criterios[k] === false),
+      ...(p.checagens || []).filter((_, k) => v.checagens[k] === false).map((c) => `${c.nome} (conferido pelo código)`),
     ];
     const contradisse = (p.fatos || []).filter((_, k) => v.fatos[k] === 'contradito');
+    const variacao = notas.length > 1 ? cinza(`  notas ${notas.join(' / ')}`) : '';
     console.log(
-      `    ${corDaNota(v.nota)}  ${p.id.padEnd(18)} ${cinza(`${String(r.seg).padStart(4)}s ${String(r.passos).padStart(2)}p  busca: ${r.busca.provedores.join('+') || '—'}${r.busca.semProvedor ? vermelho(` (${r.busca.semProvedor} sem provedor)`) : ''}`)}`
+      `    ${corDaNota(nota)}  ${p.id.padEnd(18)} ${cinza(`${String(Math.round(media(execucoes.map((e) => e.seg)))).padStart(4)}s ${String(pior.passos).padStart(2)}p  busca: ${pior.busca.provedores.join('+') || '—'}${pior.busca.semProvedor ? vermelho(` (${pior.busca.semProvedor} sem provedor)`) : ''}`)}${variacao}`
     );
-    if (v.erro) console.log(cinza(`          ${v.erro}`));
-    for (const f of contradisse) console.log(vermelho(`          contradiz: ${f}`));
-    for (const f of faltou.slice(0, 3)) console.log(cinza(`          faltou: ${f}`));
+    if (pior.erroDoJuiz) console.log(cinza(`          ${pior.erroDoJuiz}`));
+    for (const x of contradisse) console.log(vermelho(`          contradiz: ${x}`));
+    for (const x of faltou.slice(0, 4)) console.log(cinza(`          faltou: ${x}`));
   }
 
   // resumo
@@ -422,4 +462,4 @@ if (require.main === module || process.versions.electron) {
   });
 }
 
-module.exports = { notaDe, lerVeredito };
+module.exports = { notaDe, lerVeredito, rodarChecagens };

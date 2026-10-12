@@ -31,6 +31,7 @@ avaliacao/ultimo-resultado.json
 
 # gerado a cada `npm run qualidade` (traz as respostas inteiras)
 avaliacao/qualidade/resultados/
+avaliacao/qualidade/ultima-rodada.log
 
 # sobras de depuração
 skills-inexistente/

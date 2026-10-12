@@ -240,6 +240,15 @@ module.exports = [
       'deixa claro qual é a primeira recomendação',
       'os fones recomendados são intra-auriculares (não headsets)',
     ],
+    // 11/10: só com os critérios acima, uma resposta sem NENHUMA citação da
+    // comunidade tirou 10. O que dá para conferir pelo texto, o código confere.
+    checagens: [
+      { nome: 'cinco opções numeradas', ok: (r) => (r.match(/^#### \d+\. /gm) || r.match(/^\d+\. \*\*/gm) || []).length >= 5 },
+      { nome: 'nenhum headset entre as opções', ok: (r) => !(r.match(/^#### \d+\. .*/gm) || []).some((t) => /headset|maxwell|astro a\d|cloud (ii|iii|2|3|alpha|stinger)\b|quantum \d{3}/i.test(t)) },
+      { nome: 'pelo menos 3 citações de usuários com a origem (Reddit ou fórum)', ok: (r) => (r.match(/— r\/\w+|clubedohardware|adrenaline|head-fi/gi) || []).length >= 3 },
+      { nome: 'pelo menos 3 opções com preço', ok: (r) => (r.match(/\*\*Faixa de preço:\*\*|R\$\s?\d|US\$\s?\d/g) || []).length >= 3 },
+      { nome: 'nenhuma opção só com nome de marca ou de site', ok: (r) => !(r.match(/^#### \d+\. .*/gm) || []).some((t) => t.replace(/^#### \d+\. /, '').trim().split(/\s+/).length < 2) },
+    ],
   },
   {
     id: 'rtx-diferenca',
@@ -250,6 +259,10 @@ module.exports = [
       'dá a diferença em número (percentual ou quadros por segundo)',
       'diz em que condição o número vale (resolução, jogos ou tipo de teste)',
       'cita a fonte dos números',
+    ],
+    checagens: [
+      { nome: 'traz um percentual ou uma medida em FPS', ok: (r) => /\d+([.,]\d+)?\s?%|\d+\s?fps/i.test(r) },
+      { nome: 'cita ao menos um link de fonte', ok: (r) => /https?:\/\//.test(r) },
     ],
   },
   {
@@ -262,6 +275,11 @@ module.exports = [
       'deixa claro que é uma estimativa, com incerteza',
       'os números não se contradizem entre si (texto, listas, tabela e gráfico dizem a mesma coisa)',
       'cita as fontes dos preços',
+    ],
+    checagens: [
+      { nome: 'traz um valor em reais', ok: (r) => /R\$\s?\d/.test(r) },
+      { nome: 'diz que é estimativa', ok: (r) => /estimativ|prov[aá]vel|aproximad|pode variar|incert|n[aã]o h[aá] como garantir/i.test(r) },
+      { nome: 'cita ao menos um link de fonte', ok: (r) => /https?:\/\//.test(r) },
     ],
   },
   {
@@ -286,6 +304,248 @@ module.exports = [
       'as dicas são específicas de PUBG (zona, loot, posicionamento, veículos, rotação), não conselho genérico de jogo',
       'está organizado por tema ou por fase da partida',
       'diz de onde vêm as dicas (comunidade, guias ou links)',
+    ],
+    checagens: [
+      { nome: 'pelo menos quatro itens em lista', ok: (r) => (r.match(/^\s*(?:[-*]|\d+\.)\s+\S/gm) || []).length >= 4 },
+      { nome: 'cita ao menos uma fonte (link ou comunidade)', ok: (r) => /https?:\/\/|— r\/\w+/.test(r) },
+      { nome: 'nenhum produto à venda no meio das dicas', ok: (r) => !/R\$\s?\d|\*\*Faixa de preço/.test(r) },
+    ],
+  },
+
+  /* ---------------- segunda leva (2026-10-11): perguntas mais difíceis ---------------- */
+  // A primeira leva ficou com média 9,4 — perto do teto, não mostrava piora
+  // pequena. Estas pedem mais fatos por resposta, misturam áreas e incluem
+  // conta e comparação.
+  {
+    id: 'tcp-handshake',
+    tipo: 'explicacao',
+    pedido: 'Como funciona o three-way handshake do TCP?',
+    fatos: [
+      'são três mensagens: SYN, SYN-ACK e ACK',
+      'o cliente começa enviando um SYN (com o seu número de sequência inicial)',
+      'o servidor responde com SYN-ACK',
+      'o cliente confirma com um ACK e a conexão fica estabelecida',
+    ],
+  },
+  {
+    id: 'navegador',
+    tipo: 'explicacao',
+    pedido: 'O que acontece desde que eu digito um endereço no navegador até a página aparecer?',
+    fatos: [
+      'o nome do site é traduzido em endereço IP pelo DNS',
+      'o navegador abre uma conexão com o servidor (TCP, e TLS quando é https)',
+      'o navegador envia uma requisição HTTP',
+      'o servidor responde com o HTML da página',
+      'o navegador baixa os demais recursos (CSS, JavaScript, imagens) e desenha a página',
+    ],
+  },
+  {
+    id: 'vacina-mrna',
+    tipo: 'explicacao',
+    pedido: 'Como funcionam as vacinas de mRNA?',
+    fatos: [
+      'levam um RNA mensageiro com a instrução para fabricar uma proteína do vírus (a proteína spike, no caso da covid-19)',
+      'as células da pessoa produzem essa proteína',
+      'o sistema imunológico reconhece a proteína e produz anticorpos e memória imunológica',
+      'o mRNA não altera o DNA (não entra no núcleo) e é degradado pelo corpo depois',
+    ],
+  },
+  {
+    id: 'bitcoin',
+    tipo: 'explicacao',
+    pedido: 'Como funciona a mineração de bitcoin?',
+    fatos: [
+      'os mineradores validam transações e as agrupam em blocos',
+      'usa prova de trabalho: é preciso achar um hash abaixo de um alvo, testando valores (nonce)',
+      'quem minera o bloco recebe bitcoins novos e as taxas das transações',
+      'a dificuldade é reajustada para manter cerca de 10 minutos por bloco',
+      'a recompensa cai pela metade periodicamente (halving, a cada cerca de 4 anos)',
+    ],
+  },
+  {
+    id: 'inflacao',
+    tipo: 'explicacao',
+    pedido: 'O que é inflação e como o banco central tenta controlá-la?',
+    fatos: [
+      'inflação é o aumento generalizado e contínuo dos preços',
+      'ela reduz o poder de compra do dinheiro',
+      'o banco central sobe a taxa básica de juros (a Selic, no Brasil) para contê-la',
+      'juros mais altos encarecem o crédito e reduzem o consumo e a demanda',
+    ],
+  },
+  {
+    id: 'revolucao-francesa',
+    tipo: 'explicacao',
+    pedido: 'Quais foram as causas da Revolução Francesa?',
+    fatos: [
+      'começou em 1789',
+      'crise financeira do Estado francês (dívidas, impostos)',
+      'fome e alta do preço do pão, depois de colheitas ruins',
+      'desigualdade e privilégios da nobreza e do clero (o Antigo Regime, monarquia absolutista)',
+      'influência das ideias do Iluminismo',
+    ],
+  },
+  {
+    id: 'segunda-guerra',
+    tipo: 'fato',
+    pedido: 'Como começou e como terminou a Segunda Guerra Mundial?',
+    fatos: [
+      'começou em 1939 (1º de setembro), com a invasão da Polônia pela Alemanha',
+      'terminou em 1945',
+      'a Alemanha se rendeu em maio de 1945',
+      'o Japão se rendeu depois das bombas atômicas em Hiroshima e Nagasaki',
+    ],
+    errada: 'A Segunda Guerra Mundial começou em 1914, com o assassinato de um arquiduque em Sarajevo, e terminou em 1918 com o Tratado de Versalhes. Não houve uso de armas nucleares.',
+  },
+  {
+    id: 'buraco-negro',
+    tipo: 'explicacao',
+    pedido: 'O que é um buraco negro?',
+    fatos: [
+      'região do espaço com gravidade tão forte que nem a luz consegue escapar',
+      'o limite a partir do qual nada escapa é o horizonte de eventos',
+      'forma-se pelo colapso de estrelas de grande massa',
+      'existem buracos negros supermassivos no centro das galáxias',
+    ],
+  },
+  {
+    id: 'dna-rna',
+    tipo: 'explicacao',
+    pedido: 'Qual a diferença entre DNA e RNA?',
+    fatos: [
+      'o DNA tem fita dupla; o RNA, em geral, fita simples',
+      'o açúcar do DNA é a desoxirribose; o do RNA, a ribose',
+      'o DNA tem timina; o RNA tem uracila no lugar',
+      'o DNA guarda a informação genética; o RNA participa da produção de proteínas',
+    ],
+  },
+  {
+    id: 'git-merge-rebase',
+    tipo: 'explicacao',
+    pedido: 'Qual a diferença entre git merge e git rebase?',
+    fatos: [
+      'o merge junta os dois históricos, em geral criando um commit de merge',
+      'o rebase reaplica os commits em cima de outra base, deixando o histórico linear',
+      'o rebase reescreve o histórico (os commits ganham novos identificadores)',
+      'não se deve fazer rebase de commits já publicados em um branch compartilhado',
+    ],
+  },
+  {
+    id: 'ssd-hd',
+    tipo: 'explicacao',
+    pedido: 'Qual a diferença entre SSD e HD?',
+    fatos: [
+      'o HD grava em discos magnéticos que giram, com partes móveis',
+      'o SSD usa memória flash, sem partes móveis',
+      'o SSD é bem mais rápido para ler e gravar',
+      'o HD costuma ser mais barato por gigabyte',
+    ],
+  },
+  {
+    id: 'ipv4-ipv6',
+    tipo: 'explicacao',
+    pedido: 'Qual a diferença entre IPv4 e IPv6?',
+    fatos: [
+      'o endereço IPv4 tem 32 bits (cerca de 4,3 bilhões de endereços)',
+      'o endereço IPv6 tem 128 bits',
+      'o IPv6 foi criado porque os endereços IPv4 estavam se esgotando',
+      'o IPv4 é escrito em decimal com pontos; o IPv6, em hexadecimal com dois-pontos',
+    ],
+  },
+  {
+    id: 'pitagoras',
+    tipo: 'fato',
+    pedido: 'Um triângulo retângulo tem catetos de 9 cm e 12 cm. Quanto mede a hipotenusa e qual é a área?',
+    fatos: ['a hipotenusa mede 15 cm', 'a área é 54 cm²'],
+    errada: 'A hipotenusa mede 21 cm, que é a soma dos catetos, e a área é 108 cm².',
+  },
+  {
+    id: 'juros-compostos',
+    tipo: 'fato',
+    pedido: 'Quanto vira R$ 10.000 aplicados a 1% ao mês durante 12 meses, com juros compostos?',
+    fatos: ['o montante final é de aproximadamente R$ 11.268 (11.268,25)', 'o rendimento é de aproximadamente R$ 1.268'],
+  },
+  {
+    id: 'machado',
+    tipo: 'fato',
+    pedido: 'Quem foi Machado de Assis e quais são suas principais obras?',
+    fatos: [
+      'escritor brasileiro, nascido no Rio de Janeiro em 1839 e morto em 1908',
+      'foi fundador e primeiro presidente da Academia Brasileira de Letras',
+      'cita Dom Casmurro',
+      'cita Memórias Póstumas de Brás Cubas',
+    ],
+  },
+  {
+    id: 'independencia',
+    tipo: 'fato',
+    pedido: 'Quando e como o Brasil se tornou independente?',
+    fatos: [
+      'em 7 de setembro de 1822',
+      'a independência foi proclamada por Dom Pedro I (então príncipe regente)',
+      'às margens do riacho Ipiranga, em São Paulo',
+      'o Brasil se separou de Portugal',
+    ],
+  },
+  {
+    id: 'plutao',
+    tipo: 'fato',
+    pedido: 'Quantos planetas tem o sistema solar e por que Plutão deixou de ser considerado planeta?',
+    fatos: [
+      'o sistema solar tem 8 planetas',
+      'Plutão foi reclassificado como planeta anão em 2006',
+      'a decisão foi da União Astronômica Internacional',
+      'porque Plutão não limpou a vizinhança da sua órbita (um dos critérios para ser planeta)',
+    ],
+  },
+  {
+    id: 'agua-altitude',
+    tipo: 'explicacao',
+    pedido: 'Por que a água ferve a uma temperatura menor em lugares altos?',
+    fatos: [
+      'em altitude a pressão atmosférica é menor',
+      'a água ferve quando a sua pressão de vapor se iguala à pressão externa',
+      'com menos pressão isso acontece a uma temperatura abaixo de 100 °C',
+    ],
+  },
+  {
+    id: 'newton',
+    tipo: 'fato',
+    pedido: 'Quais são as três leis de Newton?',
+    fatos: [
+      'primeira lei, da inércia: um corpo mantém repouso ou movimento retilíneo uniforme se a força resultante for nula',
+      'segunda lei: a força resultante é igual à massa vezes a aceleração (F = m·a)',
+      'terceira lei, da ação e reação: a toda ação corresponde uma reação de mesma intensidade e sentido oposto',
+    ],
+  },
+  {
+    id: 'em6l-fps',
+    tipo: 'produto',
+    pedido: 'O Simgot EM6L é bom para jogar FPS?',
+    fatos: ['o EM6L é um fone intra-auricular híbrido, com 1 driver dinâmico e 4 armaduras balanceadas (1DD + 4BA)'],
+    criterios: [
+      'dá uma resposta clara à pergunta (serve ou não serve, e com que ressalvas)',
+      'relata o que usuários dizem sobre usar esse fone em jogos (passos, posicionamento, palco)',
+      'menciona pelo menos um ponto fraco ou ressalva',
+    ],
+    checagens: [
+      { nome: 'cita ao menos uma fonte (link ou comunidade)', ok: (r) => /https?:\/\/|— r\/\w+/.test(r) },
+      { nome: 'não recomenda outro produto no lugar sem ser pedido', ok: (r) => !/^#### 2\. /m.test(r) },
+    ],
+  },
+  {
+    id: 'mouse-fps',
+    tipo: 'produto',
+    pedido: 'Qual o melhor mouse para jogos de tiro até R$ 300?',
+    criterios: [
+      'recomenda modelos específicos, com marca e nome',
+      'justifica com características que importam em jogo de tiro (sensor, peso, formato, taxa de atualização)',
+      'deixa claro qual é a primeira recomendação',
+    ],
+    checagens: [
+      { nome: 'traz preço em reais', ok: (r) => /R\$\s?\d/.test(r) },
+      { nome: 'cita ao menos uma fonte (link ou comunidade)', ok: (r) => /https?:\/\/|— r\/\w+/.test(r) },
+      { nome: 'as opções são mouses (nenhum teclado, headset ou mousepad como opção)', ok: (r) => !(r.match(/^#### \d+\. .*/gm) || []).some((t) => /teclado|headset|mousepad|fone/i.test(t)) },
     ],
   },
 ];
