@@ -296,4 +296,19 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'busca de um produto leva a palavra da categoria (captura de 11/10: "Zero Red especificações técnicas" trazia o número zero e letra de música; "Xenn", um jogador): ficha e lacuna; nome que já diz o tipo e pedido sem categoria conhecida ficam como antes',
+    tipo: 'unidade',
+    executar() {
+      const m = require('../../src/agent/motor-pesquisa');
+      const iem = 'Me recomende um top 5 melhores fones intra auriculares para se jogar pubg';
+      const ficha = (nome, pedido) => m.consultaDeFicha(nome, m.rotuloDaCategoria(pedido, nome));
+      return [
+        ficha('Zero Red', iem) === 'Zero Red fone intra-auricular IEM especificações técnicas' || `ficha: ${ficha('Zero Red', iem)}`,
+        ficha('Fone KZ EDX Pro', iem) === 'Fone KZ EDX Pro especificações técnicas' || `nome que já diz "fone": ${ficha('Fone KZ EDX Pro', iem)}`,
+        ficha('Logitech G Pro X', 'qual o melhor mouse para fps?') === 'Logitech G Pro X mouse especificações técnicas' || `mouse: ${ficha('Logitech G Pro X', 'qual o melhor mouse para fps?')}`,
+        ficha('Aeropress', 'qual a melhor cafeteira manual?') === 'Aeropress especificações técnicas' || 'categoria desconhecida: sem rótulo',
+      ];
+    },
+  },
 ];

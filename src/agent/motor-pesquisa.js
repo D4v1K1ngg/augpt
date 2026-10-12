@@ -1396,16 +1396,32 @@ const CATEGORIAS = [
     termos: 'fone fones intra auricular auriculares inear iem iems earbud earbuds earphone earphones tws ouvido',
     especificos: 'intra auricular auriculares inear iem iems earbud earbuds earphone earphones tws',
     exclui: 'headset headsets headphone headphones circumaural concha supra auricular',
+    rotulo: 'fone intra-auricular IEM',
   },
   { pedido: /\b(fones?|headsets?|headphones?|earbuds?|earphones?|iems?|intra ?auricular(es)?)\b/, termos: 'fone fones headset headsets headphone headphones earbud earbuds earphone earphones iem iems intra auricular auriculares in-ear inear ouvido tws' },
-  { pedido: /\bmonitor(es)?\b/, termos: 'monitor monitores tela telas display displays screen hz' },
+  { pedido: /\bmonitor(es)?\b/, termos: 'monitor monitores tela telas display displays screen hz', rotulo: 'monitor' },
   { pedido: /\b(placas? de video|gpus?|placas? graficas?)\b/, termos: 'placa placas gpu gpus rtx gtx radeon geforce video graphics card' },
-  { pedido: /\bteclados?\b/, termos: 'teclado teclados keyboard keyboards switch switches' },
-  { pedido: /\bmouses?\b/, termos: 'mouse mouses mice sensor dpi' },
-  { pedido: /\bcadeiras?\b/, termos: 'cadeira cadeiras chair chairs' },
+  { pedido: /\bteclados?\b/, termos: 'teclado teclados keyboard keyboards switch switches', rotulo: 'teclado' },
+  { pedido: /\bmouses?\b/, termos: 'mouse mouses mice sensor dpi', rotulo: 'mouse' },
+  { pedido: /\bcadeiras?\b/, termos: 'cadeira cadeiras chair chairs', rotulo: 'cadeira' },
   { pedido: /\b(celular(es)?|smartphones?)\b/, termos: 'celular celulares smartphone smartphones phone phones' },
-  { pedido: /\b(notebooks?|laptops?)\b/, termos: 'notebook notebooks laptop laptops' },
+  { pedido: /\b(notebooks?|laptops?)\b/, termos: 'notebook notebooks laptop laptops', rotulo: 'notebook' },
 ];
+
+/**
+ * A palavra da categoria que vai junto do nome nas buscas de UM produto
+ * (11/10). Nome curto ou ambíguo sozinho traz qualquer coisa: "Zero Red
+ * especificações técnicas" trouxe página sobre o número zero e letra de
+ * música; "Kiwi Ears Orchestra Lite", a fruta; "Xenn" (marca de IEM), um
+ * jogador profissional. Vazio quando o pedido não é de uma categoria
+ * conhecida ou o nome já traz a palavra.
+ */
+function rotuloDaCategoria(objetivo, nome = '') {
+  const c = CATEGORIAS.find((k) => k.pedido.test(normalizar(objetivo)));
+  if (!c?.rotulo) return '';
+  const noNome = new Set(normalizar(nome).split(' '));
+  return normalizar(c.rotulo).split(' ').some((p) => noNome.has(p)) ? '' : c.rotulo;
+}
 
 function categoriaDoPedido(objetivo) {
   const t = normalizar(objetivo);
@@ -2084,8 +2100,8 @@ const criteriosPorPeso = (criterios) =>
  * lê o que a COMUNIDADE diz (Reddit, com muita conversa sobre fone pra jogo,
  * PUBG inclusive). Duas buscas por finalista, uma de cada.
  */
-function consultaDeFicha(nome) {
-  return `${nome} especificações técnicas`;
+function consultaDeFicha(nome, rotulo = '') {
+  return `${nome} ${rotulo} especificações técnicas`.replace(/\s+/g, ' ').trim();
 }
 
 /** Opinião de quem usou: tópicos do Reddit sobre o produto, sem filtro de idioma (muito do que importa é em inglês). */
@@ -2293,14 +2309,14 @@ function limparTermoDeBusca(termo) {
   return saida.slice(0, 3).join(' ');
 }
 
-function consultasDeLacuna({ matriz, finalistas, criterios, maximo }) {
+function consultasDeLacuna({ matriz, finalistas, criterios, maximo, objetivo = '' }) {
   const consultas = [];
   for (const f of finalistas) {
     if (consultas.length >= maximo) break;
     const faltam = criteriosPorPeso(criterios).filter((k) => matriz.lacunas.some((l) => l.candidato === f.nome && l.criterio === k.nome));
     if (!faltam.length) continue;
     const termos = faltam.slice(0, 2).map((k) => limparTermoDeBusca(k.termos[0] || k.nome)).filter(Boolean);
-    consultas.push(`${f.nome} ${termos.join(' ')}`.replace(/\s+/g, ' ').trim());
+    consultas.push(`${f.nome} ${rotuloDaCategoria(objetivo, f.nome)} ${termos.join(' ')}`.replace(/\s+/g, ' ').trim());
   }
   return consultas;
 }
@@ -3423,14 +3439,14 @@ async function executarPesquisaPlanejada({ objetivo, nivel = 'leve', chamarModel
 
   // 3. investigação: uma busca por finalista
   const investigar = async (f) => {
-    await rodar(consultaDeFicha(f.nome), `${f.nome}: especificações técnicas (números e características do fabricante ou da loja)`, f.nome, 'ficha');
+    await rodar(consultaDeFicha(f.nome, rotuloDaCategoria(objetivo, f.nome)), `${f.nome}: especificações técnicas (números e características do fabricante ou da loja)`, f.nome, 'ficha');
     await rodar(consultaDeComunidade(f.nome), `${f.nome}: o que quem usou diz na prática (prós, contras, experiência para ${plano.uso})`, f.nome, 'comunidade', {
       idioma: 'all',
       comunidade: true,
     });
   };
   // as 2 buscas de cada finalista (ficha + comunidade) são independentes entre si
-  adiantar(finalistas.flatMap((f) => [{ consulta: consultaDeFicha(f.nome) }, { consulta: consultaDeComunidade(f.nome), idioma: 'all', comunidade: true }]));
+  adiantar(finalistas.flatMap((f) => [{ consulta: consultaDeFicha(f.nome, rotuloDaCategoria(objetivo, f.nome)) }, { consulta: consultaDeComunidade(f.nome), idioma: 'all', comunidade: true }]));
   for (const f of finalistas) await investigar(f);
 
   // Etapa E (14º teste real): a FICHA confere a categoria — o SteelSeries
@@ -3495,7 +3511,7 @@ async function executarPesquisaPlanejada({ objetivo, nivel = 'leve', chamarModel
     }
   }
   if (matriz.cobertura < COBERTURA_SUFICIENTE && orcamento.lacunas) {
-    const consultas = consultasDeLacuna({ matriz, finalistas, criterios: plano.criterios, maximo: orcamento.lacunas });
+    const consultas = consultasDeLacuna({ matriz, finalistas, criterios: plano.criterios, maximo: orcamento.lacunas, objetivo });
     adiantar(consultas.map((consulta) => ({ consulta })));
     for (const consulta of consultas) {
       const nome = finalistas.find((f) => consulta.startsWith(f.nome))?.nome || '';
@@ -3625,6 +3641,7 @@ module.exports = {
   pareceNomeDeProduto,
   escolherFinalistas,
   mencionaNome,
+  rotuloDaCategoria,
   normalizarTexto: normalizar,
   consultaDeFinalista,
   consultaDeFicha,

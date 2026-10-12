@@ -77,7 +77,12 @@ async function buscaFalsa(regras) {
   const busca = http.createServer((req, res) => {
     res.setHeader('Content-Type', 'application/json');
     const params = new URL(req.url, 'http://x').searchParams;
-    const q = semAcento(params.get('q') || '');
+    // 11/10: as buscas de ficha e de lacuna de um produto levam a palavra da
+    // categoria ("Alfa X1 fone intra-auricular IEM especificações técnicas" —
+    // rotuloDaCategoria, motor-pesquisa.js). Os roteiros foram escritos sem
+    // ela; o servidor falso entende a consulta dos dois jeitos. O texto de
+    // verdade é conferido num caso próprio (revisao-v6.js).
+    const q = semAcento(params.get('q') || '').replace(/ fone intra-auricular iem(?= )/, '');
     consultas.push(q);
     pedidos.push({ q, idioma: params.get('language'), categoria: params.get('categories') });
     const regra = comUrls.find((r) => q.includes(r.contem));
