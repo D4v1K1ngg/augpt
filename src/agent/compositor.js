@@ -585,10 +585,31 @@ function montarDesempenho(r, frases = new Map()) {
 
 /* ------------------------------ montagem: dado de uso ------------------------------ */
 
+/** Produto que o pedido nomeia ("O Bose QC 20 é usado…" → "Bose QC 20"): marca + modelo, com número ou sigla. */
+function produtoNomeadoNoPedido(objetivo) {
+  const candidatos = String(objetivo || '').match(/[A-Z][A-Za-z]+(?:[ -](?:[A-Z]{2,}|[A-Z]?[a-z]*\d[\w]*|\d+|[A-Z][a-z]+)){1,3}/g) || [];
+  return candidatos.find((c) => /\d|[A-Z]{2,}/.test(c.split(/[ -]/).slice(1).join(' '))) || null;
+}
+
 function montarUso(r) {
   const u = r.uso || {};
   const topo = u.ranking?.[0];
   const partes = ['### Resposta direta'];
+  // 12/10: "O Bose QC 20 é usado por muitos pro players?" recebia só a tabela
+  // dos mais usados, sem dizer se o Bose QC 20 está nela. Quando o pedido
+  // nomeia um produto, a primeira frase responde sobre ELE.
+  const nomeado = produtoNomeadoNoPedido(r.objetivo);
+  if (nomeado && u.total >= 3) {
+    const chave = (t) => normalizar(t).replace(/ /g, '');
+    const posicao = (u.ranking || []).findIndex((x) => chave(x.produto).includes(chave(nomeado)) || chave(nomeado).includes(chave(x.produto)));
+    const item = u.ranking?.[posicao];
+    partes.push(
+      item
+        ? `O **${nomeado}** aparece com ${item.jogadores} de ${u.total} jogadores listados (${String(item.parcela).replace('.', ',')}%), em ${posicao + 1}º lugar entre os equipamentos.`
+        : `O **${nomeado}** não aparece entre os ${u.total} profissionais listados nas bases lidas — por esses dados, não é um equipamento comum entre eles.`,
+      ''
+    );
+  }
   if (topo && u.total >= 3) {
     partes.push(`Entre os profissionais listados nas bases lidas, o mais usado é o **${topo.produto}**: ${topo.jogadores} de ${u.total} jogadores (${String(topo.parcela).replace('.', ',')}%).`);
     partes.push('', '### Os mais usados', '| Equipamento | Jogadores | Parcela dos listados | Exemplos |', '|---|---:|---:|---|');

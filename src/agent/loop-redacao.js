@@ -87,6 +87,7 @@ class Redacao {
       }
     }
     r.imagens = await fotos;
+    r.objetivo = objetivo;
     const texto = compositor.montar(r, frases);
     this.respostaComposta = true;
     this.emit('resposta-token', { pedaco: texto });
@@ -633,6 +634,43 @@ class Redacao {
             }
             verificacao = { ...verificacao, suspeitasPersistentes: persistentes };
           }
+        }
+
+        // Resposta FORA DO ASSUNTO não é entregue (12/10: "Compare 3 IEMs para
+        // FPS e gere uma planilha" saiu falando de trabalhos de conclusão de
+        // curso — a busca trouxe o repositório de uma faculdade de sigla FPS).
+        // O sinal é estreito de propósito: NENHUM termo do pedido aparece na
+        // resposta. Em 282 execuções reais isso pegou 6, quase todas lixo; o
+        // "não responde ao pedido" mais amplo pegaria 62, a maioria respostas
+        // aceitáveis. Uma tentativa só com o material que trata do assunto;
+        // se continuar fora, o agente diz que não achou.
+        // Resposta curta e direta ("Foi em 1969.") não repete as palavras da
+        // pergunta e não é fora do assunto: só vale para texto longo, com material lido.
+        if (!this.respostaComposta && dossie.length > 0 && String(texto).length >= 400 && verificacao.termosDoPedido >= 3 && verificacao.termosNaResposta === 0) {
+          const semAcento = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const termos = verificador.termosPrincipais(objetivo).map((t) => semAcento(t).slice(0, 5));
+          const doAssunto = dossie.filter((d) => { const texto = semAcento(d.bruto || d.texto); return termos.filter((t) => texto.includes(t)).length >= Math.min(2, termos.length); });
+          this.emit('resposta-reinicia', { motivo: 'a resposta saiu sobre outro assunto — refazendo só com o material que trata do pedido' });
+          let recuperou = false;
+          if (doAssunto.length && doAssunto.length < dossie.length) {
+            const nova = await this.redigir({ objetivo, conversa, dossie: doAssunto, foco: ctx.estado.foco, rascunho: '', tamanho, cruzamento: '' });
+            const conferida = conferir(nova);
+            if (String(nova || '').trim() && conferida.termosNaResposta > 0) {
+              texto = nova;
+              verificacao = conferida;
+              recuperou = true;
+            }
+          }
+          if (!recuperou) {
+            const buscas = [...new Set(dossie.map((d) => d.consulta).filter(Boolean))].slice(0, 6);
+            texto =
+              `Não consegui montar uma resposta confiável para este pedido: o que as buscas trouxeram trata de outro assunto.\n\n` +
+              (buscas.length ? `**O que pesquisei:**\n${buscas.map((b) => `- ${b}`).join('\n')}\n\n` : '') +
+              'Tente dizer de outro jeito — por exemplo, escrevendo por extenso o que está em sigla, ou citando os nomes do que quer comparar.';
+            verificacao = { ...verificacao, foraDoAssunto: true };
+            this.emit('resposta-token', { pedaco: texto });
+          }
+          this.emit('fora-do-assunto', { recuperou });
         }
 
         this.verificacao = verificacao;

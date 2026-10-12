@@ -126,6 +126,10 @@ class Registro {
   acompanhar(agente) {
     const d = this.dados;
 
+    // caminho rápido do AUTO: responde antes do 'inicio' do laço
+    agente.on('inicio-rapido', (e) => {
+      if (!d.pedido) d.pedido = String(e.objetivo || '').slice(0, 2000);
+    });
     agente.on('inicio', (e) => {
       d.pedido = String(e.objetivo || '').slice(0, 2000);
       d.modelo = e.modelo || d.modelo;

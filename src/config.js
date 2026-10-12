@@ -120,6 +120,9 @@ const DEFAULTS = {
   // as próximas buscas já correm (busca + download das páginas) enquanto o
   // modelo destila a atual. false = uma busca de cada vez, como antes.
   preBusca: true,
+  // No modo automático o agente não para pra perguntar: segue com a suposição
+  // mais provável e a declara na resposta (agir num site continua podendo perguntar).
+  naoPerguntarNoAutomatico: true,
   // Página que não responde em N ms deixa de segurar a busca (as páginas de
   // uma busca são lidas em lote, e o lote esperava a mais lenta). 0 = sem limite.
   tempoMaximoPorPaginaMs: 15000,

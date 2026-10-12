@@ -113,6 +113,10 @@ const EXPLICACAO_COM_SUJEITO =
 const LOCAL =
   /\b(minha pasta|pasta de trabalho|workspace|anexei|em anexo|no anexo|o anexo|enviei|que te mandei|(leia|resuma|abra|analise|edite|corrija|revise|traduza|converta|compare) (o|a|os|as|este|esta|esse|essa|meu|minha|meus|minhas) (arquivo|arquivos|documento|documentos|pdf|planilha|planilhas|relatorio|pasta|texto anexado)|(crie|gere|gerar|salve|salvar|exporte|exportar|escreva|monte) (um|uma|o|a|em|no|na|como)\s+(arquivo|planilha|pdf|docx|documento|relatorio|tabela em excel|apresentacao|csv)|\w+\.(pdf|docx?|xlsx?|csv|txt|md|json|pptx?|html|js|py))\b/;
 
+// "…e gere uma planilha com o comparativo", "salve em um pdf": o arquivo como saída do pedido
+const SAIDA_EM_ARQUIVO =
+  /(?:\b(?:e|depois|entao|,)\s+)?\b(?:crie|gere|gerar|salve|salvar|exporte|exportar|escreva|monte|faca|coloque|ponha|me de|me entregue)\b(?: (?:isso|tudo|o resultado|a resposta|o comparativo))?(?: (?:um|uma|o|a|em|no|na|como|numa|num))+\s+(?:arquivo|planilha|pdf|docx|documento|relatorio|tabela em excel|apresentacao|csv)\b(?: (?:com|de|do|da|em|para|sobre) [^,.;?!]*)?/;
+
 /**
  * { tipo, motivo } — só regra de código. `objetivo` já deve vir com o
  * assunto da conversa resolvido (Fase 2: "dentro do jogo" → "(PUBG, PC)").
@@ -190,7 +194,19 @@ function tipoDoPedido(objetivo) {
   if (!t) return { tipo: 'livre', motivo: 'pedido vazio' };
   t = t.replace(PREFIXO_CORTES, '');
 
-  if (LOCAL.test(t)) return { tipo: 'local', motivo: 'fala de arquivo, pasta ou documento' };
+  if (LOCAL.test(t)) {
+    // 12/10: "Compare 3 IEMs para FPS e gere uma planilha com o comparativo"
+    // virava 'local' por causa da planilha, ia para o laço comum e a busca
+    // solta por "IEMs FPS" trouxe uma faculdade. Quando o arquivo é só a
+    // SAÍDA e o resto é escolha ou comparação de produto (ou guia), o pedido
+    // é do motor de pesquisa; o arquivo é gerado no fim.
+    const semSaida = t.replace(SAIDA_EM_ARQUIVO, ' ').replace(/\s+/g, ' ').trim();
+    if (semSaida && semSaida !== t && !LOCAL.test(semSaida)) {
+      const resto = tipoDoPedido(semSaida);
+      if (resto.tipo === 'produto' || resto.tipo === 'guia') return { ...resto, motivo: `${resto.motivo} (com arquivo de saída)` };
+    }
+    return { tipo: 'local', motivo: 'fala de arquivo, pasta ou documento' };
+  }
   // Revisão v4 (contracheque real): endereço + ação na página = agir no site
   // pelo navegador (antes caía em 'livre' e o 7B começava "pesquisando o site")
   if (ENDERECO.test(String(objetivo)) && ACAO_NO_SITE.test(t)) return { tipo: 'site', motivo: 'agir num site (login, clique, formulário, download)' };

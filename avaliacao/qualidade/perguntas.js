@@ -534,6 +534,22 @@ module.exports = [
     ],
   },
   {
+    // 12/10, uso real: este pedido (um dos exemplos da tela inicial) foi
+    // respondido com trabalhos de conclusão de curso de uma faculdade de sigla FPS
+    id: 'iems-planilha',
+    tipo: 'produto',
+    pedido: 'Compare 3 IEMs para FPS e gere uma planilha com o comparativo',
+    criterios: [
+      'compara três fones intra-auriculares, cada um com marca e modelo',
+      'a comparação trata do uso em jogos de tiro (passos, posicionamento, palco sonoro, separação)',
+    ],
+    checagens: [
+      { nome: 'não fala de faculdade nem de trabalho de conclusão de curso', ok: (r) => !/conclus[aã]o de curso|faculdade|universidade/i.test(r) },
+      { nome: 'menciona a planilha ou o arquivo gerado', ok: (r) => /planilha|\.xlsx|arquivo/i.test(r) },
+      { nome: 'cita ao menos uma fonte (link ou comunidade)', ok: (r) => /https?:\/\/|— r\/\w+/.test(r) },
+    ],
+  },
+  {
     id: 'mouse-fps',
     tipo: 'produto',
     pedido: 'Qual o melhor mouse para jogos de tiro até R$ 300?',

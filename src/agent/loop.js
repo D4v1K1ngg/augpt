@@ -1633,6 +1633,9 @@ class Agent extends EventEmitter {
       if (nivel.nivel <= 1) {
         this.aplicarNivelAuto(nivel);
         this.emit('tipo-de-pedido', rotaDoAuto || { ...tipoDoPedido(objetivo), fonte: 'regra' });
+        // o 'inicio' de verdade só sai mais abaixo, no laço — sem isto o registro da
+        // resposta rápida ficava com o pedido em branco
+        this.emit('inicio-rapido', { objetivo });
         const pronta = await this.respostaRapidaAuto({ objetivo, conversa, nivel });
         if (pronta !== null) return pronta;
         if (this.controller.signal.aborted) return { ok: false, motivo: 'interrompido' };
@@ -2099,6 +2102,7 @@ class Agent extends EventEmitter {
     const assinaturas = new Map(); // detecta a mesma ação repetida
     const resultadoPorChave = new Map(); // ação de página → a última tentativa idêntica mudou a página?
     let vetosDePerguntaRepetida = 0;
+    let vetosDePerguntaNoAutomatico = 0;
     let vetosDeSite = 0;
     let vetouPerguntaCardapio = false;
     // Controlador v2 (05/10): o que aconteceu desde a última crítica — no
@@ -3340,6 +3344,26 @@ class Agent extends EventEmitter {
             });
             continue;
           }
+        }
+        // Modo automático não interrompe (12/10: "RTX 5070 Ti ou 5080, qual
+        // comprar?" passou 477 dos 957 s parado em duas perguntas). O modelo
+        // segue com a suposição mais provável e a declara na resposta. Agir num
+        // site é exceção: senha e código, só o usuário tem. Teto de 2 recusas:
+        // se o modelo insiste, a pergunta passa.
+        if (
+          nome === 'perguntar_usuario' && this.config.autonomy === 'auto' && this.config.naoPerguntarNoAutomatico !== false &&
+          this.tipoDoPedido !== 'site' && vetosDePerguntaNoAutomatico < 2
+        ) {
+          vetosDePerguntaNoAutomatico += 1;
+          this.vetoDoCopiloto({
+            gate: 'pergunta-no-automatico',
+            nome,
+            plano,
+            erro: 'Modo automático: o usuário pediu para não ser interrompido.',
+            instrucao: 'Não pergunte. Escolha a interpretação mais provável, siga com ela e diga na resposta final, em uma linha, qual suposição você fez.',
+            historico,
+          });
+          continue;
         }
         const paginaAntes = ctx.estado.pagina || null;
         let avisoDeProgresso = '';

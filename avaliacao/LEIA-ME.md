@@ -76,7 +76,7 @@ A bancada pega **regressão no nosso código**. Ela não descobre que o modelo p
 A bancada acima diz se o código em volta do modelo quebrou. Ela não diz se a resposta que o usuário recebe é boa. Para isso existe a medição de qualidade: roda o agente **de verdade** (Ollama, internet, os seus Ajustes) num conjunto fixo de perguntas, e um modelo-juiz dá nota de 0 a 10 a cada resposta.
 
 ```bash
-npm run qualidade                        # as 45 perguntas (cerca de 1 hora)
+npm run qualidade                        # as 46 perguntas (cerca de 1 hora)
 npm run qualidade -- --so=explicacao     # só um tipo: explicacao, fato, produto, guia
 npm run qualidade -- --id=gerador,lua    # só estas
 npm run qualidade -- --juiz=qwen2.5:14b  # modelo que corrige (padrão: qwen2.5:14b, se instalado)
