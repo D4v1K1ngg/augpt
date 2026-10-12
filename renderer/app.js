@@ -824,6 +824,7 @@ const manipuladores = {
     t.detalhe.open = false;
     t.resposta.hidden = false;
     t.buffer = '';
+    t.resposta.classList.remove('provisoria');
     t.resposta.innerHTML = '<span class="cursor"></span>';
     rolar(el.aRolagem, true);
   },
@@ -832,6 +833,7 @@ const manipuladores = {
     const t = agente.turno;
     if (!t) return;
     t.buffer = (t.buffer || '') + pedaco;
+    t.resposta.classList.remove('provisoria'); // o texto de verdade substitui o resultado parcial
     t.resposta.innerHTML = `${window.md.render(t.buffer)}<span class="cursor"></span>`;
     rolar(el.aRolagem);
   },
@@ -962,6 +964,7 @@ const manipuladores = {
     salvarConversa('agente');
     if (!t) return;
     t.resposta.hidden = false;
+    t.resposta.classList.remove('provisoria');
     t.resposta.innerHTML = window.md.render(resumo); // troca o texto em streaming pelo definitivo
     window.md.montarGraficos(t.resposta);
     // Painel "Arquivos" da lateral direita (fase 2 da reforma visual) —
@@ -1321,6 +1324,22 @@ const manipuladores = {
         }`
       : '<p>o material não apontou opções concretas o bastante para comparar</p>';
     cartao(noSolto(), 'pesquisa-planejada', 'opções encontradas', html);
+
+    // Resultado parcial (11/10): a descoberta termina na metade da pesquisa —
+    // os minutos seguintes são ficha e opinião de cada opção. Em vez de só
+    // "pesquisando…", a resposta já mostra quem está na disputa; o texto
+    // final substitui este bloco quando chega (ver 'resposta-token').
+    const t = agente.turno;
+    if (t && finalistas.length && !t.buffer) {
+      const linhas = ['*Resultado parcial — ainda estou lendo a ficha técnica e a opinião de quem usa cada opção. A ordem pode mudar.*', '', '### Opções encontradas até agora'];
+      finalistas.forEach((f, i) => {
+        linhas.push('', `#### ${i + 1}. ${f.nome}`, `**Até agora:** ${contagem(f)}.`);
+        if (f.motivo) linhas.push(`> "${f.motivo.slice(0, 200).replace(/\n/g, ' ')}"`);
+      });
+      t.resposta.hidden = false;
+      t.resposta.classList.add('provisoria');
+      t.resposta.innerHTML = window.md.render(linhas.join('\n'));
+    }
   },
 
   'pesquisa-matriz'({ cobertura = 0, buscas = 0, lacunas = [], descartadas = [], resumos = [] }) {

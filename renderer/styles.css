@@ -1409,3 +1409,7 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
   .lateral { position: static; box-shadow: none; }
   body:not(.sem-lateral) .pagina { margin-left: 0; }
 }
+
+/* resultado parcial da pesquisa (opções já encontradas), até o texto final chegar */
+.msg.turno .resposta.provisoria { opacity: 0.82; }
+.msg.turno .resposta.provisoria > p:first-child { color: var(--amber); font-size: 12.5px; }
