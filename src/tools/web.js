@@ -1,6 +1,9 @@
 'use strict';
 
 const { buscar, ordenarPorQualidade, subconsultas, buscarVarias, definirAprendido } = require('./search');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { ler } = require('./extract');
 const { validarUrl } = require('./http');
 const { conferirDestino, hostClaramenteInterno } = require('./rede');
@@ -189,6 +192,77 @@ function opcoesDeLeitura(url, ctx, { semRender = false } = {}) {
   };
 }
 
+/* ------------------------------ cache em disco e limite de tempo ------------------------------ */
+
+/**
+ * Cache de páginas ENTRE conversas (11/10). Ficha técnica e tópico de fórum
+ * mudam pouco: perguntar duas vezes sobre fones relia as mesmas 90 páginas
+ * (113 s de rede numa pesquisa de 261 s). Vale por `cachePaginasDias` dias
+ * (Ajustes; 0 desliga). Pedido que depende do momento — preço, oferta,
+ * notícia, clima, "hoje", um ano — não LÊ do cache (a página pode ter
+ * mudado), mas grava, para os próximos.
+ */
+const PEDIDO_DO_MOMENTO = /pre[cç]os?\b|oferta|promo[cç]|quanto custa|black friday|\bhoje\b|\bagora\b|\batual|not[ií]cia|novidade|cota[cç][aã]o|clima|previs[aã]o|\b20\d\d\b/i;
+const arquivoDoCache = (ctx, chave) => path.join(ctx.dirCachePaginas, `${crypto.createHash('sha1').update(chave).digest('hex')}.json`);
+const cacheLigado = (ctx) => Boolean(ctx.dirCachePaginas) && Number(ctx.config?.cachePaginasDias) > 0;
+
+function lerDoDisco(chave, ctx) {
+  if (!cacheLigado(ctx) || PEDIDO_DO_MOMENTO.test(String(ctx.objetivo || ''))) return null;
+  try {
+    const guardado = JSON.parse(fs.readFileSync(arquivoDoCache(ctx, chave), 'utf8'));
+    const validade = Number(ctx.config.cachePaginasDias) * 86400000;
+    return Date.now() - guardado.em <= validade && guardado.pagina?.texto ? guardado.pagina : null;
+  } catch {
+    return null;
+  }
+}
+
+function gravarNoDisco(chave, pagina, ctx) {
+  if (!cacheLigado(ctx) || !pagina?.texto || pagina.parcial || pagina.texto.length > 400000) return;
+  try {
+    fs.mkdirSync(ctx.dirCachePaginas, { recursive: true });
+    // sem o buffer cru (pode ser um PDF de megabytes): o texto extraído é o que se reaproveita
+    const { buffer, ...leve } = pagina;
+    fs.writeFileSync(arquivoDoCache(ctx, chave), JSON.stringify({ em: Date.now(), url: chave, pagina: leve }));
+    // faxina de vez em quando: o que passou da validade sai
+    if (Math.random() < 0.02) {
+      const validade = Number(ctx.config.cachePaginasDias) * 86400000;
+      for (const nome of fs.readdirSync(ctx.dirCachePaginas)) {
+        const caminho = path.join(ctx.dirCachePaginas, nome);
+        if (Date.now() - fs.statSync(caminho).mtimeMs > validade) fs.rmSync(caminho, { force: true });
+      }
+    }
+  } catch {
+    /* cache é bônus: disco cheio ou sem permissão não derruba a leitura */
+  }
+}
+
+/**
+ * Limite de tempo por página (11/10): as páginas de uma busca são lidas em
+ * lote, e o lote só termina quando a MAIS LENTA termina — uma página que
+ * não carrega segurava a busca inteira (29 s numa busca de ficha, contra 3 a
+ * 10 s das outras). Passou do limite, a busca segue sem ela; se ela chegar
+ * depois, fica guardada para a próxima vez.
+ */
+async function lerComLimite(url, ctx, chave) {
+  const limite = Number(ctx.config?.tempoMaximoPorPaginaMs) || 0;
+  const leitura = ler(String(url), opcoesDeLeitura(url, ctx));
+  if (!limite) return leitura;
+  let relogio;
+  const estouro = new Promise((_, falhar) => {
+    relogio = setTimeout(() => falhar(new Error(`página lenta demais (mais de ${Math.round(limite / 1000)} s) — a busca seguiu sem ela`)), limite);
+  });
+  try {
+    return await Promise.race([leitura, estouro]);
+  } catch (err) {
+    // a leitura continua em segundo plano; o que vier fica no cache
+    leitura.then((p) => { if (p?.texto) { ctx.estado.cachePaginas?.set(chave, p); gravarNoDisco(chave, p, ctx); } }).catch(() => {});
+    throw err;
+  } finally {
+    clearTimeout(relogio);
+  }
+}
+
 /** Mesma URL lida duas vezes na mesma execução: uma requisição só.
  * A chave descarta fragmento E query string — "…?utm_source=x" e "…?utm_source=y"
  * do mesmo artigo não podiam furar o cache por causa de um parâmetro de rastreio. */
@@ -223,8 +297,16 @@ async function lerComCache(url, ctx) {
       return pre;
     }
   }
-  const pagina = await ler(String(url), opcoesDeLeitura(url, ctx));
+  // cache em disco, entre conversas (ver lerDoDisco, acima)
+  const doDisco = lerDoDisco(chave, ctx);
+  if (doDisco) {
+    ctx.emit('cache-usado', { url: chave, disco: true });
+    ctx.estado.cachePaginas.set(chave, doDisco);
+    return doDisco;
+  }
+  const pagina = await lerComLimite(url, ctx, chave);
   ctx.estado.cachePaginas.set(chave, pagina);
+  gravarNoDisco(chave, pagina, ctx);
   // só página que de fato trouxe conteúdo vale ser retomada (parcial também:
   // as tentativas caras, render incluído, já foram feitas e dariam no mesmo)
   if (pagina?.texto) ctx.retomada?.guardarPagina?.(chave, pagina);
@@ -766,6 +848,7 @@ module.exports = [
 module.exports.PROFUNDIDADES = PROFUNDIDADES;
 module.exports.adiantarBuscas = adiantarBuscas;
 module.exports.doSitePedido = doSitePedido;
+module.exports.lerComCache = lerComCache;
 module.exports.planoDaBusca = planoDaBusca;
 module.exports.decidirWikipedia = decidirWikipedia;
 module.exports.recortarRelevante = recortarRelevante;

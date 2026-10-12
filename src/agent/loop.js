@@ -1866,6 +1866,8 @@ class Agent extends EventEmitter {
       // nomeados que uma leitura precisa citar. Montado pelo código.
       escopo: escopoDoPedido(objetivo, { entidades: serieDePrecos.produtosDoPedido(objetivo) }),
       estado: {}, // rascunho compartilhado entre ferramentas dentro da execução
+      // páginas já lidas em outras conversas (src/tools/web.js, lerDoDisco)
+      dirCachePaginas: this.userDataPath ? path.join(this.userDataPath, 'cache-paginas') : null,
       retomada: this.retomada,
       sandbox,
       memory,

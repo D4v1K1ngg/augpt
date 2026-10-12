@@ -501,6 +501,9 @@ async function executarCasoAgente(caso, opcoes = {}) {
     // imagens nas respostas (11/10): desligadas na bancada — a busca de imagens
     // é uma chamada a mais ao SearXNG falso, e os casos contam as buscas
     imagensNasRespostas: false,
+    // sem cache em disco nem limite por página: cada caso lê suas páginas do zero, no tempo do roteiro
+    cachePaginasDias: 0,
+    tempoMaximoPorPaginaMs: 0,
     // destilação uma página por vez: os roteiros falsos respondem na ordem das chamadas
     destilacaoParalela: 1,
     // resposta curta do nível 1 (11/10): os casos antigos do AUTO conferem o

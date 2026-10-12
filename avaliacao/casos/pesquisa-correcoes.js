@@ -272,4 +272,61 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'leitura de página (11/10): página guardada em disco vale em outra conversa por N dias, menos para pedido do momento (preço, hoje); página lenta demais deixa de segurar a busca e fica guardada quando chega',
+    tipo: 'unidade',
+    async executar() {
+      const fs = require('fs');
+      const os = require('os');
+      const path = require('path');
+      const http = require('http');
+      const { lerComCache } = require('../../src/tools/web');
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-cache-paginas-'));
+      let leituras = 0;
+      const srv = await new Promise((resolve) => {
+        const s = http.createServer((req, res) => {
+          leituras += 1;
+          const atraso = req.url.startsWith('/lenta') ? 900 : 0;
+          setTimeout(() => {
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.end(`<html><head><title>Ficha</title></head><body><main><p>${'O Simgot EM6L tem um driver dinâmico e quatro armaduras balanceadas. '.repeat(30)}</p></main></body></html>`);
+          }, atraso);
+        });
+        s.listen(0, '127.0.0.1', () => resolve({ url: `http://127.0.0.1:${s.address().port}`, fechar: () => new Promise((r) => s.close(r)) }));
+      });
+      const conversa = (objetivo, config = {}) => ({
+        objetivo,
+        estado: {},
+        emit() {},
+        dirCachePaginas: dir,
+        config: { cachePaginasDias: 3, tempoMaximoPorPaginaMs: 0, permitirLeitorExterno: false, renderizarJs: false, ...config },
+      });
+      const primeira = await lerComCache(`${srv.url}/ficha`, conversa('Simgot EM6L é bom para jogar?'));
+      const aposPrimeira = leituras;
+      const segunda = await lerComCache(`${srv.url}/ficha`, conversa('Me fale do Simgot EM6L'));
+      const aposSegunda = leituras;
+      await lerComCache(`${srv.url}/ficha`, conversa('Qual o preço do Simgot EM6L hoje?'));
+      const aposPreco = leituras;
+      await lerComCache(`${srv.url}/ficha`, conversa('Me fale do Simgot EM6L', { cachePaginasDias: 0 }));
+      const aposDesligado = leituras;
+
+      const comLimite = conversa('Simgot EM6L é bom?', { tempoMaximoPorPaginaMs: 150 });
+      const inicio = Date.now();
+      const erro = await lerComCache(`${srv.url}/lenta`, comLimite).then(() => null, (e) => e.message);
+      const esperou = Date.now() - inicio;
+      await new Promise((ok) => setTimeout(ok, 1100)); // a leitura lenta termina em segundo plano
+      const depois = leituras;
+      const reaproveitada = await lerComCache(`${srv.url}/lenta`, conversa('Me fale do Simgot EM6L')).catch(() => null);
+      await srv.fechar();
+      fs.rmSync(dir, { recursive: true, force: true });
+      return [
+        (/Simgot EM6L/.test(primeira.texto) && aposPrimeira >= 1) || 'a primeira leitura vai à rede',
+        (aposSegunda === aposPrimeira && /Simgot EM6L/.test(segunda.texto)) || `outra conversa deveria ler do disco (leituras ${aposPrimeira} → ${aposSegunda})`,
+        aposPreco > aposSegunda || 'pedido de preço "hoje" não pode usar página guardada',
+        aposDesligado > aposPreco || 'com 0 dias o cache fica desligado',
+        (/página lenta demais/.test(String(erro)) && esperou < 700) || `página lenta deveria ser abandonada no limite (erro: ${erro}, esperou ${esperou} ms)`,
+        (Boolean(reaproveitada?.texto) && leituras === depois) || 'a página lenta, quando chega, fica guardada para a próxima',
+      ];
+    },
+  },
 ];

@@ -120,6 +120,12 @@ const DEFAULTS = {
   // as próximas buscas já correm (busca + download das páginas) enquanto o
   // modelo destila a atual. false = uma busca de cada vez, como antes.
   preBusca: true,
+  // Página que não responde em N ms deixa de segurar a busca (as páginas de
+  // uma busca são lidas em lote, e o lote esperava a mais lenta). 0 = sem limite.
+  tempoMaximoPorPaginaMs: 15000,
+  // Páginas lidas ficam guardadas por N dias e valem em qualquer conversa
+  // (0 desliga). Pedido sobre preço, notícia, clima ou "hoje" não usa o guardado.
+  cachePaginasDias: 3,
   // Páginas destiladas ao mesmo tempo (11/10). Só rende com o Ollama em 2+
   // vagas (variável de ambiente OLLAMA_NUM_PARALLEL=2): 1,39x na destilação,
   // +0,6 GB de memória de vídeo. Com 1 vaga não muda nada (os pedidos fazem fila).
