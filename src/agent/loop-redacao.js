@@ -798,8 +798,8 @@ class Redacao {
     // Imagem de referência nas explicações que passaram pelo laço (as do
     // caminho rápido do AUTO ganham a delas em resposta-rapida.js). Depois da
     // verificação de propósito: é enfeite, não afirmação.
-    if (this.tipoDoPedido === 'explicacao' && !this.respostaComposta && !final.includes(`${imagens.ESQUEMA}://`)) {
-      const assunto = assuntoDoPedido(objetivo);
+    if ((this.tipoDoPedido === 'explicacao' || this.produtoPesquisado) && !this.respostaComposta && !final.includes(`${imagens.ESQUEMA}://`)) {
+      const assunto = this.produtoPesquisado || assuntoDoPedido(objetivo);
       const figura = await imagens.comLimite(imagens.imagemDeReferencia(assunto, { config: this.config, dir: this.dirImagens() }), 8000);
       if (figura) final = `${imagens.marcacao(assunto, figura)}\n\n${final}`;
     }

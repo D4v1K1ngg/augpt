@@ -888,6 +888,24 @@ BUSCA EM INGLÊS:
  * isso pra buscar "o que torna um X bom pra Y" ANTES de procurar produto.
  * Exemplo de outro assunto (corrida), como no mapa: o 7B copia exemplo.
  * ------------------------------------------------------------------ */
+/**
+ * Entendimento do pedido de produto (13/10): quem diz qual é o produto, o uso
+ * e a intenção é o modelo — o código só confere (motor-pesquisa.js). Antes a
+ * estratégia era sempre "recomendar a categoria", e "fone de ouvido dunu titan s"
+ * virou "fone para treino" com o Samsung Galaxy Buds na frente.
+ */
+function pedidoDeEntendimento({ objetivo }) {
+  return `Leia o pedido do usuário e diga o que ele quer. NÃO complete com suposição: o que o pedido não diz, você marca como "não informado".
+
+PEDIDO: "${String(objetivo).slice(0, 600)}"
+
+Responda EXATAMENTE nestas 4 linhas, sem mais nada:
+PRODUTO: <marca e modelo que o usuário escreveu, sem o tipo de produto; se ele não citou um modelo específico, "nenhum". Depois do tipo de produto, palavras que não são adjetivo comum são marca e modelo — mesmo em minúsculas e mesmo que você não conheça a marca (ex.: "teclado akko mod 007" → akko mod 007; "cadeira dt3 elise" → dt3 elise)>
+CATEGORIA: <o tipo de produto, curto (ex.: fone de ouvido, mouse, monitor, geladeira)>
+USO: <para que ele quer usar, SÓ se estiver escrito no pedido (ex.: jogar PUBG); senão "não informado">
+INTENCAO: <uma palavra: conhecer (quer saber sobre aquele produto) | avaliar (quer saber se aquele produto serve para o uso) | comparar (citou dois ou mais produtos) | recomendar (quer que você indique opções)>`;
+}
+
 function pedidoDeCadeiaDoUso({ objetivo }) {
   return `Antes de pesquisar produtos, desça do pedido até as características técnicas que decidem a escolha. Ainda NÃO cite marca nem modelo.
 
@@ -1131,5 +1149,5 @@ module.exports = {
   pedeConversaCompleta,
   pedidoDeProdutosDoTopico,
   pedidoDePlanoDePesquisa, pedidoDeCandidatos, pedidoDeJulgamento, pedidoDeMapaDoProblema, pedidoDeHipoteses,
-  pedidoDeCadeiaDoUso, pedidoDeCriteriosDoConhecimento,
+  pedidoDeEntendimento, pedidoDeCadeiaDoUso, pedidoDeCriteriosDoConhecimento,
 };

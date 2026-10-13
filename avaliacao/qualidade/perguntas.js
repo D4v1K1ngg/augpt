@@ -550,6 +550,22 @@ module.exports = [
     ],
   },
   {
+    // uso real de 13/10: virou "fone para treino" e recomendou o Samsung Galaxy Buds
+    id: 'dunu-titan-s',
+    tipo: 'produto',
+    pedido: 'fone de ouvido dunu titan s',
+    criterios: [
+      'a resposta é sobre o Dunu Titan S: diz o que é o produto e traz dados da ficha dele',
+      'traz pontos fortes e pontos fracos do Dunu Titan S explicados em texto, não só comentários colados',
+    ],
+    checagens: [
+      { nome: 'fala do Dunu Titan S', ok: (r) => /dunu/i.test(r) && /titan\s?s/i.test(r) },
+      { nome: 'não recomenda outro produto no lugar (Galaxy Buds, Jabra…)', ok: (r) => !/galaxy buds|jabra|aftershokz|recomendo (o|a) (?!dunu)/i.test(r) },
+      { nome: 'não inventa uso (treino, músico)', ok: (r) => !/exerc[ií]cio f[ií]sico|para m[uú]sicos?\b/i.test(r) },
+      { nome: 'cita ao menos uma fonte (link ou comunidade)', ok: (r) => /https?:\/\/|— r\/\w+/.test(r) },
+    ],
+  },
+  {
     id: 'mouse-fps',
     tipo: 'produto',
     pedido: 'Qual o melhor mouse para jogos de tiro até R$ 300?',

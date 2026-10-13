@@ -779,7 +779,9 @@ class Agent extends EventEmitter {
       }
       this.planoDeResposta = r.planoDeResposta;
       // Etapa H: o resultado inteiro do motor fica pra resposta montada pelo código
-      this.composicaoDaPesquisa = r;
+      // 13/10: "conhecer um produto" não tem matriz nem opções — a redação escreve do material, seguindo o plano
+      this.composicaoDaPesquisa = r.modo === 'produto' ? null : r;
+      this.produtoPesquisado = r.modo === 'produto' ? r.produto : null;
       this.listaDaPesquisa = r.listaNumerada || '';
       this.entradasDaMatriz = r.matriz.entradasUsadas;
       // opções comparadas contam como "assunto do pedido" na verificação (ver coberturaPorParagrafo)
@@ -1542,6 +1544,7 @@ class Agent extends EventEmitter {
     this.opcoesDaPesquisa = [];
     this.fontesDaPesquisa = [];
     this.composicaoDaPesquisa = null;
+    this.produtoPesquisado = null;
     this.respostaComposta = false;
 
     // Item 6 da análise comparativa (2026-09-21/22, "ativação manual de
@@ -2319,6 +2322,13 @@ class Agent extends EventEmitter {
         buscasFeitas += pesquisaPlanejada.buscas || 0;
         if (pesquisaPlanejada.ok) {
           historico.push({ role: 'user', content: pesquisaPlanejada.resumo });
+        } else if (pesquisaPlanejada.modo === 'produto') {
+          historico.push({
+            role: 'user',
+            content:
+              `PESQUISA INICIAL (etapa automática, não é o usuário): ${pesquisaPlanejada.buscas} busca(s) sobre o ${pesquisaPlanejada.produto} não trouxeram página que cite o produto. ` +
+              'Faça UMA ou DUAS buscas com outra grafia do nome (ou em inglês) e responda sobre ESSE produto; se não achar, diga que não encontrou. Não recomende outros produtos no lugar.',
+          });
         } else if (pesquisaPlanejada.buscas && pesquisaPlanejada.modo === 'guia') {
           // revisão v3: guia sem dicas suficientes — nada de "descobrir nomes de modelo"
           historico.push({

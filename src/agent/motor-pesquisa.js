@@ -905,7 +905,10 @@ function mencionaNome(trechoNormalizado, nome) {
   const tokens = tokensDoNome(nome);
   if (tokens.length < 2) return false;
   const palavras = new Set(trechoNormalizado.split(' '));
-  return tokens.every((t) => palavras.has(t));
+  if (tokens.every((t) => palavras.has(t))) return true;
+  // 13/10: modelo escrito colado ou separado ("QC20" / "QC 20", "Z1Ultra")
+  const colado = alvo.replace(/ /g, '');
+  return /\d/.test(colado) && colado.length >= 6 && trechoNormalizado.replace(/ /g, '').includes(colado);
 }
 
 const PEDE_OUTRAS_OPCOES = /\b(alternativ|parecid|similar|substitu|concorrent|melhor(es)? (do )?que|em vez d|no lugar d)/;
@@ -3112,6 +3115,85 @@ async function usoProfissional({ objetivo, nivel, rodar, emitir, livro, entradas
   };
 }
 
+/* ------------------------------ entendimento do pedido (13/10) ------------------------------ */
+
+const NAO_DITO = /^(nenhum|nenhuma|nao informado|nao|n\/a|-|—)?$/;
+/**
+ * Lê o entendimento do modelo e CONFERE contra o pedido: o produto tem que
+ * estar escrito nele; o uso também (uso que o pedido não diz é invenção e
+ * vira "não informado"). Devolve null quando o pedido não é sobre UM produto.
+ */
+function lerEntendimento(texto, objetivo) {
+  const campo = (nome) => (new RegExp(`^\\s*\\**${nome}\\**\\s*:\\s*(.+)$`, 'im').exec(String(texto || ''))?.[1] || '').replace(/["“”*]/g, '').trim();
+  const pedido = normalizar(objetivo);
+  const categoria = NAO_DITO.test(normalizar(campo('CATEGORIA'))) ? '' : campo('CATEGORIA').slice(0, 60);
+  let produto = campo('PRODUTO').replace(/\s*[(—–].*$/, '').trim();
+  // o modelo às vezes repete o tipo na frente ("fone de ouvido Dunu Titan S")
+  if (categoria && normalizar(produto).startsWith(`${normalizar(categoria)} `)) produto = produto.split(/\s+/).slice(categoria.split(/\s+/).length).join(' ');
+  const nome = normalizar(produto);
+  if (NAO_DITO.test(nome) || /recomend|compar/.test(normalizar(campo('INTENCAO'))) || PEDE_OUTRAS_OPCOES.test(pedido)) return null;
+  const noPedido = new Set(pedido.split(' '));
+  const tokens = nome.split(' ');
+  // o nome está no pedido: igual, colado/separado diferente ("qc20" / "qc 20")
+  // ou com UMA palavra corrigida pelo modelo ("sansung s26 ultra" → "samsung s26 ultra")
+  const citado =
+    mencionaNome(pedido, produto) ||
+    pedido.replace(/ /g, '').includes(nome.replace(/ /g, '')) ||
+    (tokens.length >= 3 && tokens.filter((t) => noPedido.has(t)).length >= tokens.length - 1);
+  if (!citado || OBJETO_PRODUTO.test(nome) || !(/\d/.test(nome) || tokens.length >= 2)) return null;
+  const usoDito = campo('USO');
+  const uso = NAO_DITO.test(normalizar(usoDito)) || !normalizar(usoDito).split(' ').some((t) => t.length >= 3 && noPedido.has(t) && !normalizar(`${produto} ${categoria}`).split(' ').includes(t)) ? '' : usoDito.slice(0, 120);
+  return { produto, categoria, uso };
+}
+
+/**
+ * "fone de ouvido dunu titan s": o usuário quer CONHECER aquele produto — o
+ * que é, ficha, pontos fortes e fracos, preço, o que quem usa diz. Não há uso
+ * para pesar critérios nem opções para comparar: só buscas sobre ele (página
+ * que não cita o produto é descartada pelo `rodar`), e a redação escreve do material.
+ */
+async function conhecerProduto({ objetivo, produto, categoria, rodar, emitir, entradas, consultas, buscas, adiantar }) {
+  const rotulo = categoria || rotuloDaCategoria(objetivo, produto);
+  const plano = { uso: `conhecer o ${produto}`, modo: 'produto', criterios: [], opcoesCitadas: [produto], descoberta: [] };
+  emitir('pesquisa-plano', { uso: plano.uso, criterios: [], opcoesCitadas: [produto], descoberta: [], modo: 'produto' });
+  const foco = `${produto}: o que é, ficha técnica, pontos fortes, pontos fracos, preço e o que quem usa diz`;
+  const lista = [
+    { q: `${produto} ${rotulo} review`.replace(/\s+/g, ' ') },
+    { q: consultaDeFicha(produto, rotulo) },
+    { q: consultaDeComunidade(produto), extras: { idioma: 'all', comunidade: true } },
+    { q: `${produto} review`, extras: { idioma: 'all' } },
+    { q: `${produto} preço` },
+  ];
+  adiantar(lista.map((b) => ({ consulta: b.q, idioma: b.extras?.idioma, comunidade: b.extras?.comunidade })));
+  const lidas = [];
+  for (const b of lista) lidas.push(...(await rodar(b.q, foco, produto, 'ficha', b.extras || {})));
+  if (!lidas.length) return { ok: false, modo: 'produto', produto, motivo: `nenhuma página lida cita o ${produto}`, plano, buscas: buscas(), consultas, entradas };
+  const planoDeResposta = [
+    `PLANO DA RESPOSTA (o pedido é sobre UM produto: ${produto}). Escreva só com o material coletado sobre ele, em texto corrido e bem explicado:`,
+    `1. Abertura: o que é o ${produto} (tipo de produto, proposta, para quem foi feito).`,
+    '2. Ficha técnica: os dados que o material traz (lista curta).',
+    '3. Pontos fortes e pontos fracos, cada um explicado com as suas palavras a partir dos reviews e dos comentários de quem usa (sem colar os comentários).',
+    '4. Preço observado, se o material trouxer.',
+    '5. Para quem vale a pena e para quem não vale.',
+    `NÃO recomende nem liste outros produtos no lugar dele. O que o material não disser sobre o ${produto}, diga que não foi encontrado.`,
+  ].join('\n');
+  return {
+    ok: true,
+    modo: 'produto',
+    produto,
+    plano,
+    finalistas: [{ nome: produto, consenso: { citacoes: [] } }],
+    outros: [],
+    matriz: { celula: () => null, cobertura: 1, lacunas: [], entradasUsadas: lidas, resumos: new Map() },
+    buscas: buscas(),
+    consultas,
+    entradas,
+    planoDeResposta,
+    listaNumerada: '',
+    resumo: `PESQUISA PLANEJADA CONCLUÍDA (etapa automática, não é o usuário): ${buscas()} busca(s) sobre o ${produto}, ${lidas.length} leitura(s) que citam o produto guardadas para a redação. Agora chame "responder" — a resposta é sobre o ${produto}, não uma lista de outros produtos.`,
+  };
+}
+
 /* ------------------------------ orquestração ------------------------------ */
 
 /**
@@ -3188,6 +3270,15 @@ async function executarPesquisaPlanejada({ objetivo, nivel = 'leve', chamarModel
   // é CONTAGEM (jogador → equipamento), não "qual o melhor"
   if (config.modoUsoProfissional !== false && usoPro.ehPedidoDeUsoProfissional(objetivo)) {
     return usoProfissional({ objetivo, nivel, rodar, emitir, livro, entradas, consultas, buscas: () => buscas });
+  }
+
+  // 13/10: antes de montar a estratégia, o MODELO diz o que o pedido quer
+  // (produto citado, uso, intenção) e o código confere. Um produto sem uso
+  // declarado tem caminho próprio; com uso, vira avaliação daquele produto.
+  const entendido = config.entendimentoDoPedido === false || produtosNomeados(objetivo).length ? null : lerEntendimento(await chamarModelo(prompts.pedidoDeEntendimento({ objetivo }), { tipo: 'entendimento', numPredict: 120 }), objetivo);
+  if (entendido) {
+    emitir('pesquisa-entendimento', entendido);
+    if (!entendido.uso) return conhecerProduto({ objetivo, ...entendido, rodar, emitir, entradas, consultas, buscas: () => buscas, adiantar });
   }
 
   // 0a. cadeia do uso (2026-09-28): do pedido até as características técnicas
@@ -3268,11 +3359,12 @@ async function executarPesquisaPlanejada({ objetivo, nivel = 'leve', chamarModel
   // do modelo não troca nem completa a lista. Um nome só = avaliar aquele produto.
   const nomeados = produtosNomeados(objetivo);
   if (nomeados.length) plano.opcoesCitadas = nomeados;
+  else if (entendido) plano.opcoesCitadas = [entendido.produto]; // o produto que o modelo leu no pedido (conferido)
   // uso real de 12/10 ("fone bose qc 20", "Bose qc 20", "O bose qc 20 é bom para
   // pubg?"): o plano do modelo listava o produto do pedido e o código jogava fora
   // por ser um só — a pesquisa ia descobrir "melhores fones" e recomendava outro.
   // Quem entende o pedido é o modelo; o código só confere que o nome está no pedido.
-  const avaliacao = nomeados.length === 1 || produtoUnicoDoPedido(objetivo, plano.opcoesCitadas);
+  const avaliacao = nomeados.length === 1 || Boolean(entendido) || produtoUnicoDoPedido(objetivo, plano.opcoesCitadas);
   emitir('pesquisa-plano', {
     uso: plano.uso,
     criterios: plano.criterios.map(({ nome, peso }) => ({ nome, peso })),
@@ -3661,6 +3753,7 @@ module.exports = {
   escolherFinalistas,
   mencionaNome,
   produtoUnicoDoPedido,
+  lerEntendimento,
   rotuloDaCategoria,
   normalizarTexto: normalizar,
   consultaDeFinalista,

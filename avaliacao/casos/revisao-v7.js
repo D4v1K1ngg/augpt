@@ -196,4 +196,58 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'v7 (13/10): entendimento do pedido — o modelo diz produto, uso e intenção e o código confere contra o pedido (nome tem que estar escrito; uso que o pedido não diz vira "não informado"; recomendar/comparar/alternativas não é pedido de UM produto)',
+    tipo: 'unidade',
+    executar() {
+      const { lerEntendimento, mencionaNome } = require('../../src/agent/motor-pesquisa');
+      const r = (produto, uso, intencao, pedido, categoria = 'fone de ouvido') => lerEntendimento(`PRODUTO: ${produto}\nCATEGORIA: ${categoria}\nUSO: ${uso}\nINTENCAO: ${intencao}`, pedido);
+      const dunu = r('dunu titan s', 'ouvir música durante treinos', 'conhecer', 'fone de ouvido dunu titan s');
+      const bose = r('Bose QC 20', 'jogar PUBG', 'avaliar', 'O fone de ouvido bose qc 20 e bom para jogar pubg ?');
+      return [
+        (dunu?.produto === 'dunu titan s' && dunu.uso === '') || `produto certo e uso inventado descartado: ${JSON.stringify(dunu)}`,
+        (bose?.produto === 'Bose QC 20' && bose.uso === 'jogar PUBG') || `uso escrito no pedido fica: ${JSON.stringify(bose)}`,
+        r('fone de ouvido Dunu Titan S', 'não informado', 'conhecer', 'fone de ouvido dunu titan s')?.produto === 'Dunu Titan S' || 'o tipo de produto repetido na frente do nome sai',
+        r('samsung s26 ultra', 'não informado', 'conhecer', 'sansung s26 ultra', 'não informado')?.produto === 'samsung s26 ultra' || 'uma palavra corrigida pelo modelo é aceita',
+        r('bose qc20', 'não informado', 'conhecer', 'Bose qc 20')?.produto === 'bose qc20' || 'nome colado/separado diferente é o mesmo produto',
+        r('HyperX Cloud II', 'jogar PUBG', 'avaliar', 'Qual o melhor fone para pubg?') === null || 'produto que não está no pedido é recusado',
+        r('nenhum', 'jogar PUBG', 'recomendar', 'Qual o melhor fone para pubg?') === null || 'sem produto citado segue a recomendação',
+        r('Bose QC 20', 'não informado', 'conhecer', 'Alternativas ao Bose QC 20') === null || 'pedir alternativas é recomendação',
+        r('fone gamer', 'não informado', 'conhecer', 'fone gamer barato') === null || 'categoria não é produto',
+        lerEntendimento('não sei', 'fone bose qc 20') === null || 'resposta ilegível não muda nada',
+        (mencionaNome('review do bose qc20 em 2026', 'Bose QC 20') && !mencionaNome('review do bose 700', 'Bose QC 20')) || 'a página que escreve o modelo colado cita o produto',
+      ];
+    },
+  },
+  {
+    nome: 'v7 (13/10): "fone de ouvido dunu titan s" — o motor pesquisa SÓ aquele produto (review, ficha, comunidade, preço), sem cadeia de uso nem descoberta de outras opções, e entrega o plano de uma resposta sobre ele',
+    tipo: 'unidade',
+    async executar() {
+      const motor = require('../../src/agent/motor-pesquisa');
+      const tipos = [];
+      const feitas = [];
+      const r = await motor.executarPesquisaPlanejada({
+        objetivo: 'fone de ouvido dunu titan s',
+        chamarModelo: async (_p, { tipo }) => {
+          tipos.push(tipo);
+          return tipo === 'entendimento' ? 'PRODUTO: dunu titan s\nCATEGORIA: fone de ouvido\nUSO: ouvir música durante treinos\nINTENCAO: conhecer' : '';
+        },
+        buscar: async (consulta) => {
+          feitas.push(consulta);
+          return [
+            { url: `https://exemplo.com/${feitas.length}`, origem: 'exemplo.com', texto: 'O Dunu Titan S tem driver dinâmico de 11 mm.', bruto: 'O Dunu Titan S tem driver dinâmico de 11 mm.' },
+            { url: `https://outro.com/${feitas.length}`, origem: 'outro.com', texto: 'Os melhores fones para treino.', bruto: 'Os melhores fones para treino.' },
+          ];
+        },
+      });
+      return [
+        (r.ok && r.modo === 'produto' && r.produto === 'dunu titan s') || `modo: ${r.modo}, ok: ${r.ok}, motivo: ${r.motivo}`,
+        tipos.join() === 'entendimento' || `só a chamada de entendimento, sem cadeia de uso nem plano de recomendação: ${tipos}`,
+        (feitas.length === 5 && feitas.every((c) => /dunu titan s/.test(c))) || `todas as buscas citam o produto: ${feitas.join(' | ')}`,
+        !feitas.some((c) => /treino|melhor/.test(c)) || 'nenhuma busca sobre o uso inventado',
+        (r.entradas.length === 5 && r.entradas.every((e) => /Dunu/.test(e.texto))) || `página que não cita o produto fica de fora: ${r.entradas.length}`,
+        /sobre UM produto: dunu titan s/.test(r.planoDeResposta) && /NÃO recomende nem liste outros produtos/.test(r.planoDeResposta) || 'o plano da resposta é sobre o produto',
+      ];
+    },
+  },
 ];
