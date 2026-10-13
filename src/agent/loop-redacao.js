@@ -70,7 +70,7 @@ class Redacao {
           messages: [{ role: 'user', content: compositor.pedidoDeFrases(r, objetivo) }],
           temperature: 0.3,
           numCtx: this.numCtxDe('redacao'),
-          numPredict: 700,
+          numPredict: 1300, // 13/10: 3–4 frases por produto (eram 1–2, com 700)
           manterVivo: this.config.manterModeloVivo,
           signal: this.controller.signal,
         });

@@ -168,7 +168,7 @@ module.exports = [
         c.produtosSemCritica(r).join() === 'Ziigaat Arete' || `sem crítica: ${c.produtosSemCritica(r)}`,
         !lidas.has('ZIIGAAT ARETE') || 'ressalva inventada no produto sem crítica deveria ser recusada',
         lidas.has('KEFINE DELCI AE') || 'ressalva de produto COM crítica é legítima',
-        /Ziigaat Arete: <1 ou 2 frases[^\n]*NÃO tem crítica/.test(pedido) || 'o pedido avisa que o produto não tem crítica',
+        /Ziigaat Arete: <3 ou 4 frases[^\n]*NÃO tem crítica/.test(pedido) || 'o pedido avisa que o produto não tem crítica',
       ];
     },
   },
@@ -201,7 +201,7 @@ module.exports = [
       const vezes = (texto.match(/Minhas escolhas pra PUBG/g) || []).length;
       const em6l = texto.split('#### 2.')[0];
       return [
-        vezes === 1 || `comentário-lista apareceu ${vezes} vezes`,
+        vezes <= 1 || `comentário-lista apareceu ${vezes} vezes`,
         em6l.indexOf('Uso o Simgot EM6L') < em6l.indexOf('Minhas escolhas') || em6l.indexOf('Minhas escolhas') < 0 || 'o comentário sobre o próprio produto vem antes do comentário-lista',
         !/não recomendaria/.test(texto) || 'crítica que é lista de vários produtos não vira limitação',
       ];

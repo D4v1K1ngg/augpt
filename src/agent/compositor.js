@@ -141,8 +141,12 @@ function fatosDoProduto(f, r) {
   const preco = r.precos?.[f.nome];
   if (preco) partes.push(`preço observado: ${textoDoPreco(preco)}`);
   const { aFavor, critica } = citacoesDoProduto(f, r);
-  if (aFavor[0]) partes.push(`um usuário disse: "${curto(aFavor[0].texto, 160)}"`);
-  if (critica) partes.push(`crítica de um usuário: "${curto(critica.texto, 160)}"`);
+  // 13/10: o modelo passa a RESUMIR o que quem usa diz (antes a resposta colava
+  // os comentários) — recebe todos os que serão a base, e a ficha
+  const ficha = r.matriz?.resumos?.get?.(f.nome)?.ficha?.texto;
+  if (ficha) partes.push(`ficha: "${curto(ficha, 220)}"`);
+  aFavor.forEach((c) => partes.push(`um usuário disse: "${curto(c.texto, 200)}"`));
+  if (critica) partes.push(`crítica de um usuário: "${curto(critica.texto, 200)}"`);
   return partes.join(' | ') || 'pouca evidência';
 }
 
@@ -244,7 +248,7 @@ VEREDITO: <duas frases: para quem vale a ${A} e para quem vale a ${B}, com base 
 ${citacoes.map((_, i) => `C${i + 1}: <tradução>`).join('\n')}`.replace(/\n{3,}/g, '\n\n');
   }
   const finalistas = r.finalistas || [];
-  return `Você escreve frases curtas em português para uma resposta que o sistema já montou (a ordem e as opções já estão decididas). NÃO invente dado, número, preço ou nota: use só os fatos abaixo. Cada produto tem fatos diferentes: escreva frases diferentes para cada um, sem começar todas do mesmo jeito, sem repetir a lista de critérios e sem "excelente" que o fato não mostre.
+  return `Você escreve, em português claro e bem redigido, os textos de uma resposta que o sistema já montou (a ordem e as opções já estão decididas). NÃO invente dado, número, preço ou nota: use só os fatos abaixo. Explique com as SUAS palavras — não copie os comentários dos usuários nem use aspas: diga o que eles relatam e por que isso importa para o uso. Cada produto tem fatos diferentes: escreva frases diferentes para cada um, sem começar todas do mesmo jeito, sem repetir a lista de critérios e sem "excelente" que o fato não mostre.
 
 PEDIDO: ${objetivo}
 USO: ${r.plano?.uso || ''}
@@ -254,14 +258,14 @@ ${citacoes.length ? `\nCITAÇÕES EM INGLÊS (traduza cada uma, fiel e curta):\n
 Responda EXATAMENTE nestas linhas, sem mais nada:
 ${
     r.avaliacao
-      ? `DIRETA: <2 frases: responda a pergunta sobre o ${finalistas[0]?.nome} — serve ou não para esse uso, e com que ressalvas —, só com os fatos dele>`
-      : `DIRETA: <2 frases: recomende ${finalistas[0]?.nome || 'a 1ª opção'} para ${r.plano?.uso || 'esse uso'} e diga por quê, com um fato da linha dela ligado a esse uso (passos, posicionamento, detalhe…) — não fale de design nem de "qualidade" genérica>`
+      ? `OQUEE: <2 frases: o que é o ${finalistas[0]?.nome} (que tipo de produto é e o que ele tem de principal), só com a ficha e os fatos dele>\nDIRETA: <2 ou 3 frases: responda a pergunta sobre o ${finalistas[0]?.nome} — serve ou não para esse uso, e com que ressalvas —, só com os fatos dele>`
+      : `DIRETA: <2 ou 3 frases: recomende ${finalistas[0]?.nome || 'a 1ª opção'} para ${r.plano?.uso || 'esse uso'} e diga por quê, com um fato da linha dela ligado a esse uso — não fale de design nem de "qualidade" genérica>`
   }
 ${finalistas
   .map((f) =>
     citacoesDoProduto(f, r).critica
-      ? `${f.nome}: <2 frases: o que o material diz de concreto sobre ele (um fato da linha dele) e a ressalva que a crítica da linha dele traz>`
-      : `${f.nome}: <1 ou 2 frases: o que o material diz de concreto sobre ele (um fato da linha dele). A linha dele NÃO tem crítica: não escreva ressalva, "mas…" nem nada sobre preço alto ou orçamento>`
+      ? `${f.nome}: <3 ou 4 frases, numa linha só: por que ele serve para esse uso (um fato concreto da linha dele), o que quem usa relata, com as suas palavras, e a ressalva que a crítica da linha dele traz>`
+      : `${f.nome}: <3 ou 4 frases, numa linha só: por que ele serve para esse uso (um fato concreto da linha dele), o que quem usa relata, com as suas palavras, e para quem ele faz mais sentido. A linha dele NÃO tem crítica: não escreva ressalva, "mas…" nem nada sobre preço alto ou orçamento>`
   )
   .join('\n')}
 ${citacoes.map((_, i) => `C${i + 1}: <tradução>`).join('\n')}`.replace(/\n{3,}/g, '\n\n');
@@ -283,7 +287,7 @@ function lerFrases(texto, { produtos = [], numerosPermitidos = '', criterios = [
     if (!m) continue;
     const chave = m[1].trim();
     let frase = m[2].trim().replace(/^[*\s]+/, '').replace(/^["“]|["”]$/g, '');
-    if (!frase || frase.length > 420 || /^<.*>$/.test(frase)) continue;
+    if (!frase || frase.length > 750 || /^<.*>$/.test(frase)) continue;
     // número que não está nos fatos → frase inventada
     const nums = (frase.match(/\d+(?:[.,]\d+)?/g) || []).map((n) => n.replace(',', '.'));
     if (nums.some((n) => !permitidos.has(n) && !/^\d$/.test(n))) continue;
@@ -339,7 +343,7 @@ function fraseRecomendacaoPadrao(f, r) {
   const fortes = Object.entries(f.status || {}).filter(([, st]) => st === 'corroborado').map(([c]) => c);
   const unicas = Object.entries(f.status || {}).filter(([, st]) => st === 'fonte única').map(([c]) => c);
   const k = f.consenso || {};
-  const base = k.topicos ? `Quem joga recomenda o ${f.nome} (${respaldoCurto(f)})` : `O ${f.nome} aparece no material (${respaldoCurto(f)})`;
+  const base = k.topicos ? `Quem usa recomenda o ${f.nome} (${respaldoCurto(f)})` : `O ${f.nome} aparece no material (${respaldoCurto(f)})`;
   if (fortes.length) return `${base}; ${fortes.join(', ')} comentados por mais de uma fonte.`;
   if (unicas.length) return `${base}; ${unicas.join(', ')} comentado por uma fonte.`;
   return `${base}.`;
@@ -454,7 +458,9 @@ function montarRecomendacao(r, frases = new Map()) {
     partes.push(`**Pontos fortes:** ${frases.get(f.nome.toUpperCase()) || fraseRecomendacaoPadrao(f, r)}`, '');
     partes.push(`**Na comunidade:** ${respaldoCurto(f)}.`);
     const { aFavor, critica } = citacoesDoProduto(f, r);
-    for (const c of aFavor) partes.push(citacaoFormatada(c, traducaoDe(c)));
+    // 13/10: o texto de "Pontos fortes" já explica o que quem usa relata; aqui
+    // fica UM comentário como prova (antes iam dois, e a resposta parecia colagem)
+    if (aFavor[0]) partes.push(citacaoFormatada(aFavor[0], traducaoDe(aFavor[0])));
     partes.push('', ...linhasDeLimitacoes(f, criterios, critica, traducaoDe));
     const resumo = r.matriz?.resumos?.get?.(f.nome) || {};
     if (resumo.ficha?.texto) partes.push('', `**Ficha:** ${curto(resumo.ficha.texto, 200)}`);
@@ -506,7 +512,15 @@ function montarRecomendacao(r, frases = new Map()) {
 
 function montarAvaliacao(r, f, frases, traducaoDe) {
   const criterios = r.plano?.criterios || [];
-  const partes = ['### Resposta direta', frases.get('DIRETA') || `O que o material diz do **${f.nome}** para ${r.plano?.uso || 'esse uso'}: ${fraseRecomendacaoPadrao(f, r)}`];
+  // 13/10 (pedido do Davi): a avaliação de UM produto abre como as outras
+  // respostas — foto, o que é o produto e o preço — antes do veredito
+  const partes = [];
+  const foto = r.imagens?.get?.(f.nome);
+  if (foto) partes.push(`![${f.nome.replace(/[[\]]/g, ' ')}](${foto})`, '');
+  if (frases.get('OQUEE')) partes.push(frases.get('OQUEE'), '');
+  partes.push('### Resposta direta', frases.get('DIRETA') || `O que o material diz do **${f.nome}** para ${r.plano?.uso || 'esse uso'}: ${fraseRecomendacaoPadrao(f, r)}`);
+  if (frases.get(f.nome.toUpperCase())) partes.push('', frases.get(f.nome.toUpperCase()));
+  if (r.precos?.[f.nome]) partes.push('', `**Faixa de preço:** ${textoDoPreco(r.precos[f.nome])}`);
   const comPorque = criterios.filter((k) => k.porque);
   if (comPorque.length) partes.push('', `### O que importa${r.plano?.tipoDeUso ? ` (${r.plano.tipoDeUso})` : ''}`, ...comPorque.map((k) => `- **${k.nome}** — ${k.porque}`));
   partes.push('', `### ${f.nome} nesses critérios`);
@@ -519,7 +533,7 @@ function montarAvaliacao(r, f, frases, traducaoDe) {
     partes.push(`- **${k.nome}** (${ROTULO_STATUS[st] || st}): ${texto}`);
   }
   partes.push(`- **Comunidade:** ${respaldoCurto(f)}.`);
-  const cits = (f.consenso?.citacoes || []).slice(0, 3);
+  const cits = (f.consenso?.citacoes || []).slice(0, 2);
   if (cits.length) {
     partes.push('', '### O que os usuários dizem');
     for (const c of cits) partes.push(citacaoFormatada(c, traducaoDe(c)));

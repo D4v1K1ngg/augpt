@@ -259,7 +259,7 @@ function servidorFalso({
           res.setHeader('Content-Type', 'application/json');
           return res.end(JSON.stringify({ message: { content: String(texto) }, prompt_eval_count: 20, eval_count: 10 }));
         }
-        if (/Você escreve frases curtas em português para uma resposta que o sistema já montou/.test(textoCru)) {
+        if (/Você escreve.{0,80}uma resposta que o sistema já montou/.test(textoCru)) {
           registro.frasesDaResposta.push(conteudoDoPrompt);
           const texto = typeof frasesDaResposta === 'function' ? frasesDaResposta(conteudoDoPrompt) : frasesDaResposta;
           res.setHeader('Content-Type', 'application/json');

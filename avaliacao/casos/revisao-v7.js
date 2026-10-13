@@ -171,4 +171,29 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'v7 (13/10): avaliação de UM produto abre com a foto, o que é o produto e a análise escrita pelo modelo; cada cartão da recomendação leva UM comentário como prova, e o pedido manda explicar com as próprias palavras',
+    tipo: 'unidade',
+    executar() {
+      const citacoes = [
+        { texto: 'Uso o Bose QC 20 no avião e o ruído some.', fonte: 'r/headphones', votos: 9, tom: 'recomenda' },
+        { texto: 'O cancelamento do Bose QC 20 ainda é dos melhores.', fonte: 'r/headphones', votos: 4, tom: 'recomenda' },
+      ];
+      const bose = { nome: 'Bose QC 20', status: { isolamento: 'corroborado' }, consenso: { topicos: 2, citacoes } };
+      const base = { modo: 'recomendacao', plano: { uso: 'viajar', criterios: [{ nome: 'isolamento', peso: 'alto', porque: 'corta o ruído do motor' }] }, matriz: { celula: () => null, resumos: new Map() } };
+      const r = { ...base, avaliacao: true, finalistas: [bose], imagens: new Map([['Bose QC 20', 'augpt-img://abc.jpg']]) };
+      const frases = new Map([['OQUEE', 'O Bose QC 20 é um fone intra-auricular com cancelamento ativo de ruído.'], ['DIRETA', 'Serve bem para viajar.'], ['BOSE QC 20', 'Quem usa relata que o ruído do avião praticamente some.']]);
+      const texto = compositor.montar(r, frases);
+      const pedido = compositor.pedidoDeFrases(r, 'fone bose qc 20');
+      const lista = compositor.montar({ ...base, finalistas: [bose, { nome: 'Outro Z9', status: {}, consenso: { topicos: 1, citacoes: [] } }] }, new Map());
+      return [
+        /^!\[Bose QC 20\]\(augpt-img:\/\/abc\.jpg\)\n\nO Bose QC 20 é um fone intra-auricular/.test(texto) || `abre com a foto e o que é o produto: ${texto.slice(0, 160)}`,
+        /### Resposta direta\nServe bem para viajar\.\n\nQuem usa relata/.test(texto) || 'a análise do modelo vem logo depois da resposta direta',
+        /### Bose QC 20 nesses critérios/.test(texto) || 'a parte por critério continua',
+        /OQUEE: </.test(pedido) && /com as SUAS palavras/.test(pedido) && /3 ou 4 frases/.test(pedido) || 'o pedido de frases pede o que é o produto e a explicação com as próprias palavras',
+        (pedido.match(/um usuário disse/g) || []).length === 2 || 'o modelo recebe os dois comentários para resumir',
+        (lista.split('#### 2.')[0].match(/^> /gm) || []).length === 1 || 'no cartão, um comentário só como prova',
+      ];
+    },
+  },
 ];
