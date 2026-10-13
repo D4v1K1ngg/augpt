@@ -218,13 +218,23 @@ function criarTurno(pedido) {
   const dele = document.createElement('div');
   dele.className = 'msg ia turno';
   dele.innerHTML = `
-    <div class="msg-quem">agente</div>
-    <div class="turno-medidores"></div>
+    <div class="turno-topo">
+      <div class="msg-quem">agente</div>
+      <div class="turno-medidores"></div>
+    </div>
     <div class="andamento">
       <span class="digitando"><i></i><i></i><i></i></span>
       <span class="andamento-txt">preparando…</span>
       <button class="btn-linha parar">parar</button>
     </div>
+    <details class="atividade" open hidden>
+      <summary>Atividade do agente <span class="atividade-resumo"></span></summary>
+      <ol class="atividade-etapas"></ol>
+      <div class="atividade-sites" hidden>
+        <div class="atividade-rotulo">Sites consultados</div>
+        <div class="atividade-lista"></div>
+      </div>
+    </details>
     <details class="detalhe">
       <summary><span class="resumo-passos">raciocínio</span></summary>
       <div class="trilha"></div>
@@ -1378,7 +1388,130 @@ const manipuladores = {
   },
 };
 
-api.onEvent(({ canal, dados }) => manipuladores[canal]?.(dados || {}));
+/* ---------------- painel "Atividade do agente" (13/10) ----------------
+ * Linha do tempo das etapas e dos sites lidos, montada SÓ com os eventos que o
+ * agente já emite — nada aqui é estimado ou inventado. Uma etapa aparece
+ * quando começa; a anterior ganha o ✓. Fica aberto durante a execução e
+ * recolhe quando a resposta chega.
+ * ponytail: página que falhou ao ler não aparece (a ferramenta só avisa a
+ * leitura que deu certo); emitir 'fonte' com erro em src/tools/web.js se fizer falta.
+ */
+const hora = () => new Date().toLocaleTimeString('pt-BR');
+const FERRAMENTAS_DE_PESQUISA = /^(pesquisar|ler_pagina|buscar|navegar|comparar_precos)/;
+
+function etapaDaAtividade(chave, titulo, descricao = '') {
+  const t = agente.turno;
+  if (!t) return;
+  const painel = t.caixa.querySelector('.atividade');
+  const lista = painel.querySelector('.atividade-etapas');
+  let atual = lista.lastElementChild;
+  if (!atual || atual.dataset.chave !== chave) {
+    atual?.classList.replace('atual', 'feita');
+    atual = document.createElement('li');
+    atual.className = 'atual';
+    atual.dataset.chave = chave;
+    atual.innerHTML = '<i class="marca"></i><div><b></b><p></p><time></time></div>';
+    atual.querySelector('b').textContent = titulo;
+    atual.querySelector('time').textContent = hora();
+    lista.appendChild(atual);
+    painel.hidden = false;
+  }
+  if (descricao) atual.querySelector('p').textContent = String(descricao).slice(0, 160);
+  resumoDaAtividade();
+}
+
+function resumoDaAtividade() {
+  const t = agente.turno;
+  if (!t) return;
+  const a = (t.atividade = t.atividade || { buscas: 0, sites: new Map() });
+  const paginas = [...a.sites.values()].reduce((s, x) => s + x.paginas, 0);
+  const partes = [];
+  if (a.buscas) partes.push(`${a.buscas} busca${a.buscas === 1 ? '' : 's'}`);
+  if (paginas) partes.push(`${paginas} página${paginas === 1 ? '' : 's'} em ${a.sites.size} site${a.sites.size === 1 ? '' : 's'}`);
+  t.caixa.querySelector('.atividade-resumo').textContent = partes.length ? `· ${partes.join(' · ')}` : '';
+}
+
+function siteConsultado(url) {
+  const t = agente.turno;
+  let host;
+  try {
+    host = new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return; // documento local, não é site
+  }
+  if (!t || !host) return;
+  const a = (t.atividade = t.atividade || { buscas: 0, sites: new Map() });
+  let site = a.sites.get(host);
+  if (!site) {
+    const linha = document.createElement('a');
+    linha.className = 'atividade-site';
+    linha.target = '_blank';
+    linha.innerHTML = '<i></i><span class="nome"></span><span class="qtd"></span>';
+    linha.querySelector('i').textContent = host[0].toUpperCase();
+    linha.querySelector('.nome').textContent = host;
+    t.caixa.querySelector('.atividade-lista').appendChild(linha);
+    t.caixa.querySelector('.atividade-sites').hidden = false;
+    site = { paginas: 0, linha };
+    a.sites.set(host, site);
+  }
+  site.paginas += 1;
+  site.linha.href = url; // abre a última página lida daquele site
+  site.linha.title = url;
+  site.linha.querySelector('.qtd').textContent = `${site.paginas} página${site.paginas === 1 ? '' : 's'} ✓`;
+}
+
+function atividade(canal, d) {
+  const t = agente.turno;
+  if (!t) return;
+  const nomes = (lista) => lista.map((x) => x.nome || x).filter(Boolean).slice(0, 4).join(', ');
+  switch (canal) {
+    case 'inicio':
+      return etapaDaAtividade('entender', 'Entendendo o pedido');
+    case 'nivel-auto':
+      return etapaDaAtividade('entender', 'Entendendo o pedido', `${d.nome || `nível ${d.nivel}`}${d.motivo ? ` — ${d.motivo}` : ''}`);
+    case 'pesquisa-cadeia':
+      return etapaDaAtividade('planejar', 'Planejando a pesquisa', [d.atividade, d.tipoDeUso].filter(Boolean).join(' · '));
+    case 'pesquisa-criterios':
+    case 'pesquisa-plano':
+      return etapaDaAtividade('planejar', 'Planejando a pesquisa', d.criterios?.length ? `Critérios: ${nomes(d.criterios)}` : '');
+    case 'ferramenta':
+      if (!FERRAMENTAS_DE_PESQUISA.test(d.nome)) return etapaDaAtividade('agir', 'Executando ações', d.nome);
+      return etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.argumentos?.consulta ? `Busca: ${d.argumentos.consulta}` : d.argumentos?.url || '');
+    case 'fonte':
+      t.atividade = t.atividade || { buscas: 0, sites: new Map() };
+      if (d.tipo === 'busca') {
+        t.atividade.buscas += 1;
+        etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.consultas?.length ? `Busca: ${d.consultas[d.consultas.length - 1]}` : '');
+      } else if (d.url) {
+        siteConsultado(d.url);
+        resumoDaAtividade();
+      }
+      return;
+    case 'pesquisa-candidatos':
+      return etapaDaAtividade('comparar', 'Comparando as opções encontradas', d.finalistas?.length ? `Na frente: ${nomes(d.finalistas)}` : '');
+    case 'pesquisa-matriz':
+      return etapaDaAtividade('conferir-evidencias', 'Conferindo as evidências de cada opção', `${Math.round((d.cobertura || 0) * 100)}% dos critérios com evidência`);
+    case 'redigindo':
+      return etapaDaAtividade('escrever', 'Escrevendo a resposta', d.fontes ? `A partir de ${d.fontes} fonte(s)` : '');
+    case 'verificacao':
+      return etapaDaAtividade('verificar', 'Conferindo a resposta com as fontes');
+    case 'concluido':
+    case 'limite':
+    case 'interrompido':
+    case 'erro': {
+      const painel = t.caixa.querySelector('.atividade');
+      painel.querySelector('.atual')?.classList.replace('atual', canal === 'concluido' ? 'feita' : 'parada');
+      painel.open = false;
+      return;
+    }
+    default:
+  }
+}
+
+api.onEvent(({ canal, dados }) => {
+  atividade(canal, dados || {}); // antes do manipulador: 'concluido' encerra o turno
+  manipuladores[canal]?.(dados || {});
+});
 
 /* ====================== encerramento (checklist de IAs) ====================== */
 /**
