@@ -154,4 +154,21 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'v7 (uso real de 12/10): UM produto citado pelo plano e escrito no pedido é avaliação daquele produto ("fone bose qc 20") — categoria, nome fora do pedido e pedido de alternativas continuam na descoberta',
+    tipo: 'unidade',
+    executar() {
+      const unico = require('../../src/agent/motor-pesquisa').produtoUnicoDoPedido;
+      return [
+        unico('fone bose qc 20', ['Bose QC 20']) === true || 'nome com modelo, escrito no pedido em minúsculas',
+        unico('O fone de ouvido bose qc 20 e bom para jogar pubg ?', ['Bose QC 20']) === true || 'pergunta sobre um produto',
+        unico('O Audeze Maxwell vale a pena?', ['Audeze Maxwell']) === true || 'nome sem dígito, com duas palavras',
+        unico('Qual o melhor fone gamer para pubg?', ['fone gamer']) === false || 'categoria não é produto',
+        unico('Qual o melhor fone para pubg?', ['HyperX Cloud II']) === false || 'nome que o modelo lembrou e não está no pedido',
+        unico('Alternativas ao Bose QC 20', ['Bose QC 20']) === false || 'pedir alternativas é descoberta',
+        unico('Qual o melhor mouse da Razer?', ['Razer']) === false || 'marca sozinha não é um produto',
+        unico('Bose QC 20 ou Sony WF-1000XM5?', ['Bose QC 20', 'Sony WF-1000XM5']) === false || 'duas opções já têm o caminho da comparação',
+      ];
+    },
+  },
 ];

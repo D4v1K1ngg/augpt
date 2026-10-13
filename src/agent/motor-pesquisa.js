@@ -908,6 +908,21 @@ function mencionaNome(trechoNormalizado, nome) {
   return tokens.every((t) => palavras.has(t));
 }
 
+const PEDE_OUTRAS_OPCOES = /\b(alternativ|parecid|similar|substitu|concorrent|melhor(es)? (do )?que|em vez d|no lugar d)/;
+/**
+ * O plano do modelo citou UMA opção e ela é um produto escrito no pedido? Então
+ * o pedido é sobre aquele produto (avaliar, descrever), não sobre a categoria.
+ * ponytail: nome sem dígito precisa de 2+ palavras e nenhuma de categoria
+ * ("fone gamer" não passa; marca sozinha, "Razer", também não).
+ */
+function produtoUnicoDoPedido(objetivo, opcoes) {
+  if (!Array.isArray(opcoes) || opcoes.length !== 1) return false;
+  const pedido = normalizar(objetivo);
+  const nome = normalizar(opcoes[0]);
+  if (PEDE_OUTRAS_OPCOES.test(pedido) || !mencionaNome(pedido, opcoes[0])) return false;
+  return /\d/.test(nome) ? nome.length >= 3 : nome.split(' ').length >= 2 && !OBJETO_PRODUTO.test(nome);
+}
+
 function dominioDe(entrada) {
   try {
     return new URL(entrada.url).hostname.replace(/^www\./, '');
@@ -3252,8 +3267,12 @@ async function executarPesquisaPlanejada({ objetivo, nivel = 'leve', chamarModel
   // revisão v4: nomes que o USUÁRIO escreveu (parênteses/aspas) mandam — o plano
   // do modelo não troca nem completa a lista. Um nome só = avaliar aquele produto.
   const nomeados = produtosNomeados(objetivo);
-  const avaliacao = nomeados.length === 1;
   if (nomeados.length) plano.opcoesCitadas = nomeados;
+  // uso real de 12/10 ("fone bose qc 20", "Bose qc 20", "O bose qc 20 é bom para
+  // pubg?"): o plano do modelo listava o produto do pedido e o código jogava fora
+  // por ser um só — a pesquisa ia descobrir "melhores fones" e recomendava outro.
+  // Quem entende o pedido é o modelo; o código só confere que o nome está no pedido.
+  const avaliacao = nomeados.length === 1 || produtoUnicoDoPedido(objetivo, plano.opcoesCitadas);
   emitir('pesquisa-plano', {
     uso: plano.uso,
     criterios: plano.criterios.map(({ nome, peso }) => ({ nome, peso })),
@@ -3641,6 +3660,7 @@ module.exports = {
   pareceNomeDeProduto,
   escolherFinalistas,
   mencionaNome,
+  produtoUnicoDoPedido,
   rotuloDaCategoria,
   normalizarTexto: normalizar,
   consultaDeFinalista,
