@@ -143,6 +143,10 @@ const DEFAULTS = {
   // TETO: o AUTO só desliga etapas, nunca liga o que você desligou.
   // false = toda pergunta passa pelo pipeline completo, como antes.
   modoAuto: true,
+  // botão "Resposta direta" da tela do agente (13/10): todo pedido que não
+  // mexe em arquivo nem em site vai pelo nível 1 (busca rápida + resposta),
+  // sem a pesquisa profunda. false = o AUTO escolhe o nível.
+  respostaDireta: false,
   // modelos por nível (vazio = modelo principal). O rápido escreve os níveis
   // 0 e 1; o profundo, a redação do nível 3.
   autoModeloRapido: '',

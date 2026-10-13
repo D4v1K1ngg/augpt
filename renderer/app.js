@@ -1849,6 +1849,7 @@ async function carregarConfig() {
   el.autonomia.value = config.autonomy;
   $('nivelRaciocinio').value = config.nivelRaciocinio || 'leve';
   $('modoResposta').value = config.modoResposta || 'normal';
+  pintarModoDoAgente();
   el.max.textContent = config.maxIterations;
   el.caminho.textContent = config.workspace || '—';
   el.caminho.title = config.workspace || '';
@@ -2968,6 +2969,17 @@ el.autonomia.addEventListener('change', async () => {
   // de segurança) — se o usuário cancelar lá, o valor salvo continua o
   // anterior e o seletor precisa voltar pra ele.
   el.autonomia.value = config.autonomy;
+});
+
+// Automático × Resposta direta (tela inicial do agente)
+function pintarModoDoAgente() {
+  for (const b of $('modoDoAgente').querySelectorAll('button')) b.classList.toggle('ativo', (b.dataset.direta === '1') === (config.respostaDireta === true));
+}
+$('modoDoAgente').addEventListener('click', async (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  config = await api.config.set({ respostaDireta: b.dataset.direta === '1' });
+  pintarModoDoAgente();
 });
 
 $('modoResposta').addEventListener('change', async (e) => {

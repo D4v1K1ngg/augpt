@@ -250,4 +250,23 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'v7 (13/10): botão "Resposta direta" — com respostaDireta ligado, um pedido de produto (que iria para a pesquisa profunda) é respondido pelo caminho rápido do nível 1, sem o laço',
+    tipo: 'unidade',
+    async executar() {
+      const deps = {
+        buscar: async () => ({ provedor: 'falso', resultados: [{ titulo: 'Dunu Titan S review', url: 'https://exemplo.com/titan', resumo: 'O Dunu Titan S é um fone intra-auricular com driver dinâmico de 11 mm.' }] }),
+        wikipedia: async () => null,
+        ler: async () => ({ texto: 'O Dunu Titan S é um fone intra-auricular com driver dinâmico de 11 mm e som neutro. '.repeat(8), url: 'https://exemplo.com/titan' }),
+        escrever: async () => ({ content: 'O Dunu Titan S é um fone intra-auricular com driver dinâmico de 11 mm e som neutro.' }),
+      };
+      const caso = (config) => executarCasoAgente({ nome: 'v7 resposta direta', pedido: 'fone dunu titan s vale a pena comprar?', config: { modoAuto: true, ...config }, depsRespostaRapida: deps, roteiro: [{ ferramenta: 'responder', argumentos: { foco: 'fone' } }], redacao: 'Resposta do laço.' });
+      const direta = await caso({ respostaDireta: true });
+      return [
+        direta.passos === 0 || `com o botão ligado responde sem o laço (passos: ${direta.passos})`,
+        /Dunu Titan S é um fone intra-auricular/.test(direta.resposta) || `resposta do caminho rápido: ${String(direta.resposta).slice(0, 120)}`,
+        direta.registro?.auto?.nivel === 1 || `nível registrado: ${JSON.stringify(direta.registro?.auto)}`,
+      ];
+    },
+  },
 ];

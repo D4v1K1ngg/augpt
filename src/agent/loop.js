@@ -1622,7 +1622,11 @@ class Agent extends EventEmitter {
         multiplas: (verificador.perguntasMultiplas(objetivo) || []).length || 1,
         precisaPlanejamento: classificacao.precisaPlanejamento,
       });
-      if (nivel.nivel === 1) {
+      // o usuário escolheu "Resposta direta": nível 1 para tudo que não precisa
+      // das ferramentas do laço (arquivo, pasta, site)
+      const direta = this.config.respostaDireta === true && nivel.nivel >= 2 && !['local', 'site'].includes(tipoDoPedido(objetivo).tipo);
+      if (direta) nivel = { nivel: 1, nome: auto.NOMES[1], motivo: 'resposta direta escolhida por você' };
+      if (nivel.nivel === 1 && !direta) {
         let itens = [];
         try {
           itens = new Memory({ dir: path.join(new Sandbox(this.config.workspace).root, '.augpt'), config: this.config }).items;

@@ -235,6 +235,10 @@
       <div class="conversa-abertura" id="agenteAbertura">
         <h1>O que você precisa?</h1>
         <p>Peça e o agente decide os passos sozinho: pesquisa, lê páginas e documentos, cria arquivos, roda comandos. Cada decisão fica registrada e você pode abrir o raciocínio a qualquer momento.</p>
+        <div class="modo-do-agente" id="modoDoAgente" role="group" aria-label="Como o agente responde">
+          <button type="button" data-direta="0" title="O agente escolhe sozinho o quanto pesquisar, conforme o pedido">Automático</button>
+          <button type="button" data-direta="1" title="Uma busca rápida e a resposta em segundos, sem a pesquisa profunda">Resposta direta</button>
+        </div>
         <!-- Fase 2 (facilidade de uso, 2026-09-23): guia de primeira execução.
              Só aparece enquanto falta algo (Ollama, ou um modelo de conversa) —
              ver atualizarPrimeiroUso() em app.js e src/primeiro-uso.js. -->
