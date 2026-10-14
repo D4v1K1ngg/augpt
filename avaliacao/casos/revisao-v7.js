@@ -280,4 +280,16 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'v7 (14/10): tipo de produto + marca/modelo ENTRA no motor de pesquisa (a regra dizia produto, mas o portão do motor pedia aspas ou palavra de escolha — o Dunu ia para o laço comum)',
+    tipo: 'unidade',
+    executar() {
+      const m = require('../../src/agent/motor-pesquisa');
+      const modo = (p) => m.modoDaPesquisa(p, { rota: tipoDoPedido(p) });
+      return [
+        modo('fone de ouvido dunu titan s') === 'recomendacao' && modo('fone bose qc 20') === 'recomendacao' || 'produto + modelo entra no motor',
+        modo('fone barato') === null && modo('como limpar fone de ouvido') === null || 'sem modelo, nada muda',
+      ];
+    },
+  },
 ];

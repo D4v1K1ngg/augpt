@@ -1925,7 +1925,7 @@ buscas de descoberta:
         /drivers de 8,6 mm/.test(c.motivo?.texto || '') || `motivo não pode ser linha de vitrine: ${JSON.stringify(c.motivo)}`,
         /^### Lista das 3 opções/.test(lista) || lista.split('\n')[0],
         // Etapa B: respaldo com palavras honestas (tópicos que recomendam primeiro)
-        /1\. \*\*A1\*\* — recomendada em 2 tópicos da comunidade, citada em 3 sites; comparada na tabela acima — "great for footsteps" \(reddit\.com\)/.test(lista) || lista,
+        /1\. \*\*A1\*\* — recomendada em 2 tópicos da comunidade, citada em 3 sites; comparada na tabela acima — citado em reddit\.com$/m.test(lista) && !/great for footsteps/.test(lista) || lista, // 14/10: sem comentário colado
         /3\. \*\*C3\*\* — citada em 1 site; não pesquisada a fundo/.test(lista) || lista,
         /Achei 3 opções com respaldo no material, não 10/.test(lista) || 'deveria dizer que achou menos que o pedido',
         m.listaNumerada({ finalistas: [f('A1', 3, 2)], quantidade: 0 }) === '' || 'sem "top N", sem lista',

@@ -121,13 +121,17 @@ function modoDaPesquisa(objetivo, { rota = null } = {}) {
   // pros de valorant usam de mouse" não são 'produto' pelo objeto, mas têm
   // caminho próprio — só explicação e arquivo saem do motor; o resto segue a
   // cadeia de sempre (desempenho → uso profissional → recomendação).
-  const tipo = tipoDoPedido(objetivo).tipo;
+  const regra = tipoDoPedido(objetivo);
+  const tipo = regra.tipo;
   if (tipo === 'guia') return 'guia';
   if (tipo === 'explicacao' || tipo === 'local') return null;
   if (desempenho.ehPedidoDeDesempenho(objetivo)) return 'desempenho';
   if (usoPro.ehPedidoDeUsoProfissional(objetivo)) return 'uso-profissional';
   // revisão v4: avaliar/comparar produto que o usuário nomeou (Kinera, Bose × QC 20)
   if (tipo === 'produto' && produtosNomeados(objetivo).length) return 'recomendacao';
+  // 14/10: "fone de ouvido dunu titan s" — tipo + marca/modelo, sem palavra de
+  // escolha: entra no motor (o entendimento do pedido decide o caminho lá dentro)
+  if (tipo === 'produto' && regra.motivo === 'tipo de produto + marca/modelo') return 'recomendacao';
   return ehPedidoDeRecomendacaoSimples(texto) ? 'recomendacao' : null;
 }
 
@@ -2803,12 +2807,14 @@ function listaNumerada({ finalistas = [], outros = [], quantidade = 0 }) {
   if (!quantidade || quantidade < 3) return '';
   const linha = (c, i, comparada) => {
     const onde = respaldoDe(c);
-    // comentário de usuário que recomenda (com votos) vale mais que o motivo de site
+    // 14/10: a fonte de quem recomenda, sem colar o comentário (o Davi pediu
+    // explicação, não comentário jogado na tela); a fonte vira link
     const cit = (c.consenso?.citacoes || []).find((x) => x.tom === 'recomenda');
+    const fonte = (nome, url) => (url ? `[${nome}](${url})` : nome);
     const motivo = cit
-      ? ` — "${cit.texto.slice(0, 160)}" (${cit.fonte}${cit.votos ? `, ${cit.votos} votos` : ''})`
-      : c.consenso?.motivo?.texto
-        ? ` — "${c.consenso.motivo.texto.slice(0, 140)}" (${c.consenso.motivo.dominio})`
+      ? ` — indicado por quem usa em ${fonte(cit.fonte, cit.url)}${cit.votos ? ` (${cit.votos} votos)` : ''}`
+      : c.consenso?.motivo?.dominio
+        ? ` — citado em ${c.consenso.motivo.dominio}`
         : '';
     return `${i}. **${c.nome}** — ${onde}${comparada ? '; comparada na tabela acima' : '; não pesquisada a fundo'}${motivo}`;
   };

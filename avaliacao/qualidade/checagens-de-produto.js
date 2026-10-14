@@ -50,6 +50,8 @@ function frasesRepetidas(resposta, { limite = 0.6 } = {}) {
     const nome = normalizar(b.split('\n')[0]);
     return String(b)
       .replace(/^>.*$/gm, '')
+      // link de fonte não é texto: "[(3)](https://reddit…)" igual em dois cartões não é frase repetida
+      .replace(/\[[^\]]*\]\([^)]*\)/g, ' ')
       .split(/(?<=[.!?])\s+|\n+/)
       .map((f) => normalizar(f).replace(nome, ' '))
       .filter((f) => f.split(' ').length >= 8 && !FRASE_DO_CODIGO.test(f))
