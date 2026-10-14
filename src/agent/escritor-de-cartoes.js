@@ -45,28 +45,28 @@ const normalizar = (t) =>
  */
 function pedidoDoCartao({ objetivo, uso = '', categoria = '', criterios = [], dossie, evitar = [] }) {
   const nome = dossie.nome;
-  const doUso = uso ? `em ${uso}` : 'no dia a dia';
-  return `Você escreve o cartão de UM produto numa resposta para o usuário. Use SÓ o material abaixo — é o que a pesquisa achou sobre o ${nome}.
+  const doUso = uso ? `para ${uso}` : 'no dia a dia';
+  // 14/10 (2ª versão, combinada com o Davi): instrução curta + UM exemplo, no
+  // lugar da lista de regras — o 7B imita um exemplo melhor do que obedece
+  // proibições, e a 1ª versão (6 regras + formato rígido) teve 3 de 5 cartões
+  // descartados. O exemplo é de outra categoria de propósito (não vaza dado).
+  return `Escreva, em português, a parte da resposta sobre o ${nome}, com base no material abaixo.
 
-PEDIDO DO USUÁRIO: ${String(objetivo).slice(0, 300)}
-${uso ? `USO: ${uso}\n` : ''}${categoria ? `TIPO DE PRODUTO: ${categoria}\n` : ''}${criterios.length ? `O QUE IMPORTA NESSE USO:\n${criterios.slice(0, 6).map((k) => `- ${k.nome}${k.porque ? `: ${k.porque}` : ''}`).join('\n')}\n` : ''}
-PRODUTO: ${nome}
-MATERIAL SOBRE O ${nome.toUpperCase()} (o número no começo de cada linha é a fonte):
+Pedido do usuário: ${String(objetivo).slice(0, 300)}${uso ? `\nUso: ${uso}` : ''}${categoria ? `\nTipo de produto: ${categoria}` : ''}${criterios.length ? `\nO que importa nesse uso: ${criterios.slice(0, 6).map((k) => k.nome).join(', ')}` : ''}
+
+Material sobre o ${nome} (o número no começo da linha é a fonte):
 ${textoDoDossie(dossie)}
 
-REGRAS:
-- Escreva com as SUAS palavras, em português claro e bem redigido. NÃO copie frases dos comentários e NÃO use aspas: diga o que quem usa relata.
-- Dado concreto (número, medida, característica técnica) leva o número da fonte no fim da frase, assim: [3].
-- Na primeira vez que usar um termo técnico (por exemplo palco sonoro, driver, impedância, DPI, sensor, taxa de atualização, painel IPS), explique entre parênteses, em poucas palavras, o que ele significa.
-- Não invente: o que o material não diz, você não escreve. Sem ponto fraco no material, escreva exatamente: o material não trouxe pontos fracos.
-- Fale só do ${nome}; não cite outros produtos.${evitar.length ? `\n- NÃO repita estas frases (já foram usadas ou foram copiadas):\n${evitar.slice(0, 6).map((f) => `  - ${String(f).slice(0, 160)}`).join('\n')}` : ''}
+Conte com as suas palavras o que o material diz: o que o produto é, como ele se sai ${doUso}, o que tem de bom e de ruim, e para quem serve. Ponha o número da fonte no fim da frase que traz um dado, assim: [3]. Quando usar um termo técnico que um leigo não conhece, explique entre parênteses. Escreva só o que o material sustenta e fale só do ${nome}.${evitar.length ? `\nNão repita estas frases, que já aparecem em outras partes da resposta: ${evitar.slice(0, 4).map((f) => `"${String(f).slice(0, 120)}"`).join('; ')}` : ''}
 
-Responda EXATAMENTE nestas 5 linhas, sem título e sem mais nada:
-O QUE É: <1 ou 2 frases: que tipo de produto é e o que ele tem de principal>
-NO USO: <2 ou 3 frases: como ele se sai ${doUso}, ligando ao que importa${uso ? ' nesse uso' : ''}>
-PONTOS FORTES: <2 frases>
-PONTOS FRACOS: <1 ou 2 frases>
-PARA QUEM: <1 frase: para quem ele faz mais sentido>`;
+Exemplo do formato, com outro produto (só para mostrar o jeito de escrever):
+O QUE É: O Logitech G305 é um mouse sem fio de 99 g [1], com sensor HERO (a peça que lê o movimento do mouse) de até 12.000 DPI (pontos por polegada: quanto mais, mais sensível) [2].
+NO USO: Em jogos de tiro, quem usa elogia a pegada firme e diz não sentir atraso no sem fio [4]. A pilha AA deixa o mouse um pouco mais pesado na frente, o que alguns jogadores estranham no começo [5].
+PONTOS FORTES: Leve e preciso pelo preço [2], com pilha que dura meses [3].
+PONTOS FRACOS: Não tem bateria recarregável e o formato é pequeno para mão grande [5].
+PARA QUEM: Para quem quer um mouse sem fio confiável gastando pouco.
+
+Agora escreva o do ${nome}, nas mesmas 5 linhas:`;
 }
 
 /** Lê os 5 campos (tolerante a negrito, acento, campo em mais de uma linha). */
@@ -86,6 +86,18 @@ function lerCartao(texto) {
     }
   }
   for (const k of Object.keys(cartao)) cartao[k] = cartao[k].replace(/^["“<]+|[">”]+$/g, '').replace(/\s+/g, ' ').trim();
+  // sem os rótulos (o modelo escreveu em parágrafos, com títulos): o texto
+  // inteiro vale como "no uso" — corrigir, não descartar
+  if (!Object.keys(cartao).length) {
+    const corrido = String(texto || '')
+      .split('\n')
+      .map((l) => l.replace(/\*\*/g, '').trim())
+      .filter((l) => l && !/^#{1,6}\s|^(agora|exemplo)\b/i.test(l))
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (frasesDe(corrido).length >= 2) cartao.noUso = corrido;
+  }
   return cartao;
 }
 
@@ -117,46 +129,52 @@ function trechoCopiado(texto, comentarios) {
   return null;
 }
 
+// "12.000", "12,000" e "12000" são o mesmo número; "3,5" e "3.5" também
+const numerosDe = (t) =>
+  (String(t || '').match(/\d{1,3}(?:[.,]\d{3})+(?![\d])|\d+(?:[.,]\d+)?/g) || []).map((n) => (/^\d{1,3}([.,]\d{3})+$/.test(n) ? n.replace(/[.,]/g, '') : n.replace(',', '.')));
+
 /**
- * Confere um cartão. Devolve o cartão limpo (frases com número inventado e
- * marcas de fonte inválidas saem) e os problemas que pedem reescrita.
+ * Confere um cartão CORRIGINDO, não rejeitando (14/10, 2ª versão): frase com
+ * número que o material não tem, cópia de comentário ou frase igual à de
+ * outro cartão sai; marca de fonte inválida sai; o resto do texto do modelo
+ * fica. Só pede reescrita quando não sobra texto (menos de 2 frases).
  * @param {object} cartao   saída de lerCartao
  * @param {object} o
  * @param {{nome, itens}} o.dossie
  * @param {string[]} o.outros  frases dos cartões já escritos
+ * @returns {{ cartao, problemas: string[], removidas: Array<{frase, motivo}>, evitar: string[] }}
  */
 function conferirCartao(cartao, { dossie, outros = [] }) {
   const material = `${dossie.nome} ${dossie.itens.map((i) => i.texto).join(' ')}`;
-  const permitidos = new Set((material.match(/\d+(?:[.,]\d+)?/g) || []).map((n) => n.replace(',', '.')));
+  const permitidos = new Set(numerosDe(material));
   const fontes = new Set(dossie.itens.map((i) => i.n).filter(Boolean));
   const comentarios = dossie.itens.filter((i) => i.tipo === 'comunidade').map((i) => i.texto);
-  const problemas = [];
-  const evitar = [];
+  const removidas = [];
   const limpo = {};
+  let total = 0;
   for (const { chave } of CAMPOS) {
     const frases = [];
     for (let f of frasesDe(cartao[chave])) {
       // marca de fonte que não existe neste dossiê sai (o número da frase fica)
       f = f.replace(/\[(\d+)\]/g, (m, n) => (fontes.has(Number(n)) ? m : '')).replace(/\s+([.,;])/g, '$1').trim();
-      const nums = (f.replace(/\[\d+\]/g, '').match(/\d+(?:[.,]\d+)?/g) || []).map((n) => n.replace(',', '.'));
-      if (nums.some((n) => !permitidos.has(n) && !/^\d$/.test(n))) continue; // número que o material não tem
-      const copiado = trechoCopiado(f, comentarios);
-      if (copiado) {
-        problemas.push('copiou um comentário');
-        evitar.push(f);
-        continue;
-      }
-      if (outros.some((o) => parecidas(f, o))) {
-        problemas.push('frase igual à de outro cartão');
-        evitar.push(f);
+      const nums = numerosDe(f.replace(/\[\d+\]/g, ''));
+      let motivo = null;
+      if (nums.some((n) => !permitidos.has(n) && !/^\d$/.test(n))) motivo = 'número que o material não tem';
+      else if (trechoCopiado(f, comentarios)) motivo = 'copiou um comentário';
+      else if (outros.some((o) => parecidas(f, o))) motivo = 'frase igual à de outro cartão';
+      if (motivo) {
+        removidas.push({ frase: f, motivo });
         continue;
       }
       frases.push(f);
     }
-    if (frases.length) limpo[chave] = frases.join(' ');
+    if (frases.length) {
+      limpo[chave] = frases.join(' ');
+      total += frases.length;
+    }
   }
-  if (!limpo.oQueE || !limpo.fortes) problemas.push('faltou o que é ou os pontos fortes');
-  return { cartao: limpo, problemas: [...new Set(problemas)], evitar };
+  const problemas = total < 2 ? ['sobrou texto de menos'] : [];
+  return { cartao: limpo, problemas, removidas, evitar: removidas.filter((r) => r.motivo !== 'número que o material não tem').map((r) => r.frase) };
 }
 
 /** "[3]" → "[(3)](url)", o link para a fonte (renderer/md.js desenha o link). */
@@ -184,17 +202,16 @@ async function escreverCartoes({ dossies, contexto, chamar, paralelo = 2, aviso 
         return;
       }
       const r = conferirCartao(lerCartao(texto), { dossie, outros: frasesProntas() });
+      if (r.removidas.length) aviso(`cartão do ${dossie.nome}: ${r.removidas.length} frase(s) tirada(s) (${[...new Set(r.removidas.map((x) => x.motivo))].join(', ')})`);
       if (!r.problemas.length) {
         prontos.set(dossie.nome, r.cartao);
         return;
       }
-      if (tentativa === 1) aviso(`cartão do ${dossie.nome}: ${r.problemas.join(', ')} — reescrevendo`);
       if (tentativa === 2) {
-        // ficou o que passou, se o essencial passou
-        if (r.cartao.oQueE && r.cartao.fortes) prontos.set(dossie.nome, r.cartao);
-        else aviso(`cartão do ${dossie.nome}: ${r.problemas.join(', ')} — fica o texto feito pelo código`);
+        aviso(`cartão do ${dossie.nome}: ${r.problemas.join(', ')} — fica o texto feito pelo código`);
         return;
       }
+      aviso(`cartão do ${dossie.nome}: ${r.problemas.join(', ')} — reescrevendo`);
       evitar = r.evitar;
     }
   };

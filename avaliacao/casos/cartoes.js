@@ -46,7 +46,7 @@ module.exports = [
     },
   },
   {
-    nome: 'cartões: leitura dos 5 campos (negrito, acento, campo em duas linhas) e conferência — número fora do material e fonte inexistente saem; cópia de comentário e frase de outro cartão pedem reescrita',
+    nome: 'cartões: leitura dos 5 campos (negrito, acento, campo em duas linhas) e conferência — número fora do material e fonte inexistente saem; cópia de comentário e frase de outro cartão saem e o resto do cartão fica',
     tipo: 'unidade',
     executar() {
       const dossie = dossieDoProduto('Dunu Titan S', { entradas: ENTRADAS });
@@ -61,13 +61,16 @@ module.exports = [
         bom.problemas.length === 0 && Object.keys(bom.cartao).length === 5 || `cartão bom: ${JSON.stringify(bom.problemas)}`,
         !/999/.test(inventado.cartao.oQueE) && /11 mm/.test(inventado.cartao.oQueE) || 'frase com número inventado sai, o resto fica',
         !/\[9\]/.test(inventado.cartao.fracos || '') || 'marca de fonte inexistente sai',
-        copia.problemas.includes('copiou um comentário') && copia.evitar.length === 1 || `cópia: ${JSON.stringify(copia.problemas)}`,
-        repetida.problemas.includes('frase igual à de outro cartão') && !repetida.cartao.paraQuem || 'frase igual à de outro cartão',
+        // 14/10, 2ª versão: corrige, não rejeita — a frase ruim sai, o resto do cartão fica
+        copia.removidas.some((x) => x.motivo === 'copiou um comentário') && !copia.cartao.fracos && copia.cartao.oQueE && copia.problemas.length === 0 || `cópia: ${JSON.stringify(copia.removidas)}`,
+        repetida.removidas.some((x) => x.motivo === 'frase igual à de outro cartão') && !repetida.cartao.paraQuem && Object.keys(repetida.cartao).length === 4 || 'frase igual à de outro cartão sai, o resto fica',
+        escritor.lerCartao('### Sobre o Dunu\nO Dunu Titan S é um fone neutro [2]. Quem usa elogia o palco [3].').noUso === 'O Dunu Titan S é um fone neutro [2]. Quem usa elogia o palco [3].' || 'sem os rótulos, o texto corrido é aproveitado',
+        Boolean(escritor.conferirCartao({ oQueE: 'Tem sensor de 12.000 DPI [1].', fortes: 'É leve [1].' }, { dossie: { nome: 'G305', itens: [{ texto: 'sensor de até 12000 DPI', n: 1, url: 'u', tipo: 'ficha' }] } }).cartao.oQueE) || '"12.000" e "12000" são o mesmo número',
       ];
     },
   },
   {
-    nome: 'cartões: escrita com reescrita — o 2º cartão repete o 1º, é reescrito com a lista do que evitar; produto com material de menos não ganha cartão; chamada que falha não derruba a resposta',
+    nome: 'cartões: escrita — o 2º cartão só repete o 1º, sobra texto de menos e é reescrito com a lista do que evitar; produto com material de menos não ganha cartão; chamada que falha não derruba a resposta',
     tipo: 'unidade',
     async executar() {
       const a = { nome: 'Alfa X1', itens: [{ texto: 'O Alfa X1 tem driver de 10 mm.', n: 1, url: 'https://a.com', tipo: 'ficha' }, { texto: 'O Alfa X1 tem grave forte.', n: 2, url: 'https://b.com', tipo: 'review' }] };
@@ -81,8 +84,9 @@ module.exports = [
         paralelo: 1,
         chamar: async (prompt) => {
           pedidos.push(prompt);
-          if (/PRODUTO: Alfa X1/.test(prompt)) return `O QUE É: Fone com driver de 10 mm [1].\nPONTOS FORTES: Grave forte [2].\n${igual}`;
-          if (pedidos.length === 2) return `O QUE É: Fone com driver de 8 mm [3].\nPONTOS FORTES: É leve [4].\n${igual}`;
+          if (/sobre o Alfa X1, com base/.test(prompt)) return `O QUE É: Fone com driver de 10 mm [1].\nPONTOS FORTES: Grave forte [2].\n${igual}`;
+          // 1ª resposta do Beta: só a frase repetida (sobra texto de menos → reescreve); a 2ª é boa
+          if (pedidos.length === 2) return igual;
           return 'O QUE É: Fone com driver de 8 mm [3].\nPONTOS FORTES: É leve [4].\nPARA QUEM: Para quem viaja.';
         },
       });
@@ -90,8 +94,9 @@ module.exports = [
       return [
         r.size === 2 && r.has('Alfa X1') && r.has('Beta Y2') && !r.has('Gama Z3') || `cartões: ${[...r.keys()]}`,
         pedidos.length === 3 || `chamadas: ${pedidos.length} (Alfa, Beta, Beta reescrito)`,
-        /NÃO repita estas frases/.test(pedidos[2]) && /conforto por muitas horas/.test(pedidos[2]) || 'a reescrita diz o que evitar',
+        /Não repita estas frases/.test(pedidos[2]) && /conforto por muitas horas/.test(pedidos[2]) || 'a reescrita diz o que evitar',
         r.get('Beta Y2').paraQuem === 'Para quem viaja.' || `Beta reescrito: ${JSON.stringify(r.get('Beta Y2'))}`,
+        /Exemplo do formato, com outro produto/.test(pedidos[0]) && pedidos[0].length < 3000 || 'o pedido é curto e traz um exemplo',
         falhou.size === 0 || 'chamada que falha: sem cartão, sem exceção',
       ];
     },
