@@ -269,4 +269,15 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'v7 (14/10): tipo de produto + marca/modelo é pedido de produto pela REGRA — com o modelo de decisão ocupado (timeout), "fone bose qc 20" caía em pedido geral',
+    tipo: 'unidade',
+    executar() {
+      const tipo = (p) => tipoDoPedido(p).tipo;
+      return [
+        ['fone bose qc 20', 'Fone de ouvido bose qc 20', 'fone de ouvido dunu titan s', 'pesquise o mouse attack shark x11', 'monitor lg 27gs75q'].every((p) => tipo(p) === 'produto') || 'produto + modelo',
+        ['fone barato', 'fone de ouvido bom', 'como limpar fone de ouvido', 'me fala do fone', 'mouse'].every((p) => tipo(p) !== 'produto') || 'sem modelo não muda',
+      ];
+    },
+  },
 ];

@@ -188,6 +188,7 @@ async function escreverCartoes({ dossies, contexto, chamar, paralelo = 2, aviso 
         prontos.set(dossie.nome, r.cartao);
         return;
       }
+      if (tentativa === 1) aviso(`cartão do ${dossie.nome}: ${r.problemas.join(', ')} — reescrevendo`);
       if (tentativa === 2) {
         // ficou o que passou, se o essencial passou
         if (r.cartao.oQueE && r.cartao.fortes) prontos.set(dossie.nome, r.cartao);

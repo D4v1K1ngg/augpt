@@ -145,6 +145,24 @@ function nomesDepoisDoEntre(original) {
 const NAO_E_PRODUTO =
   /^(ate|até|obs|ex|exemplo|tipo|ou seja|por exemplo|mais ou menos|cerca de|uns|umas|max|min)\b|(r\$|us\$|\$|€|\breais\b|\bdolares\b|\b\d+\s?(gb|tb|mb|hz|khz|mhz|ghz|ohms?|ω|mm|cm|m|pol|polegadas?|w|mah|v|fps|ms|db|k)\b)/i;
 const NAO_E_NOME = /\b(eu|voce|vc|jogo|jogar|tenho|uso|usar|meu|minha|que|para|pra|com|quando|porque|como|nao|sim|esse|essa|isso|fontes?)\b/i;
+/**
+ * Pedido curto que é o tipo de produto seguido do nome: depois da palavra de
+ * produto sobram 1+ palavras com dígito ("qc 20", "x11") ou 2+ palavras
+ * ("dunu titan s"). "fone barato" e "fone de ouvido bom" não contam.
+ */
+function produtoComModelo(t) {
+  const palavras = t.split(' ');
+  if (palavras.length > 8) return false;
+  const m = OBJETO_PRODUTO.exec(t);
+  if (!m) return false;
+  const resto = t
+    .slice(m.index + m[0].length)
+    .replace(/^\s*(de ouvido|gamer|sem fio|bluetooth|de mesa)\b/, '')
+    .split(' ')
+    .filter((p) => p && !/^(o|a|os|as|de|do|da|um|uma|bom|boa|barato|barata|melhor|caro|novo|nova)$/.test(p));
+  return resto.some((p) => /\d/.test(p)) || resto.length >= 2;
+}
+
 function produtosNomeados(objetivo) {
   const texto = String(objetivo || '');
   const credenciais = /\b(login|senha|password|usuario|usuário|matr[ií]cula|cpf|token|pin)\b/i;
@@ -246,6 +264,11 @@ function tipoDoPedido(objetivo) {
   // com o motor, como antes — só técnica (guia) e conceito (explicação) saem dele
   if (escolha) return { tipo: 'produto', motivo: 'escolha entre opções' };
   if (produto && /\b(qual|quais)\b/.test(t)) return { tipo: 'produto', motivo: 'pergunta sobre produto' };
+  // 14/10: "fone bose qc 20", "fone de ouvido dunu titan s", "pesquise o mouse
+  // attack shark x11" — tipo de produto + marca/modelo, sem mais nada. Com o
+  // modelo de decisão ocupado (timeout), isto caía em "livre" e o pedido não
+  // passava pela pesquisa de produto.
+  if (produto && !explicacao && !dev && produtoComModelo(t)) return { tipo: 'produto', motivo: 'tipo de produto + marca/modelo' };
   return { tipo: 'livre', motivo: 'nenhuma regra específica' };
 }
 
