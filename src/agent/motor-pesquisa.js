@@ -586,7 +586,7 @@ function semPreposicaoPendurada(texto) {
 }
 
 function lerPlanoDePesquisa(texto, objetivo = '') {
-  const plano = { uso: '', criterios: [], opcoesCitadas: [], descoberta: [], buscaIngles: '' };
+  const plano = { uso: '', criterios: [], opcoesCitadas: [], descoberta: [], buscaIngles: '', comunidade: [] };
   let secao = null;
   for (const bruta of String(texto || '').split('\n')) {
     const linha = bruta.trim();
@@ -602,8 +602,9 @@ function lerPlanoDePesquisa(texto, objetivo = '') {
     }
     if (!ehItem && /^criterios?\b/.test(cab) && linha.length < 40) { secao = 'criterios'; continue; }
     if (!ehItem && /^opcoes?\s+citadas?/.test(cab)) { secao = 'opcoes'; continue; }
-    // antes do "buscas" genérico: "BUSCA EM INGLÊS" também começa com "busca"
+    // antes do "buscas" genérico: "BUSCA EM INGLÊS" e "BUSCAS NA COMUNIDADE" também começam com "busca"
     if (!ehItem && /^buscas?\s+em\s+ingles\b/.test(cab) && linha.length < 40) { secao = 'ingles'; continue; }
+    if (!ehItem && /^buscas?\s+na\s+comunidade\b/.test(cab) && linha.length < 40) { secao = 'comunidade'; continue; }
     if (!ehItem && /^buscas?\b/.test(cab) && linha.length < 40) { secao = 'descoberta'; continue; }
     if (!secao) continue;
 
@@ -633,6 +634,11 @@ function lerPlanoDePesquisa(texto, objetivo = '') {
       // só fica se veio do próprio pedido; sem ano, o buscador já prioriza o recente.
       const item2 = semPreposicaoPendurada(item.replace(/\b(19|20)\d\d\b/g, (ano) => (String(objetivo).includes(ano) ? ano : '')).replace(/\s+/g, ' ').trim());
       if (item2) plano.descoberta.push(item2);
+    } else if (secao === 'comunidade') {
+      // 14/10: buscas da comunidade escritas pelo modelo (antes: só moldes do
+      // código, como "best IEM for recommendation"); sem ano, sem "reddit"/"site:"
+      const q = semPreposicaoPendurada(item.replace(/\bsite:\S+/gi, '').replace(/\b(reddit|f[óo]rum)\b/gi, '').replace(/\b(19|20)\d\d\b/g, (ano) => (String(objetivo).includes(ano) ? ano : '')).replace(/["“”]/g, '').replace(/\s+/g, ' ').trim());
+      if (q.length >= 8 && q.length <= 90) plano.comunidade.push(q);
     } else if (secao === 'ingles' && !plano.buscaIngles) {
       // Fase C: assunto em inglês pro Reddit/Head-Fi — sem ano e sem o "reddit" (o site: já diz onde)
       plano.buscaIngles = semPreposicaoPendurada(item.replace(/\b(19|20)\d\d\b/g, '').replace(/\breddit\b/gi, '').replace(/\s+/g, ' ').trim().slice(0, 120));
@@ -645,6 +651,7 @@ function lerPlanoDePesquisa(texto, objetivo = '') {
   plano.buscaIngles = semRecursoPendurado(semCondicaoInventada(plano.buscaIngles, objetivo, { soPalavras: true }), objetivo);
   plano.opcoesCitadas = [...new Set(plano.opcoesCitadas.filter(Boolean))].slice(0, 6);
   plano.descoberta = [...new Map(plano.descoberta.map((d) => [normalizar(d), d])).values()].slice(0, 3);
+  plano.comunidade = [...new Map(plano.comunidade.map((d) => [normalizar(d), d])).values()].slice(0, 4);
   if (plano.criterios.length < 2) return null;
   if (!plano.uso) plano.uso = String(objetivo).slice(0, 200);
   // sem busca de descoberta legível: o próprio pedido serve de primeira busca
@@ -1912,11 +1919,26 @@ function assuntoDaComunidade(objetivo, cadeia = null) {
  * do Hardware e Adrenaline em português com variações. Categoria fora do
  * dicionário → lista vazia (o chamador usa a descoberta antiga).
  */
-function bateriaDaComunidade({ objetivo, cadeia = null, config = {}, maximo = 8 }) {
+function bateriaDaComunidade({ objetivo, cadeia = null, config = {}, maximo = 8, doModelo = [] }) {
   const { categoria, jogo, fps, jogando } = assuntoDaComunidade(objetivo, cadeia);
-  if (!categoria) return [];
   const ativas = new Set(fontesDaComunidade(config).map((f) => f.dominio));
   const tem = (d) => ativas.has(d);
+  // 14/10: as buscas que o MODELO escreveu no plano vêm primeiro; os moldes
+  // abaixo só completam. O código só confere que a busca é do assunto (tem
+  // palavra do pedido ou da categoria) e escolhe o fórum pela língua.
+  const doPedido = new Set(normalizar(`${objetivo} ${categoria ? [...categoria.en, ...categoria.pt].join(' ') : ''} ${cadeia?.produto || ''}`).split(' ').filter((p) => p.length >= 3));
+  const ingles = (q) => /\b(the|best|for|with|under|which|good|recommend\w*|budget)\b/i.test(q) && !/[ãõçáéíóúâêà]/i.test(q);
+  const forunsPt = ['clubedohardware.com.br', 'forum.adrenaline.com.br'].filter((d) => categoria && tem(d));
+  let vez = 0;
+  const domModelo = doModelo
+    .filter((q) => normalizar(q).split(' ').some((p) => doPedido.has(p)))
+    .map((q) => {
+      if (ingles(q) || !forunsPt.length) return tem('reddit.com') ? { consulta: `site:reddit.com ${q}`, idioma: 'all', dominio: 'reddit.com', doModelo: true } : null;
+      const dominio = forunsPt[vez++ % forunsPt.length];
+      return { consulta: `site:${dominio} ${q}`, idioma: 'pt-BR', dominio, doModelo: true };
+    })
+    .filter(Boolean);
+  if (!categoria) return domModelo.slice(0, maximo);
   const [en, en2] = categoria.en;
   const [pt, pt2] = categoria.pt;
   const usoEn = jogo ? jogo.en : fps ? 'FPS' : jogando ? 'gaming' : '';
@@ -1927,8 +1949,10 @@ function bateriaDaComunidade({ objetivo, cadeia = null, config = {}, maximo = 8 
   const r = (q) => ({ consulta: `site:reddit.com ${q}`.replace(/\s+/g, ' ').trim(), idioma: 'all', dominio: 'reddit.com' });
   const f = (dominio, q) => ({ consulta: `site:${dominio} ${q}`.replace(/\s+/g, ' ').trim(), idioma: 'pt-BR', dominio });
   const candidatas = [
+    ...domModelo,
     // uma de cada fonte primeiro (diversidade já na 1ª leva), depois os outros ângulos
-    tem('reddit.com') && r(`best ${en} for ${usoEn || 'recommendation'}`),
+    // "best IEM for recommendation" (sem uso) só quando o modelo não escreveu as buscas dele
+    tem('reddit.com') && (usoEn || !domModelo.length) && r(`best ${en} for ${usoEn || 'recommendation'}`),
     tem('clubedohardware.com.br') && f('clubedohardware.com.br', `${pt} ${usoPt}`),
     tem('forum.adrenaline.com.br') && f('forum.adrenaline.com.br', `${pt} ${usoPt}`),
     tem('reddit.com') && fps && r(`${en} for FPS ${tec}`),
@@ -1937,7 +1961,8 @@ function bateriaDaComunidade({ objetivo, cadeia = null, config = {}, maximo = 8 
     tem('reddit.com') && categoria.subsPt[0] && r(`r/${categoria.subsPt[0]} ${pt} ${usoPt || ''}`),
     tem('clubedohardware.com.br') && f('clubedohardware.com.br', `${pt2} ${jogo ? jogo.en : usoPt}`),
     tem('reddit.com') && categoria.subs[1] && r(`r/${categoria.subs[1]} ${en2} ${usoSub}`),
-    tem('head-fi.org') && categoria.audio && f('head-fi.org', `${en} gaming ${fps ? 'FPS' : ''}`),
+    // 14/10: era "IEM gaming" até num pedido de música
+    tem('head-fi.org') && categoria.audio && f('head-fi.org', `${en} ${jogando || fps ? `gaming ${fps ? 'FPS' : ''}` : 'recommendation'}`),
     tem('reddit.com') && categoria.subs[2] && r(`r/${categoria.subs[2]} ${en} ${usoSub}`),
   ].filter(Boolean);
   const vistas = new Set();
@@ -3409,7 +3434,7 @@ async function executarPesquisaPlanejada({ objetivo, nivel = 'leve', chamarModel
     // Reddit e de fórum listam o que quem usa recomenda, e por quê.
     // Etapa C (14º teste real): a bateria montada pelo código — várias buscas
     // por fonte, de ângulos diferentes — no lugar de uma por fórum
-    const bateria = bateriaDaComunidade({ objetivo, cadeia, config, maximo: 12 });
+    const bateria = bateriaDaComunidade({ objetivo, cadeia, config, maximo: 12, doModelo: plano.comunidade || [] });
     const primeiraLeva = bateria.length
       ? bateria.slice(0, orcamento.bateria || 2)
       : consultasDeDescobertaNaComunidade(plano, { config, maximo: orcamento.comunidade || 2 });

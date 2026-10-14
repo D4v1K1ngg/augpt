@@ -178,4 +178,24 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'plano (14/10): as buscas na comunidade são escritas pelo modelo no plano e vêm antes dos moldes do código — inglês vai para o Reddit, português para os fóruns; busca fora do assunto é descartada; sem categoria conhecida (geladeira), só as do modelo',
+    tipo: 'unidade',
+    executar() {
+      const m = require('../../src/agent/motor-pesquisa');
+      const plano = m.lerPlanoDePesquisa(
+        'USO: ouvir música\nCRITÉRIOS:\n- assinatura sonora | alto | sound signature\n- conforto | médio | comfort\nOPÇÕES CITADAS NO PEDIDO:\n- nenhuma\nBUSCAS DE DESCOBERTA:\n- melhores iems para música\nBUSCA EM INGLÊS:\n- best iem for music\nBUSCAS NA COMUNIDADE:\n- best IEM for music under 100 reddit\n- site:reddit.com IEM warm sound\n- fone intra auricular bom para música\n- fone intra auricular bom para música',
+        'Recomende 10 fones intra auriculares para ouvir musica'
+      );
+      const b = m.bateriaDaComunidade({ objetivo: 'Recomende 10 fones intra auriculares para ouvir musica', maximo: 12, doModelo: [...plano.comunidade, 'receita de bolo de cenoura'] }).map((q) => q.consulta);
+      const geladeira = m.bateriaDaComunidade({ objetivo: 'melhor geladeira frost free', doModelo: ['best frost free fridge brands', 'qual geladeira frost free comprar'] }).map((q) => q.consulta);
+      return [
+        plano.comunidade.join(' | ') === 'best IEM for music under 100 | IEM warm sound | fone intra auricular bom para música' || `lidas: ${plano.comunidade.join(' | ')}`,
+        b[0] === 'site:reddit.com best IEM for music under 100' && /^site:(clubedohardware|forum\.adrenaline)\.com\.br fone intra auricular bom para música$/.test(b[2]) || `ordem: ${b.slice(0, 3).join(' | ')}`,
+        !b.some((q) => /bolo/.test(q)) || 'busca fora do assunto sai',
+        !b.some((q) => /for recommendation|IEM gaming/.test(q)) || `molde sem uso não entra quando o modelo escreveu as buscas: ${b.join(' | ')}`,
+        geladeira.join(' | ') === 'site:reddit.com best frost free fridge brands | site:reddit.com qual geladeira frost free comprar' || `geladeira: ${geladeira.join(' | ')}`,
+      ];
+    },
+  },
 ];

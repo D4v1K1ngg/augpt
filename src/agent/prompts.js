@@ -853,6 +853,8 @@ BUSCAS DE DESCOBERTA:
 - <uma busca para descobrir quais opções especialistas e usuários recomendam para esse uso>
 BUSCA EM INGLÊS:
 - <a primeira busca de descoberta em inglês, do jeito que alguém perguntaria no Reddit>
+BUSCAS NA COMUNIDADE:
+- <2 a 4 buscas curtas, metade em inglês e metade em português, do jeito que alguém pergunta num fórum sobre ESSE pedido (sem "reddit" e sem "site:")>
 
 REGRAS:
 - O USO mantém o tipo de produto e as condições que o pedido deu (ex.: "intra-auricular", "para PC") e NADA além disso. Não acrescente condição que o pedido não disse — nem "sem fio", nem "com fio", nem orçamento, nem marca.
@@ -875,7 +877,12 @@ BUSCAS DE DESCOBERTA:
 - notebook para programar recomendação reddit
 - notebook programação review teste bateria
 BUSCA EM INGLÊS:
-- best laptop for programming and college`;
+- best laptop for programming and college
+BUSCAS NA COMUNIDADE:
+- best laptop for programming students under 1000
+- laptop for coding battery life recommendation
+- notebook bom para programar faculdade
+- qual notebook comprar para programação até 5 mil`;
 }
 
 /* ------------------------------------------------------------------
