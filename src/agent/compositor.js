@@ -189,7 +189,7 @@ PEDIDO: ${objetivo}
 TEMA: ${r.tema || ''}
 DICAS MAIS CITADAS (com quantas fontes):
 ${dicas.map((d, i) => `${i + 1}. ${d.texto} (${d.nFontes} fonte(s))`).join('\n')}
-${citacoes.length ? `\nCITAÇÕES EM INGLÊS (traduza cada uma, fiel e curta):\n${citacoes.map((c, i) => `C${i + 1}: "${curto(c.texto, 260)}"`).join('\n')}\n` : ''}
+${citacoes.length ? `\nCITAÇÕES EM INGLÊS (traduza cada uma, fiel e curta; nome de produto e de marca fica como está):\n${citacoes.map((c, i) => `C${i + 1}: "${curto(c.texto, 260)}"`).join('\n')}\n` : ''}
 Responda EXATAMENTE nestas linhas, sem mais nada:
 DIRETA: <2 ou 3 frases: o que mais se repete nessas dicas, como ideia central para ${r.tema || 'o tema'}>
 ${citacoes.map((_, i) => `C${i + 1}: <tradução>`).join('\n')}`.replace(/\n{3,}/g, '\n\n');
@@ -250,7 +250,7 @@ function pedidoDeFrases(r, objetivo) {
 PERGUNTA: ${objetivo}
 DADOS MEDIDOS: ${g ? `em jogos a ${B} é ${g.mediana >= 0 ? `${porcento(g.mediana)} mais rápida` : `${porcento(g.mediana)} mais lenta`} que a ${A} (mediana de ${g.n} resultados de ${g.fontes} fonte(s))` : 'não há medição de jogos com as duas placas'}.
 ${r.precos?.[A] && r.precos?.[B] ? `PREÇO OBSERVADO: ${A} R$ ${Math.round(r.precos[A].mediana)} · ${B} R$ ${Math.round(r.precos[B].mediana)}.` : ''}
-${citacoes.length ? `CITAÇÕES EM INGLÊS (traduza cada uma, fiel e curta):\n${citacoes.map((c, i) => `C${i + 1}: "${curto(c.texto, 260)}"`).join('\n')}` : ''}
+${citacoes.length ? `CITAÇÕES EM INGLÊS (traduza cada uma, fiel e curta; nome de produto e de marca fica como está):\n${citacoes.map((c, i) => `C${i + 1}: "${curto(c.texto, 260)}"`).join('\n')}` : ''}
 
 Responda EXATAMENTE nestas linhas, sem mais nada:
 PRATICA: <uma frase: o que essa diferença significa na prática, ex.: num jogo a 60 FPS numa, quanto na outra>
@@ -264,7 +264,7 @@ PEDIDO: ${objetivo}
 USO: ${r.plano?.uso || ''}
 OPÇÕES, NA ORDEM DA EVIDÊNCIA (a 1ª é a recomendada):
 ${finalistas.map((f, i) => `${i + 1}. ${f.nome} — ${fatosDoProduto(f, r)}`).join('\n')}
-${citacoes.length ? `\nCITAÇÕES EM INGLÊS (traduza cada uma, fiel e curta):\n${citacoes.map((c, i) => `C${i + 1}: "${curto(c.texto, 260)}"`).join('\n')}\n` : ''}
+${citacoes.length ? `\nCITAÇÕES EM INGLÊS (traduza cada uma, fiel e curta; nome de produto e de marca fica como está):\n${citacoes.map((c, i) => `C${i + 1}: "${curto(c.texto, 260)}"`).join('\n')}\n` : ''}
 Responda EXATAMENTE nestas linhas, sem mais nada:
 ${
     r.avaliacao

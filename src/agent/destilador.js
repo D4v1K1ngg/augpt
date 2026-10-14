@@ -83,7 +83,7 @@ REGRAS:
 - Nada de menu, rodapé, publicidade, "leia também", banner de cookies ou navegação.
 - Não interprete nem conclua: só registre o que o material afirma.
 - Se o material não tiver nada relevante ao pedido${foco ? ' nem ao foco' : ''}, escreva apenas a palavra NADA, uma única vez, e pare.
-- Escreva os fatos em português, mesmo que o material esteja em outra língua.
+- Escreva os fatos em português, mesmo que o material esteja em outra língua — mas nome de marca, de produto e de modelo fica EXATAMENTE como no original, sem traduzir (ex.: "Unique Melody Mest MK2", não "Melodia Única").
 - No máximo 25 linhas.
 
 Escreva só as linhas de fatos, sem introdução.`;
