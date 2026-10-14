@@ -24,6 +24,7 @@ const compositor = require('./compositor');
 const afirmacoes = require('./afirmacoes');
 const { dossieDoProduto, numerarFontes } = require('./dossie-do-produto');
 const { escreverCartoes } = require('./escritor-de-cartoes');
+const { explicarTermos } = require('./glossario');
 const {
   MAX_PARTES_POR_REESCRITA,
   fontesDaResposta,
@@ -148,7 +149,9 @@ class Redacao {
     }
     r.imagens = await fotos;
     r.objetivo = objetivo;
-    const texto = compositor.montar(r, frases);
+    // 14/10: termo técnico explicado na 1ª vez (glossario.js) — nas respostas de produto
+    const montado = compositor.montar(r, frases);
+    const texto = r.modo === 'recomendacao' || r.modo === 'produto' ? explicarTermos(montado) : montado;
     this.respostaComposta = true;
     this.emit('resposta-token', { pedaco: texto });
     return texto;

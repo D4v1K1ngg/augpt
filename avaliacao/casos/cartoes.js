@@ -162,4 +162,20 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'glossário (14/10): termo técnico ganha a explicação na 1ª vez que aparece no texto — não em título, tabela ou link, e não quando o modelo já explicou',
+    tipo: 'unidade',
+    executar() {
+      const { explicarTermos } = require('../../src/agent/glossario');
+      const t = explicarTermos('### DPI alto\n**Pontos fortes:** Oferece 30.000 DPI [2] e switches ópticos. O DPI alto ajuda.\n| DPI | x |\n**No uso:** O palco sonoro (já explicado) é amplo [(3)](https://a.com/IEM).');
+      return [
+        /^### DPI alto$/m.test(t) && /^\| DPI \| x \|$/m.test(t) || 'título e tabela ficam como estão',
+        /30\.000 DPI \(pontos por polegada/.test(t) && (t.match(/pontos por polegada/g) || []).length === 1 || 'explica só a 1ª vez',
+        /switches ópticos \(botão que registra o clique por luz/.test(t) || 'switch óptico explicado',
+        /palco sonoro \(já explicado\) é amplo/.test(t) || 'o que o modelo já explicou não ganha outra explicação',
+        /\(https:\/\/a\.com\/IEM\)/.test(t) && !/IEM \(fone/.test(t) || 'link não é mexido',
+        checagens.termosExplicados(t).length >= 2 || 'as explicações contam na checagem da medição',
+      ];
+    },
+  },
 ];
