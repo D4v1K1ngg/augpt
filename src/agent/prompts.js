@@ -906,6 +906,22 @@ USO: <para que ele quer usar, SÓ se estiver escrito no pedido (ex.: jogar PUBG)
 INTENCAO: <uma palavra: conhecer (quer saber sobre aquele produto) | avaliar (quer saber se aquele produto serve para o uso) | comparar (citou dois ou mais produtos) | recomendar (quer que você indique opções)>`;
 }
 
+/**
+ * 14/10: a pesquisa "10 fones intra-auriculares" trouxe Sennheiser HD650
+ * (fone de cabeça), HyperX Cloud III (headset) e "IEMs planares" (categoria).
+ * O modelo conhece os produtos; o código só tira o que ele marcar como "não".
+ */
+function pedidoDeCategoria({ tipo, nomes }) {
+  return `O usuário pediu produtos do tipo: ${tipo}.
+Para cada nome abaixo, diga se é um produto desse tipo, com marca e modelo.
+
+${nomes.map((n) => `- ${n}`).join('\n')}
+
+Responda uma linha por nome, exatamente assim: <nome>: sim | não | não sei
+- "não" quando for outro tipo de produto (ex.: fone de cabeça ou headset quando o pedido é intra-auricular; teclado quando o pedido é mouse), quando for uma categoria ou nome genérico (ex.: "IEMs planares", "fones bluetooth") ou só uma marca.
+- "não sei" quando você não conhece o modelo. Na dúvida, "não sei".`;
+}
+
 function pedidoDeCadeiaDoUso({ objetivo }) {
   return `Antes de pesquisar produtos, desça do pedido até as características técnicas que decidem a escolha. Ainda NÃO cite marca nem modelo.
 
@@ -1149,5 +1165,5 @@ module.exports = {
   pedeConversaCompleta,
   pedidoDeProdutosDoTopico,
   pedidoDePlanoDePesquisa, pedidoDeCandidatos, pedidoDeJulgamento, pedidoDeMapaDoProblema, pedidoDeHipoteses,
-  pedidoDeEntendimento, pedidoDeCadeiaDoUso, pedidoDeCriteriosDoConhecimento,
+  pedidoDeEntendimento, pedidoDeCategoria, pedidoDeCadeiaDoUso, pedidoDeCriteriosDoConhecimento,
 };

@@ -450,7 +450,13 @@ const precoCurto = (p) => `${p.moeda === 'BRL' ? 'R$' : 'US$'} ${Math.round(p.me
 
 function montarRecomendacao(r, frases = new Map()) {
   const finalistas = r.finalistas || [];
-  const criterios = r.plano?.criterios || [];
+  // 14/10: critério sem evidência para a MAIORIA das opções não decidiu esta
+  // escolha (bateria, Bluetooth e cancelamento de ruído numa lista de fones com
+  // fio viravam "ponto de atenção" em todas): sai de "Como escolhi", da tabela,
+  // do ponto de atenção e do "não confirmado"
+  const todos = r.plano?.criterios || [];
+  const semDados = (k) => finalistas.filter((f) => (f.status?.[k.nome] || 'sem dados') === 'sem dados').length;
+  const criterios = finalistas.length >= 3 ? todos.filter((k) => semDados(k) <= finalistas.length / 2) : todos;
   const traducoes = citacoesParaTraduzir(r);
   const traducaoDe = (c) => {
     const i = indiceDaTraducao(traducoes, c);

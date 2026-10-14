@@ -3115,6 +3115,23 @@ async function usoProfissional({ objetivo, nivel, rodar, emitir, livro, entradas
   };
 }
 
+/**
+ * Lê "nome: sim | não | não sei" e devolve os nomes (como estão na lista)
+ * marcados "não". Linha que não casa com nenhum nome é ignorada — o modelo
+ * não tira o que não foi perguntado.
+ */
+function lerForaDaCategoria(texto, nomes) {
+  const fora = new Set();
+  for (const bruta of String(texto || '').split('\n')) {
+    const m = /^\s*[-*\d.)\s]*\**(.+?)\**\s*:\s*\**\s*(sim|n[aã]o sei|n[aã]o)\b/i.exec(bruta);
+    if (!m || /sei/i.test(m[2]) || /^sim$/i.test(m[2])) continue;
+    const dito = normalizar(m[1]);
+    const nome = nomes.find((n) => normalizar(n) === dito) || nomes.find((n) => dito.length >= 4 && (normalizar(n).startsWith(dito) || dito.startsWith(normalizar(n))));
+    if (nome) fora.add(nome);
+  }
+  return fora;
+}
+
 /* ------------------------------ entendimento do pedido (13/10) ------------------------------ */
 
 const NAO_DITO = /^(nenhum|nenhuma|nao informado|nao|n\/a|-|—)?$/;
@@ -3496,6 +3513,17 @@ async function executarPesquisaPlanejada({ objetivo, nivel = 'leve', chamarModel
       motivoSegundaRodada = `não precisou: ${ranqueados.length} opções na lista`;
     }
     const origemNomes = extrasDoPadrao.length ? (nomes.length ? 'modelo+padrao' : 'padrao') : 'modelo';
+    // 14/10: o MODELO confere se cada opção é do tipo pedido (HD650 e HyperX
+    // Cloud III numa lista de intra-auriculares; "IEMs planares" como opção)
+    const tipoPedido = rotuloDaCategoria(objetivo) || cadeia?.produto || '';
+    if (tipoPedido && config.conferirCategoria !== false && ranqueados.length) {
+      const fora = lerForaDaCategoria(
+        await chamarModelo(prompts.pedidoDeCategoria({ tipo: tipoPedido, nomes: ranqueados.slice(0, 15).map((c) => c.nome) }), { tipo: 'categoria', numPredict: 350 }),
+        ranqueados.slice(0, 15).map((c) => c.nome)
+      );
+      for (const nome of fora) emitir('descarte', { etapa: 'categoria', alvo: nome, motivo: `não é ${tipoPedido} (conferido pelo modelo)` });
+      if (fora.size) ranqueados = ranqueados.filter((c) => !fora.has(c.nome));
+    }
     finalistas = escolherPorConsenso(ranqueados, orcamento.finalistas);
     outros = ranqueados.filter((v) => !finalistas.includes(v)).slice(0, Math.max(5, listaMax - finalistas.length, quantidade - finalistas.length));
     conhecidos = [...new Set([...nomes, ...extrasDoPadrao, ...ranqueados.map((c) => c.nome), ...foraDaCategoria])];
@@ -3755,6 +3783,7 @@ module.exports = {
   mencionaNome,
   produtoUnicoDoPedido,
   lerEntendimento,
+  lerForaDaCategoria,
   rotuloDaCategoria,
   normalizarTexto: normalizar,
   consultaDeFinalista,

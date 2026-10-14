@@ -127,4 +127,34 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'fase 1 (14/10): o modelo marca o que não é do tipo pedido (fone de cabeça, headset, categoria) e o código tira só os nomes da lista; "não sei" e nome fora da lista não tiram nada',
+    tipo: 'unidade',
+    executar() {
+      const { lerForaDaCategoria } = require('../../src/agent/motor-pesquisa');
+      const nomes = ['Moondrop Chu II', 'Sennheiser HD650', 'HyperX Cloud III', 'IEMs planares', 'Ikko OH10'];
+      const fora = lerForaDaCategoria('- Moondrop Chu II: sim\n- **Sennheiser HD650**: não\n- HyperX Cloud III: Não\nIEMs planares: não\n- Ikko OH10: não sei\n- Inventado X: não', nomes);
+      return [
+        [...fora].join() === 'Sennheiser HD650,HyperX Cloud III,IEMs planares' || `fora: ${[...fora]}`,
+        lerForaDaCategoria('não entendi', nomes).size === 0 || 'resposta ilegível não tira nada',
+      ];
+    },
+  },
+  {
+    nome: 'fase 1 (14/10): critério sem evidência para a maioria das opções sai de "Como escolhi", da tabela e do ponto de atenção; ficha com vírgulas soltas e referências internas é limpa',
+    tipo: 'unidade',
+    executar() {
+      const criterios = [
+        { nome: 'assinatura sonora', peso: 'alto', porque: 'decide o gosto' },
+        { nome: 'bateria', peso: 'alto', porque: 'dura o dia' },
+      ];
+      const f = (nome) => ({ nome, status: { 'assinatura sonora': 'corroborado' }, consenso: { topicos: 1, citacoes: [] } });
+      const texto = compositor.montar({ modo: 'recomendacao', plano: { uso: 'música', criterios }, finalistas: [f('A1 X'), f('B2 Y'), f('C3 Z')], matriz: { celula: () => null, resumos: new Map() } }, new Map());
+      return [
+        /\*\*assinatura sonora\*\*/.test(texto) || 'critério com dados fica',
+        !/bateria/i.test(texto) || `critério sem dados em todas as opções sai: ${(texto.match(/.*bateria.*/i) || [''])[0]}`,
+        compositor.limparFicha(', , , , , 14.8mm planar magnetic driver, 102db sensitivity (números 12, 13, 15)') === '14.8mm planar magnetic driver, 102db sensitivity' || `ficha: ${compositor.limparFicha(', , , , , 14.8mm planar magnetic driver, 102db sensitivity (números 12, 13, 15)')}`,
+      ];
+    },
+  },
 ];
