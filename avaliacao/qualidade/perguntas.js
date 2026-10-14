@@ -17,6 +17,8 @@
  * Ao acrescentar: fato curto, estável e que não dependa de data de hoje.
  */
 
+const { checagensDeTexto } = require('./checagens-de-produto');
+
 module.exports = [
   /* ------------------------------ explicação ------------------------------ */
   {
@@ -245,9 +247,11 @@ module.exports = [
     checagens: [
       { nome: 'cinco opções numeradas', ok: (r) => (r.match(/^#### \d+\. /gm) || r.match(/^\d+\. \*\*/gm) || []).length >= 5 },
       { nome: 'nenhum headset entre as opções', ok: (r) => !(r.match(/^#### \d+\. .*/gm) || []).some((t) => /headset|maxwell|astro a\d|cloud (ii|iii|2|3|alpha|stinger)\b|quantum \d{3}/i.test(t)) },
-      { nome: 'pelo menos 3 citações de usuários com a origem (Reddit ou fórum)', ok: (r) => (r.match(/— r\/\w+|clubedohardware|adrenaline|head-fi/gi) || []).length >= 3 },
+      // 14/10: era "3 citações de usuários" — premiava o comentário colado; agora a comunidade conta como FONTE
+      { nome: 'pelo menos 3 fontes da comunidade (Reddit ou fórum)', ok: (r) => new Set(r.match(/reddit\.com\/r\/\w+\/comments\/\w+|— r\/\w+|clubedohardware\.com\.br\/[^\s)]+|adrenaline\.com\.br\/[^\s)]+|head-fi\.org\/[^\s)]+/gi) || []).size >= 3 },
       { nome: 'pelo menos 3 opções com preço', ok: (r) => (r.match(/\*\*Faixa de preço:\*\*|R\$\s?\d|US\$\s?\d/g) || []).length >= 3 },
       { nome: 'nenhuma opção só com nome de marca ou de site', ok: (r) => !(r.match(/^#### \d+\. .*/gm) || []).some((t) => t.replace(/^#### \d+\. /, '').trim().split(/\s+/).length < 2) },
+      ...checagensDeTexto(),
     ],
   },
   {
@@ -563,6 +567,7 @@ module.exports = [
       { nome: 'não recomenda outro produto no lugar (Galaxy Buds, Jabra…)', ok: (r) => !/galaxy buds|jabra|aftershokz|recomendo (o|a) (?!dunu)/i.test(r) },
       { nome: 'não inventa uso (treino, músico)', ok: (r) => !/exerc[ií]cio f[ií]sico|para m[uú]sicos?\b/i.test(r) },
       { nome: 'cita ao menos uma fonte (link ou comunidade)', ok: (r) => /https?:\/\/|— r\/\w+/.test(r) },
+      ...checagensDeTexto({ minimoExplicados: 1 }),
     ],
   },
   {
@@ -578,6 +583,30 @@ module.exports = [
       { nome: 'traz preço em reais', ok: (r) => /R\$\s?\d/.test(r) },
       { nome: 'cita ao menos uma fonte (link ou comunidade)', ok: (r) => /https?:\/\/|— r\/\w+/.test(r) },
       { nome: 'as opções são mouses (nenhum teclado, headset ou mousepad como opção)', ok: (r) => !(r.match(/^#### \d+\. .*/gm) || []).some((t) => /teclado|headset|mousepad|fone/i.test(t)) },
+      ...checagensDeTexto(),
+    ],
+  },
+  {
+    // uso real de 13/10: veio fone de cabeça (HD650), headset (HyperX), "IEMs planares" e a mesma frase em 4 opções
+    id: 'iems-musica-10',
+    tipo: 'produto',
+    pedido: 'Recomende 10 fones intra auriculares para ouvir musica',
+    criterios: [
+      'recomenda fones intra-auriculares específicos, cada um com marca e modelo',
+      'explica, para cada opção principal, como ela soa ou o que tem de diferente (assinatura sonora, graves, palco, conforto), não só que é boa',
+      'traz pontos fracos ou ressalvas de pelo menos parte das opções',
+      'deixa claro qual é a primeira recomendação',
+    ],
+    checagens: [
+      { nome: 'nenhum fone de cabeça ou headset entre as opções', ok: (r) => !/\b(hd ?6[05]0|hd ?6xx|hd ?560s?|dt ?\d{3}|cloud (ii|iii|alpha|2|3)|arctis|maxwell|headset)\b/i.test(nomesDasOpcoes(r).join(' | ')) },
+      { nome: 'nenhuma "opção" que é categoria (ex.: IEMs planares)', ok: (r) => !nomesDasOpcoes(r).some((t) => /\b(iems?|fones?|planares|modelos?)\b/i.test(t) && !/\d/.test(t)) },
+      { nome: 'cita ao menos 3 fontes', ok: (r) => (r.match(/https?:\/\//g) || []).length >= 3 },
+      ...checagensDeTexto(),
     ],
   },
 ];
+
+/** Nomes das opções: cartões "#### N. Nome" e a lista "N. **Nome** — …". */
+function nomesDasOpcoes(r) {
+  return [...String(r).matchAll(/^#### \d+\. (.+)$|^\d+\. \*\*([^*]+)\*\*/gm)].map((m) => (m[1] || m[2]).trim());
+}
