@@ -3180,6 +3180,7 @@ async function conhecerProduto({ objetivo, produto, categoria, rodar, emitir, en
   return {
     ok: true,
     modo: 'produto',
+    categoria: categoria || '',
     produto,
     plano,
     finalistas: [{ nome: produto, consenso: { citacoes: [] } }],

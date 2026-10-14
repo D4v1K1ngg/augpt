@@ -22,7 +22,12 @@
  *     resposta direta, uma frase por produto, o veredito e a tradução das
  *     citações em inglês. Cada linha é conferida; o que não passa vira a
  *     frase-padrão feita pelo código a partir da evidência.
+ *   - 14/10: quando há cartões escritos por produto (escritor-de-cartoes.js,
+ *     com o dossiê de cada um), eles entram no lugar da frase por produto e
+ *     dos comentários colados; a chamada daqui fica só com a resposta direta.
  */
+
+const { comLinks, CAMPOS: CAMPOS_DO_CARTAO } = require('./escritor-de-cartoes');
 
 const normalizar = (t) =>
   String(t || '')
@@ -59,6 +64,8 @@ const emIngles = (t) => {
 // (casada pelo texto, não pelo objeto). Antes, cópias além da 8ª saíam em
 // inglês e a mesma frase aparecia traduzida num produto e não no outro.
 function citacoesParaTraduzir(r) {
+  // 14/10: com os cartões escritos por produto, nenhum comentário é mostrado colado — nada a traduzir
+  if (r.cartoes?.size && r.modo !== 'guia') return [];
   const lista = [];
   const vistos = new Set();
   if (r.modo === 'guia') {
@@ -145,6 +152,9 @@ function fatosDoProduto(f, r) {
   // os comentários) — recebe todos os que serão a base, e a ficha
   const ficha = r.matriz?.resumos?.get?.(f.nome)?.ficha?.texto;
   if (ficha) partes.push(`ficha: "${curto(ficha, 220)}"`);
+  // o cartão já escrito resume o produto melhor que os trechos soltos
+  const cartao = r.cartoes?.get?.(f.nome);
+  if (cartao) partes.push(`resumo: "${curto(`${cartao.noUso || ''} ${cartao.paraQuem || ''}`.replace(/\[\d+\]/g, ''), 300)}"`);
   aFavor.forEach((c) => partes.push(`um usuário disse: "${curto(c.texto, 200)}"`));
   if (critica) partes.push(`crítica de um usuário: "${curto(critica.texto, 200)}"`);
   return partes.join(' | ') || 'pouca evidência';
@@ -262,6 +272,7 @@ ${
       : `DIRETA: <2 ou 3 frases: recomende ${finalistas[0]?.nome || 'a 1ª opção'} para ${r.plano?.uso || 'esse uso'} e diga por quê, com um fato da linha dela ligado a esse uso — não fale de design nem de "qualidade" genérica>`
   }
 ${finalistas
+  .filter((f) => !r.cartoes?.has?.(f.nome))
   .map((f) =>
     citacoesDoProduto(f, r).critica
       ? `${f.nome}: <3 ou 4 frases, numa linha só: por que ele serve para esse uso (um fato concreto da linha dele), o que quem usa relata, com as suas palavras, e a ressalva que a crítica da linha dele traz>`
@@ -386,6 +397,31 @@ function linhasDeLimitacoes(f, criterios, critica, traducaoDe) {
   return linhas;
 }
 
+/** Os campos do cartão escrito como parágrafos rotulados, com as fontes [n] em link. */
+function linhasDoCartao(cartao, fontes = []) {
+  const linhas = [];
+  for (const { chave, titulo } of CAMPOS_DO_CARTAO) if (cartao[chave]) linhas.push(`**${titulo}:** ${comLinks(cartao[chave], fontes)}`, '');
+  return linhas;
+}
+
+/**
+ * Ficha técnica que dá para mostrar (13/10: saía ", , , , , 14.8mm planar…" e
+ * "10 drivers, 10mm … (números 12, 13, 15)"): sem as referências internas do
+ * destilador e sem vírgulas soltas; ficha que sobra curta demais não aparece.
+ */
+function limparFicha(texto) {
+  return curto(
+    String(texto || '')
+      .replace(/\((?:n[uú]meros?|fontes?|itens?)\s*[\d,\se]+\)/gi, '')
+      .replace(/\[\d+\]/g, '')
+      .replace(/(\s*,\s*){2,}/g, ', ')
+      .replace(/^[\s,;:-]+|[\s,;:-]+$/g, '')
+      .replace(/\s+/g, ' '),
+    200
+  );
+}
+const fichaMostravel = (texto) => limparFicha(texto).length >= 15;
+
 /** Por que o 1º ficou na frente do 2º, pelos números que decidem a ordem. */
 function porQueNaFrente(a, b, criterios) {
   if (!b) return 'a única opção com respaldo suficiente no material';
@@ -455,6 +491,14 @@ function montarRecomendacao(r, frases = new Map()) {
     if (foto) partes.push(`![${f.nome.replace(/[[\]]/g, ' ')}](${foto})`, '');
     if (seloDe(f)) partes.push(`*${seloDe(f)}*`, '');
     if (r.precos?.[f.nome]) partes.push(`**Faixa de preço:** ${textoDoPreco(r.precos[f.nome])}`, '');
+    const cartao = r.cartoes?.get?.(f.nome);
+    if (cartao) {
+      // 14/10: o cartão escrito com o dossiê do produto (escritor-de-cartoes.js)
+      partes.push(...linhasDoCartao(cartao, r.fontesNumeradas), `**Na comunidade:** ${respaldoCurto(f)}.`);
+      const resumo = r.matriz?.resumos?.get?.(f.nome) || {};
+      if (resumo.ficha?.texto && fichaMostravel(resumo.ficha.texto)) partes.push('', `**Ficha:** ${limparFicha(resumo.ficha.texto)}`);
+      return;
+    }
     partes.push(`**Pontos fortes:** ${frases.get(f.nome.toUpperCase()) || fraseRecomendacaoPadrao(f, r)}`, '');
     partes.push(`**Na comunidade:** ${respaldoCurto(f)}.`);
     const { aFavor, critica } = citacoesDoProduto(f, r);
@@ -463,7 +507,7 @@ function montarRecomendacao(r, frases = new Map()) {
     if (aFavor[0]) partes.push(citacaoFormatada(aFavor[0], traducaoDe(aFavor[0])));
     partes.push('', ...linhasDeLimitacoes(f, criterios, critica, traducaoDe));
     const resumo = r.matriz?.resumos?.get?.(f.nome) || {};
-    if (resumo.ficha?.texto) partes.push('', `**Ficha:** ${curto(resumo.ficha.texto, 200)}`);
+    if (resumo.ficha?.texto && fichaMostravel(resumo.ficha.texto)) partes.push('', `**Ficha:** ${limparFicha(resumo.ficha.texto)}`);
   });
 
   // tabela curta: o que o material diz de cada opção em cada critério
@@ -517,15 +561,18 @@ function montarAvaliacao(r, f, frases, traducaoDe) {
   const partes = [];
   const foto = r.imagens?.get?.(f.nome);
   if (foto) partes.push(`![${f.nome.replace(/[[\]]/g, ' ')}](${foto})`, '');
-  if (frases.get('OQUEE')) partes.push(frases.get('OQUEE'), '');
+  const cartao = r.cartoes?.get?.(f.nome);
+  if (cartao?.oQueE) partes.push(comLinks(cartao.oQueE, r.fontesNumeradas), '');
+  else if (frases.get('OQUEE')) partes.push(frases.get('OQUEE'), '');
   partes.push('### Resposta direta', frases.get('DIRETA') || `O que o material diz do **${f.nome}** para ${r.plano?.uso || 'esse uso'}: ${fraseRecomendacaoPadrao(f, r)}`);
-  if (frases.get(f.nome.toUpperCase())) partes.push('', frases.get(f.nome.toUpperCase()));
+  if (!cartao && frases.get(f.nome.toUpperCase())) partes.push('', frases.get(f.nome.toUpperCase()));
   if (r.precos?.[f.nome]) partes.push('', `**Faixa de preço:** ${textoDoPreco(r.precos[f.nome])}`);
   const comPorque = criterios.filter((k) => k.porque);
   if (comPorque.length) partes.push('', `### O que importa${r.plano?.tipoDeUso ? ` (${r.plano.tipoDeUso})` : ''}`, ...comPorque.map((k) => `- **${k.nome}** — ${k.porque}`));
+  if (cartao) partes.push('', `### O ${f.nome} na prática`, '', ...linhasDoCartao({ ...cartao, oQueE: '' }, r.fontesNumeradas));
   partes.push('', `### ${f.nome} nesses critérios`);
   const resumo = r.matriz?.resumos?.get?.(f.nome) || {};
-  if (resumo.ficha?.texto) partes.push(`- **Ficha:** ${curto(resumo.ficha.texto, 220)}`);
+  if (resumo.ficha?.texto && fichaMostravel(resumo.ficha.texto)) partes.push(`- **Ficha:** ${limparFicha(resumo.ficha.texto)}`);
   for (const k of criterios) {
     const c = r.livro?.celula?.(f.nome, k.nome) || r.matriz?.celula?.(f.nome, k.nome);
     const st = f.status?.[k.nome] || 'sem dados';
@@ -533,7 +580,7 @@ function montarAvaliacao(r, f, frases, traducaoDe) {
     partes.push(`- **${k.nome}** (${ROTULO_STATUS[st] || st}): ${texto}`);
   }
   partes.push(`- **Comunidade:** ${respaldoCurto(f)}.`);
-  const cits = (f.consenso?.citacoes || []).slice(0, 2);
+  const cits = cartao ? [] : (f.consenso?.citacoes || []).slice(0, 2);
   if (cits.length) {
     partes.push('', '### O que os usuários dizem');
     for (const c of cits) partes.push(citacaoFormatada(c, traducaoDe(c)));
@@ -650,11 +697,34 @@ function numerosDaComposicao(r) {
   // nomes dos produtos (5070, 5080) e resoluções também são "números permitidos"
   const partes = [JSON.stringify(r.desempenho?.porResolucao || {}), JSON.stringify(r.precos || {}), ...(r.plano?.opcoesCitadas || []), '1080 1440 4 2160 1080p 1440p 4k'];
   for (const f of r.finalistas || []) partes.push(fatosDoProduto(f, r), JSON.stringify(f.consenso?.citacoes || []));
+  for (const c of r.cartoes?.values?.() || []) partes.push(Object.values(c).join(' '));
   for (const d of r.dicas || []) partes.push(d.texto, d.fontes.map((f) => f.trecho).join(' '), String(d.nFontes));
   return partes.join(' ');
 }
 
+/**
+ * "Conhecer um produto" (fone de ouvido dunu titan s): foto, o cartão inteiro
+ * escrito com o dossiê e o preço. Sem cartão (a escrita falhou), os fatos do
+ * dossiê com a fonte — nada inventado.
+ */
+function montarProduto(r) {
+  const f = r.finalistas?.[0] || { nome: r.produto };
+  const partes = [];
+  const foto = r.imagens?.get?.(f.nome);
+  if (foto) partes.push(`![${String(f.nome).replace(/[[\]]/g, ' ')}](${foto})`, '');
+  partes.push(`### ${f.nome}`, '');
+  const cartao = r.cartoes?.get?.(f.nome);
+  if (cartao) partes.push(...linhasDoCartao(cartao, r.fontesNumeradas));
+  else {
+    const d = r.dossies?.find?.((x) => x.nome === f.nome);
+    partes.push(`O que a pesquisa encontrou sobre o ${f.nome}:`, ...(d?.itens || []).slice(0, 10).map((it) => `- ${it.texto}${it.url ? ` [(${it.n})](${it.url})` : ''}`), '');
+  }
+  if (r.precos?.[f.nome]) partes.push(`**Faixa de preço:** ${textoDoPreco(r.precos[f.nome])}`);
+  return partes.join('\n').trim();
+}
+
 function montar(r, frases) {
+  if (r.modo === 'produto') return montarProduto(r);
   if (r.modo === 'desempenho') return montarDesempenho(r, frases);
   if (r.modo === 'uso-profissional') return montarUso(r);
   if (r.modo === 'guia') return montarGuia(r, frases);
@@ -666,4 +736,4 @@ function produtosSemCritica(r) {
   return (r?.finalistas || []).filter((f) => !citacoesDoProduto(f, r).critica).map((f) => f.nome);
 }
 
-module.exports = { produtosSemCritica, pedidoDeFrases, lerFrases, montar, montarRecomendacao, montarDesempenho, montarUso, montarGuia, numerosDaComposicao, citacoesParaTraduzir, textoDoPreco, porQueNaFrente };
+module.exports = { produtosSemCritica, pedidoDeFrases, lerFrases, montar, montarRecomendacao, montarProduto, limparFicha, montarDesempenho, montarUso, montarGuia, numerosDaComposicao, citacoesParaTraduzir, textoDoPreco, porQueNaFrente };

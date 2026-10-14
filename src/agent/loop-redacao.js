@@ -22,6 +22,8 @@ const { produtosNomeados } = require('./tipo-de-pedido');
 const confronto = require('./confronto');
 const compositor = require('./compositor');
 const afirmacoes = require('./afirmacoes');
+const { dossieDoProduto, numerarFontes } = require('./dossie-do-produto');
+const { escreverCartoes } = require('./escritor-de-cartoes');
 const {
   MAX_PARTES_POR_REESCRITA,
   fontesDaResposta,
@@ -50,6 +52,61 @@ class Redacao {
     return this.userDataPath ? path.join(this.userDataPath, 'imagens') : null;
   }
 
+  /**
+   * Dossiê por produto (dossie-do-produto.js) + um cartão escrito para cada
+   * um (escritor-de-cartoes.js). Grava em `r.cartoes`, `r.dossies` e
+   * `r.fontesNumeradas`; o registro guarda os dossiês para refazer só a
+   * escrita depois (avaliacao/reescrever.js).
+   */
+  async escreverCartoesDaPesquisa(r, objetivo) {
+    const finalistas = (r.finalistas || []).slice(0, 6);
+    const citacoesDe = (f) => f.consenso?.citacoes || [];
+    const fichaDe = (f) => r.matriz?.resumos?.get?.(f.nome)?.ficha?.texto || '';
+    const dossies = finalistas.map((f) => dossieDoProduto(f.nome, { entradas: r.entradas || [], citacoes: citacoesDe(f), ficha: fichaDe(f) }));
+    const { fontes } = numerarFontes(dossies);
+    r.dossies = dossies;
+    r.fontesNumeradas = fontes;
+    // modelo de raciocínio (deepseek-r1) gasta o limite de texto "pensando": a escrita usa o principal
+    const escolhido = this.modeloDe('redacao');
+    const modelo = /\b(r1|qwq|think|reason)/i.test(escolhido) ? this.config.model : escolhido;
+    const contexto = {
+      objetivo,
+      uso: r.modo === 'produto' ? '' : r.plano?.uso || '',
+      categoria: r.categoria || '',
+      criterios: r.modo === 'produto' ? [] : (r.plano?.criterios || []).filter((k) => k.porque || k.peso === 'alto'),
+    };
+    const inicio = Date.now();
+    r.cartoes = await escreverCartoes({
+      dossies,
+      contexto,
+      paralelo: Number(this.config.destilacaoParalela) || 1,
+      aviso: (texto) => this.emit('aviso', { texto }),
+      chamar: async (prompt) => {
+        this.emit('chamada', { tipo: 'cartao' });
+        const c = await ollama.chat({
+          host: this.config.host,
+          model: modelo,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.4,
+          numCtx: Math.max(8192, Number(this.numCtxDe('redacao')) || 0),
+          numPredict: 700,
+          manterVivo: this.config.manterModeloVivo,
+          signal: this.controller.signal,
+        });
+        this.contabilizar({ promptTokens: c.promptTokens, completionTokens: c.completionTokens }, { tipo: 'cartao', duracaoMs: c.durationMs });
+        return String(c.content || '');
+      },
+    });
+    this.emit('pesquisa-cartoes', {
+      modelo,
+      ms: Date.now() - inicio,
+      escritos: [...r.cartoes.keys()],
+      dossies: dossies.map((d) => ({ nome: d.nome, itens: d.itens })),
+      cartoes: Object.fromEntries(r.cartoes),
+      contexto,
+    });
+  }
+
   async comporResposta({ objetivo }) {
     const r = this.composicaoDaPesquisa;
     this.emit('redigindo', { fontes: (r.entradas || []).length, cobertura: 'montada pelo código' });
@@ -60,8 +117,11 @@ class Redacao {
       15000,
       new Map()
     );
+    // 14/10: um cartão por produto, escrito com o dossiê dele (antes do resto:
+    // a resposta direta usa o que os cartões disseram)
+    if ((r.modo === 'recomendacao' || r.modo === 'produto') && this.config.cartoesPorProduto !== false) await this.escreverCartoesDaPesquisa(r, objetivo);
     let frases = new Map();
-    if (r.modo !== 'uso-profissional') {
+    if (r.modo !== 'uso-profissional' && r.modo !== 'produto') {
       try {
         this.emit('chamada', { tipo: 'composicao' });
         const c = await ollama.chat({

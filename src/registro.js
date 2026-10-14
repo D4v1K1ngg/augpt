@@ -437,6 +437,11 @@ class Registro {
         resumos: e.resumos || [],
       };
     });
+    // 14/10: dossiê de cada produto e o cartão escrito — refazer só a escrita
+    // de uma execução real (avaliacao/reescrever.js) parte daqui
+    agente.on('pesquisa-cartoes', (e) => {
+      pesquisa().cartoes = e;
+    });
     agente.on('pesquisa-fim', (e) => {
       Object.assign(pesquisa(), {
         ok: e.ok, motivo: e.motivo, buscas: e.buscas, consultas: e.consultas, planoDeResposta: e.planoDeResposta,

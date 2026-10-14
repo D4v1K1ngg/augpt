@@ -779,8 +779,10 @@ class Agent extends EventEmitter {
       }
       this.planoDeResposta = r.planoDeResposta;
       // Etapa H: o resultado inteiro do motor fica pra resposta montada pelo código
-      // 13/10: "conhecer um produto" não tem matriz nem opções — a redação escreve do material, seguindo o plano
-      this.composicaoDaPesquisa = r.modo === 'produto' ? null : r;
+      // "conhecer um produto": 13/10 ia para a redação livre (a resposta do Dunu
+      // parou na ficha); 14/10 é montada como os outros, com o cartão escrito
+      // do dossiê do produto. Sem os cartões ligados, volta à redação livre.
+      this.composicaoDaPesquisa = r.modo === 'produto' && this.config.cartoesPorProduto === false ? null : r;
       this.produtoPesquisado = r.modo === 'produto' ? r.produto : null;
       this.listaDaPesquisa = r.listaNumerada || '';
       this.entradasDaMatriz = r.matriz.entradasUsadas;
