@@ -6,7 +6,8 @@
  * chama o modelo de verdade — 1 minuto em vez de 8 para comparar prompt ou
  * modelo sobre o mesmo material.
  *
- *   node avaliacao/reescrever.js <id-da-execução | caminho.json> [--modelo=qwen2.5:14b] [--paralelo=2] [--host=http://127.0.0.1:11434]
+ *   node avaliacao/reescrever.js <id-da-execução | caminho.json>
+ *   node avaliacao/reescrever.js avaliacao/qualidade/resultados/<arquivo>.json --id=fones-pubg [--modelo=qwen2.5:14b] [--paralelo=2] [--host=http://127.0.0.1:11434]
  *
  * Sem id: a execução mais recente que tem dossiês.
  */
@@ -23,7 +24,17 @@ const alvo = process.argv.slice(2).find((a) => !a.startsWith('--'));
 const dirExec = path.join(process.env.APPDATA || path.join(os.homedir(), '.config'), 'AuGPT', 'execucoes');
 
 function carregar() {
-  if (alvo && fs.existsSync(alvo)) return JSON.parse(fs.readFileSync(alvo, 'utf8'));
+  if (alvo && fs.existsSync(alvo)) {
+    const j = JSON.parse(fs.readFileSync(alvo, 'utf8'));
+    // resultado da medição de qualidade (avaliacao/qualidade/resultados/*.json): escolha a pergunta com --id
+    const lista = Array.isArray(j) ? j : j.resultados || j.perguntas;
+    if (Array.isArray(lista)) {
+      const r = lista.find((x) => x.id === args.id && x.cartoes) || lista.find((x) => x.cartoes);
+      if (!r) throw new Error('nenhuma pergunta com dossiês gravados nesse resultado');
+      return { id: r.id, pedido: r.pedido, pesquisaPlanejada: { cartoes: r.cartoes } };
+    }
+    return j;
+  }
   if (alvo) return JSON.parse(fs.readFileSync(path.join(dirExec, `${alvo.replace(/\.json$/, '')}.json`), 'utf8'));
   const arqs = fs.readdirSync(dirExec).map((f) => ({ f, t: fs.statSync(path.join(dirExec, f)).mtimeMs })).sort((a, b) => b.t - a.t);
   for (const { f } of arqs) {

@@ -270,6 +270,8 @@ async function responder(pergunta, { cfg, modelo }) {
       chamadas: r.chamadas || {},
       destilacoes: { total: (r.destilacoes || []).length, semFato: (r.destilacoes || []).filter((d) => !d.fatos).length },
       descartes: (r.descartes || []).length,
+      // 14/10: dossiês e cartões, para refazer só a escrita (avaliacao/reescrever.js)
+      cartoes: r.pesquisaPlanejada?.cartoes || null,
     };
   } catch (err) {
     return { resposta: '', seg: Math.round((Date.now() - inicio) / 1000), passos: 0, tokens: 0, busca: { provedores: [], ok: 0, semProvedor: 0, semLeitura: 0 }, fontes: 0, erro: err.message };
