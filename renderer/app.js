@@ -1467,6 +1467,12 @@ function atividade(canal, d) {
   switch (canal) {
     case 'inicio':
       return etapaDaAtividade('entender', 'Entendendo o pedido');
+    // núcleo de pesquisa (15/10): a pergunta como o modelo entendeu, e o que o pesquisador vai pensando
+    case 'nucleo-entendimento':
+      return etapaDaAtividade('entender', 'Entendendo o pedido', d.precisaBuscar === false ? 'responde sem pesquisar' : d.pergunta);
+    case 'raciocinio':
+      if (t.caixa.querySelector('.atividade-etapas li:last-child')?.dataset.chave === 'pesquisar') return etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.pensamento);
+      return;
     case 'nivel-auto':
       return etapaDaAtividade('entender', 'Entendendo o pedido', `${d.nome || `nível ${d.nivel}`}${d.motivo ? ` — ${d.motivo}` : ''}`);
     case 'pesquisa-cadeia':
