@@ -44,7 +44,8 @@ ${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}
 Responda SÓ com um JSON:
 {"precisa_buscar": true ou false, "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
 
-- "precisa_buscar" é false só quando dá para responder com certeza sem pesquisar: saudação, agradecimento, conta, tradução, escrever um texto pedido, ou algo que a própria conversa já responde. Na dúvida, true.
+- "precisa_buscar" é true para qualquer pedido de informação: produto, preço, recomendação, comparação, notícia, pessoa, lugar, história, ciência, como algo funciona, dado ou número. Seu conhecimento pode estar desatualizado, então mesmo o que você sabe vale conferir.
+- "precisa_buscar" é false SÓ para: saudação ou agradecimento, conta de matemática, tradução ou revisão de um texto que o usuário mandou, escrever um texto criativo, ou algo que a própria conversa já respondeu. Na dúvida, true.
 - Em "pergunta", troque "ele", "isso", "o outro" pelo que eles são na conversa, e mantenha o resto como o usuário escreveu.`;
 }
 
@@ -119,6 +120,8 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje }) {
   const { chamar, buscar, lerPagina, embed, emit = () => {}, signal } = deps;
   const total = RODADAS[modo] || RODADAS.normal;
   const fontes = [];
+  // o que o pesquisador observou no caminho ("o G502 X custa R$ 799, acima do orçamento") — vai para a escrita
+  fontes.notas = [];
   const porUrl = new Map();
   const historico = [{ role: 'user', content: `Pergunta do usuário: ${pergunta}` }];
   let buscou = false;
@@ -167,7 +170,10 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje }) {
     emit('iteracao', { n: rodada, de: total });
     const r = await chamar([{ role: 'system', content: sistemaDoPesquisador({ hoje, rodada, total }) }, ...historico], { tools: FERRAMENTAS });
     const chamadas = (r.chamadas || []).map((c) => ({ nome: c.function?.name, args: typeof c.function?.arguments === 'string' ? safeJson(c.function.arguments) : c.function?.arguments || {} }));
-    if (r.content?.trim()) emit('raciocinio', { n: rodada, pensamento: r.content.trim().slice(0, 400) });
+    if (r.content?.trim()) {
+      emit('raciocinio', { n: rodada, pensamento: r.content.trim().slice(0, 400) });
+      fontes.notas.push(r.content.trim().slice(0, 1200));
+    }
     // sem ferramenta: o modelo respondeu em texto; se nem buscou ainda, busca a pergunta (Open WebUI)
     if (!chamadas.length || chamadas.every((c) => c.nome === 'pronto')) {
       if (!buscou) {
@@ -229,7 +235,8 @@ ${
 - Cite a fonte de cada informação com [n] no fim da frase. Não cite número que não está nas fontes.
 - Use tabela quando comparar opções ou listar especificações.
 - Quando a pergunta pede escolha, recomendação ou avaliação, diga com clareza o que você recomenda e por quê, com base nas fontes. Nada de conclusão genérica.
-- Diga o que as fontes não responderam, em vez de inventar.`
+- Diga o que as fontes não responderam, em vez de inventar.
+- As anotações do pesquisador (se houver) mostram o que ele já conferiu, como preço atual. Quando uma anotação e uma fonte discordarem, prefira o dado mais recente e diga a diferença.`
     : '- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.'
 }`;
 }
@@ -246,10 +253,11 @@ async function responder({ pergunta, conversa = [], modo = 'normal', deps, hoje 
   const ent = lerEntendimento((await chamar([{ role: 'user', content: pedidoDeEntendimento({ pergunta, conversa, hoje }) }], { json: true, numPredict: 300 })).content, pergunta);
   emit('nucleo-entendimento', ent);
   const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo, deps, hoje }) : [];
+  const notas = (fontes.notas || []).join('\n\n').slice(-4000);
   const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed }) : [];
   emit('redigindo', { fontes: usadas.length });
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0 })}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0 })}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}` },
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 2000) })),
     { role: 'user', content: pergunta },
   ];
