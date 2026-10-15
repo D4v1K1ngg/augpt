@@ -466,6 +466,7 @@
         <section class="grupo">
           <h2>Modelo e comportamento</h2>
           <p class="dica">O modelo em uso é escolhido no seletor "modelo" do topo. Aqui dá pra baixar outros.</p>
+          <div class="linha-botoes"><button class="btn-secundario" id="btnAbrirBoasVindas">Verificar o computador e os modelos recomendados</button></div>
           <div class="baixar-modelo" id="baixarModelo">
             <span class="baixar-modelo-titulo">Baixar modelo no Ollama</span>
             <div class="baixar-modelo-sugestoes" id="bmSugestoes"></div>
@@ -894,8 +895,28 @@
   <button data-acao="excluir" class="perigo">Excluir conversa</button>
 </div>
 
+<!-- Boas-vindas (15/10): verifica o computador, o Ollama, os modelos e a busca
+     embutida, e instala o que faltar — cada instalação só começa no clique.
+     Lógica em boas-vindas.js. -->
+<div class="boas-vindas" id="boasVindas" hidden role="dialog" aria-modal="true" aria-labelledby="bvTitulo">
+  <div class="bv-caixa">
+    <header class="bv-cabeca">
+      <h1 id="bvTitulo">Bem-vindo ao AuGPT</h1>
+      <p>Um agente de IA que roda no seu computador e pesquisa na web para responder. Vamos conferir o seu PC e preparar o que falta — nada é instalado sem você clicar.</p>
+    </header>
+    <ol class="bv-etapas" id="bvEtapas"><li class="bv-carregando">Verificando o computador…</li></ol>
+    <footer class="bv-rodape">
+      <button class="btn-secundario" id="bvVerificar">Verificar de novo</button>
+      <span class="bv-espaco"></span>
+      <button class="btn-secundario" id="bvPular">Pular por enquanto</button>
+      <button class="btn-primario" id="bvConcluir" disabled>Começar a usar</button>
+    </footer>
+  </div>
+</div>
+
 <script src="grafico.js"></script>
 <script src="md.js"></script>
 <script src="app.js"></script>
+<script src="boas-vindas.js"></script>
 </body>
 </html>

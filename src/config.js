@@ -239,6 +239,8 @@ const DEFAULTS = {
   marginaliaKey: 'public',
   jinaKey: '',
   usarSearxngEmbutido: false,
+  // tela de boas-vindas (15/10) concluída: não abre sozinha de novo (abre por Ajustes)
+  boasVindasConcluida: false,
   // Início automático do Ollama sem perguntar — só fica true depois que o
   // usuário marcou "sempre iniciar automaticamente" na oferta ("Detectei que
   // o Ollama está desligado. Deseja que eu ative ele?"). Padrão false:

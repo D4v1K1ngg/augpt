@@ -30,6 +30,8 @@ const { RuntimeSearXNG } = require('../src/searxng-runtime');
 const ollamaRuntime = require('../src/ollama-runtime');
 const hardware = require('../src/agent/hardware');
 const primeiroUso = require('../src/primeiro-uso');
+const verificadorDeHardware = require('../src/verificador-de-hardware');
+const instaladorOllama = require('../src/instalador-ollama');
 
 let win = null;
 let janelaExecucoes = null; // pedido de Davi 2026-09-23: "Visualizar Execuções" ganhou janela própria
@@ -1191,6 +1193,63 @@ ipcMain.handle('mcp:reconnect', () => conectarMCP());
 // do sistema (Linux/Mac) + o código do SearXNG, e sobe como um processo local
 // gerenciado pelo app. É a única parte do AuGPT que fala com a internet fora
 // do Ollama — só quando o usuário pede a instalação, nunca sozinho.
+
+/* ------------------------------ boas-vindas (15/10) ------------------------------ */
+// Tela de boas-vindas: verifica o computador, o Ollama, os modelos e a busca
+// embutida; instala o que faltar SÓ quando o usuário clica (cada botão é a
+// confirmação). Ver src/verificador-de-hardware.js e src/instalador-ollama.js.
+
+ipcMain.handle('boasVindas:verificar', async () => {
+  const computador = await verificadorDeHardware.verificarComputador();
+  const saude = await ollama.health(config.data.host);
+  let modelos = [];
+  if (saude.online) {
+    try {
+      modelos = (await ollama.listModels(config.data.host)).map((m) => m.name);
+    } catch {
+      modelos = [];
+    }
+  }
+  return {
+    computador,
+    recomendacao: verificadorDeHardware.recomendarModelos(computador),
+    ollama: { online: saude.online, instalado: saude.online || ollamaRuntime.localizarBinario().encontrado },
+    modelos,
+    busca: searxngRuntime.estado(),
+    concluida: config.data.boasVindasConcluida === true,
+    plataforma: process.platform,
+  };
+});
+
+ipcMain.handle('boasVindas:instalarOllama', async () =>
+  instaladorOllama.instalarOllama({
+    emitir: (p) => enviar('ollama-instalacao-progresso', p),
+    ligar: () => ollamaRuntime.localizarEIniciar(config.data.host),
+  })
+);
+
+ipcMain.handle('boasVindas:ligarOllama', () => ollamaRuntime.localizarEIniciar(config.data.host));
+
+// fim: grava o modelo escolhido e liga a busca embutida, se ela foi instalada
+ipcMain.handle('boasVindas:concluir', async (_e, { modelo } = {}) => {
+  const usarBusca = searxngRuntime.estaInstalado();
+  config.save({
+    ...(modelo ? { model: modelo } : {}),
+    embedModel: 'nomic-embed-text',
+    modoDePesquisa: config.data.modoDePesquisa || 'automatico',
+    boasVindasConcluida: true,
+    ...(usarBusca ? { usarSearxngEmbutido: true } : {}),
+  });
+  if (usarBusca && !searxngRuntime.rodando) {
+    try {
+      await searxngRuntime.iniciar();
+    } catch {
+      /* a busca liga na próxima abertura; o agente usa as reservas enquanto isso */
+    }
+  }
+  if (agent) Object.assign(agent.config, configParaAgente());
+  return config.data;
+});
 
 ipcMain.handle('searxngRuntime:estado', () => searxngRuntime.estado());
 

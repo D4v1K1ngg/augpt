@@ -27,6 +27,13 @@ contextBridge.exposeInMainWorld('augpt', {
     confirmarReinicioMaxModelos: () => ipcRenderer.invoke('ollama:confirmarReinicioMaxModelos'),
     reiniciar: () => ipcRenderer.invoke('ollama:reiniciar'),
   },
+  // tela de boas-vindas (15/10)
+  boasVindas: {
+    verificar: () => ipcRenderer.invoke('boasVindas:verificar'),
+    instalarOllama: () => ipcRenderer.invoke('boasVindas:instalarOllama'),
+    ligarOllama: () => ipcRenderer.invoke('boasVindas:ligarOllama'),
+    concluir: (dados) => ipcRenderer.invoke('boasVindas:concluir', dados),
+  },
   hardware: {
     recomendacao: () => ipcRenderer.invoke('hardware:recomendacao'),
   },

@@ -1518,6 +1518,7 @@ function atividade(canal, d) {
 
 api.onEvent(({ canal, dados }) => {
   atividade(canal, dados || {}); // antes do manipulador: 'concluido' encerra o turno
+  window.boasVindasEvento?.(canal, dados || {}); // progresso das instalações na tela de boas-vindas
   manipuladores[canal]?.(dados || {});
 });
 
