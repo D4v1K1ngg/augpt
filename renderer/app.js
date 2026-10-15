@@ -2407,7 +2407,11 @@ async function carregarModelos() {
   el.modelo.innerHTML = models.length
     ? models.map((m) => `<option value="${esc(m.name)}"${m.pensa ? ' data-pensa="1"' : ''}>${esc(rotuloDoModelo(m.name, m.pensa))}</option>`).join('')
     : '<option value="">nenhum modelo baixado</option>';
-  const escolhido = models.find((m) => m.name === anterior)?.name || models[0]?.name || '';
+  // sem modelo salvo, a preferência é a família medida (15/10: pegava o primeiro em ordem
+  // alfabética — num PC com "hf.co/…Bonsai" instalado, ele virava o modelo principal)
+  const PREFERIDOS = ['qwen3.5:9b', 'qwen3.5:27b', 'qwen3.5:4b', 'qwen3.5:2b', 'qwen2.5:7b', 'qwen3.5:0.8b'];
+  const preferido = PREFERIDOS.map((n) => models.find((m) => m.name === n)).find(Boolean)?.name;
+  const escolhido = models.find((m) => m.name === anterior)?.name || preferido || models[0]?.name || '';
   el.modelo.value = escolhido;
   // `escolhido` vazio com um modelo salvo = o salvo não existe mais, ou era um
   // de embedding (que agora não aparece como opção) — limpa pra aba Conversa

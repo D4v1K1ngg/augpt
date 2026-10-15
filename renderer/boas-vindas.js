@@ -138,7 +138,7 @@ function pintar() {
       situacao: busca.instalado ? 'ok' : 'opcional',
       texto: busca.instalado
         ? 'Instalada — o AuGPT pesquisa em vários buscadores ao mesmo tempo.'
-        : 'Recomendada: um buscador próprio que consulta vários sites de busca de uma vez (baixa Python e o SearXNG, cerca de 100 MB). Sem ela, o AuGPT usa buscadores de reserva, com resultados piores.',
+        : 'Recomendada: um buscador próprio que consulta vários sites de busca de uma vez (baixa Python e o SearXNG, cerca de 130 MB). Sem ela, o AuGPT usa buscadores de reserva, com resultados piores.',
       progresso: bv.progressoBusca,
       acoes: busca.instalado ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarBusca }, 'Instalar a busca')],
     })
@@ -232,7 +232,15 @@ function fecharBoasVindas() {
 }
 
 $('bvVerificar').addEventListener('click', verificar);
-$('bvPular').addEventListener('click', fecharBoasVindas);
+// pular também conta como visto: não abre de novo sozinha (continua em Ajustes)
+$('bvPular').addEventListener('click', async () => {
+  fecharBoasVindas();
+  try {
+    await api.config.set({ boasVindasConcluida: true });
+  } catch {
+    /* abre de novo na próxima vez */
+  }
+});
 $('bvConcluir').addEventListener('click', async () => {
   const modelo = bv.escolhido || bv.estado?.recomendacao?.principal?.nome;
   await api.boasVindas.concluir({ modelo });
@@ -242,11 +250,13 @@ $('bvConcluir').addEventListener('click', async () => {
 });
 $('btnAbrirBoasVindas')?.addEventListener('click', abrirBoasVindas);
 
-// primeira abertura: sem a boas-vindas concluída e sem modelo configurado
+// primeira abertura: abre enquanto a boas-vindas não foi concluída nem pulada.
+// 15/10: antes dependia de "sem modelo", mas o app escolhe um modelo sozinho ao
+// abrir — num PC que já tinha o Ollama, a tela nunca aparecia
 (async () => {
   try {
     const cfg = await api.config.get();
-    if (cfg.boasVindasConcluida !== true && !cfg.model) abrirBoasVindas();
+    if (cfg.boasVindasConcluida !== true) abrirBoasVindas();
   } catch {
     /* sem config legível: a tela inicial de sempre */
   }
