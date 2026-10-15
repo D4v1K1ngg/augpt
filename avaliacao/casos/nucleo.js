@@ -136,4 +136,41 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'núcleo (15/10, pedido do Davi): pedido de PRODUTO — o pesquisador recebe buscar_na_comunidade; se não usar, o código busca na comunidade e lê 2 tópicos antes da escrita; a escrita pede os cartões "#### N. Nome". Pedido geral não muda',
+    tipo: 'unidade',
+    async executar() {
+      const deps = (m, registro) => ({
+        chamar: m.chamar,
+        escrever: m.escrever,
+        buscar: async (q) => (registro.web.push(q), [{ titulo: 'Loja', url: 'https://loja.com/titan', resumo: 'Dunu Titan S por R$ 450' }]),
+        buscarNaComunidade: async (q) => (registro.comunidade.push(q), [
+          { titulo: 'Titan S vale a pena?', url: 'https://www.reddit.com/r/iems/comments/a1/titan', resumo: 'tópico sobre o Dunu Titan S' },
+          { titulo: 'Dunu Titan S impressões', url: 'https://www.clubedohardware.com.br/forums/topic/1/', resumo: 'impressões do Dunu Titan S' },
+        ]),
+        lerPagina: async (url) => (registro.lidas.push(url), { texto: `Comprei o Dunu Titan S e o palco é amplo, mas o grave é contido. ${url}` }),
+      });
+      // o modelo só usa a busca comum e chama pronto: a garantia do código entra
+      const produto = modeloFalso({ entendimento: { precisa_buscar: true, produto: true, pergunta: 'fone dunu titan s' }, roteiro: [{ ferramentas: [['buscar_na_web', { buscas: ['dunu titan s'] }]] }, { pronto: true }] });
+      const reg = { web: [], comunidade: [], lidas: [] };
+      const r = await nucleo.responder({ pergunta: 'fone dunu titan s', deps: deps(produto, reg) });
+      const ferramentas = produto.chamadas[1].opcoes.tools.map((t) => t.function.name);
+      const sistemaDaPesquisa = produto.chamadas[1].messages[0].content;
+      const sistemaDaEscrita = produto.escritas[0][0].content;
+      // pedido geral: nada de comunidade nem de cartões
+      const geral = modeloFalso({ entendimento: { precisa_buscar: true, produto: false, pergunta: 'quem foi santos dumont' }, roteiro: [{ ferramentas: [['buscar_na_web', { buscas: ['santos dumont'] }]] }, { pronto: true }] });
+      const reg2 = { web: [], comunidade: [], lidas: [] };
+      await nucleo.responder({ pergunta: 'quem foi santos dumont', deps: deps(geral, reg2) });
+      return [
+        ferramentas[0] === 'buscar_na_comunidade' || `ferramentas do produto: ${ferramentas}`,
+        /use buscar_na_comunidade pelo menos uma vez/.test(sistemaDaPesquisa) || 'o pesquisador é instruído a usar a comunidade',
+        reg.comunidade.join() === 'fone dunu titan s' || `garantia: busca na comunidade feita pelo código: ${reg.comunidade}`,
+        reg.lidas.filter((u) => /reddit|clubedohardware/.test(u)).length === 2 || `garantia: 2 tópicos lidos: ${reg.lidas}`,
+        /comunidade/.test(sistemaDaEscrita) && /#### 1\. Marca Modelo/.test(sistemaDaEscrita) && /\*\*Na comunidade:\*\*/.test(sistemaDaEscrita) || 'a escrita pede os cartões',
+        r.produto === true || 'o resultado diz que é produto (o agente põe as fotos nos cartões)',
+        !geral.chamadas[1].opcoes.tools.some((t) => t.function.name === 'buscar_na_comunidade') && reg2.comunidade.length === 0 || 'pedido geral: sem comunidade',
+        !/#### 1\. Marca Modelo/.test(geral.escritas[0][0].content) || 'pedido geral: sem formato de cartão',
+      ];
+    },
+  },
 ];

@@ -11,7 +11,7 @@ const { Sandbox } = require('../tools/sandbox');
 const { Skills } = require('../skills');
 const verificador = require('./verificador');
 const serieDePrecos = require('./serie-de-precos');
-const { tipoDeFonte } = require('../tools/comunidade');
+const { tipoDeFonte, consultasNaComunidade } = require('../tools/comunidade');
 const { destilar, maximoQueCabe } = require('./destilador');
 const rotinas = require('./rotinas');
 const { MemoriaOperacional, observar } = require('./memoria-operacional');
@@ -1536,6 +1536,12 @@ class Agent extends EventEmitter {
       buscar: async (q) => (await search.buscar(q, { searxngUrl: cfg.searxngUrl, marginaliaKey: cfg.marginaliaKey, jinaKey: cfg.jinaKey, idioma: ingles(q) ? 'all' : 'pt-BR' })).resultados,
       lerPagina: (url) => lerComCache(url, ctxWeb),
       embed: (textos) => ollama.embed({ host: cfg.host, model: cfg.embedModel || 'nomic-embed-text', input: textos, signal }),
+      // Reddit e fóruns cadastrados (dados/fontes-da-comunidade.json): "site:reddit.com …", "site:clubedohardware.com.br …"
+      buscarNaComunidade: async (q) => {
+        const lista = consultasNaComunidade(q, { config: cfg, maximo: 3 });
+        const achados = await Promise.all(lista.map((c) => search.buscar(c.consulta, { searxngUrl: cfg.searxngUrl, marginaliaKey: cfg.marginaliaKey, jinaKey: cfg.jinaKey, idioma: c.idioma }).then((x) => x.resultados).catch(() => [])));
+        return achados.flat();
+      },
     };
     try {
       this.emit('inicio-rapido', { objetivo });
@@ -1544,8 +1550,18 @@ class Agent extends EventEmitter {
       const figura = imagens.comLimite(imagens.imagemDeReferencia(auto.assuntoDoPedido(objetivo), { config: cfg, dir: this.dirImagens() }), 20000, null);
       const r = await nucleo.responder({ pergunta: objetivo, conversa, modo, deps });
       if (!r.texto) throw new Error('a escrita veio vazia');
-      const foto = r.buscou ? await figura : null;
-      const corpo = explicarTermos(comLinks(r.texto, r.fontes));
+      // produto: uma foto em cada cartão "#### N. Nome"; o resto: a imagem de referência no topo
+      const limparNome = (t) => String(t).replace(/[*_[\]]/g, '').trim();
+      const nomes = r.produto ? [...r.texto.matchAll(/^#### \d+\. (.+)$/gm)].map((m) => limparNome(m[1])) : [];
+      const fotos = nomes.length ? await imagens.comLimite(imagens.imagensDosProdutos(nomes, { config: cfg, dir: this.dirImagens() }), 20000, new Map()) : new Map();
+      const foto = r.buscou && !nomes.length ? await figura : null;
+      const comCartoes = nomes.length
+        ? r.texto.replace(/^#### \d+\. (.+)$/gm, (linha, nome) => {
+            const img = fotos.get(limparNome(nome));
+            return img ? `${linha}\n${imagens.marcacao(limparNome(nome), img)}\n` : linha;
+          })
+        : r.texto;
+      const corpo = explicarTermos(comLinks(comCartoes, r.fontes));
       const comFoto = foto ? `${imagens.marcacao(auto.assuntoDoPedido(objetivo), foto)}\n\n${corpo}` : corpo;
       const final = r.fontes.length ? `${comFoto}\n\n---\n**Fontes**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comFoto;
       this.emit('nucleo-fim', { modo, ms: Date.now() - inicio, fontes: r.fontes.length, entendimento: r.entendimento });
