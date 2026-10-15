@@ -121,4 +121,19 @@ module.exports = [
       return [(await rodadas('rapido')) === 2 || 'rápido', (await rodadas('normal')) === 6 || 'normal', (await rodadas('profundo')) === 12 || 'profundo'];
     },
   },
+  {
+    nome: 'núcleo: conferência de anos (medição de 15/10: Santos Dumont "1873–1933", a fonte dizia 1932) — ano sem fonte ganha ⚠ e aviso no fim; ano das fontes, da pergunta, de hoje e de link não é marcado',
+    tipo: 'unidade',
+    executar() {
+      const { conferirAnos } = nucleo;
+      const r = conferirAnos('Santos Dumont (1873–1933) voou o 14-Bis em 1906 [1]. Veja https://site.com/2019/x. Em 2026 ainda é lembrado.', { material: 'nasceu em 1873, morreu em 1932; o 14-Bis voou em 1906', pergunta: 'quem foi santos dumont', hoje: '15/10/2026' });
+      const limpo = conferirAnos('O 14-Bis voou em 1906 [1].', { material: 'voo de 1906' });
+      return [
+        /1873–1933 ⚠\)/.test(r.texto) && r.faltam.join() === '1933' || `marcação: ${r.texto}`,
+        /\*⚠ Este ano não aparece nas fontes lidas: 1933\. Vale conferir\.\*$/.test(r.texto) || 'aviso no fim',
+        /\/2019\/x/.test(r.texto) && !/2019 ⚠/.test(r.texto) && !/2026 ⚠/.test(r.texto) && !/1906 ⚠/.test(r.texto) || 'link, ano de hoje e ano da fonte não são marcados',
+        limpo.texto === 'O 14-Bis voou em 1906 [1].' && limpo.faltam.length === 0 || 'tudo conferido: texto intacto',
+      ];
+    },
+  },
 ];

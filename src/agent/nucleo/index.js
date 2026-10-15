@@ -102,6 +102,7 @@ function sistemaDoPesquisador({ hoje, rodada, total }) {
   return `Você é o pesquisador do AuGPT. Hoje é ${hoje}. Seu trabalho é juntar, com as ferramentas, a informação para responder muito bem à pergunta do usuário. Você não escreve a resposta: quando tiver o suficiente, chame "pronto".
 
 - Seu conhecimento pode estar desatualizado: pesquise mesmo o que parece básico.
+- Mantenha nas buscas as condições que o pedido deu: plataforma (PC, celular, console), tipo de produto (intra-auricular, sem fio…), orçamento, país.
 - Em buscar_na_web, mande até 3 buscas curtas por vez, de ângulos diferentes. Para tecnologia e produtos, inclua buscas em inglês, onde há mais material.
 - Quando a pergunta pede opinião, experiência de uso ou recomendação, inclua buscas que tragam quem usa (por exemplo com "reddit" ou "fórum").
 - Use ler_pagina nas páginas mais promissoras quando o resumo não basta, sempre com um foco.
@@ -230,6 +231,7 @@ function sistemaDoEscritor({ hoje, comFontes }) {
 ${
   comFontes
     ? `Responda à pergunta do usuário usando as fontes abaixo.
+- Respeite exatamente as condições do pedido (plataforma, tipo de produto, orçamento, quantidade de opções). Fonte que trata de outra coisa (outra plataforma, outro tipo de produto) não serve de base para a recomendação.
 - Comece respondendo diretamente à pergunta. Depois desenvolva, com seções (##) quando o assunto pedir.
 - Explique os termos técnicos para quem não é especialista.
 - Cite a fonte de cada informação com [n] no fim da frase. Não cite número que não está nas fontes.
@@ -242,6 +244,28 @@ ${
 }
 
 const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="${String(f.titulo || dominio(f.url)).replace(/"/g, "'")}" site="${dominio(f.url)}">\n${f.conteudo}\n</fonte>`).join('\n');
+
+/**
+ * Conferência de anos (15/10, medição: Santos Dumont "1873–1933" com a fonte
+ * dizendo 1932; SR-71 com o ano do 1º voo trocado). Ano que a resposta cita e
+ * que não aparece em nenhuma fonte lida, nas anotações nem na pergunta ganha
+ * um "⚠" e entra no aviso do fim — a resposta não é reescrita. Só anos: são o
+ * número que o modelo mais troca, e o que menos varia de formato entre fontes.
+ * ponytail: número com unidade (km/h, R$) fica de fora — muda de formato e
+ * conversão entre fontes; entra quando a medição mostrar erro nele.
+ */
+function conferirAnos(texto, { material = '', pergunta = '', hoje = '' } = {}) {
+  const permitidos = new Set(`${material} ${pergunta} ${hoje}`.match(/\b(1[0-9]{3}|20[0-9]{2})\b/g) || []);
+  const faltam = new Set();
+  const marcado = String(texto || '').replace(/(^|[^\d/.\-])(1[0-9]{3}|20[0-9]{2})(?![\d])/g, (m, antes, ano) => {
+    if (permitidos.has(ano)) return m;
+    faltam.add(ano);
+    return `${antes}${ano} ⚠`;
+  });
+  if (!faltam.size) return { texto: marcado, faltam: [] };
+  const lista = [...faltam].sort();
+  return { texto: `${marcado}\n\n*⚠ ${lista.length === 1 ? 'Este ano não aparece' : 'Estes anos não aparecem'} nas fontes lidas: ${lista.join(', ')}. Vale conferir.*`, faltam: lista };
+}
 
 /**
  * A resposta inteira. `deps.escrever(messages, onToken) → texto` escreve em
@@ -261,11 +285,15 @@ async function responder({ pergunta, conversa = [], modo = 'normal', deps, hoje 
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 2000) })),
     { role: 'user', content: pergunta },
   ];
-  const texto = await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco }));
+  const escrito = await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco }));
   // só ficam na lista as fontes que a resposta citou (ou todas as usadas, se ela não citou nenhuma)
-  const citadas = new Set([...String(texto).matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
+  const citadas = new Set([...String(escrito).matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
   const lista = usadas.filter((f) => !citadas.size || citadas.has(f.n)).map(({ n, url, titulo }) => ({ n, url, titulo }));
-  return { texto: String(texto || '').trim(), fontes: lista, entendimento: ent, buscou: fontes.length > 0 };
+  // com pesquisa, os anos citados são conferidos contra tudo que foi lido (trechos, resumos e anotações)
+  const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')}`).join(' ')} ${notas}` : '';
+  const conferido = fontes.length ? conferirAnos(String(escrito || '').trim(), { material, pergunta, hoje }) : { texto: String(escrito || '').trim(), faltam: [] };
+  if (conferido.faltam.length) emit('aviso', { texto: `conferência: ano(s) sem fonte na resposta: ${conferido.faltam.join(', ')}` });
+  return { texto: conferido.texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, anosSemFonte: conferido.faltam };
 }
 
-module.exports = { responder, pesquisar, materialDaEscrita, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, RODADAS };
+module.exports = { responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, RODADAS };

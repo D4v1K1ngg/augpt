@@ -245,12 +245,12 @@ module.exports = [
     // 11/10: só com os critérios acima, uma resposta sem NENHUMA citação da
     // comunidade tirou 10. O que dá para conferir pelo texto, o código confere.
     checagens: [
-      { nome: 'cinco opções numeradas', ok: (r) => (r.match(/^#### \d+\. /gm) || r.match(/^\d+\. \*\*/gm) || []).length >= 5 },
-      { nome: 'nenhum headset entre as opções', ok: (r) => !(r.match(/^#### \d+\. .*/gm) || []).some((t) => /headset|maxwell|astro a\d|cloud (ii|iii|2|3|alpha|stinger)\b|quantum \d{3}/i.test(t)) },
+      { nome: 'cinco opções numeradas', ok: (r) => nomesDasOpcoes(r).length >= 5 },
+      { nome: 'nenhum headset entre as opções', ok: (r) => !nomesDasOpcoes(r).some((t) => /headset|maxwell|astro a\d|cloud (ii|iii|2|3|alpha|stinger)\b|quantum \d{3}/i.test(t)) },
       // 14/10: era "3 citações de usuários" — premiava o comentário colado; agora a comunidade conta como FONTE
       { nome: 'pelo menos 3 fontes da comunidade (Reddit ou fórum)', ok: (r) => new Set(r.match(/reddit\.com\/r\/\w+\/comments\/\w+|— r\/\w+|clubedohardware\.com\.br\/[^\s)]+|adrenaline\.com\.br\/[^\s)]+|head-fi\.org\/[^\s)]+/gi) || []).size >= 3 },
       { nome: 'pelo menos 3 opções com preço', ok: (r) => (r.match(/\*\*Faixa de preço:\*\*|R\$\s?\d|US\$\s?\d/g) || []).length >= 3 },
-      { nome: 'nenhuma opção só com nome de marca ou de site', ok: (r) => !(r.match(/^#### \d+\. .*/gm) || []).some((t) => t.replace(/^#### \d+\. /, '').trim().split(/\s+/).length < 2) },
+      { nome: 'nenhuma opção só com nome de marca ou de site', ok: (r) => !nomesDasOpcoes(r).some((t) => t.trim().split(/\s+/).length < 2) },
       ...checagensDeTexto(),
     ],
   },
@@ -582,7 +582,7 @@ module.exports = [
     checagens: [
       { nome: 'traz preço em reais', ok: (r) => /R\$\s?\d/.test(r) },
       { nome: 'cita ao menos uma fonte (link ou comunidade)', ok: (r) => /https?:\/\/|— r\/\w+/.test(r) },
-      { nome: 'as opções são mouses (nenhum teclado, headset ou mousepad como opção)', ok: (r) => !(r.match(/^#### \d+\. .*/gm) || []).some((t) => /teclado|headset|mousepad|fone/i.test(t)) },
+      { nome: 'as opções são mouses (nenhum teclado, headset ou mousepad como opção)', ok: (r) => !nomesDasOpcoes(r).some((t) => /teclado|headset|mousepad|fone/i.test(t)) },
       ...checagensDeTexto(),
     ],
   },
@@ -606,7 +606,12 @@ module.exports = [
   },
 ];
 
-/** Nomes das opções: cartões "#### N. Nome" e a lista "N. **Nome** — …". */
+/**
+ * Nomes das opções numeradas, em qualquer formato que a resposta use (15/10:
+ * o núcleo novo escreve livre): título "### 1. Nome"/"#### 1. Nome", lista
+ * "1. **Nome**" ou linha de tabela "| 1 | **Nome** |". Sem repetição.
+ */
 function nomesDasOpcoes(r) {
-  return [...String(r).matchAll(/^#### \d+\. (.+)$|^\d+\. \*\*([^*]+)\*\*/gm)].map((m) => (m[1] || m[2]).trim());
+  const nomes = [...String(r).matchAll(/^#{2,4} \d+[.)] \**([^*\n]+?)\**\s*$|^\d+\. \*\*([^*]+)\*\*|^\|\s*\**\d+\**[.º°]?\s*\|\s*\**([^|*]+?)\**\s*\|/gm)].map((m) => (m[1] || m[2] || m[3]).trim());
+  return [...new Set(nomes)];
 }
