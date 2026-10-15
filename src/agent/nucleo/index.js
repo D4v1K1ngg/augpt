@@ -21,7 +21,21 @@
 
 const { pedacos, ordenar } = require('./ranking');
 
-const RODADAS = { rapido: 2, normal: 6, profundo: 12 };
+/**
+ * Profundidade da pesquisa (15/10, a partir do Perplexica — modo qualidade:
+ * "nunca pare antes de 5–6 rodadas", ângulos definidos — e do Local Deep
+ * Research — várias leituras por tema). `minBuscas`: o código não aceita
+ * "pronto" antes disso; `leituras`: teto de páginas lidas; `comunidade`:
+ * tópicos da comunidade lidos em pedido de produto.
+ */
+const MODOS = {
+  rapido: { rodadas: 2, minBuscas: 0, leituras: 2, comunidade: 1 },
+  normal: { rodadas: 6, minBuscas: 2, leituras: 5, comunidade: 2 },
+  profundo: { rodadas: 12, minBuscas: 5, leituras: 10, comunidade: 3 },
+};
+const RODADAS = Object.fromEntries(Object.entries(MODOS).map(([k, v]) => [k, v.rodadas]));
+// os ângulos do modo profundo (Perplexica, research_strategy)
+const ANGULOS = 'o que é e visão geral; especificações e dados técnicos; comparação com alternativas; novidades recentes; opinião de especialistas e reviews; experiência de quem usa; limitações e críticas; preço';
 const dominio = (url) => {
   try {
     return new URL(url).hostname.replace(/^www\./, '');
@@ -42,7 +56,9 @@ ${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}
 ÚLTIMA MENSAGEM: ${String(pergunta).slice(0, 1500)}
 
 Responda SÓ com um JSON:
-{"precisa_buscar": true ou false, "produto": true ou false, "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
+{"precisa_buscar": true ou false, "produto": true ou false, "assuntos": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
+
+- "assuntos": de 0 a 4 coisas concretas de que a pergunta trata e que têm uma imagem — pessoa, lugar, produto ou modelo, objeto, animal, obra, veículo — com o nome completo e já resolvido pela conversa (ex.: "Dunu Titan S", "Nikola Tesla", "Torre Eiffel"). Ideia abstrata, conta ou assunto genérico ("inflação", "como funciona") não entra.
 
 - "produto" é true quando o usuário quer escolher, comparar, avaliar ou conhecer produtos ou itens para comprar ou usar (fone, mouse, celular, geladeira, carro, um modelo específico…). Para explicação, notícia, pessoa, história ou como algo funciona, false.
 
@@ -55,9 +71,10 @@ function lerEntendimento(texto, pergunta) {
   try {
     const j = JSON.parse(String(texto).slice(String(texto).indexOf('{'), String(texto).lastIndexOf('}') + 1));
     // produto sempre busca (15/10: "fone de ouvido dunu titan s" saiu sem busca e o modelo disse que ele "não existe")
-    return { precisaBuscar: j.precisa_buscar !== false || j.produto === true, produto: j.produto === true, pergunta: String(j.pergunta || '').trim() || pergunta };
+    const assuntos = (Array.isArray(j.assuntos) ? j.assuntos : []).map((a) => String(a || '').trim()).filter((a) => a.length >= 2 && a.length <= 80).slice(0, 4);
+    return { precisaBuscar: j.precisa_buscar !== false || j.produto === true, produto: j.produto === true, assuntos, pergunta: String(j.pergunta || '').trim() || pergunta };
   } catch {
-    return { precisaBuscar: true, produto: false, pergunta }; // JSON quebrado: busca, com a pergunta como veio
+    return { precisaBuscar: true, produto: false, assuntos: [], pergunta }; // JSON quebrado: busca, com a pergunta como veio
   }
 }
 
@@ -114,7 +131,8 @@ const FERRAMENTAS = [
   },
 ];
 
-function sistemaDoPesquisador({ hoje, rodada, total, produto = false }) {
+function sistemaDoPesquisador({ hoje, rodada, total, produto = false, modo = 'normal' }) {
+  const regras = MODOS[modo] || MODOS.normal;
   return `Você é o pesquisador do AuGPT. Hoje é ${hoje}. Seu trabalho é juntar, com as ferramentas, a informação para responder muito bem à pergunta do usuário. Você não escreve a resposta: quando tiver o suficiente, chame "pronto".
 
 - Seu conhecimento pode estar desatualizado: pesquise mesmo o que parece básico.
@@ -123,7 +141,13 @@ function sistemaDoPesquisador({ hoje, rodada, total, produto = false }) {
 - Quando a pergunta pede opinião, experiência de uso ou recomendação, inclua buscas que tragam quem usa (por exemplo com "reddit" ou "fórum").
 - Use ler_pagina nas páginas mais promissoras quando o resumo não basta, sempre com um foco.
 - Comece amplo e aprofunde no que os resultados mostrarem. Se 2 ou 3 buscas não acham algo, provavelmente não existe: siga em frente.
-${produto ? '- Este pedido é sobre produtos: use buscar_na_comunidade pelo menos uma vez e leia com ler_pagina pelo menos 2 tópicos da comunidade, para saber o que quem usa recomenda, elogia e critica. Busque também preço atual e especificações.\n' : ''}- Esta é a rodada ${rodada} de ${total}.`;
+${produto ? `- Este pedido é sobre produtos: use buscar_na_comunidade pelo menos uma vez e leia com ler_pagina pelo menos ${regras.comunidade} tópico(s) da comunidade, para saber o que quem usa recomenda, elogia e critica. Busque também preço atual e especificações.\n` : ''}${
+    modo === 'profundo'
+      ? `- Esta é uma PESQUISA PROFUNDA: cubra vários ângulos (${ANGULOS}), faça pelo menos ${regras.minBuscas} buscas e leia até ${regras.leituras} páginas, cruzando o que uma fonte diz com as outras. Não pare cedo.\n`
+      : modo === 'rapido'
+        ? '- Esta é uma pesquisa RÁPIDA: uma ou duas buscas certeiras e pronto.\n'
+        : `- Faça pelo menos ${regras.minBuscas} buscas e leia até ${regras.leituras} páginas.\n`
+  }- Esta é a rodada ${rodada} de ${total}.`;
 }
 
 /** Os resultados como o pesquisador vê: "[n] título (domínio)\nresumo". */
@@ -138,7 +162,10 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   // comunidade (15/10, pedido do Davi): em pedido de produto, Reddit e fóruns entram sempre
   const comComunidade = produto && typeof buscarNaComunidade === 'function';
   const ferramentas = comComunidade ? [FERRAMENTA_DA_COMUNIDADE, ...FERRAMENTAS] : FERRAMENTAS;
-  const total = RODADAS[modo] || RODADAS.normal;
+  const regras = MODOS[modo] || MODOS.normal;
+  const total = regras.rodadas;
+  let buscasFeitas = 0;
+  let leiturasFeitas = 0;
   const fontes = [];
   // o que o pesquisador observou no caminho ("o G502 X custa R$ 799, acima do orçamento") — vai para a escrita
   fontes.notas = [];
@@ -150,8 +177,9 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     const lista = (Array.isArray(buscas) ? buscas : [buscas]).map(String).filter(Boolean).slice(0, 3);
     emit('ferramenta', { nome: comunidade ? 'buscar_na_comunidade' : 'buscar_na_web', argumentos: { consulta: lista.join(' · ') }, risco: 'leitura' });
     const achados = (await Promise.all(lista.map((q) => (comunidade ? buscarNaComunidade(q) : buscar(q)).catch(() => [])))).flat();
-    for (const q of lista) emit('fonte', { tipo: 'busca', provedor: 'web', consultas: [q] });
+    for (const q of lista) emit('fonte', { tipo: 'busca', provedor: 'web', consultas: [q], resultados: Math.round(achados.length / lista.length) });
     buscou = true;
+    buscasFeitas += lista.length;
     // ordena pelo que a pergunta + as buscas pedem; o pesquisador vê os 8 melhores novos
     const novos = achados.filter((r) => r?.url && !porUrl.has(r.url)).map((r) => ({ ...r, texto: `${r.titulo || ''} ${r.resumo || ''}` }));
     const ordenados = await ordenar(`${pergunta} ${lista.join(' ')}`, novos, { embed, maximo: 8 });
@@ -169,6 +197,8 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   const executarLeitura = async ({ fonte, foco }) => {
     const f = fontes.find((x) => x.n === Number(fonte));
     if (!f) return `Não existe a fonte [${fonte}] nos resultados.`;
+    if (leiturasFeitas >= regras.leituras) return `Limite de ${regras.leituras} páginas lidas nesta pesquisa: use o que já tem ou chame pronto.`;
+    leiturasFeitas += 1;
     emit('ferramenta', { nome: 'ler_pagina', argumentos: { url: f.url, foco: String(foco || '') }, risco: 'leitura' });
     let pagina;
     try {
@@ -188,7 +218,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   for (let rodada = 1; rodada <= total; rodada += 1) {
     if (signal?.aborted) break;
     emit('iteracao', { n: rodada, de: total });
-    const r = await chamar([{ role: 'system', content: sistemaDoPesquisador({ hoje, rodada, total, produto: comComunidade }) }, ...historico], { tools: ferramentas });
+    const r = await chamar([{ role: 'system', content: sistemaDoPesquisador({ hoje, rodada, total, produto: comComunidade, modo }) }, ...historico], { tools: ferramentas });
     const chamadas = (r.chamadas || []).map((c) => ({ nome: c.function?.name, args: typeof c.function?.arguments === 'string' ? safeJson(c.function.arguments) : c.function?.arguments || {} }));
     if (r.content?.trim()) {
       emit('raciocinio', { n: rodada, pensamento: r.content.trim().slice(0, 400) });
@@ -203,6 +233,11 @@ ${await executarBusca([pergunta])}
 Continue a pesquisa com as ferramentas, ou chame pronto.` });
         continue;
       }
+      // quis parar antes do mínimo do modo: o código pede mais ângulos (Perplexica, modo qualidade)
+      if (buscasFeitas < regras.minBuscas && rodada < total) {
+        historico.push({ role: 'user', content: `Ainda é cedo para parar: foram ${buscasFeitas} busca(s), o mínimo desta pesquisa é ${regras.minBuscas}. Pesquise ângulos que ainda faltam (${ANGULOS}) e leia as páginas mais promissoras.` });
+        continue;
+      }
       break;
     }
     historico.push({ role: 'assistant', content: r.content || '', tool_calls: r.chamadas });
@@ -215,13 +250,19 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
       else saida = `Ferramenta desconhecida: ${c.nome}`;
       historico.push({ role: 'tool', tool_name: c.nome, content: saida });
     }
-    if (chamadas.some((c) => c.nome === 'pronto')) break;
+    if (chamadas.some((c) => c.nome === 'pronto')) {
+      if (buscasFeitas < regras.minBuscas && rodada < total) {
+        historico.push({ role: 'user', content: `Ainda é cedo para parar: foram ${buscasFeitas} busca(s), o mínimo desta pesquisa é ${regras.minBuscas}. Pesquise ângulos que ainda faltam (${ANGULOS}) e leia as páginas mais promissoras.` });
+        continue;
+      }
+      break;
+    }
   }
   // garantia: pedido de produto sem a comunidade lida — o código busca e lê 2 tópicos antes da escrita
   if (comComunidade && !signal?.aborted) {
     if (!fontes.some((f) => f.comunidade)) await executarBusca([pergunta], { comunidade: true });
     const lidos = fontes.filter((f) => f.comunidade && f.trechos.length).length;
-    for (const f of fontes.filter((x) => x.comunidade && !x.trechos.length).slice(0, Math.max(0, 2 - lidos))) {
+    for (const f of fontes.filter((x) => x.comunidade && !x.trechos.length).slice(0, Math.max(0, regras.comunidade - lidos))) {
       await executarLeitura({ fonte: f.n, foco: 'o que quem usa recomenda, elogia e critica' });
     }
   }
@@ -253,8 +294,16 @@ async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000 } = {
   return usados.sort((a, b) => a.n - b.n);
 }
 
-function sistemaDoEscritor({ hoje, comFontes, produto = false }) {
-  return `Você é o AuGPT, um assistente que pesquisa na web e escreve respostas completas, claras e bem explicadas, em português do Brasil. Hoje é ${hoje}.
+// ajuste "Resposta" da barra (15/10: antes ignorado pelo núcleo)
+const TAMANHO_DA_RESPOSTA = {
+  normal: '',
+  detalhada: '\n- RESPOSTA DETALHADA: escreva uma resposta longa e completa, como um relatório (pelo menos 1.200 palavras), cobrindo todos os ângulos que as fontes trazem.',
+  tecnica: '\n- RESPOSTA TÉCNICA: use a linguagem e os dados técnicos precisos (números, unidades, especificações), sem simplificar demais; só explique siglas.',
+  curta: '\n- RESPOSTA CURTA: no máximo 3 parágrafos, só o essencial.',
+};
+
+function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal' }) {
+  return `Você é o AuGPT, um assistente que pesquisa na web e escreve respostas completas, claras e bem explicadas, em português do Brasil. Hoje é ${hoje}.${TAMANHO_DA_RESPOSTA[tamanho] || ''}
 
 ${
   comFontes
@@ -314,16 +363,18 @@ function conferirAnos(texto, { material = '', pergunta = '', hoje = '' } = {}) {
  * streaming; os outros deps são os da pesquisa.
  * @returns {{ texto, fontes: Array<{n, url, titulo}>, entendimento, buscou }}
  */
-async function responder({ pergunta, conversa = [], modo = 'normal', deps, hoje = new Date().toLocaleDateString('pt-BR') }) {
+async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho = 'normal', deps, hoje = new Date().toLocaleDateString('pt-BR') }) {
   const { chamar, escrever, embed, emit = () => {} } = deps;
   const ent = lerEntendimento((await chamar([{ role: 'user', content: pedidoDeEntendimento({ pergunta, conversa, hoje }) }], { json: true, numPredict: 300 })).content, pergunta);
-  emit('nucleo-entendimento', ent);
-  const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo, deps, hoje, produto: ent.produto }) : [];
+  // automático (15/10): produto vai para a pesquisa profunda, o resto para a normal
+  const modoUsado = MODOS[modo] ? modo : ent.produto ? 'profundo' : 'normal';
+  emit('nucleo-entendimento', { ...ent, modo: modoUsado });
+  const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto }) : [];
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
   const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed }) : [];
   emit('redigindo', { fontes: usadas.length });
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto })}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho })}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}` },
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
@@ -337,7 +388,7 @@ async function responder({ pergunta, conversa = [], modo = 'normal', deps, hoje 
   const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')}`).join(' ')} ${notas}` : '';
   const conferido = fontes.length ? conferirAnos(String(escrito || '').trim(), { material, pergunta, hoje }) : { texto: String(escrito || '').trim(), faltam: [] };
   if (conferido.faltam.length) emit('aviso', { texto: `conferência: ano(s) sem fonte na resposta: ${conferido.faltam.join(', ')}` });
-  return { texto: conferido.texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, anosSemFonte: conferido.faltam };
+  return { texto: conferido.texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam };
 }
 
-module.exports = { responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, RODADAS };
+module.exports = { MODOS, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, RODADAS };

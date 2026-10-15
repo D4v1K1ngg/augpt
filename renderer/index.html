@@ -49,8 +49,17 @@
           <span>modelo</span>
           <select id="modelo" aria-label="Modelo de IA"><option value="">—</option></select>
         </label>
-        <label class="campo" id="campoAutonomia" title="Autonomia: o que o agente pode fazer sem pedir sua confirmação">
-          <span>autonomia</span>
+        <label class="campo" title="Pesquisa: quanto o agente pesquisa antes de responder (o mesmo seletor da tela inicial)">
+          <span>pesquisa</span>
+          <select id="modoDePesquisa" aria-label="Profundidade da pesquisa">
+            <option value="automatico">automático · produto pesquisa a fundo</option>
+            <option value="rapido">rápido · 1 ou 2 buscas, segundos</option>
+            <option value="normal">normal · várias buscas e leituras</option>
+            <option value="profundo">profundo · muitos ângulos e fontes, mais lento</option>
+          </select>
+        </label>
+        <label class="campo" id="campoAutonomia" title="Autonomia: o que o agente pode fazer sem pedir sua confirmação, em tarefas com arquivo, pasta, site ou comando">
+          <span>autonomia (tarefas)</span>
           <select id="autonomia" aria-label="Autonomia do agente">
             <option value="manual">manual · confirma tudo</option>
             <option value="guiado">guiado · confirma o que é arriscado</option>
@@ -58,7 +67,7 @@
           </select>
         </label>
         <label class="campo" id="campoNivelRaciocinio" title="Raciocínio: quanto esforço o agente põe em cada pedido (mais esforço, mais lento)">
-          <span>raciocínio</span>
+          <span>raciocínio (tarefas)</span>
           <select id="nivelRaciocinio" aria-label="Nível de raciocínio">
             <option value="leve">leve · rápido, esforço padrão</option>
             <option value="medio">médio · sempre planeja, busca mais fontes</option>
@@ -236,8 +245,10 @@
         <h1>O que você precisa?</h1>
         <p>Peça e o agente decide os passos sozinho: pesquisa, lê páginas e documentos, cria arquivos, roda comandos. Cada decisão fica registrada e você pode abrir o raciocínio a qualquer momento.</p>
         <div class="modo-do-agente" id="modoDoAgente" role="group" aria-label="Como o agente responde">
-          <button type="button" data-direta="0" title="O agente escolhe sozinho o quanto pesquisar, conforme o pedido">Automático</button>
-          <button type="button" data-direta="1" title="Uma busca rápida e a resposta em segundos, sem a pesquisa profunda">Resposta direta</button>
+          <button type="button" data-modo="automatico" title="O agente escolhe: produto pesquisa a fundo, o resto pesquisa normal">Automático</button>
+          <button type="button" data-modo="rapido" title="Uma ou duas buscas e a resposta em segundos">Rápido</button>
+          <button type="button" data-modo="normal" title="Várias buscas e leituras (pelo menos 2 buscas)">Normal</button>
+          <button type="button" data-modo="profundo" title="Pesquisa de vários ângulos: pelo menos 5 buscas e até 10 páginas lidas. Mais lento">Profundo</button>
         </div>
         <!-- Fase 2 (facilidade de uso, 2026-09-23): guia de primeira execução.
              Só aparece enquanto falta algo (Ollama, ou um modelo de conversa) —

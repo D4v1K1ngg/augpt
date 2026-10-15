@@ -443,6 +443,10 @@ body:not(.mostrar-tecnico) .tecnico { display: none !important; }
 /* Cartão de produto: cada "#### N. Nome" de uma recomendação (renderer/md.js) */
 /* Imagem da resposta (`![…](augpt-img://…)`, src/tools/imagens.js) */
 .md-figura { margin: 0 0 16px; }
+/* várias imagens de referência (uma por assunto), lado a lado */
+.md-galeria { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 16px; }
+.md-galeria .md-figura { margin: 0; }
+.md-galeria .md-figura img { max-width: 210px; max-height: 180px; object-fit: cover; }
 .md-figura img { display: block; max-width: min(100%, 440px); max-height: 300px; border-radius: 10px; border: 1px solid var(--line); background: #fff; }
 /* no cartão, a foto fica numa coluna à esquerda e o texto na outra */
 .cartao-produto:has(> .md-figura) { position: relative; padding-left: 168px; min-height: 166px; }

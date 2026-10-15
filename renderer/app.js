@@ -1427,6 +1427,7 @@ function resumoDaAtividade() {
   const paginas = [...a.sites.values()].reduce((s, x) => s + x.paginas, 0);
   const partes = [];
   if (a.buscas) partes.push(`${a.buscas} busca${a.buscas === 1 ? '' : 's'}`);
+  if (a.resultados) partes.push(`${a.resultados} resultado${a.resultados === 1 ? "" : "s"} vistos`);
   if (paginas) partes.push(`${paginas} página${paginas === 1 ? '' : 's'} em ${a.sites.size} site${a.sites.size === 1 ? '' : 's'}`);
   t.caixa.querySelector('.atividade-resumo').textContent = partes.length ? `· ${partes.join(' · ')}` : '';
 }
@@ -1469,7 +1470,7 @@ function atividade(canal, d) {
       return etapaDaAtividade('entender', 'Entendendo o pedido');
     // núcleo de pesquisa (15/10): a pergunta como o modelo entendeu, e o que o pesquisador vai pensando
     case 'nucleo-entendimento':
-      return etapaDaAtividade('entender', 'Entendendo o pedido', d.precisaBuscar === false ? 'responde sem pesquisar' : d.pergunta);
+      return etapaDaAtividade('entender', 'Entendendo o pedido', d.precisaBuscar === false ? 'responde sem pesquisar' : `${d.pergunta}${d.modo ? ` · pesquisa ${d.modo}` : ''}`);
     case 'raciocinio':
       if (t.caixa.querySelector('.atividade-etapas li:last-child')?.dataset.chave === 'pesquisar') return etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.pensamento);
       return;
@@ -1487,6 +1488,7 @@ function atividade(canal, d) {
       t.atividade = t.atividade || { buscas: 0, sites: new Map() };
       if (d.tipo === 'busca') {
         t.atividade.buscas += 1;
+        t.atividade.resultados = (t.atividade.resultados || 0) + (Number(d.resultados) || 0);
         etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.consultas?.length ? `Busca: ${d.consultas[d.consultas.length - 1]}` : '');
       } else if (d.url) {
         siteConsultado(d.url);
@@ -2977,16 +2979,22 @@ el.autonomia.addEventListener('change', async () => {
   el.autonomia.value = config.autonomy;
 });
 
-// Automático × Resposta direta (tela inicial do agente)
+// Profundidade da pesquisa (15/10): seletor da tela inicial e do painel da barra, os dois
+// gravam o mesmo ajuste. O "Resposta direta" antigo vira "Rápido".
+const modoAtual = () => (config.respostaDireta === true ? 'rapido' : config.modoDePesquisa || 'automatico');
 function pintarModoDoAgente() {
-  for (const b of $('modoDoAgente').querySelectorAll('button')) b.classList.toggle('ativo', (b.dataset.direta === '1') === (config.respostaDireta === true));
+  for (const b of $('modoDoAgente').querySelectorAll('button')) b.classList.toggle('ativo', b.dataset.modo === modoAtual());
+  $('modoDePesquisa').value = modoAtual();
 }
-$('modoDoAgente').addEventListener('click', async (e) => {
-  const b = e.target.closest('button');
-  if (!b) return;
-  config = await api.config.set({ respostaDireta: b.dataset.direta === '1' });
+async function escolherModo(modo) {
+  config = await api.config.set({ modoDePesquisa: modo, respostaDireta: false });
   pintarModoDoAgente();
+}
+$('modoDoAgente').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (b) escolherModo(b.dataset.modo);
 });
+$('modoDePesquisa').addEventListener('change', (e) => escolherModo(e.target.value));
 
 $('modoResposta').addEventListener('change', async (e) => {
   config = await api.config.set({ modoResposta: e.target.value });
@@ -4130,7 +4138,7 @@ $('btnLimparExec').addEventListener('click', async () => {
   const resumir = () => {
     const ollama = $('statusOllama');
     const modelos = $('btnModelos');
-    const partes = [$('modelo').value || 'sem modelo', curto($('autonomia')), curto($('nivelRaciocinio'))].filter(Boolean);
+    const partes = [$('modelo').value || 'sem modelo', `pesquisa ${curto($('modoDePesquisa'))}`, curto($('modoResposta'))].filter(Boolean);
     const desligado = ollama.classList.contains('offline');
     const texto = desligado ? `Ollama desligado · ${partes.join(' · ')}` : partes.join(' · ');
     if ($('resumoExecucao').textContent !== texto) $('resumoExecucao').textContent = texto;

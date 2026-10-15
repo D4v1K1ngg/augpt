@@ -173,4 +173,45 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'núcleo (15/10): profundidade — "pronto" antes do mínimo de buscas recebe "ainda é cedo"; teto de páginas lidas; automático manda produto para o profundo e o resto para o normal; "Resposta" muda a instrução da escrita; o entendimento traz os assuntos para as imagens',
+    tipo: 'unidade',
+    async executar() {
+      const roteiro = (n) => Array.from({ length: n }, (_, i) => ({ ferramentas: [['buscar_na_web', { buscas: [`b${i}`] }], ['pronto', {}]] }));
+      const rodar = async ({ modo, entendimento, leituras = 0, tamanho }) => {
+        const r = [{ ferramentas: [['buscar_na_web', { buscas: ['b0'] }], ...Array.from({ length: leituras }, (_, i) => ['ler_pagina', { fonte: i + 1, foco: 'x' }]), ['pronto', {}]] }, ...roteiro(11)];
+        const m = modeloFalso({ entendimento, roteiro: r });
+        const eventos = [];
+        let n = 0;
+        const res = await nucleo.responder({
+          pergunta: 'p',
+          modo,
+          tamanho,
+          deps: {
+            chamar: m.chamar,
+            escrever: m.escrever,
+            buscar: async (q) => Array.from({ length: 12 }, (_, i) => ({ titulo: `${q}-${i}`, url: `https://s${n++}.com/x`, resumo: 'texto' })),
+            lerPagina: async () => ({ texto: 'conteúdo da página '.repeat(30) }),
+            emit: (e, d) => eventos.push([e, d]),
+          },
+        });
+        return { m, eventos, res };
+      };
+      const conta = (ev, nome) => ev.filter(([e, d]) => e === 'ferramenta' && d.nome === nome).length;
+      const normal = await rodar({ modo: 'normal', entendimento: { precisa_buscar: true, produto: false, assuntos: ['Nikola Tesla'], pergunta: 'quem foi tesla' } });
+      const profundoAuto = await rodar({ modo: 'automatico', entendimento: { precisa_buscar: true, produto: true, assuntos: ['Dunu Titan S'], pergunta: 'dunu titan s' } });
+      const muitasLeituras = await rodar({ modo: 'rapido', entendimento: { precisa_buscar: true, produto: false, pergunta: 'x' }, leituras: 4 });
+      const detalhada = await rodar({ modo: 'rapido', entendimento: { precisa_buscar: true, produto: false, pergunta: 'x' }, tamanho: 'detalhada' });
+      const pedidoAinda = normal.m.chamadas.some((c) => c.messages.some((x) => /Ainda é cedo para parar: foram 1 busca/.test(x.content || '')));
+      return [
+        conta(normal.eventos, 'buscar_na_web') === 2 && pedidoAinda || `normal: mínimo de 2 buscas (${conta(normal.eventos, 'buscar_na_web')}), com o "ainda é cedo"`,
+        profundoAuto.res.modo === 'profundo' && conta(profundoAuto.eventos, 'buscar_na_web') === 5 || `automático + produto = profundo com 5 buscas: ${profundoAuto.res.modo} / ${conta(profundoAuto.eventos, 'buscar_na_web')}`,
+        normal.res.modo === 'normal' || 'modo pedido é respeitado',
+        conta(muitasLeituras.eventos, 'ler_pagina') === 2 || `rápido lê no máximo 2 páginas: ${conta(muitasLeituras.eventos, 'ler_pagina')}`,
+        /RESPOSTA DETALHADA/.test(detalhada.m.escritas[0][0].content) && !/RESPOSTA DETALHADA/.test(normal.m.escritas[0][0].content) || 'o ajuste "Resposta" chega à escrita',
+        normal.res.assuntos.join() === 'Nikola Tesla' && profundoAuto.res.assuntos.join() === 'Dunu Titan S' || `assuntos: ${normal.res.assuntos} / ${profundoAuto.res.assuntos}`,
+        normal.eventos.some(([e, d]) => e === 'fonte' && d.tipo === 'busca' && d.resultados === 12) || 'a busca informa quantos resultados vieram (painel de atividade)',
+      ];
+    },
+  },
 ];

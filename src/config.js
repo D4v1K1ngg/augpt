@@ -146,9 +146,11 @@ const DEFAULTS = {
   // núcleo de pesquisa (15/10, src/agent/nucleo): perguntas vão por ele —
   // o modelo pesquisa com ferramentas e escreve uma vez. false = caminho antigo.
   nucleoDePesquisa: true,
-  // rodadas de pesquisa do núcleo: 'rapido' (2), 'normal' (6), 'profundo' (12);
-  // o botão "Resposta direta" usa 'rapido'
-  modoDePesquisa: 'normal',
+  // profundidade da pesquisa (seletor da tela inicial e do painel; regras em
+  // src/agent/nucleo, MODOS): 'rapido' (2 rodadas), 'normal' (6, mín. 2 buscas),
+  // 'profundo' (12, mín. 5 buscas, vários ângulos), 'automatico' (produto →
+  // profundo, o resto → normal)
+  modoDePesquisa: 'automatico',
   // botão "Resposta direta" da tela do agente (13/10): todo pedido que não
   // mexe em arquivo nem em site vai pelo nível 1 (busca rápida + resposta),
   // sem a pesquisa profunda. false = o AUTO escolhe o nível.

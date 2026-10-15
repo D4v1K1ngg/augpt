@@ -152,7 +152,11 @@
         fecharLista();
         fecharCitacao();
         const figura = `<figure class="md-figura"><img src="${imagem[2]}" alt="${imagem[1]}" loading="lazy" /></figure>`;
-        if (cartao && /^<h5>/.test(saida[saida.length - 1] || '')) saida.splice(saida.length - 1, 0, figura);
+        const anterior = saida[saida.length - 1] || '';
+        if (cartao && /^<h5>/.test(anterior)) saida.splice(saida.length - 1, 0, figura);
+        // imagens seguidas fora de cartão (uma por assunto: "Tesla e Edison") viram uma galeria
+        else if (!cartao && anterior.startsWith('<figure class="md-figura">')) saida[saida.length - 1] = `<div class="md-galeria">${anterior}${figura}</div>`;
+        else if (!cartao && anterior.startsWith('<div class="md-galeria">')) saida[saida.length - 1] = anterior.replace(/<\/div>$/, `${figura}</div>`);
         else saida.push(figura);
         continue;
       }

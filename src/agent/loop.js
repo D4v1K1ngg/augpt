@@ -1545,16 +1545,27 @@ class Agent extends EventEmitter {
     };
     try {
       this.emit('inicio-rapido', { objetivo });
-      const modo = cfg.respostaDireta === true ? 'rapido' : cfg.modoDePesquisa || 'normal';
-      // imagem de referência do assunto, buscada enquanto o modelo pesquisa e escreve
-      const figura = imagens.comLimite(imagens.imagemDeReferencia(auto.assuntoDoPedido(objetivo), { config: cfg, dir: this.dirImagens() }), 20000, null);
-      const r = await nucleo.responder({ pergunta: objetivo, conversa, modo, deps });
+      // profundidade: seletor da tela inicial / painel ("Resposta direta" antigo = rápido)
+      const modo = cfg.respostaDireta === true ? 'rapido' : cfg.modoDePesquisa || 'automatico';
+      // imagens de referência dos ASSUNTOS que o modelo apontou no entendimento (pessoa, lugar,
+      // produto, objeto…), buscadas em paralelo com a pesquisa — 15/10: antes era o texto da
+      // pergunta, e "Esse fone é bom para jogar pubg?" buscava imagem de "Esse fone é bom…"
+      let figuras = Promise.resolve([]);
+      const emitirOriginal = deps.emit;
+      deps.emit = (evento, dados) => {
+        if (evento === 'nucleo-entendimento' && dados?.precisaBuscar) {
+          const lista = dados.assuntos?.length ? dados.assuntos : [auto.assuntoDoPedido(dados.pergunta || objetivo)];
+          figuras = imagens.comLimite(Promise.all(lista.map((a) => imagens.imagemDeReferencia(a, { config: cfg, dir: this.dirImagens() }).then((img) => (img ? { nome: a, img } : null)).catch(() => null))), 25000, []);
+        }
+        emitirOriginal(evento, dados);
+      };
+      const r = await nucleo.responder({ pergunta: objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps });
       if (!r.texto) throw new Error('a escrita veio vazia');
-      // produto: uma foto em cada cartão "#### N. Nome"; o resto: a imagem de referência no topo
+      // produto: uma foto em cada cartão "#### N. Nome"; o resto: a imagem de cada assunto no topo
       const limparNome = (t) => String(t).replace(/[*_[\]]/g, '').trim();
       const nomes = r.produto ? [...r.texto.matchAll(/^#### \d+\. (.+)$/gm)].map((m) => limparNome(m[1])) : [];
       const fotos = nomes.length ? await imagens.comLimite(imagens.imagensDosProdutos(nomes, { config: cfg, dir: this.dirImagens() }), 20000, new Map()) : new Map();
-      const foto = r.buscou && !nomes.length ? await figura : null;
+      const doTopo = r.buscou && !nomes.length ? (await figuras).filter(Boolean) : [];
       const comCartoes = nomes.length
         ? r.texto.replace(/^#### \d+\. (.+)$/gm, (linha, nome) => {
             const img = fotos.get(limparNome(nome));
@@ -1562,7 +1573,8 @@ class Agent extends EventEmitter {
           })
         : r.texto;
       const corpo = explicarTermos(comLinks(comCartoes, r.fontes));
-      const comFoto = foto ? `${imagens.marcacao(auto.assuntoDoPedido(objetivo), foto)}\n\n${corpo}` : corpo;
+      // uma imagem por assunto, uma por linha (o renderer junta as seguidas numa galeria)
+      const comFoto = doTopo.length ? `${doTopo.map((x) => imagens.marcacao(x.nome, x.img)).join('\n')}\n\n${corpo}` : corpo;
       const final = r.fontes.length ? `${comFoto}\n\n---\n**Fontes**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comFoto;
       this.emit('nucleo-fim', { modo, ms: Date.now() - inicio, fontes: r.fontes.length, entendimento: r.entendimento });
       await this.fotografarModelos();
