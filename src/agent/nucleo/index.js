@@ -58,7 +58,7 @@ ${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}
 Responda SÓ com um JSON:
 {"precisa_buscar": true ou false, "produto": true ou false, "assuntos": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
 
-- "assuntos": de 0 a 4 coisas concretas de que a pergunta trata e que têm uma imagem — pessoa, lugar, produto ou modelo, objeto, animal, obra, veículo — com o nome completo e já resolvido pela conversa (ex.: "Dunu Titan S", "Nikola Tesla", "Torre Eiffel"). Ideia abstrata, conta ou assunto genérico ("inflação", "como funciona") não entra.
+- "assuntos": de 0 a 4 coisas concretas de que a pergunta trata e que têm uma imagem — pessoa, lugar, produto ou modelo, objeto, animal, obra, veículo — com o nome completo e já resolvido pela conversa (ex.: "Dunu Titan S", "Nikola Tesla", "Torre Eiffel"). Ideia abstrata, conta ou assunto genérico ("inflação", "como funciona") não entra; país, cidade ou empresa citados só como contexto ("no Brasil", "da Nvidia") também não.
 
 - "produto" é true quando o usuário quer escolher, comparar, avaliar ou conhecer produtos ou itens para comprar ou usar (fone, mouse, celular, geladeira, carro, um modelo específico…). Para explicação, notícia, pessoa, história ou como algo funciona, false.
 
@@ -315,6 +315,7 @@ ${
 - Use tabela quando comparar opções ou listar especificações.
 - Quando a pergunta pede escolha, recomendação ou avaliação, diga com clareza o que você recomenda e por quê, com base nas fontes. Nada de conclusão genérica.
 - Diga o que as fontes não responderam, em vez de inventar.
+- Preço: use o que as fontes trazem, na moeda delas. Não converta moeda nem estime preço em real que as fontes não dão.
 - As anotações do pesquisador (se houver) mostram o que ele já conferiu, como preço atual. Quando uma anotação e uma fonte discordarem, prefira o dado mais recente e diga a diferença.${produto ? FORMATO_DE_PRODUTO : ''}`
     : '- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.'
 }`;
@@ -348,7 +349,8 @@ const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="$
 function conferirAnos(texto, { material = '', pergunta = '', hoje = '' } = {}) {
   const permitidos = new Set(`${material} ${pergunta} ${hoje}`.match(/\b(1[0-9]{3}|20[0-9]{2})\b/g) || []);
   const faltam = new Set();
-  const marcado = String(texto || '').replace(/(^|[^\d/.\-])(1[0-9]{3}|20[0-9]{2})(?![\d])/g, (m, antes, ano) => {
+  // não é ano: resolução ("1440p", "2560x1440", "1080i") — 15/10, a RTX ganhava "1440 ⚠p"
+  const marcado = String(texto || '').replace(/(^|[^\d/.\-x×])(1[0-9]{3}|20[0-9]{2})(?![\dpPi×x])/g, (m, antes, ano) => {
     if (permitidos.has(ano)) return m;
     faltam.add(ano);
     return `${antes}${ano} ⚠`;

@@ -199,7 +199,10 @@ class Agent extends EventEmitter {
           `O modelo "${nome}" é um modelo de decisão (só escolhe entre opções) e não conversa. Em Ajustes, escolha um modelo de conversa, como o qwen2.5:7b.`
         );
       }
-      if (ehModeloQuePensa(m)) {
+      // 15/10: com o raciocínio do modelo desligado ("pensar nas etapas"), o AuGPT manda
+      // think:false e o qwen3.5 responde direto — o aviso saía em toda resposta. Fica para
+      // quem pensa sempre (DeepSeek-R1, QwQ) ou quando o raciocínio está ligado
+      if (ehModeloQuePensa(m) && (this.config.pensarNasEtapas === true || /\b(r1|qwq)\b/i.test(nome))) {
         avisos.push(`o modelo "${nome}" pensa antes de responder: cada etapa fica bem mais lenta e o raciocínio pode esgotar o limite de resposta. Para o AuGPT, prefira um modelo direto (ex.: qwen2.5:7b).`);
       }
     }
