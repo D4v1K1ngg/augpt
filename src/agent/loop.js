@@ -33,6 +33,10 @@ const protocolo = require('./protocolo');
 const motorPesquisa = require('./motor-pesquisa');
 const { escopoDoPedido, foraDoEscopo } = require('./escopo');
 const search = require('../tools/search');
+const { lerComCache } = require('../tools/web');
+const nucleo = require('./nucleo');
+const { explicarTermos } = require('./glossario');
+const { comLinks } = require('./escritor-de-cartoes');
 const { vetorDe } = require('./embeddings');
 const { ACOES_SEM_SEMPRE_PERMITIR } = require('../config');
 const {
@@ -1496,6 +1500,71 @@ class Agent extends EventEmitter {
     }
   }
 
+  /**
+   * Núcleo de pesquisa (15/10, src/agent/nucleo): entender → o modelo pesquisa
+   * com ferramentas nativas → uma escrita com fontes numeradas. Devolve a
+   * resposta final, ou null quando falhou (quem chama segue pelo caminho antigo).
+   */
+  async responderPeloNucleo({ objetivo, conversa }) {
+    const inicio = Date.now();
+    const cfg = this.config;
+    const modelo = cfg.model;
+    const signal = this.controller.signal;
+    const ctxWeb = {
+      estado: {},
+      config: cfg,
+      emit: (e, d) => this.emit(e, d || {}),
+      render: this.render,
+      retomada: this.retomada,
+      dirCachePaginas: this.userDataPath ? path.join(this.userDataPath, 'cache-paginas') : null,
+    };
+    const ingles = (q) => /\b(the|best|for|with|vs|review|reddit|how|what|which)\b/i.test(q) && !/[ãõçáéíóúâêà]/i.test(q);
+    let escreveu = false;
+    const deps = {
+      signal,
+      emit: (evento, dados) => this.emit(evento, dados),
+      chamar: async (messages, { tools, json, numPredict } = {}) => {
+        const r = await ollama.chat({ host: cfg.host, model: modelo, messages, tools, json, temperature: 0.3, numCtx: 16384, numPredict: numPredict || 800, manterVivo: cfg.manterModeloVivo, signal });
+        this.contabilizar({ promptTokens: r.promptTokens, completionTokens: r.completionTokens }, { tipo: tools ? 'decisao' : 'entendimento', duracaoMs: r.durationMs });
+        return r;
+      },
+      escrever: async (messages, onToken) => {
+        const r = await ollama.chatStream({ host: cfg.host, model: modelo, messages, temperature: 0.4, numCtx: 16384, numPredict: Number(cfg.numPredictResposta) || 3072, manterVivo: cfg.manterModeloVivo, signal, onToken: (p) => { escreveu = true; onToken(p); } });
+        this.contabilizar({ promptTokens: r.promptTokens, completionTokens: r.completionTokens }, { tipo: 'redacao', duracaoMs: r.durationMs });
+        return r.content;
+      },
+      buscar: async (q) => (await search.buscar(q, { searxngUrl: cfg.searxngUrl, marginaliaKey: cfg.marginaliaKey, jinaKey: cfg.jinaKey, idioma: ingles(q) ? 'all' : 'pt-BR' })).resultados,
+      lerPagina: (url) => lerComCache(url, ctxWeb),
+      embed: (textos) => ollama.embed({ host: cfg.host, model: cfg.embedModel || 'nomic-embed-text', input: textos, signal }),
+    };
+    try {
+      this.emit('inicio-rapido', { objetivo });
+      const modo = cfg.respostaDireta === true ? 'rapido' : cfg.modoDePesquisa || 'normal';
+      // imagem de referência do assunto, buscada enquanto o modelo pesquisa e escreve
+      const figura = imagens.comLimite(imagens.imagemDeReferencia(auto.assuntoDoPedido(objetivo), { config: cfg, dir: this.dirImagens() }), 20000, null);
+      const r = await nucleo.responder({ pergunta: objetivo, conversa, modo, deps });
+      if (!r.texto) throw new Error('a escrita veio vazia');
+      const foto = r.buscou ? await figura : null;
+      const corpo = explicarTermos(comLinks(r.texto, r.fontes));
+      const comFoto = foto ? `${imagens.marcacao(auto.assuntoDoPedido(objetivo), foto)}\n\n${corpo}` : corpo;
+      const final = r.fontes.length ? `${comFoto}\n\n---\n**Fontes**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comFoto;
+      this.emit('nucleo-fim', { modo, ms: Date.now() - inicio, fontes: r.fontes.length, entendimento: r.entendimento });
+      await this.fotografarModelos();
+      this.emit('concluido', { resumo: final, resposta: true, iteracoes: 0, uso: this.uso, verificacao: null, confianca: null });
+      this.rodando = false;
+      return { ok: true, resumo: final };
+    } catch (err) {
+      if (signal.aborted) {
+        this.rodando = false;
+        this.emit('interrompido', { iteracoes: 0, uso: this.uso });
+        return { ok: false, motivo: 'interrompido' };
+      }
+      if (escreveu) this.emit('resposta-reinicia', { motivo: 'o núcleo de pesquisa falhou — seguindo pelo caminho antigo' });
+      this.emit('aviso', { texto: `Núcleo de pesquisa falhou: ${err.message}. Seguindo pelo caminho antigo.` });
+      return null;
+    }
+  }
+
   async _run(objetivo, conversa = [], idConversa = null, {
     resumoConversa = '', resumoConversaTurnos = 0, tarefaAnterior = null,
   } = {}) {
@@ -1602,6 +1671,13 @@ class Agent extends EventEmitter {
     let rotaAndando = pedirRota(objetivo);
 
     this.nivelAuto = null;
+    // 15/10: pergunta (não tarefa com arquivo, pasta, site ou arquivo de saída)
+    // vai pelo núcleo de pesquisa novo; o caminho antigo fica de reserva
+    const regraDoPedido = tipoDoPedido(objetivo);
+    if (this.config.nucleoDePesquisa === true && !this.skillForcada && !tarefaAnterior && !['local', 'site'].includes(regraDoPedido.tipo) && !regraDoPedido.arquivoDeSaida) {
+      const pronta = await this.responderPeloNucleo({ objetivo, conversa });
+      if (pronta !== null) return pronta;
+    }
     if (this.config.modoAuto !== false && !this.skillForcada && !tarefaAnterior) {
       const classificacao = verificador.classificarPedido(objetivo);
       // 'livre' é a regra sem opinião (quase metade dos pedidos reais): aí

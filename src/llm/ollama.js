@@ -336,6 +336,8 @@ async function chat({
   manterVivo = '30m',
   pensar,
   numGpu,
+  // ferramentas nativas do Ollama (15/10, núcleo de pesquisa): [{ type: 'function', function: { name, description, parameters } }]
+  tools,
   signal,
 }) {
   const usarEsquema = Boolean(esquema) && suportaEsquema(host, model);
@@ -349,6 +351,7 @@ async function chat({
     // pior ainda: alternar entre dois modelos força troca a cada passo.
     keep_alive: manterVivo,
     ...(formato ? { format: formato } : {}),
+    ...(Array.isArray(tools) && tools.length ? { tools } : {}),
     ...(pensar === undefined ? (pensarPadrao === null ? {} : { think: pensarPadrao }) : { think: pensar }),
     options: {
       temperature,
@@ -382,6 +385,8 @@ async function chat({
     // definido e modelo/template com suporte) — não usado por ninguém ainda,
     // só exposto pra quem quiser logar/depurar o raciocínio do modelo depois.
     pensamento: data.message?.thinking ?? null,
+    // chamadas de ferramenta que o modelo fez (vazio sem `tools`)
+    chamadas: Array.isArray(data.message?.tool_calls) ? data.message.tool_calls : [],
     via,
     promptTokens: data.prompt_eval_count ?? 0,
     completionTokens: data.eval_count ?? 0,
