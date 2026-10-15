@@ -66,8 +66,11 @@ function frasesRepetidas(resposta, { limite = 0.6 } = {}) {
 
 /** Trecho entre aspas com 10+ palavras FORA das citações em bloco ("> ...") — comentário colado no meio do texto. */
 function comentariosColados(resposta) {
-  const corpo = String(resposta || '').replace(/^>.*$/gm, '');
-  return (corpo.match(/["“][^"“”\n]{20,600}["”]/g) || []).filter((q) => q.split(/\s+/).length >= 10);
+  // links fora (o texto da âncora e a URL não são citação); a aspa de abertura
+  // vem depois de espaço, parêntese ou começo de linha — senão o fecho de uma
+  // aspa curta ("punch") e a abertura da próxima pareciam uma citação longa
+  const corpo = String(resposta || '').replace(/^>.*$/gm, '').replace(/\[[^\]]*\]\([^)]*\)/g, ' ');
+  return [...corpo.matchAll(/(?:^|[\s(])(["“][^"“”\n]{20,600}["”])/gm)].map((m) => m[1]).filter((q) => q.split(/\s+/).length >= 10);
 }
 
 /** Explicações entre parênteses ("palco sonoro (a sensação de espaço…)"): 4+ palavras, não é número, fonte nem link. */

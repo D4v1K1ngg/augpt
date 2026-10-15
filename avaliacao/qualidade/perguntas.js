@@ -564,7 +564,7 @@ module.exports = [
     ],
     checagens: [
       { nome: 'fala do Dunu Titan S', ok: (r) => /dunu/i.test(r) && /titan\s?s/i.test(r) },
-      { nome: 'não recomenda outro produto no lugar (Galaxy Buds, Jabra…)', ok: (r) => !/galaxy buds|jabra|aftershokz|recomendo (o|a) (?!dunu)/i.test(r) },
+      { nome: 'não recomenda outro produto no lugar (Galaxy Buds, Jabra…)', ok: (r) => !/galaxy buds|jabra|aftershokz|recomendo (o|a) (?!dunu)/i.test(String(r).replace(/\*\*/g, '')) },
       { nome: 'não inventa uso (treino, músico)', ok: (r) => !/exerc[ií]cio f[ií]sico|para m[uú]sicos?\b/i.test(r) },
       { nome: 'cita ao menos uma fonte (link ou comunidade)', ok: (r) => /https?:\/\/|— r\/\w+/.test(r) },
       ...checagensDeTexto({ minimoExplicados: 1 }),

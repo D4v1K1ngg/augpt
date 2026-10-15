@@ -54,7 +54,8 @@ Responda SÓ com um JSON:
 function lerEntendimento(texto, pergunta) {
   try {
     const j = JSON.parse(String(texto).slice(String(texto).indexOf('{'), String(texto).lastIndexOf('}') + 1));
-    return { precisaBuscar: j.precisa_buscar !== false, produto: j.produto === true, pergunta: String(j.pergunta || '').trim() || pergunta };
+    // produto sempre busca (15/10: "fone de ouvido dunu titan s" saiu sem busca e o modelo disse que ele "não existe")
+    return { precisaBuscar: j.precisa_buscar !== false || j.produto === true, produto: j.produto === true, pergunta: String(j.pergunta || '').trim() || pergunta };
   } catch {
     return { precisaBuscar: true, produto: false, pergunta }; // JSON quebrado: busca, com a pergunta como veio
   }
@@ -324,7 +325,9 @@ async function responder({ pergunta, conversa = [], modo = 'normal', deps, hoje 
   const mensagens = [
     { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto })}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}` },
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 2000) })),
-    { role: 'user', content: pergunta },
+    // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
+    // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
+    { role: 'user', content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.)` : pergunta },
   ];
   const escrito = await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco }));
   // só ficam na lista as fontes que a resposta citou (ou todas as usadas, se ela não citou nenhuma)
