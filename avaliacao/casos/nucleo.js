@@ -354,4 +354,37 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'glossário (16/10): explicação conforme o aparelho do texto — switch mecânico de mouse não é peça de teclado; "taxa de atualização" e "tempo de resposta" só são de tela num texto de tela',
+    tipo: 'unidade',
+    executar() {
+      const { explicarTermos } = require('../../src/agent/glossario');
+      const mouse = explicarTermos('O mouse tem switches mecânicos e taxa de atualização de 8000 Hz. Um mouse leve.');
+      const teclado = explicarTermos('O teclado tem switches mecânicos. Bom teclado.');
+      const monitor = explicarTermos('O monitor tem taxa de atualização de 240 Hz.');
+      return [
+        /switches mecânicos \(o botão de clique com contato metálico/.test(mouse) && !/a tela mostra/.test(mouse) || `mouse: ${mouse}`,
+        /switches mecânicos \(a peça sob cada tecla/.test(teclado) || `teclado: ${teclado}`,
+        /taxa de atualização \(quantas imagens por segundo a tela mostra/.test(monitor) || `monitor: ${monitor}`,
+      ];
+    },
+  },
+  {
+    nome: 'núcleo (16/10): a escrita não recebe as imagens das respostas anteriores e a imagem que ela escrever sai (o cartão de seguimento saiu com duas fotos)',
+    tipo: 'unidade',
+    async executar() {
+      const m = modeloFalso({ entendimento: { precisa_buscar: true, produto: true, pergunta: 'e o G Pro X2?' }, texto: '#### 1. G Pro X2\n![G Pro X2](augpt-img://abcdefghijklmnopqrstuvwxyz.jpg)\n**Faixa de preço:** US$ 179 [1]' });
+      const r = await nucleo.responder({
+        pergunta: 'e o G Pro X2?',
+        modo: 'rapido',
+        conversa: [{ role: 'user', content: 'mouse da logitech magnético?' }, { role: 'assistant', content: '#### 1. G Pro X2\n![G Pro X2](augpt-img://zyxwvutsrqponmlkjihgfedcba.jpg)\n**Faixa de preço:** US$ 179' }],
+        deps: { chamar: m.chamar, escrever: m.escrever, buscar: async () => [{ titulo: 'G Pro X2', url: 'https://a.com/x', resumo: 'mouse' }], lerPagina: async () => ({ texto: 'x '.repeat(50) }) },
+      });
+      const enviado = m.escritas[0].map((x) => x.content).join('\n');
+      return [
+        !/augpt-img:/.test(enviado) || 'a conversa chega à escrita sem as imagens',
+        !/augpt-img:/.test(r.texto) && /#### 1\. G Pro X2\n\*\*Faixa/.test(r.texto) || `a imagem escrita pelo modelo sai: ${r.texto}`,
+      ];
+    },
+  },
 ];
