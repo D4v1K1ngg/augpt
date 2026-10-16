@@ -26,12 +26,15 @@ const { pedacos, ordenar } = require('./ranking');
  * "nunca pare antes de 5–6 rodadas", ângulos definidos — e do Local Deep
  * Research — várias leituras por tema). `minBuscas`: o código não aceita
  * "pronto" antes disso; `leituras`: teto de páginas lidas; `comunidade`:
- * tópicos da comunidade lidos em pedido de produto.
+ * tópicos da comunidade lidos em pedido de produto. `minLeituras` (Fase 2,
+ * 16/10): páginas lidas de verdade antes da escrita — o resumo do buscador
+ * tem 2 linhas e a resposta saía apoiada nele; o que o modelo não ler, o
+ * código lê.
  */
 const MODOS = {
-  rapido: { rodadas: 2, minBuscas: 0, leituras: 2, comunidade: 1 },
-  normal: { rodadas: 6, minBuscas: 2, leituras: 5, comunidade: 2 },
-  profundo: { rodadas: 12, minBuscas: 5, leituras: 10, comunidade: 3 },
+  rapido: { rodadas: 2, minBuscas: 0, leituras: 2, minLeituras: 0, comunidade: 1 },
+  normal: { rodadas: 6, minBuscas: 2, leituras: 5, minLeituras: 3, comunidade: 2 },
+  profundo: { rodadas: 12, minBuscas: 5, leituras: 10, minLeituras: 6, comunidade: 3 },
 };
 const RODADAS = Object.fromEntries(Object.entries(MODOS).map(([k, v]) => [k, v.rodadas]));
 // os ângulos do modo profundo (Perplexica, research_strategy)
@@ -143,10 +146,10 @@ function sistemaDoPesquisador({ hoje, rodada, total, produto = false, modo = 'no
 - Comece amplo e aprofunde no que os resultados mostrarem. Se 2 ou 3 buscas não acham algo, provavelmente não existe: siga em frente.
 ${produto ? `- Este pedido é sobre produtos: use buscar_na_comunidade pelo menos uma vez e leia com ler_pagina pelo menos ${regras.comunidade} tópico(s) da comunidade, para saber o que quem usa recomenda, elogia e critica. Busque também preço atual e especificações.\n` : ''}${
     modo === 'profundo'
-      ? `- Esta é uma PESQUISA PROFUNDA: cubra vários ângulos (${ANGULOS}), faça pelo menos ${regras.minBuscas} buscas e leia até ${regras.leituras} páginas, cruzando o que uma fonte diz com as outras. Não pare cedo.\n`
+      ? `- Esta é uma PESQUISA PROFUNDA: cubra vários ângulos (${ANGULOS}), faça pelo menos ${regras.minBuscas} buscas e leia de ${regras.minLeituras} a ${regras.leituras} páginas, cruzando o que uma fonte diz com as outras. Não pare cedo.\n`
       : modo === 'rapido'
         ? '- Esta é uma pesquisa RÁPIDA: uma ou duas buscas certeiras e pronto.\n'
-        : `- Faça pelo menos ${regras.minBuscas} buscas e leia até ${regras.leituras} páginas.\n`
+        : `- Faça pelo menos ${regras.minBuscas} buscas e leia de ${regras.minLeituras} a ${regras.leituras} páginas.\n`
   }- Esta é a rodada ${rodada} de ${total}.`;
 }
 
@@ -166,7 +169,9 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   const total = regras.rodadas;
   let buscasFeitas = 0;
   let leiturasFeitas = 0;
+  let pediuLeitura = false;
   const fontes = [];
+  const lidas = () => fontes.filter((f) => f.trechos.length).length;
   // o que o pesquisador observou no caminho ("o G502 X custa R$ 799, acima do orçamento") — vai para a escrita
   fontes.notas = [];
   const porUrl = new Map();
@@ -194,10 +199,10 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     return mostrados.length ? listaParaOModelo(mostrados) : 'Nenhum resultado novo para essas buscas.';
   };
 
-  const executarLeitura = async ({ fonte, foco }) => {
+  const executarLeitura = async ({ fonte, foco }, { garantia = false } = {}) => {
     const f = fontes.find((x) => x.n === Number(fonte));
     if (!f) return `Não existe a fonte [${fonte}] nos resultados.`;
-    if (leiturasFeitas >= regras.leituras) return `Limite de ${regras.leituras} páginas lidas nesta pesquisa: use o que já tem ou chame pronto.`;
+    if (leiturasFeitas >= regras.leituras && !garantia) return `Limite de ${regras.leituras} páginas lidas nesta pesquisa: use o que já tem ou chame pronto.`;
     leiturasFeitas += 1;
     emit('ferramenta', { nome: 'ler_pagina', argumentos: { url: f.url, foco: String(foco || '') }, risco: 'leitura' });
     let pagina;
@@ -213,6 +218,18 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     const melhores = (await ordenar(`${foco || ''} ${pergunta}`, pedacos(pagina.texto).map((texto) => ({ texto })), { embed, maximo: 4 })).filter((m, i) => i === 0 || m.nota >= 0.2);
     f.trechos.push(...melhores.map((m) => m.texto).filter((t) => !f.trechos.includes(t)));
     return `[${f.n}] ${f.titulo}\n${melhores.map((m) => m.texto).join('\n…\n').slice(0, 3000)}`;
+  };
+
+  // o modelo quis parar: falta busca (pede sempre) ou falta leitura (pede uma vez; o resto o código lê no fim)
+  const aindaECedo = (rodada) => {
+    if (rodada >= total) return null;
+    if (buscasFeitas < regras.minBuscas) return `Ainda é cedo para parar: foram ${buscasFeitas} busca(s), o mínimo desta pesquisa é ${regras.minBuscas}. Pesquise ângulos que ainda faltam (${ANGULOS}) e leia as páginas mais promissoras.`;
+    if (lidas() < regras.minLeituras && !pediuLeitura) {
+      pediuLeitura = true;
+      const sugestoes = fontes.filter((f) => !f.trechos.length).slice(0, 6).map((f) => `[${f.n}]`).join(' ');
+      return `Ainda é cedo para parar: você leu ${lidas()} página(s), o mínimo desta pesquisa é ${regras.minLeituras}. O resumo do buscador não basta — leia com ler_pagina as fontes mais promissoras${sugestoes ? ` (ex.: ${sugestoes})` : ''}, de sites diferentes.`;
+    }
+    return null;
   };
 
   for (let rodada = 1; rodada <= total; rodada += 1) {
@@ -234,8 +251,9 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
         continue;
       }
       // quis parar antes do mínimo do modo: o código pede mais ângulos (Perplexica, modo qualidade)
-      if (buscasFeitas < regras.minBuscas && rodada < total) {
-        historico.push({ role: 'user', content: `Ainda é cedo para parar: foram ${buscasFeitas} busca(s), o mínimo desta pesquisa é ${regras.minBuscas}. Pesquise ângulos que ainda faltam (${ANGULOS}) e leia as páginas mais promissoras.` });
+      const falta = aindaECedo(rodada);
+      if (falta) {
+        historico.push({ role: 'user', content: falta });
         continue;
       }
       break;
@@ -251,8 +269,9 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
       historico.push({ role: 'tool', tool_name: c.nome, content: saida });
     }
     if (chamadas.some((c) => c.nome === 'pronto')) {
-      if (buscasFeitas < regras.minBuscas && rodada < total) {
-        historico.push({ role: 'user', content: `Ainda é cedo para parar: foram ${buscasFeitas} busca(s), o mínimo desta pesquisa é ${regras.minBuscas}. Pesquise ângulos que ainda faltam (${ANGULOS}) e leia as páginas mais promissoras.` });
+      const falta = aindaECedo(rodada);
+      if (falta) {
+        historico.push({ role: 'user', content: falta });
         continue;
       }
       break;
@@ -263,7 +282,23 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
     if (!fontes.some((f) => f.comunidade)) await executarBusca([pergunta], { comunidade: true });
     const lidos = fontes.filter((f) => f.comunidade && f.trechos.length).length;
     for (const f of fontes.filter((x) => x.comunidade && !x.trechos.length).slice(0, Math.max(0, regras.comunidade - lidos))) {
-      await executarLeitura({ fonte: f.n, foco: 'o que quem usa recomenda, elogia e critica' });
+      await executarLeitura({ fonte: f.n, foco: 'o que quem usa recomenda, elogia e critica' }, { garantia: true });
+    }
+  }
+  // garantia de leitura: o código lê as fontes mais ligadas à pergunta, um site por vez, até o mínimo
+  // (página que não abre não conta; no máximo o dobro das que faltam, para não travar em site fora do ar)
+  if (lidas() < regras.minLeituras && !signal?.aborted) {
+    const faltam = regras.minLeituras - lidas();
+    const naoLidas = fontes.filter((f) => !f.trechos.length).map((f) => ({ f, texto: `${f.titulo} ${f.resumo}` }));
+    const ordem = (await ordenar(pergunta, naoLidas, { embed })).map((x) => x.f);
+    const sites = new Set(fontes.filter((f) => f.trechos.length).map((f) => dominio(f.url)));
+    const primeiroDeCadaSite = ordem.filter((f) => !sites.has(dominio(f.url)) && sites.add(dominio(f.url)));
+    const candidatas = [...new Set([...primeiroDeCadaSite, ...ordem])].slice(0, faltam * 2);
+    let i = 0;
+    while (i < candidatas.length && lidas() < regras.minLeituras && !signal?.aborted) {
+      const lote = candidatas.slice(i, i + regras.minLeituras - lidas());
+      i += lote.length;
+      await Promise.all(lote.map((f) => executarLeitura({ fonte: f.n, foco: pergunta }, { garantia: true })));
     }
   }
   return fontes;

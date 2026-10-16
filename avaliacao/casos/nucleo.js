@@ -204,13 +204,59 @@ module.exports = [
       const detalhada = await rodar({ modo: 'rapido', entendimento: { precisa_buscar: true, produto: false, pergunta: 'x' }, tamanho: 'detalhada' });
       const pedidoAinda = normal.m.chamadas.some((c) => c.messages.some((x) => /Ainda é cedo para parar: foram 1 busca/.test(x.content || '')));
       return [
-        conta(normal.eventos, 'buscar_na_web') === 2 && pedidoAinda || `normal: mínimo de 2 buscas (${conta(normal.eventos, 'buscar_na_web')}), com o "ainda é cedo"`,
-        profundoAuto.res.modo === 'profundo' && conta(profundoAuto.eventos, 'buscar_na_web') === 5 || `automático + produto = profundo com 5 buscas: ${profundoAuto.res.modo} / ${conta(profundoAuto.eventos, 'buscar_na_web')}`,
+        // 2 buscas do mínimo + 1 na rodada do pedido de leitura (Fase 2), que o roteiro gasta buscando
+        conta(normal.eventos, 'buscar_na_web') === 3 && pedidoAinda || `normal: mínimo de 2 buscas (${conta(normal.eventos, 'buscar_na_web')}), com o "ainda é cedo"`,
+        profundoAuto.res.modo === 'profundo' && conta(profundoAuto.eventos, 'buscar_na_web') === 6 || `automático + produto = profundo com 5 buscas: ${profundoAuto.res.modo} / ${conta(profundoAuto.eventos, 'buscar_na_web')}`,
         normal.res.modo === 'normal' || 'modo pedido é respeitado',
         conta(muitasLeituras.eventos, 'ler_pagina') === 2 || `rápido lê no máximo 2 páginas: ${conta(muitasLeituras.eventos, 'ler_pagina')}`,
         /RESPOSTA DETALHADA/.test(detalhada.m.escritas[0][0].content) && !/RESPOSTA DETALHADA/.test(normal.m.escritas[0][0].content) || 'o ajuste "Resposta" chega à escrita',
         normal.res.assuntos.join() === 'Nikola Tesla' && profundoAuto.res.assuntos.join() === 'Dunu Titan S' || `assuntos: ${normal.res.assuntos} / ${profundoAuto.res.assuntos}`,
         normal.eventos.some(([e, d]) => e === 'fonte' && d.tipo === 'busca' && d.resultados === 12) || 'a busca informa quantos resultados vieram (painel de atividade)',
+      ];
+    },
+  },
+  {
+    nome: 'núcleo (Fase 2, 16/10): mínimo de páginas lidas — normal 3, profundo 6, rápido nenhum; o modelo que para sem ler recebe UM pedido de leitura; o que faltar o código lê, um site por vez; página que não abre não conta',
+    tipo: 'unidade',
+    async executar() {
+      const rodar = async ({ modo, falha = () => false, lerNoPedido = 0 }) => {
+        // o modelo busca 5 vezes e para sem ler; na rodada depois do pedido de leitura, lê `lerNoPedido` páginas
+        const roteiro = [
+          ...Array.from({ length: 5 }, (_, i) => ({ ferramentas: [['buscar_na_web', { buscas: [`b${i}`] }], ['pronto', {}]] })),
+          { ferramentas: [...Array.from({ length: lerNoPedido }, (_, i) => ['ler_pagina', { fonte: i + 1, foco: 'x' }]), ['pronto', {}]] },
+          ...Array.from({ length: 8 }, () => ({ ferramentas: [['pronto', {}]] })),
+        ];
+        const m = modeloFalso({ entendimento: { precisa_buscar: true, produto: false, pergunta: 'p' }, roteiro });
+        const eventos = [];
+        let n = 0;
+        const res = await nucleo.responder({
+          pergunta: 'p',
+          modo,
+          deps: {
+            chamar: m.chamar,
+            escrever: m.escrever,
+            // 2 resultados por site, para ver o "um site por vez"
+            buscar: async (q) => Array.from({ length: 6 }, (_, i) => ({ titulo: `${q}-${i}`, url: `https://site${Math.floor(n++ / 2)}.com/${q}-${i}`, resumo: 'texto' })),
+            lerPagina: async (url) => (falha(url) ? Promise.reject(new Error('fora do ar')) : { texto: 'conteúdo da página '.repeat(30) }),
+            emit: (e, d) => eventos.push([e, d]),
+          },
+        });
+        const lidas = eventos.filter(([e, d]) => e === 'fonte' && d.tipo === 'leitura').map(([, d]) => new URL(d.url).hostname);
+        const pedidos = m.chamadas.filter((c) => /você leu \d+ página/.test(c.messages[c.messages.length - 1]?.content || '')).length;
+        return { lidas, pedidos, res };
+      };
+      const normal = await rodar({ modo: 'normal' });
+      const profundo = await rodar({ modo: 'profundo' });
+      const rapido = await rodar({ modo: 'rapido' });
+      const leu = await rodar({ modo: 'normal', lerNoPedido: 3 });
+      const comFalha = await rodar({ modo: 'normal', falha: (url) => /site0\.com/.test(url) });
+      return [
+        normal.lidas.length === 3 && normal.pedidos === 1 || `normal: 3 páginas e 1 pedido (${normal.lidas.length} / ${normal.pedidos})`,
+        new Set(normal.lidas).size === 3 || `um site por vez: ${normal.lidas}`,
+        profundo.lidas.length === 6 || `profundo: 6 páginas (${profundo.lidas.length})`,
+        rapido.lidas.length === 0 && rapido.pedidos === 0 || `rápido não exige leitura (${rapido.lidas.length})`,
+        leu.lidas.length === 3 && leu.pedidos === 1 || `modelo que atende ao pedido: o código não lê a mais (${leu.lidas.length})`,
+        comFalha.lidas.length === 3 && !comFalha.lidas.includes('site0.com') || `página fora do ar não conta: ${comFalha.lidas}`,
       ];
     },
   },
