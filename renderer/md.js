@@ -147,6 +147,16 @@
       // tela nunca carrega imagem direto da internet. Dentro de um cartão de
       // produto, logo depois do nome, a foto vai para ANTES do título, pra
       // ficar à esquerda do cartão inteiro.
+      // Carrossel (Fase 4): várias imagens do app numa linha só — `![a](augpt-img://…) ![b](augpt-img://…)`
+      const IMG = /!\[([^\]]*)\]\((augpt-img:\/\/[a-z]{20,64}\.(?:jpg|png|webp))\)/g;
+      if (/^\s*(!\[[^\]]*\]\(augpt-img:\/\/[a-z]{20,64}\.(?:jpg|png|webp)\)\s*){2,}$/.test(linha)) {
+        fecharLista();
+        fecharCitacao();
+        const figuras = [...linha.matchAll(IMG)].map((m) => `<figure class="md-figura"><img src="${m[2]}" alt="${m[1]}" loading="lazy" /><figcaption>${m[1]}</figcaption></figure>`).join('');
+        saida.push(`<div class="md-carrossel"><button type="button" class="md-seta" data-dir="-1" aria-label="Imagem anterior">‹</button><div class="md-trilho">${figuras}</div><button type="button" class="md-seta" data-dir="1" aria-label="Próxima imagem">›</button></div>`);
+        continue;
+      }
+
       // Vídeo (Fase 3): `![▶ título](augpt-img://miniatura.jpg){yt:ID}` — a miniatura é do
       // app; o player do youtube-nocookie.com só entra no clique (app.js, abrirVideo)
       const video = /^\s*!\[([^\]]*)\]\((augpt-img:\/\/[a-z]{20,64}\.(?:jpg|png|webp))\)\{yt:([A-Za-z0-9_-]{11})\}\s*$/.exec(linha);

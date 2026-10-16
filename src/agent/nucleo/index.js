@@ -75,13 +75,13 @@ Responda SÓ com um JSON:
 const SEM_BUSCA = /^\s*(oi|ol[aá]|bom dia|boa (tarde|noite)|e a[ií]|obrigad[oa]|valeu|vlw|tchau|ok|beleza|blz|show|legal|perfeito)\b[\s!.?]*$|^[\d\s.,+\-*/x×÷^%()=?]+$|\b(traduz|traduza|tradu[cç][aã]o|revise|revisar|corrija|reescreva|resuma este|resuma o texto|escreva um (poema|texto|conto|e-?mail|mensagem)|crie uma (hist[oó]ria|poesia|piada))\b/i;
 const podeFicarSemBusca = (pergunta) => SEM_BUSCA.test(String(pergunta || '').trim());
 
-function lerEntendimento(texto, pergunta) {
+function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
   try {
     const j = JSON.parse(String(texto).slice(String(texto).indexOf('{'), String(texto).lastIndexOf('}') + 1));
     // produto sempre busca (15/10: "fone de ouvido dunu titan s" saiu sem busca e o modelo disse que ele "não existe")
     const assuntos = (Array.isArray(j.assuntos) ? j.assuntos : []).map((a) => String(a || '').trim()).filter((a) => a.length >= 2 && a.length <= 80).slice(0, 4);
     // o modelo só decide "sem busca" no que é claramente conversa; um nome solto ("Dragon Ball Super Beerus") pesquisa
-    const precisaBuscar = j.precisa_buscar !== false || j.produto === true || !podeFicarSemBusca(pergunta);
+    const precisaBuscar = j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta));
     return { precisaBuscar, produto: j.produto === true, assuntos, pergunta: String(j.pergunta || '').trim() || pergunta };
   } catch {
     return { precisaBuscar: true, produto: false, assuntos: [], pergunta }; // JSON quebrado: busca, com a pergunta como veio
@@ -134,6 +134,23 @@ const FERRAMENTAS_DO_YOUTUBE = [
   },
 ];
 
+// Fase 4 (16/10): olhar imagens achadas na web quando a aparência importa
+const FERRAMENTA_DE_IMAGENS = {
+  type: 'function',
+  function: {
+    name: 'ver_imagens',
+    description: 'Busca imagens e olha as primeiras, quando a aparência importa: como algo é, cor, design, onde fica uma peça ou botão, diferença visual entre versões.',
+    parameters: {
+      type: 'object',
+      properties: {
+        busca: { type: 'string', description: 'o que buscar nas imagens, em palavras-chave' },
+        pergunta: { type: 'string', description: 'o que você quer descobrir olhando as imagens' },
+      },
+      required: ['busca', 'pergunta'],
+    },
+  },
+};
+
 const FERRAMENTAS = [
   {
     type: 'function',
@@ -172,7 +189,7 @@ const FERRAMENTAS = [
   },
 ];
 
-function sistemaDoPesquisador({ hoje, rodada, total, produto = false, modo = 'normal', youtube = false }) {
+function sistemaDoPesquisador({ hoje, rodada, total, produto = false, modo = 'normal', youtube = false, verImagens = false }) {
   const regras = MODOS[modo] || MODOS.normal;
   return `Você é o pesquisador do AuGPT. Hoje é ${hoje}. Seu trabalho é juntar, com as ferramentas, a informação para responder muito bem à pergunta do usuário. Você não escreve a resposta: quando tiver o suficiente, chame "pronto".
 
@@ -181,7 +198,7 @@ function sistemaDoPesquisador({ hoje, rodada, total, produto = false, modo = 'no
 - Em buscar_na_web, mande até 3 buscas curtas por vez, de ângulos diferentes. Para tecnologia e produtos, inclua buscas em inglês, onde há mais material.
 - Quando a pergunta pede opinião, experiência de uso ou recomendação, inclua buscas que tragam quem usa (por exemplo com "reddit" ou "fórum").
 - Use ler_pagina nas páginas mais promissoras quando o resumo não basta, sempre com um foco.
-${youtube ? '- Vídeos ajudam em review de produto, teste, tutorial e "como fazer": use buscar_no_youtube e ver_video (traz o que é falado e os comentários). Vídeo sem legenda só tem a descrição e os comentários.\n' : ''}- Comece amplo e aprofunde no que os resultados mostrarem. Se 2 ou 3 buscas não acham algo, provavelmente não existe: siga em frente.
+${youtube ? '- Vídeos ajudam em review de produto, teste, tutorial e "como fazer": use buscar_no_youtube e ver_video (traz o que é falado e os comentários). Vídeo sem legenda só tem a descrição e os comentários.\n' : ''}${verImagens ? '- Quando a aparência importa (como algo é, cor, design, onde fica uma peça, diferença visual entre versões), use ver_imagens.\n' : ''}- Comece amplo e aprofunde no que os resultados mostrarem. Se 2 ou 3 buscas não acham algo, provavelmente não existe: siga em frente.
 ${produto ? `- Este pedido é sobre produtos: use buscar_na_comunidade pelo menos uma vez e leia com ler_pagina pelo menos ${regras.comunidade} tópico(s) da comunidade, para saber o que quem usa recomenda, elogia e critica. Busque também preço atual e especificações.\n` : ''}${
     modo === 'profundo'
       ? `- Esta é uma PESQUISA PROFUNDA: cubra vários ângulos (${ANGULOS}), faça pelo menos ${regras.minBuscas} buscas e leia de ${regras.minLeituras} a ${regras.leituras} páginas, cruzando o que uma fonte diz com as outras. Não pare cedo.\n`
@@ -198,19 +215,20 @@ const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || d
  * O laço do pesquisador. Devolve as fontes juntadas (numeradas, com resumo e,
  * quando lidas, os trechos escolhidos da página).
  */
-async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [] }) {
+async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [], imagemAnexada = '' }) {
   const { chamar, buscar, lerPagina, embed, emit = () => {}, signal, buscarNaComunidade } = deps;
   // comunidade (15/10, pedido do Davi): em pedido de produto, Reddit e fóruns entram sempre
   const comComunidade = produto && typeof buscarNaComunidade === 'function';
   const comYoutube = typeof deps.buscarNoYoutube === 'function' && typeof deps.verVideo === 'function' && modo !== 'rapido';
-  const ferramentas = [...(comComunidade ? [FERRAMENTA_DA_COMUNIDADE] : []), ...FERRAMENTAS, ...(comYoutube ? FERRAMENTAS_DO_YOUTUBE : [])];
+  const comImagens = typeof deps.buscarImagensParaVer === 'function' && modo !== 'rapido';
+  const ferramentas = [...(comComunidade ? [FERRAMENTA_DA_COMUNIDADE] : []), ...FERRAMENTAS, ...(comYoutube ? FERRAMENTAS_DO_YOUTUBE : []), ...(comImagens ? [FERRAMENTA_DE_IMAGENS] : [])];
   const regras = MODOS[modo] || MODOS.normal;
   const total = regras.rodadas;
   let buscasFeitas = 0;
   let leiturasFeitas = 0;
   let pediuLeitura = false;
   const fontes = [];
-  const lidas = () => fontes.filter((f) => f.trechos.length).length;
+  const lidas = () => fontes.filter((f) => f.trechos.length && !f.imagem).length;
   // o que o pesquisador observou no caminho ("o G502 X custa R$ 799, acima do orçamento") — vai para a escrita
   fontes.notas = [];
   const porUrl = new Map();
@@ -218,7 +236,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   const historico = [
     {
       role: 'user',
-      content: `Pergunta do usuário: ${pergunta}${assuntos.length ? `\nDo que ela trata: ${assuntos.join(', ')}` : ''}${anteriores.length ? `\nO que o usuário perguntou antes nesta conversa (para entender a pergunta):\n${anteriores.join('\n')}` : ''}`,
+      content: `Pergunta do usuário: ${pergunta}${imagemAnexada ? `\nO usuário anexou uma imagem. O que se vê nela:\n${imagemAnexada.slice(0, 1500)}\nO nome de modelo que não está escrito na imagem é só provável: confirme pela aparência${typeof deps.buscarImagensParaVer === 'function' ? ' com ver_imagens, comparando os candidatos' : ' nas fontes'}.` : ''}${assuntos.length ? `\nDo que ela trata: ${assuntos.join(', ')}` : ''}${anteriores.length ? `\nO que o usuário perguntou antes nesta conversa (para entender a pergunta):\n${anteriores.join('\n')}` : ''}`,
     },
   ];
   let buscou = false;
@@ -284,6 +302,31 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     return `[${f.n}] ${f.titulo} (vídeo de ${v.canal}${v.legenda ? '' : ', sem legenda'})\n${trechos.join('\n…\n').slice(0, 3000)}`;
   };
 
+  const executarVerImagens = async ({ busca, pergunta: oQue }) => {
+    const consulta = String(busca || '').trim();
+    if (!consulta) return 'Diga o que buscar nas imagens.';
+    emit('ferramenta', { nome: 'ver_imagens', argumentos: { consulta, foco: String(oQue || '') }, risco: 'leitura' });
+    let vistas = [];
+    try {
+      vistas = (await deps.buscarImagensParaVer(consulta)).slice(0, 3);
+    } catch {
+      vistas = [];
+    }
+    if (!vistas.length) return `Nenhuma imagem para "${consulta}".`;
+    const r = await chamar(
+      [{ role: 'user', content: `Estas ${vistas.length} imagens vieram da busca de imagens por "${consulta}" (títulos: ${vistas.map((v) => v.titulo).join(' | ').slice(0, 400)}). Pergunta: ${oQue || pergunta}\nDescreva em português o que as imagens mostram sobre isso. Diga se alguma não parece ser do item buscado. Não invente o que não dá para ver.`, images: vistas.map((v) => v.base64) }],
+      { numPredict: 600 }
+    );
+    const texto = String(r.content || '').trim();
+    if (!texto) return 'Não consegui descrever as imagens.';
+    // 16/10: o título "EPOS H6PRO … Racing Green" vinha na busca, mas só a descrição voltava ao pesquisador
+    const titulos = vistas.map((v, i) => `${i + 1}. ${v.titulo}`).join(' | ');
+    const f = { n: fontes.length + 1, url: vistas[0].pagina || vistas[0].url, titulo: `Imagens: ${consulta}`, resumo: '', trechos: [`Imagens de "${consulta}" (títulos: ${titulos}). O que se vê nelas: ${texto}`], imagem: true };
+    fontes.push(f);
+    emit('fonte', { tipo: 'leitura', provedor: 'imagens', url: f.url });
+    return `[${f.n}] ${f.titulo}\nTítulos das imagens: ${titulos}\n${texto.slice(0, 2500)}`;
+  };
+
   const executarLeitura = async ({ fonte, foco }, { garantia = false } = {}) => {
     const f = fontes.find((x) => x.n === Number(fonte));
     if (!f) return `Não existe a fonte [${fonte}] nos resultados.`;
@@ -324,7 +367,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   for (let rodada = 1; rodada <= total; rodada += 1) {
     if (signal?.aborted) break;
     emit('iteracao', { n: rodada, de: total });
-    const r = await chamar([{ role: 'system', content: sistemaDoPesquisador({ hoje, rodada, total, produto: comComunidade, modo, youtube: comYoutube }) }, ...historico], { tools: ferramentas });
+    const r = await chamar([{ role: 'system', content: sistemaDoPesquisador({ hoje, rodada, total, produto: comComunidade, modo, youtube: comYoutube, verImagens: comImagens }) }, ...historico], { tools: ferramentas });
     const chamadas = (r.chamadas || []).map((c) => ({ nome: c.function?.name, args: typeof c.function?.arguments === 'string' ? safeJson(c.function.arguments) : c.function?.arguments || {} }));
     if (r.content?.trim()) {
       emit('raciocinio', { n: rodada, pensamento: r.content.trim().slice(0, 400) });
@@ -353,6 +396,7 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
       if (c.nome === 'buscar_na_web') saida = await executarBusca(c.args.buscas || c.args.consultas || c.args.query || []);
       else if (c.nome === 'buscar_na_comunidade' && comComunidade) saida = await executarBusca(c.args.buscas || c.args.consultas || c.args.query || [], { comunidade: true });
       else if (c.nome === 'ler_pagina' || c.nome === 'ver_video') saida = await executarLeitura(c.args);
+      else if (c.nome === 'ver_imagens' && comImagens) saida = await executarVerImagens(c.args);
       else if (c.nome === 'buscar_no_youtube' && comYoutube) saida = await executarBuscaNoYoutube(c.args.buscas || c.args.consultas || c.args.query || []);
       else if (c.nome === 'pronto') saida = 'ok';
       else saida = `Ferramenta desconhecida: ${c.nome}`;
@@ -496,39 +540,69 @@ function conferirAnos(texto, { material = '', pergunta = '', hoje = '' } = {}) {
  * streaming; os outros deps são os da pesquisa.
  * @returns {{ texto, fontes: Array<{n, url, titulo}>, entendimento, buscou }}
  */
+/* ------------------------------ 0. ver a imagem anexada (Fase 4) ------------------------------ */
+
+/**
+ * O que o modelo vê na(s) imagem(ns) anexada(s), em função da pergunta. Vira
+ * contexto do entendimento (o "que fone é esse?" passa a ter nome) e material
+ * da escrita. O texto do OCR (Tesseract), quando há, entra como apoio.
+ */
+function pedidoDeVisao({ pergunta, imagens }) {
+  const ocr = imagens.filter((i) => i.texto).map((i) => `--- ${i.nome} ---\n${i.texto.slice(0, 4000)}`).join('\n\n');
+  return `O usuário anexou ${imagens.length === 1 ? 'uma imagem' : `${imagens.length} imagens`} e escreveu: "${String(pergunta).slice(0, 1500)}"
+
+Descreva em português o que importa na imagem para responder, e copie os textos que dá para ler. Depois, numa linha começando com "Identificação:", diga marca e modelo (ou quem/o que é) e a certeza: certo, provável ou não dá para saber. Não invente nome que não está escrito.${ocr ? `\n\nTexto lido por OCR (pode ter erros de leitura; use para conferir o que você lê):\n${ocr}` : ''}`;
+}
+
 // imagem em markdown (![…](augpt-img://…)) é o app que põe; a escrita não copia nem inventa
 // (16/10: a resposta de seguimento copiou a foto da anterior e o cartão saiu com duas)
 const semImagens = (texto) => String(texto || '').replace(/^[ \t]*!\[[^\]]*\]\([^)]*\)[ \t]*(\r?\n|$)/gm, '');
 
-async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho = 'normal', deps, hoje = new Date().toLocaleDateString('pt-BR') }) {
+async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho = 'normal', deps, hoje = new Date().toLocaleDateString('pt-BR'), imagens = [] }) {
   const { chamar, escrever, embed, emit = () => {} } = deps;
-  const ent = lerEntendimento((await chamar([{ role: 'user', content: pedidoDeEntendimento({ pergunta, conversa, hoje }) }], { json: true, numPredict: 300 })).content, pergunta);
+  // imagem anexada (Fase 4): o modelo olha primeiro, e o que viu vai para o entendimento e a escrita
+  let vista = '';
+  if (imagens.length) {
+    emit('ferramenta', { nome: 'ver_imagem', argumentos: { arquivos: imagens.map((i) => i.nome).join(', ') }, risco: 'leitura' });
+    vista = String((await chamar([{ role: 'user', content: pedidoDeVisao({ pergunta, imagens }), images: imagens.map((i) => i.base64) }], { numPredict: 900 })).content || '').trim();
+    emit('imagem-vista', { texto: vista });
+  }
+  const perguntaComImagem = vista ? `${pergunta}\n\n[Imagem anexada pelo usuário — o que se vê nela: ${vista.slice(0, 1500)}]` : pergunta;
+  const ent = lerEntendimento((await chamar([{ role: 'user', content: pedidoDeEntendimento({ pergunta: perguntaComImagem, conversa, hoje }) }], { json: true, numPredict: 300 })).content, pergunta, { comImagem: imagens.length > 0 });
   // automático (15/10): produto vai para a pesquisa profunda, o resto para a normal
   const modoUsado = MODOS[modo] ? modo : ent.produto ? 'profundo' : 'normal';
   emit('nucleo-entendimento', { ...ent, modo: modoUsado });
-  const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa }) : [];
+  const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa, imagemAnexada: vista }) : [];
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
   const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed }) : [];
   // 16/10: sem o yt-dlp, "pesquise vídeos no youtube" saiu como "realizei uma pesquisa no YouTube" — não houve
   const semVideos = /\b(youtube|v[ií]deos?)\b/i.test(pergunta) && !(typeof deps.buscarNoYoutube === 'function');
   emit('redigindo', { fontes: usadas.length });
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
-    { role: 'user', content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.)` : pergunta },
+    { role: 'user', ...(imagens.length ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.)` : pergunta },
   ];
-  const escrito = semImagens(await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco })));
+  const escrito = semImagens(await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco }))).replace(/\s*\[(imagem_anexada|imagem anexada)\]/gi, '');
   // só ficam na lista as fontes que a resposta citou (ou todas as usadas, se ela não citou nenhuma)
   const citadas = new Set([...String(escrito).matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
   const lista = usadas.filter((f) => !citadas.size || citadas.has(f.n)).map(({ n, url, titulo, video, trechos }) => ({ n, url, titulo, ...(video ? { video: true, lido: trechos.length > 0 } : {}) }));
   // com pesquisa, os anos citados são conferidos contra tudo que foi lido (trechos, resumos e anotações)
-  const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')}`).join(' ')} ${notas}` : '';
+  const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')}`).join(' ')} ${notas} ${vista}` : '';
   const conferido = fontes.length ? conferirAnos(String(escrito || '').trim(), { material, pergunta, hoje }) : { texto: String(escrito || '').trim(), faltam: [] };
   if (conferido.faltam.length) emit('aviso', { texto: `conferência: ano(s) sem fonte na resposta: ${conferido.faltam.join(', ')}` });
   if (semVideos) emit('aviso', { texto: 'Para o AuGPT ver vídeos do YouTube, instale o yt-dlp em Ajustes → Componentes.' });
-  return { texto: conferido.texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam };
+  // identificação só pela aparência: a resposta avisa, pelo código (16/10: a foto de um EPOS H6PRO
+  // virou "o fone na imagem é o EPOS H3 Pro Hybrid", um irmão quase igual, dito como certo)
+  // A certeza que o modelo declara não vale (ele disse "certo" para o modelo errado): produto
+  // reconhecido por foto leva o aviso, a menos que o OCR leia o nome dele na imagem.
+  const identificacao = (/^.*identifica[çc][ãa]o:.*$/im.exec(vista) || [''])[0];
+  const ocrConfirma = imagens.some((i) => i.texto && (ent.assuntos || []).some((a) => tituloCita(i.texto, a)));
+  const pelaAparencia = imagens.length > 0 && !ocrConfirma && (ent.produto || /prov[áa]vel|provavelmente|n[ãa]o d[áa] para saber|n[ãa]o identificado/i.test(identificacao));
+  const texto = pelaAparencia ? `*Pela foto, o modelo foi reconhecido pela aparência — o nome dele não está escrito na imagem, então pode ser outro parecido da mesma linha.*\n\n${conferido.texto}` : conferido.texto;
+  return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam };
 }
 
-module.exports = { MODOS, podeFicarSemBusca, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { MODOS, podeFicarSemBusca, pedidoDeVisao, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

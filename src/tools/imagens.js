@@ -89,7 +89,7 @@ async function buscarImagens(consulta, { config = {}, deps = {}, maximo = 12 } =
     if (!r?.ok) return [];
     return (JSON.parse(r.texto).results || [])
       .filter((x) => x && (x.thumbnail_src || x.img_src) && !FONTES_FORA.test(`${x.img_src || ''} ${x.url || ''}`))
-      .map((x) => ({ url: String(x.thumbnail_src || x.img_src).replace(/^\/\//, 'https://'), titulo: String(x.title || '') }))
+      .map((x) => ({ url: String(x.thumbnail_src || x.img_src).replace(/^\/\//, 'https://'), titulo: String(x.title || ''), pagina: /^https?:\/\//.test(String(x.url || '')) ? String(x.url) : null }))
       .slice(0, maximo);
   } catch {
     return [];
@@ -152,6 +152,26 @@ async function imagemDeReferencia(assunto, { daWikipedia = [], config = {}, dir,
   return imagemDe(assunto, { config, dir, deps });
 }
 
+/**
+ * Várias imagens do item (Fase 4, carrossel): as candidatas cujo título cita o
+ * item são baixadas ao mesmo tempo; a que falha é pulada (antes: 3 tentativas
+ * e a primeira que baixasse).
+ */
+async function imagensDe(nome, { consulta = nome, config = {}, dir, deps = {}, n = 5, tentativas = 10 } = {}) {
+  if (config.imagensNasRespostas === false || !dir) return [];
+  const candidatas = (await buscarImagens(consulta, { config, deps, maximo: 30 })).filter((c) => tituloCita(c.titulo, nome)).slice(0, tentativas);
+  const baixadas = await Promise.all(candidatas.map((c) => guardarImagem(c.url, { dir, config, deps }).catch(() => null)));
+  return [...new Set(baixadas.filter(Boolean))].slice(0, n);
+}
+
+/** Até `n` imagens de referência do assunto: a da Wikipédia primeiro (se a pesquisa passou por lá), depois a busca. */
+async function imagensDeReferencia(assunto, { daWikipedia = [], config = {}, dir, deps = {}, n = 5 } = {}) {
+  if (config.imagensNasRespostas === false || !dir) return [];
+  const daWiki = (await Promise.all(daWikipedia.filter(Boolean).slice(0, 2).map((url) => guardarImagem(url, { dir, config, deps }).catch(() => null)))).filter(Boolean);
+  const daBusca = await imagensDe(assunto, { config, dir, deps, n });
+  return [...new Set([...daWiki, ...daBusca])].slice(0, n);
+}
+
 /** `![texto](augpt-img://…)` — o texto alternativo não pode fechar o colchete nem quebrar linha. */
 const marcacao = (texto, uri) => `![${String(texto || '').replace(/[[\]\n\r]/g, ' ').trim()}](${uri})`;
 
@@ -161,6 +181,6 @@ const comLimite = (promessa, ms, padrao = null) =>
 
 module.exports = {
   ESQUEMA, NOME_VALIDO, MAX_BYTES,
-  guardarImagem, buscarImagens, imagemDe, imagensDosProdutos, imagemDeReferencia,
+  guardarImagem, buscarImagens, imagemDe, imagensDe, imagensDosProdutos, imagemDeReferencia, imagensDeReferencia,
   tituloCita, extensaoPelosBytes, nomeDoArquivo, marcacao, comLimite,
 };

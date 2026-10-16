@@ -34,6 +34,8 @@ const verificadorDeHardware = require('../src/verificador-de-hardware');
 const instaladorOllama = require('../src/instalador-ollama');
 const { YtDlp } = require('../src/ytdlp');
 const ytdlp = () => new YtDlp(path.join(app.getPath('userData'), 'componentes'));
+const { Tesseract } = require('../src/tesseract');
+const tesseract = () => new Tesseract(path.join(app.getPath('userData'), 'componentes'));
 
 let win = null;
 let janelaExecucoes = null; // pedido de Davi 2026-09-23: "Visualizar Execuções" ganhou janela própria
@@ -1221,6 +1223,7 @@ ipcMain.handle('boasVindas:verificar', async () => {
     modelos,
     busca: searxngRuntime.estado(),
     youtube: { instalado: ytdlp().instalado() },
+    ocr: { instalado: tesseract().instalado(), manual: process.platform !== 'win32' },
     concluida: config.data.boasVindasConcluida === true,
     plataforma: process.platform,
   };
@@ -1259,14 +1262,22 @@ ipcMain.handle('boasVindas:concluir', async (_e, { modelo } = {}) => {
 /* ------------------------------ componentes (Ajustes, 16/10) ------------------------------ */
 // Versões do que o AuGPT usa por fora; atualizar só quando o usuário clica.
 ipcMain.handle('componentes:estado', async () => {
-  const [o, y] = await Promise.all([instaladorOllama.versoesDoOllama(config.data.host), ytdlp().estado()]);
-  return { ollama: o, ytdlp: y, busca: searxngRuntime.estado() };
+  const [o, y, t] = await Promise.all([instaladorOllama.versoesDoOllama(config.data.host), ytdlp().estado(), tesseract().estado()]);
+  return { ollama: o, ytdlp: y, tesseract: t, busca: searxngRuntime.estado() };
 });
 
 // yt-dlp (Fase 3): instala/atualiza conferindo o SHA-256; a versão de antes fica guardada
 ipcMain.handle('componentes:instalarYtdlp', async () => {
   try {
     return { ok: true, estado: await ytdlp().instalar({ emitir: (p) => enviar('ytdlp-progresso', p) }) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+// Tesseract (Fase 4): winget (o Windows pode pedir permissão) + idiomas português e inglês
+ipcMain.handle('componentes:instalarTesseract', async () => {
+  try {
+    return { ok: true, estado: await tesseract().instalar({ emitir: (p) => enviar('tesseract-progresso', p) }) };
   } catch (err) {
     return { ok: false, error: err.message };
   }

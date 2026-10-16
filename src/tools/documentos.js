@@ -5,6 +5,26 @@ const { extrair, NAO_SUPORTADOS } = require('../formatos');
 
 module.exports = [
   {
+    // Fase 4 (16/10): OCR sem IA, offline (Tesseract em Ajustes → Componentes)
+    name: 'ler_texto_da_imagem',
+    risk: 'baixo',
+    description:
+      'Lê o texto de uma imagem da pasta de trabalho (print, foto de documento, nota fiscal, etiqueta) com OCR, letra a letra, em português e inglês. Use quando precisar do texto exato da imagem.',
+    args: { caminho: 'imagem relativa à pasta de trabalho (png, jpg, webp, bmp, gif, tiff)' },
+    async run({ caminho }, ctx) {
+      if (!caminho) throw new Error('Informe "caminho".');
+      const { Tesseract } = require('../tesseract');
+      const ocr = new Tesseract(path.join(ctx.userDataPath || '', 'componentes'));
+      if (!ctx.userDataPath || !ocr.instalado()) throw new Error('O OCR (Tesseract) não está instalado: instale em Ajustes → Componentes.');
+      const { caminho: arquivo } = ctx.sandbox.encontrar(caminho);
+      const texto = await ocr.lerTexto(arquivo);
+      ctx.emit('fonte', { tipo: 'leitura', provedor: 'ocr', url: caminho });
+      return `[${path.basename(arquivo)} · OCR]
+
+${texto || '(nenhum texto legível na imagem)'}`;
+    },
+  },
+  {
     name: 'ler_documento',
     risk: 'baixo',
     description:

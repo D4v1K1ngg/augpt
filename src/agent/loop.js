@@ -2,6 +2,7 @@
 
 const { EventEmitter } = require('events');
 const path = require('path');
+const fs = require('fs');
 const ollama = require('../llm/ollama');
 const { ehModeloDeDecisao, ehModeloQuePensa } = require('../primeiro-uso');
 const tools = require('../tools');
@@ -36,6 +37,38 @@ const search = require('../tools/search');
 const { lerComCache } = require('../tools/web');
 const nucleo = require('./nucleo');
 const { YtDlp, pareceMudancaDoYouTube, idDoVideo } = require('../ytdlp');
+const { Tesseract, IMAGEM } = require('../tesseract');
+
+// Fase 4 (16/10): o renderer anexa assim (app.js, consumirAnexos). Quando TODOS os anexos são
+// imagens, a pergunta vai pelo núcleo, que olha a imagem; outro anexo segue no caminho de tarefas.
+// (só a imagem, sem texto: o pedido chega aparado, sem as quebras de linha antes do bloco)
+const BLOCO_DE_ANEXOS = /(?:^|\n\n)Arquivos anexados, já copiados para a pasta de trabalho:\n((?:- .+\n?)+)Use ler_arquivo para abri-los\./;
+/**
+ * Imagem no tamanho que o modelo lê bem (16/10, foto de 474 px de um EPOS H6PRO:
+ * o 9B lia o "EPOS" miúdo como "EP05" e inventava o modelo; ampliada para 1024 px,
+ * leu "EPOS" 4 de 4). Foto muito grande é reduzida (menos tempo na placa). Fora do
+ * Electron (bancada), a imagem vai como veio.
+ */
+function imagemParaOModelo(arquivo) {
+  const original = fs.readFileSync(arquivo);
+  try {
+    const { nativeImage } = require('electron');
+    const img = nativeImage?.createFromBuffer?.(original);
+    const largura = img && !img.isEmpty() ? img.getSize().width : 0;
+    if (!largura || (largura >= 900 && largura <= 1600)) return original.toString('base64');
+    return img.resize({ width: largura < 900 ? 1024 : 1600, quality: 'best' }).toJPEG(90).toString('base64');
+  } catch {
+    return original.toString('base64');
+  }
+}
+
+function imagensAnexadas(objetivo) {
+  const m = BLOCO_DE_ANEXOS.exec(String(objetivo || ''));
+  if (!m) return null;
+  const arquivos = m[1].split('\n').map((l) => l.replace(/^- /, '').replace(/ \([^)]*\)\s*$/, '').trim()).filter(Boolean);
+  if (!arquivos.length || arquivos.length > 4 || !arquivos.every((a) => IMAGEM.test(a))) return null;
+  return { pedido: String(objetivo).replace(m[0], '').trim() || 'O que é isto? Descreva e explique o que a imagem mostra.', arquivos };
+}
 const { explicarTermos } = require('./glossario');
 const { comLinks } = require('./escritor-de-cartoes');
 const { vetorDe } = require('./embeddings');
@@ -1509,9 +1542,22 @@ class Agent extends EventEmitter {
    * com ferramentas nativas → uma escrita com fontes numeradas. Devolve a
    * resposta final, ou null quando falhou (quem chama segue pelo caminho antigo).
    */
-  async responderPeloNucleo({ objetivo, conversa }) {
+  async responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] }) {
     const inicio = Date.now();
     const cfg = this.config;
+    // imagens anexadas: lidas da pasta de trabalho; com o Tesseract instalado, o texto delas vai junto (OCR)
+    const ocr = this.userDataPath ? new Tesseract(path.join(this.userDataPath, 'componentes')) : null;
+    const imagensDoPedido = [];
+    for (const rel of anexadas) {
+      try {
+        const arquivo = new Sandbox(cfg.workspace).resolve(rel);
+        if (fs.statSync(arquivo).size > 20 * 1024 * 1024) continue;
+        const texto = ocr?.instalado() ? await ocr.lerTexto(arquivo).catch(() => '') : '';
+        imagensDoPedido.push({ nome: path.basename(rel), base64: imagemParaOModelo(arquivo), texto });
+      } catch {
+        /* imagem que não abre: segue sem ela */
+      }
+    }
     const modelo = cfg.model;
     const signal = this.controller.signal;
     const ctxWeb = {
@@ -1547,6 +1593,17 @@ class Agent extends EventEmitter {
         return achados.flat();
       },
     };
+    // Fase 4: o pesquisador olha imagens da web (a busca de imagens é a do SearXNG)
+    if (cfg.searxngUrl && cfg.imagensNasRespostas !== false) {
+      deps.buscarImagensParaVer = async (q) => {
+        const candidatas = (await imagens.buscarImagens(q, { config: cfg, maximo: 8 })).slice(0, 6);
+        const uris = await Promise.all(candidatas.map((c) => imagens.guardarImagem(c.url, { dir: this.dirImagens(), config: cfg }).catch(() => null)));
+        return candidatas
+          .map((c, i) => (uris[i] ? { ...c, base64: fs.readFileSync(path.join(this.dirImagens(), uris[i].replace(/^augpt-img:\/\//, ''))).toString('base64') } : null))
+          .filter(Boolean)
+          .slice(0, 3);
+      };
+    }
     // YouTube (Fase 3): só com o yt-dlp instalado em Ajustes → Componentes (ou na boas-vindas)
     const yt = this.userDataPath ? new YtDlp(path.join(this.userDataPath, 'componentes')) : null;
     if (yt?.instalado()) {
@@ -1568,11 +1625,13 @@ class Agent extends EventEmitter {
       deps.emit = (evento, dados) => {
         if (evento === 'nucleo-entendimento' && dados?.precisaBuscar) {
           const lista = dados.assuntos?.length ? dados.assuntos : [auto.assuntoDoPedido(dados.pergunta || objetivo)];
-          figuras = imagens.comLimite(Promise.all(lista.map((a) => imagens.imagemDeReferencia(a, { config: cfg, dir: this.dirImagens() }).then((img) => (img ? { nome: a, img } : null)).catch(() => null))), 25000, []);
+          // Fase 4: várias por assunto (5 com um assunto só, 3 com vários), mostradas num carrossel
+          const n = lista.length === 1 ? 5 : 3;
+          figuras = imagens.comLimite(Promise.all(lista.map((a) => imagens.imagensDeReferencia(a, { config: cfg, dir: this.dirImagens(), n }).then((imgs) => (imgs.length ? { nome: a, imgs } : null)).catch(() => null))), 25000, []);
         }
         emitirOriginal(evento, dados);
       };
-      const r = await nucleo.responder({ pergunta: objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps });
+      const r = await nucleo.responder({ pergunta: objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido });
       if (!r.texto) throw new Error('a escrita veio vazia');
       // produto: uma foto em cada cartão "#### N. Nome"; o resto: a imagem de cada assunto no topo
       const limparNome = (t) => String(t).replace(/[*_[\]]/g, '').trim();
@@ -1586,8 +1645,9 @@ class Agent extends EventEmitter {
           })
         : r.texto;
       const corpo = explicarTermos(comLinks(comCartoes, r.fontes));
-      // uma imagem por assunto, uma por linha (o renderer junta as seguidas numa galeria)
-      const comFoto = doTopo.length ? `${doTopo.map((x) => imagens.marcacao(x.nome, x.img)).join('\n')}\n\n${corpo}` : corpo;
+      // as imagens de todos os assuntos numa linha só: o renderer monta o carrossel (md.js)
+      const marcas = doTopo.flatMap((x) => x.imgs.map((img) => imagens.marcacao(x.nome, img)));
+      const comFoto = marcas.length ? `${marcas.join(' ')}\n\n${corpo}` : corpo;
       // vídeos que a pesquisa assistiu: miniatura que vira o player no clique (md.js, "{yt:ID}")
       const assistidos = r.fontes.filter((f) => f.video && f.lido).slice(0, 3);
       const miniaturas = await imagens.comLimite(
@@ -1727,9 +1787,10 @@ class Agent extends EventEmitter {
     this.nivelAuto = null;
     // 15/10: pergunta (não tarefa com arquivo, pasta, site ou arquivo de saída)
     // vai pelo núcleo de pesquisa novo; o caminho antigo fica de reserva
-    const regraDoPedido = tipoDoPedido(objetivo);
+    const anexadas = imagensAnexadas(objetivo);
+    const regraDoPedido = tipoDoPedido(anexadas ? anexadas.pedido : objetivo);
     if (this.config.nucleoDePesquisa === true && !this.skillForcada && !tarefaAnterior && !['local', 'site'].includes(regraDoPedido.tipo) && !regraDoPedido.arquivoDeSaida) {
-      const pronta = await this.responderPeloNucleo({ objetivo, conversa });
+      const pronta = await this.responderPeloNucleo({ objetivo: anexadas ? anexadas.pedido : objetivo, conversa, imagens: anexadas?.arquivos || [] });
       if (pronta !== null) return pronta;
     }
     if (this.config.modoAuto !== false && !this.skillForcada && !tarefaAnterior) {
@@ -2010,6 +2071,7 @@ class Agent extends EventEmitter {
       estado: {}, // rascunho compartilhado entre ferramentas dentro da execução
       // páginas já lidas em outras conversas (src/tools/web.js, lerDoDisco)
       dirCachePaginas: this.userDataPath ? path.join(this.userDataPath, 'cache-paginas') : null,
+      userDataPath: this.userDataPath,
       retomada: this.retomada,
       sandbox,
       memory,
@@ -3889,7 +3951,7 @@ for (const parte of [require('./loop-critico'), require('./loop-redacao')]) {
   Object.defineProperties(Agent.prototype, metodos);
 }
 
-module.exports = {
+module.exports = { imagensAnexadas,
   Agent,
   listaSemOsComparados,
   caberNaJanela,

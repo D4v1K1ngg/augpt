@@ -518,6 +518,7 @@
           <div class="linha"><span>Ollama</span><span class="situacao" id="sitOllama">verificando…</span></div>
           <div class="linha"><span>Busca embutida</span><span class="situacao" id="sitBusca">verificando…</span></div>
           <div class="linha"><span>YouTube (yt-dlp)</span><span class="situacao" id="sitYoutube">verificando…</span></div>
+          <div class="linha"><span>Texto de imagens (OCR)</span><span class="situacao" id="sitOcr">verificando…</span></div>
           <div class="linha"><span>Componentes</span><span class="situacao" id="sitComponentes">verificando…</span></div>
         </section>
         <section class="grupo">
@@ -781,6 +782,14 @@
             <button class="btn-secundario" id="btnCompYtVoltar" hidden>Voltar à versão anterior</button>
           </div>
           <div class="teste-resultado" id="compYtStatus"></div>
+        </section>
+        <section class="grupo">
+          <h2>Texto de imagens (Tesseract)</h2>
+          <p class="dica">Lê o texto de prints, fotos de documento e notas fiscais letra a letra, sem IA e sem internet. Ajuda o modelo a não errar números e nomes quando você anexa uma imagem. Instala o pacote oficial pelo winget (o Windows pode pedir permissão de administrador) e os idiomas português e inglês.</p>
+          <div class="linha"><span>Instalado</span><span class="situacao" id="compOcrInstalada">—</span></div>
+          <div class="linha"><span>Mais recente</span><span class="situacao" id="compOcrDisponivel">—</span></div>
+          <div class="linha-botoes"><button class="btn-primario" id="btnCompOcrInstalar" hidden>Instalar</button></div>
+          <div class="teste-resultado" id="compOcrStatus"></div>
         </section>
         <section class="grupo">
           <h2>Modelos por função</h2>

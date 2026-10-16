@@ -276,6 +276,12 @@ function situacao(texto) {
 function no(n) {
   const t = agente.turno;
   if (!t) return document.createElement('div');
+  // evento sem número de passo (as ferramentas do núcleo): vai para o passo atual
+  // (16/10: Math.max(5, undefined) mostrava "raciocínio · NaN passo")
+  if (!Number.isFinite(Number(n)) || n === null || n === '') {
+    if (t.noAtual) return t.noAtual;
+    n = 1;
+  }
   const existente = t.trilha.querySelector(`.no[data-n="${n}"]`);
   if (existente) return existente;
   t.trilha.querySelectorAll('.no.ativo').forEach((x) => x.classList.remove('ativo'));
@@ -1140,6 +1146,10 @@ const manipuladores = {
   // Progresso do download de um modelo (ollama.pullModel) — mesmo padrão do
   // progresso do SearXNG embutido acima, formato de linha diferente
   // ({status, total, completed}).
+  'tesseract-progresso'({ texto }) {
+    if (texto) $('compOcrStatus').textContent = texto;
+  },
+
   'ytdlp-progresso'({ texto }) {
     if (texto) $('compYtStatus').textContent = texto;
   },
@@ -2902,7 +2912,13 @@ function pintarComponentes() {
   $('btnCompYtInstalar').textContent = y.instalado ? 'Atualizar o yt-dlp' : 'Instalar o yt-dlp (18 MB)';
   $('btnCompYtVoltar').hidden = !y.temAnterior;
   $('sitYoutube').textContent = y.instalado ? (y.atualizar ? `atualização ${y.disponivel} disponível` : 'instalado') : 'não instalado';
-  const atualizacoes = [o.atualizar, y.atualizar].filter(Boolean).length;
+  const t = componentes?.tesseract || {};
+  $('compOcrInstalada').textContent = t.instalada ? `${t.instalada}${t.faltamIdiomas ? ' — faltam os idiomas' : ''}` : 'não instalado';
+  $('compOcrDisponivel').textContent = t.disponivel ? (t.atualizar ? `${t.disponivel} — atualização disponível` : `${t.disponivel}${t.instalada ? ' · em dia ✓' : ''}`) : 'não consegui consultar';
+  $('btnCompOcrInstalar').hidden = t.instalado && !t.atualizar;
+  $('btnCompOcrInstalar').textContent = t.manual ? 'Como instalar' : t.faltamIdiomas ? 'Baixar os idiomas' : t.instalado ? 'Atualizar o Tesseract' : 'Instalar o Tesseract (cerca de 50 MB)';
+  $('sitOcr').textContent = t.instalado ? (t.atualizar ? `atualização ${t.disponivel} disponível` : 'instalado') : 'não instalado';
+  const atualizacoes = [o.atualizar, y.atualizar, t.atualizar].filter(Boolean).length;
   $('compAviso').textContent = atualizacoes ? `${atualizacoes} atualizaç${atualizacoes === 1 ? 'ão' : 'ões'}` : '';
   $('sitOllama').textContent = online ? `ligado · ${o.instalada || ''}` : verificacao?.ollama?.instalado ? 'desligado' : 'não instalado';
   const busca = componentes?.busca || verificacao?.busca;
@@ -2960,6 +2976,16 @@ $('btnCompYtInstalar').addEventListener('click', async () => {
   const r = await api.componentes.instalarYtdlp();
   btn.disabled = false;
   $('compYtStatus').textContent = r.ok ? 'pronto ✓ — o agente já pode ver vídeos do YouTube' : `erro: ${r.error}`;
+  await carregarModelosEComponentes();
+});
+
+$('btnCompOcrInstalar').addEventListener('click', async () => {
+  const btn = $('btnCompOcrInstalar');
+  btn.disabled = true;
+  $('compOcrStatus').textContent = 'começando…';
+  const r = await api.componentes.instalarTesseract();
+  btn.disabled = false;
+  $('compOcrStatus').textContent = r.ok ? 'pronto ✓ — o texto das imagens anexadas passa a ser lido' : `erro: ${r.error}`;
   await carregarModelosEComponentes();
 });
 
@@ -4366,4 +4392,13 @@ document.addEventListener('click', (e) => {
   quadro.referrerPolicy = 'strict-origin-when-cross-origin';
   quadro.title = figura.querySelector('figcaption')?.textContent || 'vídeo';
   figura.querySelector('img').replaceWith(quadro);
+});
+
+// Fase 4 (16/10): setas do carrossel de imagens (md.js) — uma imagem por clique
+document.addEventListener('click', (e) => {
+  const seta = e.target.closest('.md-carrossel .md-seta');
+  if (!seta) return;
+  const trilho = seta.parentElement.querySelector('.md-trilho');
+  const passo = trilho.querySelector('.md-figura')?.offsetWidth || trilho.clientWidth;
+  trilho.scrollBy({ left: Number(seta.dataset.dir) * (passo + 10), behavior: 'smooth' });
 });

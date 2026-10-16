@@ -158,6 +158,20 @@ function pintar() {
     })
   );
 
+  // 6. OCR (Fase 4)
+  const ocr = e.ocr || {};
+  lista.append(
+    etapa({
+      titulo: 'Texto de imagens (Tesseract)',
+      situacao: ocr.instalado ? 'ok' : 'opcional',
+      texto: ocr.instalado
+        ? 'Instalado — o texto das imagens anexadas é lido letra a letra, sem internet.'
+        : 'Opcional: lê o texto de prints, documentos e notas fiscais que você anexar, sem IA e sem internet (cerca de 50 MB, pelo winget; o Windows pode pedir permissão).',
+      progresso: bv.progressoOcr,
+      acoes: ocr.instalado || ocr.manual ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarOcr }, 'Instalar o Tesseract')],
+    })
+  );
+
   $('bvConcluir').disabled = !(ollamaOk && temModelo(escolhido.nome) && temModelo(rec.embedding.nome)) || bv.ocupado;
 }
 
@@ -232,6 +246,14 @@ const instalarYoutube = () =>
     bv.progressoYoutube = r.ok ? { texto: 'yt-dlp instalado.', porcento: 100 } : { texto: r.error || 'A instalação falhou.', porcento: 0 };
   });
 
+const instalarOcr = () =>
+  ocupar(async () => {
+    bv.progressoOcr = { texto: 'Começando…', porcento: 5 };
+    pintar();
+    const r = await api.componentes.instalarTesseract();
+    bv.progressoOcr = r.ok ? { texto: 'Tesseract instalado.', porcento: 100 } : { texto: r.error || 'A instalação falhou.', porcento: 0 };
+  });
+
 // progresso que chega do processo principal (canal genérico, ver app.js api.onEvent)
 window.boasVindasEvento = (canal, dados = {}) => {
   if ($('boasVindas').hidden) return;
@@ -239,7 +261,8 @@ window.boasVindasEvento = (canal, dados = {}) => {
   else if (canal === 'ollama-pull-progresso' && bv.baixando) {
     const pct = dados.total && dados.completed != null ? Math.min(100, Math.round((dados.completed / dados.total) * 100)) : null;
     bv.progressoModelo = { texto: `${bv.baixando}: ${pct != null ? `${pct}%` : dados.status || '…'}`, porcento: pct ?? bv.progressoModelo?.porcento ?? 0 };
-  } else if (canal === 'ytdlp-progresso') bv.progressoYoutube = { texto: dados.texto, porcento: 50 };
+  } else if (canal === 'tesseract-progresso') bv.progressoOcr = { texto: dados.texto, porcento: 50 };
+  else if (canal === 'ytdlp-progresso') bv.progressoYoutube = { texto: dados.texto, porcento: 50 };
   else if (canal === 'runtime-searxng-progresso') bv.progressoBusca = { texto: (typeof FASES_SX_EMBUTIDO !== 'undefined' && FASES_SX_EMBUTIDO[dados.fase]) || dados.fase, porcento: 50 };
   else return;
   pintar();
