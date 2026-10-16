@@ -20,6 +20,7 @@
  */
 
 const { pedacos, ordenar } = require('./ranking');
+const { tituloCita } = require('../../tools/imagens');
 
 /**
  * Profundidade da pesquisa (15/10, a partir do Perplexica — modo qualidade:
@@ -96,6 +97,37 @@ const FERRAMENTA_DA_COMUNIDADE = {
   },
 };
 
+// Fase 3 (16/10): YouTube pelo yt-dlp — legenda e comentários, sem baixar o vídeo
+const FERRAMENTAS_DO_YOUTUBE = [
+  {
+    type: 'function',
+    function: {
+      name: 'buscar_no_youtube',
+      description: 'Busca vídeos no YouTube (review, teste, tutorial, como fazer). Até 2 buscas por vez, em palavras-chave; para tecnologia e produtos, de preferência em inglês.',
+      parameters: {
+        type: 'object',
+        properties: { buscas: { type: 'array', items: { type: 'string' }, description: 'de 1 a 2 buscas' } },
+        required: ['buscas'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'ver_video',
+      description: 'Lê um vídeo dos resultados: o que é falado (pela legenda) e os comentários mais curtidos. Diga o foco: o que você quer descobrir nele.',
+      parameters: {
+        type: 'object',
+        properties: {
+          fonte: { type: 'number', description: 'o número [n] do vídeo nos resultados' },
+          foco: { type: 'string', description: 'o que procurar no vídeo' },
+        },
+        required: ['fonte', 'foco'],
+      },
+    },
+  },
+];
+
 const FERRAMENTAS = [
   {
     type: 'function',
@@ -134,7 +166,7 @@ const FERRAMENTAS = [
   },
 ];
 
-function sistemaDoPesquisador({ hoje, rodada, total, produto = false, modo = 'normal' }) {
+function sistemaDoPesquisador({ hoje, rodada, total, produto = false, modo = 'normal', youtube = false }) {
   const regras = MODOS[modo] || MODOS.normal;
   return `Você é o pesquisador do AuGPT. Hoje é ${hoje}. Seu trabalho é juntar, com as ferramentas, a informação para responder muito bem à pergunta do usuário. Você não escreve a resposta: quando tiver o suficiente, chame "pronto".
 
@@ -143,7 +175,7 @@ function sistemaDoPesquisador({ hoje, rodada, total, produto = false, modo = 'no
 - Em buscar_na_web, mande até 3 buscas curtas por vez, de ângulos diferentes. Para tecnologia e produtos, inclua buscas em inglês, onde há mais material.
 - Quando a pergunta pede opinião, experiência de uso ou recomendação, inclua buscas que tragam quem usa (por exemplo com "reddit" ou "fórum").
 - Use ler_pagina nas páginas mais promissoras quando o resumo não basta, sempre com um foco.
-- Comece amplo e aprofunde no que os resultados mostrarem. Se 2 ou 3 buscas não acham algo, provavelmente não existe: siga em frente.
+${youtube ? '- Vídeos ajudam em review de produto, teste, tutorial e "como fazer": use buscar_no_youtube e ver_video (traz o que é falado e os comentários). Vídeo sem legenda só tem a descrição e os comentários.\n' : ''}- Comece amplo e aprofunde no que os resultados mostrarem. Se 2 ou 3 buscas não acham algo, provavelmente não existe: siga em frente.
 ${produto ? `- Este pedido é sobre produtos: use buscar_na_comunidade pelo menos uma vez e leia com ler_pagina pelo menos ${regras.comunidade} tópico(s) da comunidade, para saber o que quem usa recomenda, elogia e critica. Busque também preço atual e especificações.\n` : ''}${
     modo === 'profundo'
       ? `- Esta é uma PESQUISA PROFUNDA: cubra vários ângulos (${ANGULOS}), faça pelo menos ${regras.minBuscas} buscas e leia de ${regras.minLeituras} a ${regras.leituras} páginas, cruzando o que uma fonte diz com as outras. Não pare cedo.\n`
@@ -154,17 +186,18 @@ ${produto ? `- Este pedido é sobre produtos: use buscar_na_comunidade pelo meno
 }
 
 /** Os resultados como o pesquisador vê: "[n] título (domínio)\nresumo". */
-const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || dominio(f.url)} (${dominio(f.url)}${f.comunidade ? ', comunidade' : ''})\n${String(f.resumo || '').slice(0, 300)}`).join('\n\n');
+const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || dominio(f.url)} (${dominio(f.url)}${f.comunidade ? ', comunidade' : ''}${f.video ? ', vídeo' : ''})\n${String(f.resumo || '').slice(0, 300)}`).join('\n\n');
 
 /**
  * O laço do pesquisador. Devolve as fontes juntadas (numeradas, com resumo e,
  * quando lidas, os trechos escolhidos da página).
  */
-async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false }) {
+async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [] }) {
   const { chamar, buscar, lerPagina, embed, emit = () => {}, signal, buscarNaComunidade } = deps;
   // comunidade (15/10, pedido do Davi): em pedido de produto, Reddit e fóruns entram sempre
   const comComunidade = produto && typeof buscarNaComunidade === 'function';
-  const ferramentas = comComunidade ? [FERRAMENTA_DA_COMUNIDADE, ...FERRAMENTAS] : FERRAMENTAS;
+  const comYoutube = typeof deps.buscarNoYoutube === 'function' && typeof deps.verVideo === 'function' && modo !== 'rapido';
+  const ferramentas = [...(comComunidade ? [FERRAMENTA_DA_COMUNIDADE] : []), ...FERRAMENTAS, ...(comYoutube ? FERRAMENTAS_DO_YOUTUBE : [])];
   const regras = MODOS[modo] || MODOS.normal;
   const total = regras.rodadas;
   let buscasFeitas = 0;
@@ -199,11 +232,55 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     return mostrados.length ? listaParaOModelo(mostrados) : 'Nenhum resultado novo para essas buscas.';
   };
 
+  const executarBuscaNoYoutube = async (buscas) => {
+    const lista = (Array.isArray(buscas) ? buscas : [buscas]).map(String).filter(Boolean).slice(0, 2);
+    emit('ferramenta', { nome: 'buscar_no_youtube', argumentos: { consulta: lista.join(' · ') }, risco: 'leitura' });
+    const achados = (await Promise.all(lista.map((q) => deps.buscarNoYoutube(q).catch(() => [])))).flat();
+    for (const q of lista) emit('fonte', { tipo: 'busca', provedor: 'youtube', consultas: [q], resultados: Math.round(achados.length / lista.length) });
+    buscou = true;
+    buscasFeitas += lista.length;
+    const mostrados = [];
+    for (const v of achados) {
+      if (porUrl.has(v.url) || mostrados.length >= 6) continue;
+      const minutos = v.duracao ? `${Math.round(v.duracao / 60)} min` : '';
+      const vistas = v.visualizacoes ? `${v.visualizacoes.toLocaleString('pt-BR')} visualizações` : '';
+      const f = { n: fontes.length + 1, url: v.url, titulo: v.titulo, resumo: [`vídeo de ${v.canal || 'canal desconhecido'}`, minutos, vistas].filter(Boolean).join(' · '), trechos: [], video: true };
+      fontes.push(f);
+      porUrl.set(v.url, f);
+      mostrados.push(f);
+    }
+    return mostrados.length ? listaParaOModelo(mostrados) : 'Nenhum vídeo novo para essas buscas.';
+  };
+
+  // o vídeo vira "página": os trechos da legenda ligados ao foco + os comentários mais curtidos
+  const lerVideo = async (f, foco) => {
+    let v;
+    try {
+      v = await deps.verVideo(f.url);
+    } catch (err) {
+      if (err.mudancaDoYouTube) emit('aviso', { texto: 'O YouTube pode ter mudado e o yt-dlp não conseguiu ler o vídeo: veja se há atualização em Ajustes → Componentes.' });
+      return `Não consegui ver o vídeo [${f.n}]: ${String(err.message || err).slice(0, 120)}`;
+    }
+    emit('fonte', { tipo: 'leitura', provedor: 'youtube', url: f.url });
+    if (v.titulo) f.titulo = v.titulo;
+    const falado = v.legenda
+      ? (await ordenar(`${foco || ''} ${pergunta}`, pedacos(v.legenda).map((texto) => ({ texto })), { embed, maximo: 4 })).filter((m, i) => i === 0 || m.nota >= 0.2).map((m) => `No vídeo (${v.canal}): ${m.texto}`)
+      : [`(Vídeo sem legenda: não dá para saber o que é falado nele, só a descrição e os comentários.) Descrição: ${v.descricao.slice(0, 800)}`];
+    const comentarios = v.comentarios.slice(0, 6).map((c) => `"${c.texto.slice(0, 300)}"`);
+    const trechos = [...falado, ...(comentarios.length ? [`Comentários mais curtidos de quem assistiu: ${comentarios.join(' · ')}`] : [])];
+    f.trechos.push(...trechos.filter((t) => !f.trechos.includes(t)));
+    return `[${f.n}] ${f.titulo} (vídeo de ${v.canal}${v.legenda ? '' : ', sem legenda'})\n${trechos.join('\n…\n').slice(0, 3000)}`;
+  };
+
   const executarLeitura = async ({ fonte, foco }, { garantia = false } = {}) => {
     const f = fontes.find((x) => x.n === Number(fonte));
     if (!f) return `Não existe a fonte [${fonte}] nos resultados.`;
     if (leiturasFeitas >= regras.leituras && !garantia) return `Limite de ${regras.leituras} páginas lidas nesta pesquisa: use o que já tem ou chame pronto.`;
     leiturasFeitas += 1;
+    if (f.video && comYoutube) {
+      emit('ferramenta', { nome: 'ver_video', argumentos: { url: f.url, foco: String(foco || '') }, risco: 'leitura' });
+      return lerVideo(f, foco);
+    }
     emit('ferramenta', { nome: 'ler_pagina', argumentos: { url: f.url, foco: String(foco || '') }, risco: 'leitura' });
     let pagina;
     try {
@@ -235,7 +312,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   for (let rodada = 1; rodada <= total; rodada += 1) {
     if (signal?.aborted) break;
     emit('iteracao', { n: rodada, de: total });
-    const r = await chamar([{ role: 'system', content: sistemaDoPesquisador({ hoje, rodada, total, produto: comComunidade, modo }) }, ...historico], { tools: ferramentas });
+    const r = await chamar([{ role: 'system', content: sistemaDoPesquisador({ hoje, rodada, total, produto: comComunidade, modo, youtube: comYoutube }) }, ...historico], { tools: ferramentas });
     const chamadas = (r.chamadas || []).map((c) => ({ nome: c.function?.name, args: typeof c.function?.arguments === 'string' ? safeJson(c.function.arguments) : c.function?.arguments || {} }));
     if (r.content?.trim()) {
       emit('raciocinio', { n: rodada, pensamento: r.content.trim().slice(0, 400) });
@@ -263,7 +340,8 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
       let saida;
       if (c.nome === 'buscar_na_web') saida = await executarBusca(c.args.buscas || c.args.consultas || c.args.query || []);
       else if (c.nome === 'buscar_na_comunidade' && comComunidade) saida = await executarBusca(c.args.buscas || c.args.consultas || c.args.query || [], { comunidade: true });
-      else if (c.nome === 'ler_pagina') saida = await executarLeitura(c.args);
+      else if (c.nome === 'ler_pagina' || c.nome === 'ver_video') saida = await executarLeitura(c.args);
+      else if (c.nome === 'buscar_no_youtube' && comYoutube) saida = await executarBuscaNoYoutube(c.args.buscas || c.args.consultas || c.args.query || []);
       else if (c.nome === 'pronto') saida = 'ok';
       else saida = `Ferramenta desconhecida: ${c.nome}`;
       historico.push({ role: 'tool', tool_name: c.nome, content: saida });
@@ -277,11 +355,14 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
       break;
     }
   }
+  // a fonte fala de algum assunto da pergunta? (16/10: o fórum devolveu "Adata é uma marca confiável?
+  // Esse SSD vale a pena?" para o Dunu Titan S, a garantia leu, e a resposta comentou o tópico de SSD)
+  const citaAssunto = (f) => !assuntos.length || assuntos.some((a) => tituloCita(`${f.titulo} ${f.resumo}`, a));
   // garantia: pedido de produto sem a comunidade lida — o código busca e lê 2 tópicos antes da escrita
   if (comComunidade && !signal?.aborted) {
     if (!fontes.some((f) => f.comunidade)) await executarBusca([pergunta], { comunidade: true });
     const lidos = fontes.filter((f) => f.comunidade && f.trechos.length).length;
-    for (const f of fontes.filter((x) => x.comunidade && !x.trechos.length).slice(0, Math.max(0, regras.comunidade - lidos))) {
+    for (const f of fontes.filter((x) => x.comunidade && !x.trechos.length && citaAssunto(x)).slice(0, Math.max(0, regras.comunidade - lidos))) {
       await executarLeitura({ fonte: f.n, foco: 'o que quem usa recomenda, elogia e critica' }, { garantia: true });
     }
   }
@@ -290,7 +371,8 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
   if (lidas() < regras.minLeituras && !signal?.aborted) {
     const faltam = regras.minLeituras - lidas();
     const naoLidas = fontes.filter((f) => !f.trechos.length).map((f) => ({ f, texto: `${f.titulo} ${f.resumo}` }));
-    const ordem = (await ordenar(pergunta, naoLidas, { embed })).map((x) => x.f);
+    const ordenadas = (await ordenar(pergunta, naoLidas, { embed })).map((x) => x.f);
+    const ordem = [...ordenadas.filter(citaAssunto), ...ordenadas.filter((f) => !citaAssunto(f))];
     const sites = new Set(fontes.filter((f) => f.trechos.length).map((f) => dominio(f.url)));
     const primeiroDeCadaSite = ordem.filter((f) => !sites.has(dominio(f.url)) && sites.add(dominio(f.url)));
     const candidatas = [...new Set([...primeiroDeCadaSite, ...ordem])].slice(0, faltam * 2);
@@ -347,6 +429,7 @@ ${
 - Comece respondendo diretamente à pergunta. Depois desenvolva, com seções (##) quando o assunto pedir.
 - Explique os termos técnicos para quem não é especialista.
 - Cite a fonte de cada informação com [n] no fim da frase. Não cite número que não está nas fontes.
+- Cruze as fontes: quando várias falam do mesmo ponto, cite todas ([2][5]); não apoie a resposta inteira numa fonte só. Um vídeo é uma fonte como as outras — o que é dito nele é a opinião de quem fez o review.
 - Use tabela quando comparar opções ou listar especificações.
 - Quando a pergunta pede escolha, recomendação ou avaliação, diga com clareza o que você recomenda e por quê, com base nas fontes. Nada de conclusão genérica.
 - Diga o que as fontes não responderam, em vez de inventar.
@@ -406,7 +489,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   // automático (15/10): produto vai para a pesquisa profunda, o resto para a normal
   const modoUsado = MODOS[modo] ? modo : ent.produto ? 'profundo' : 'normal';
   emit('nucleo-entendimento', { ...ent, modo: modoUsado });
-  const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto }) : [];
+  const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [] }) : [];
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
   const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed }) : [];
   emit('redigindo', { fontes: usadas.length });
@@ -420,7 +503,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const escrito = await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco }));
   // só ficam na lista as fontes que a resposta citou (ou todas as usadas, se ela não citou nenhuma)
   const citadas = new Set([...String(escrito).matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
-  const lista = usadas.filter((f) => !citadas.size || citadas.has(f.n)).map(({ n, url, titulo }) => ({ n, url, titulo }));
+  const lista = usadas.filter((f) => !citadas.size || citadas.has(f.n)).map(({ n, url, titulo, video, trechos }) => ({ n, url, titulo, ...(video ? { video: true, lido: trechos.length > 0 } : {}) }));
   // com pesquisa, os anos citados são conferidos contra tudo que foi lido (trechos, resumos e anotações)
   const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')}`).join(' ')} ${notas}` : '';
   const conferido = fontes.length ? conferirAnos(String(escrito || '').trim(), { material, pergunta, hoje }) : { texto: String(escrito || '').trim(), faltam: [] };
@@ -428,4 +511,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { texto: conferido.texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam };
 }
 
-module.exports = { MODOS, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, RODADAS };
+module.exports = { MODOS, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

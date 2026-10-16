@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('augpt', {
   componentes: {
     estado: () => ipcRenderer.invoke('componentes:estado'),
     atualizarOllama: () => ipcRenderer.invoke('componentes:atualizarOllama'),
+    instalarYtdlp: () => ipcRenderer.invoke('componentes:instalarYtdlp'),
+    voltarYtdlp: () => ipcRenderer.invoke('componentes:voltarYtdlp'),
   },
   boasVindas: {
     verificar: () => ipcRenderer.invoke('boasVindas:verificar'),

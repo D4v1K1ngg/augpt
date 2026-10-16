@@ -63,7 +63,10 @@ function explicarTermos(texto) {
       for (const [i, t] of TERMOS.entries()) {
         if (vistos.has(i)) continue;
         // não mexe dentro de link markdown
-        const m = new RegExp(t.termo.source, t.termo.flags.replace('g', '')).exec(saida.replace(/\[[^\]]*\]\([^)]*\)/g, (x) => ' '.repeat(x.length)));
+        const semLinks = saida.replace(/\[[^\]]*\]\([^)]*\)/g, (x) => ' '.repeat(x.length));
+        // o \b do JavaScript não conhece letra acentuada: "em v" + "ídeo" passava como "em V" (16/10)
+        const colada = (c) => /[\p{L}\d]/u.test(c || '');
+        const m = [...semLinks.matchAll(new RegExp(t.termo.source, `${t.termo.flags.replace('g', '')}g`))].find((x) => !colada(semLinks[x.index - 1]) && !colada(semLinks[x.index + x[0].length]));
         if (!m) continue;
         vistos.add(i);
         const fim = m.index + m[0].length;

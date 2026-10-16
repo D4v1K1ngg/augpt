@@ -35,6 +35,7 @@ const { escopoDoPedido, foraDoEscopo } = require('./escopo');
 const search = require('../tools/search');
 const { lerComCache } = require('../tools/web');
 const nucleo = require('./nucleo');
+const { YtDlp, pareceMudancaDoYouTube, idDoVideo } = require('../ytdlp');
 const { explicarTermos } = require('./glossario');
 const { comLinks } = require('./escritor-de-cartoes');
 const { vetorDe } = require('./embeddings');
@@ -1546,6 +1547,15 @@ class Agent extends EventEmitter {
         return achados.flat();
       },
     };
+    // YouTube (Fase 3): só com o yt-dlp instalado em Ajustes → Componentes (ou na boas-vindas)
+    const yt = this.userDataPath ? new YtDlp(path.join(this.userDataPath, 'componentes')) : null;
+    if (yt?.instalado()) {
+      deps.buscarNoYoutube = (q) => yt.buscarVideos(q, 5);
+      deps.verVideo = (url) =>
+        yt.verVideo(url).catch((err) => {
+          throw Object.assign(err, { mudancaDoYouTube: pareceMudancaDoYouTube(err.stderr || err.message) });
+        });
+    }
     try {
       this.emit('inicio-rapido', { objetivo });
       // profundidade: seletor da tela inicial / painel ("Resposta direta" antigo = rápido)
@@ -1578,7 +1588,20 @@ class Agent extends EventEmitter {
       const corpo = explicarTermos(comLinks(comCartoes, r.fontes));
       // uma imagem por assunto, uma por linha (o renderer junta as seguidas numa galeria)
       const comFoto = doTopo.length ? `${doTopo.map((x) => imagens.marcacao(x.nome, x.img)).join('\n')}\n\n${corpo}` : corpo;
-      const final = r.fontes.length ? `${comFoto}\n\n---\n**Fontes**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comFoto;
+      // vídeos que a pesquisa assistiu: miniatura que vira o player no clique (md.js, "{yt:ID}")
+      const assistidos = r.fontes.filter((f) => f.video && f.lido).slice(0, 3);
+      const miniaturas = await imagens.comLimite(
+        Promise.all(assistidos.map((f) => imagens.guardarImagem(`https://i.ytimg.com/vi/${idDoVideo(f.url)}/hqdefault.jpg`, { dir: this.dirImagens(), config: cfg }).catch(() => null))),
+        15000,
+        []
+      );
+      const videos = assistidos.length
+        ? `\n\n**Vídeos**\n${assistidos
+            .map((f, i) => (miniaturas[i] ? `${imagens.marcacao(`▶ ${f.titulo}`, miniaturas[i])}{yt:${idDoVideo(f.url)}}` : `- [▶ ${String(f.titulo).replace(/[[\]]/g, '')}](${f.url})`))
+            .join('\n')}`
+        : '';
+      const comVideos = `${comFoto}${videos}`;
+      const final = r.fontes.length ? `${comVideos}\n\n---\n**Fontes**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comVideos;
       this.emit('nucleo-fim', { modo, ms: Date.now() - inicio, fontes: r.fontes.length, entendimento: r.entendimento });
       await this.fotografarModelos();
       this.emit('concluido', { resumo: final, resposta: true, iteracoes: 0, uso: this.uso, verificacao: null, confianca: null });

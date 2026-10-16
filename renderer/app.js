@@ -1140,6 +1140,10 @@ const manipuladores = {
   // Progresso do download de um modelo (ollama.pullModel) — mesmo padrão do
   // progresso do SearXNG embutido acima, formato de linha diferente
   // ({status, total, completed}).
+  'ytdlp-progresso'({ texto }) {
+    if (texto) $('compYtStatus').textContent = texto;
+  },
+
   'ollama-instalacao-progresso'({ texto }) {
     if (texto) $('compOllamaStatus').textContent = texto;
   },
@@ -2891,11 +2895,19 @@ function pintarComponentes() {
   $('compOllamaInstalada').textContent = o.instalada || (verificacao?.ollama?.instalado ? 'instalado, desligado' : 'não instalado');
   $('compOllamaDisponivel').textContent = o.disponivel ? (o.atualizar ? `${o.disponivel} — atualização disponível` : `${o.disponivel} · em dia ✓`) : 'não consegui consultar';
   $('btnCompAtualizarOllama').hidden = !o.atualizar;
-  $('compAviso').textContent = o.atualizar ? '1 atualização' : '';
+  const y = componentes?.ytdlp || {};
+  $('compYtInstalada').textContent = y.instalada || 'não instalado';
+  $('compYtDisponivel').textContent = y.disponivel ? (y.atualizar ? `${y.disponivel} — atualização disponível` : `${y.disponivel}${y.instalada ? ' · em dia ✓' : ''}`) : 'não consegui consultar';
+  $('btnCompYtInstalar').hidden = y.instalado && !y.atualizar;
+  $('btnCompYtInstalar').textContent = y.instalado ? 'Atualizar o yt-dlp' : 'Instalar o yt-dlp (18 MB)';
+  $('btnCompYtVoltar').hidden = !y.temAnterior;
+  $('sitYoutube').textContent = y.instalado ? (y.atualizar ? `atualização ${y.disponivel} disponível` : 'instalado') : 'não instalado';
+  const atualizacoes = [o.atualizar, y.atualizar].filter(Boolean).length;
+  $('compAviso').textContent = atualizacoes ? `${atualizacoes} atualizaç${atualizacoes === 1 ? 'ão' : 'ões'}` : '';
   $('sitOllama').textContent = online ? `ligado · ${o.instalada || ''}` : verificacao?.ollama?.instalado ? 'desligado' : 'não instalado';
   const busca = componentes?.busca || verificacao?.busca;
   $('sitBusca').textContent = !busca?.instalado ? 'não instalada (usa as reservas)' : busca.rodando ? 'ligada' : 'instalada, parada';
-  $('sitComponentes').textContent = o.atualizar ? `Ollama ${o.disponivel} disponível` : o.disponivel ? 'em dia ✓' : '—';
+  $('sitComponentes').textContent = atualizacoes ? `${atualizacoes} atualizaç${atualizacoes === 1 ? 'ão disponível' : 'ões disponíveis'}` : o.disponivel ? 'em dia ✓' : '—';
   const instalados = verificacao?.modelos || [];
   const tem = (n) => n && instalados.some((i) => i === n || i === `${n}:latest`);
   $('compModelos').innerHTML = [
@@ -2939,6 +2951,23 @@ $('btnCompAtualizarOllama').addEventListener('click', async () => {
   $('compOllamaStatus').textContent = r.texto || '';
   await carregarModelosEComponentes();
   verificarOllama();
+});
+
+$('btnCompYtInstalar').addEventListener('click', async () => {
+  const btn = $('btnCompYtInstalar');
+  btn.disabled = true;
+  $('compYtStatus').textContent = 'começando…';
+  const r = await api.componentes.instalarYtdlp();
+  btn.disabled = false;
+  $('compYtStatus').textContent = r.ok ? 'pronto ✓ — o agente já pode ver vídeos do YouTube' : `erro: ${r.error}`;
+  await carregarModelosEComponentes();
+});
+
+$('btnCompYtVoltar').addEventListener('click', async () => {
+  if (!confirm('Voltar o yt-dlp para a versão anterior?')) return;
+  const r = await api.componentes.voltarYtdlp();
+  $('compYtStatus').textContent = r.ok ? `voltou para ${r.estado.instalada}` : `erro: ${r.error}`;
+  await carregarModelosEComponentes();
 });
 
 async function baixarModelo(nome) {
@@ -4325,3 +4354,16 @@ $('btnLimparExec').addEventListener('click', async () => {
   setInterval(resumir, 600);
   resumir();
 })();
+
+// Fase 3 (16/10): a miniatura de um vídeo vira o player do youtube-nocookie.com
+// só no clique — antes disso, nenhuma página do YouTube é carregada na tela.
+document.addEventListener('click', (e) => {
+  const figura = e.target.closest('.md-video[data-yt]');
+  if (!figura || figura.querySelector('iframe') || !/^[A-Za-z0-9_-]{11}$/.test(figura.dataset.yt)) return;
+  const quadro = document.createElement('iframe');
+  quadro.src = `https://www.youtube-nocookie.com/embed/${figura.dataset.yt}?autoplay=1&rel=0`;
+  quadro.allow = 'autoplay; encrypted-media; picture-in-picture';
+  quadro.referrerPolicy = 'strict-origin-when-cross-origin';
+  quadro.title = figura.querySelector('figcaption')?.textContent || 'vídeo';
+  figura.querySelector('img').replaceWith(quadro);
+});

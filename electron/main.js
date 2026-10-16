@@ -32,6 +32,8 @@ const hardware = require('../src/agent/hardware');
 const primeiroUso = require('../src/primeiro-uso');
 const verificadorDeHardware = require('../src/verificador-de-hardware');
 const instaladorOllama = require('../src/instalador-ollama');
+const { YtDlp } = require('../src/ytdlp');
+const ytdlp = () => new YtDlp(path.join(app.getPath('userData'), 'componentes'));
 
 let win = null;
 let janelaExecucoes = null; // pedido de Davi 2026-09-23: "Visualizar Execuções" ganhou janela própria
@@ -1218,6 +1220,7 @@ ipcMain.handle('boasVindas:verificar', async () => {
     ollama: { online: saude.online, instalado: saude.online || ollamaRuntime.localizarBinario().encontrado },
     modelos,
     busca: searxngRuntime.estado(),
+    youtube: { instalado: ytdlp().instalado() },
     concluida: config.data.boasVindasConcluida === true,
     plataforma: process.platform,
   };
@@ -1255,10 +1258,26 @@ ipcMain.handle('boasVindas:concluir', async (_e, { modelo } = {}) => {
 
 /* ------------------------------ componentes (Ajustes, 16/10) ------------------------------ */
 // Versões do que o AuGPT usa por fora; atualizar só quando o usuário clica.
-ipcMain.handle('componentes:estado', async () => ({
-  ollama: await instaladorOllama.versoesDoOllama(config.data.host),
-  busca: searxngRuntime.estado(),
-}));
+ipcMain.handle('componentes:estado', async () => {
+  const [o, y] = await Promise.all([instaladorOllama.versoesDoOllama(config.data.host), ytdlp().estado()]);
+  return { ollama: o, ytdlp: y, busca: searxngRuntime.estado() };
+});
+
+// yt-dlp (Fase 3): instala/atualiza conferindo o SHA-256; a versão de antes fica guardada
+ipcMain.handle('componentes:instalarYtdlp', async () => {
+  try {
+    return { ok: true, estado: await ytdlp().instalar({ emitir: (p) => enviar('ytdlp-progresso', p) }) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('componentes:voltarYtdlp', async () => {
+  try {
+    return { ok: true, estado: await ytdlp().voltar() };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
 
 ipcMain.handle('componentes:atualizarOllama', async () => {
   // o Ollama precisa estar fechado para o instalador trocar os arquivos
@@ -1451,6 +1470,11 @@ app.whenReady().then(() => {
   // de Execuções) não precisa de câmera, microfone, notificação nem nada do
   // tipo — o Electron concede tudo por padrão se ninguém disser o contrário.
   negarPermissoes(session.defaultSession);
+  // Fase 3 (16/10): o player do youtube-nocookie.com (só no clique na miniatura) exige Referer —
+  // sem ele, "Erro 153". Vale só para esse endereço.
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/*'] }, (detalhes, responder) => {
+    responder({ requestHeaders: { ...detalhes.requestHeaders, Referer: detalhes.requestHeaders.Referer || 'https://augpt.app/' } });
+  });
   config = new Config(app.getPath('userData'));
   // Fase 2: instalação nova (config.json ainda não existia) em computador com
   // pouca memória já começa com padrões mais leves — nunca mexe em quem já

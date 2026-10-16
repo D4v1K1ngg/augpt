@@ -147,6 +147,16 @@
       // tela nunca carrega imagem direto da internet. Dentro de um cartão de
       // produto, logo depois do nome, a foto vai para ANTES do título, pra
       // ficar à esquerda do cartão inteiro.
+      // Vídeo (Fase 3): `![▶ título](augpt-img://miniatura.jpg){yt:ID}` — a miniatura é do
+      // app; o player do youtube-nocookie.com só entra no clique (app.js, abrirVideo)
+      const video = /^\s*!\[([^\]]*)\]\((augpt-img:\/\/[a-z]{20,64}\.(?:jpg|png|webp))\)\{yt:([A-Za-z0-9_-]{11})\}\s*$/.exec(linha);
+      if (video) {
+        fecharLista();
+        fecharCitacao();
+        saida.push(`<figure class="md-video" data-yt="${video[3]}" title="Clique para assistir aqui"><img src="${video[2]}" alt="" loading="lazy" /><figcaption>${video[1]}</figcaption></figure>`);
+        continue;
+      }
+
       const imagem = /^\s*!\[([^\]]*)\]\((augpt-img:\/\/[a-z]{20,64}\.(?:jpg|png|webp))\)\s*$/.exec(linha);
       if (imagem) {
         fecharLista();
@@ -168,7 +178,8 @@
         continue;
       }
 
-      const numerada = /^\s*\d+[.)]\s+(.*)$/.exec(linha);
+      // o número escrito vale (16/10: a lista de Fontes "13. …" saía renumerada 1, 2, 3 e a citação [13] não batia)
+      const numerada = /^\s*(\d+)[.)]\s+(.*)$/.exec(linha);
       const marcada = /^\s*[-*+]\s+(.*)$/.exec(linha);
       if (numerada || marcada) {
         fecharCitacao();
@@ -178,7 +189,7 @@
           saida.push(`<${tipo}>`);
           lista = tipo;
         }
-        saida.push(`<li>${inline((numerada || marcada)[1])}</li>`);
+        saida.push(numerada ? `<li value="${Number(numerada[1])}">${inline(numerada[2])}</li>` : `<li>${inline(marcada[1])}</li>`);
         continue;
       }
       fecharLista();

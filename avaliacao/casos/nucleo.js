@@ -260,4 +260,31 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'núcleo (16/10): a leitura automática da comunidade só pega tópico que cita o assunto ("Adata é uma marca confiável? Esse SSD vale a pena?" não entra num pedido do Dunu Titan S)',
+    tipo: 'unidade',
+    async executar() {
+      const m = modeloFalso({ entendimento: { precisa_buscar: true, produto: true, assuntos: ['Dunu Titan S'], pergunta: 'o dunu titan s vale a pena?' }, roteiro: Array.from({ length: 12 }, () => ({ ferramentas: [['buscar_na_web', { buscas: ['dunu titan s'] }], ['pronto', {}]] })) });
+      const lidas = [];
+      let n = 0;
+      await nucleo.responder({
+        pergunta: 'o dunu titan s vale a pena?',
+        modo: 'normal',
+        deps: {
+          chamar: m.chamar,
+          escrever: m.escrever,
+          buscar: async (q) => [{ titulo: `${q} ${n}`, url: `https://web${n++}.com/x`, resumo: 'texto' }],
+          buscarNaComunidade: async () => [
+            { titulo: 'Adata é uma marca confiável? Esse SSD vale a pena?', url: 'https://forum.com/adata', resumo: 'SSD Adata' },
+            { titulo: 'Dunu Titan S: vale a pena?', url: 'https://forum.com/titan', resumo: 'impressões do Titan S' },
+          ],
+          lerPagina: async (url) => (lidas.push(url), { texto: 'conteúdo da página '.repeat(30) }),
+        },
+      });
+      return [
+        lidas.includes('https://forum.com/titan') || `o tópico do Titan S é lido: ${lidas}`,
+        !lidas.includes('https://forum.com/adata') || 'o tópico de SSD não é lido pela garantia',
+      ];
+    },
+  },
 ];

@@ -144,6 +144,20 @@ function pintar() {
     })
   );
 
+  // 5. YouTube (Fase 3)
+  const youtube = e.youtube || {};
+  lista.append(
+    etapa({
+      titulo: 'Vídeos do YouTube (yt-dlp)',
+      situacao: youtube.instalado ? 'ok' : 'opcional',
+      texto: youtube.instalado
+        ? 'Instalado — o agente lê a legenda e os comentários de vídeos, sem baixá-los.'
+        : 'Opcional: deixa o agente "assistir" a reviews e tutoriais lendo a legenda e os comentários (o vídeo não é baixado). Baixa o yt-dlp oficial, 18 MB, com o SHA-256 conferido.',
+      progresso: bv.progressoYoutube,
+      acoes: youtube.instalado ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarYoutube }, 'Instalar o yt-dlp')],
+    })
+  );
+
   $('bvConcluir').disabled = !(ollamaOk && temModelo(escolhido.nome) && temModelo(rec.embedding.nome)) || bv.ocupado;
 }
 
@@ -210,6 +224,14 @@ const instalarBusca = () =>
     bv.progressoBusca = r.ok ? { texto: 'Busca instalada.', porcento: 100 } : { texto: r.error || 'A instalação falhou.', porcento: 0 };
   });
 
+const instalarYoutube = () =>
+  ocupar(async () => {
+    bv.progressoYoutube = { texto: 'Começando…', porcento: 5 };
+    pintar();
+    const r = await api.componentes.instalarYtdlp();
+    bv.progressoYoutube = r.ok ? { texto: 'yt-dlp instalado.', porcento: 100 } : { texto: r.error || 'A instalação falhou.', porcento: 0 };
+  });
+
 // progresso que chega do processo principal (canal genérico, ver app.js api.onEvent)
 window.boasVindasEvento = (canal, dados = {}) => {
   if ($('boasVindas').hidden) return;
@@ -217,7 +239,8 @@ window.boasVindasEvento = (canal, dados = {}) => {
   else if (canal === 'ollama-pull-progresso' && bv.baixando) {
     const pct = dados.total && dados.completed != null ? Math.min(100, Math.round((dados.completed / dados.total) * 100)) : null;
     bv.progressoModelo = { texto: `${bv.baixando}: ${pct != null ? `${pct}%` : dados.status || '…'}`, porcento: pct ?? bv.progressoModelo?.porcento ?? 0 };
-  } else if (canal === 'runtime-searxng-progresso') bv.progressoBusca = { texto: (typeof FASES_SX_EMBUTIDO !== 'undefined' && FASES_SX_EMBUTIDO[dados.fase]) || dados.fase, porcento: 50 };
+  } else if (canal === 'ytdlp-progresso') bv.progressoYoutube = { texto: dados.texto, porcento: 50 };
+  else if (canal === 'runtime-searxng-progresso') bv.progressoBusca = { texto: (typeof FASES_SX_EMBUTIDO !== 'undefined' && FASES_SX_EMBUTIDO[dados.fase]) || dados.fase, porcento: 50 };
   else return;
   pintar();
 };

@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: augpt-img:; frame-src 'self' data:" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: augpt-img:; frame-src 'self' data: https://www.youtube-nocookie.com" />
 <title>AuGPT</title>
 <link rel="stylesheet" href="styles.css" />
 </head>
@@ -517,6 +517,7 @@
           <h2>Situação</h2>
           <div class="linha"><span>Ollama</span><span class="situacao" id="sitOllama">verificando…</span></div>
           <div class="linha"><span>Busca embutida</span><span class="situacao" id="sitBusca">verificando…</span></div>
+          <div class="linha"><span>YouTube (yt-dlp)</span><span class="situacao" id="sitYoutube">verificando…</span></div>
           <div class="linha"><span>Componentes</span><span class="situacao" id="sitComponentes">verificando…</span></div>
         </section>
         <section class="grupo">
@@ -769,6 +770,17 @@
           <label class="linha"><span>Usar a busca embutida</span>
             <input type="checkbox" id="cfgUsarSxEmbutido" class="caixa" disabled />
           </label>
+        </section>
+        <section class="grupo">
+          <h2>YouTube (yt-dlp)</h2>
+          <p class="dica">Deixa o agente "assistir" a vídeos: lê a legenda e os comentários mais curtidos, sem baixar o vídeo. O YouTube muda com frequência — quando um vídeo não abrir, confira aqui se há versão nova. Cada atualização tem o SHA-256 conferido, e a versão de antes fica guardada.</p>
+          <div class="linha"><span>Instalado</span><span class="situacao" id="compYtInstalada">—</span></div>
+          <div class="linha"><span>Mais recente</span><span class="situacao" id="compYtDisponivel">—</span></div>
+          <div class="linha-botoes">
+            <button class="btn-primario" id="btnCompYtInstalar" hidden>Instalar</button>
+            <button class="btn-secundario" id="btnCompYtVoltar" hidden>Voltar à versão anterior</button>
+          </div>
+          <div class="teste-resultado" id="compYtStatus"></div>
         </section>
         <section class="grupo">
           <h2>Modelos por função</h2>
