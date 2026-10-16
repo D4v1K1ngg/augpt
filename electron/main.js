@@ -36,6 +36,8 @@ const { YtDlp } = require('../src/ytdlp');
 const ytdlp = () => new YtDlp(path.join(app.getPath('userData'), 'componentes'));
 const { Tesseract } = require('../src/tesseract');
 const tesseract = () => new Tesseract(path.join(app.getPath('userData'), 'componentes'));
+const { GeradorDeImagens, recomendar: recomendarGerador, pastaPadrao: pastaDoGerador } = require('../src/gerador-de-imagens');
+const gerador = () => new GeradorDeImagens(pastaDoGerador(app.getPath('userData')));
 
 let win = null;
 let janelaExecucoes = null; // pedido de Davi 2026-09-23: "Visualizar Execuções" ganhou janela própria
@@ -1224,6 +1226,7 @@ ipcMain.handle('boasVindas:verificar', async () => {
     busca: searxngRuntime.estado(),
     youtube: { instalado: ytdlp().instalado() },
     ocr: { instalado: tesseract().instalado(), manual: process.platform !== 'win32' },
+    imagem: { ...recomendarGerador(computador), instalado: gerador().instalado() },
     concluida: config.data.boasVindasConcluida === true,
     plataforma: process.platform,
   };
@@ -1262,8 +1265,9 @@ ipcMain.handle('boasVindas:concluir', async (_e, { modelo } = {}) => {
 /* ------------------------------ componentes (Ajustes, 16/10) ------------------------------ */
 // Versões do que o AuGPT usa por fora; atualizar só quando o usuário clica.
 ipcMain.handle('componentes:estado', async () => {
-  const [o, y, t] = await Promise.all([instaladorOllama.versoesDoOllama(config.data.host), ytdlp().estado(), tesseract().estado()]);
-  return { ollama: o, ytdlp: y, tesseract: t, busca: searxngRuntime.estado() };
+  const computador = await verificadorDeHardware.verificarComputador();
+  const [o, y, t, g] = await Promise.all([instaladorOllama.versoesDoOllama(config.data.host), ytdlp().estado(), tesseract().estado(), gerador().estado(computador)]);
+  return { ollama: o, ytdlp: y, tesseract: t, imagem: g, busca: searxngRuntime.estado() };
 });
 
 // yt-dlp (Fase 3): instala/atualiza conferindo o SHA-256; a versão de antes fica guardada
@@ -1278,6 +1282,24 @@ ipcMain.handle('componentes:instalarYtdlp', async () => {
 ipcMain.handle('componentes:instalarTesseract', async () => {
   try {
     return { ok: true, estado: await tesseract().instalar({ emitir: (p) => enviar('tesseract-progresso', p) }) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+// Gerador de imagens (Fase 5): programa (CUDA ou Vulkan, pela placa) + modelos, tudo com SHA-256
+ipcMain.handle('componentes:instalarImagem', async () => {
+  try {
+    const rec = recomendarGerador(await verificadorDeHardware.verificarComputador());
+    if (!rec.pode) return { ok: false, error: rec.motivo };
+    await gerador().instalar({ motor: rec.motor, emitir: (p) => enviar('imagem-progresso', p) });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('componentes:voltarImagem', () => {
+  try {
+    return { ok: true, info: gerador().voltar() };
   } catch (err) {
     return { ok: false, error: err.message };
   }

@@ -502,6 +502,10 @@
             <input type="checkbox" id="cfgImagensNasRespostas" class="caixa" />
           </label>
           <p class="dica">Foto de cada produto nos cartões de uma recomendação e uma imagem de referência de pessoas, lugares e objetos. As imagens são baixadas pelo app e guardadas na pasta de dados dele.</p>
+          <label class="linha"><span>Revisar as imagens criadas</span>
+            <input type="checkbox" id="cfgRevisarImagens" class="caixa" />
+          </label>
+          <p class="dica">Depois de criar uma imagem, o modelo olha o resultado e, se faltar algo do pedido, corrige o prompt e gera de novo — no máximo 2 vezes. Cada revisão soma uns 15 segundos.</p>
         </section>
         <section class="grupo">
           <h2>Pasta de trabalho</h2>
@@ -519,6 +523,7 @@
           <div class="linha"><span>Busca embutida</span><span class="situacao" id="sitBusca">verificando…</span></div>
           <div class="linha"><span>YouTube (yt-dlp)</span><span class="situacao" id="sitYoutube">verificando…</span></div>
           <div class="linha"><span>Texto de imagens (OCR)</span><span class="situacao" id="sitOcr">verificando…</span></div>
+          <div class="linha"><span>Criar imagens</span><span class="situacao" id="sitImagem">verificando…</span></div>
           <div class="linha"><span>Componentes</span><span class="situacao" id="sitComponentes">verificando…</span></div>
         </section>
         <section class="grupo">
@@ -790,6 +795,18 @@
           <div class="linha"><span>Mais recente</span><span class="situacao" id="compOcrDisponivel">—</span></div>
           <div class="linha-botoes"><button class="btn-primario" id="btnCompOcrInstalar" hidden>Instalar</button></div>
           <div class="teste-resultado" id="compOcrStatus"></div>
+        </section>
+        <section class="grupo">
+          <h2>Criar imagens (FLUX.2 Klein)</h2>
+          <p class="dica">Gera imagens no seu computador, sem internet: "crie uma imagem de…", "desenhe um logo…", ou anexe uma foto e peça para transformá-la. Usa o FLUX.2 Klein 4B pelo stable-diffusion.cpp; o modelo de texto sai da placa de vídeo enquanto a imagem é feita e volta depois. Tudo baixado é conferido pelo SHA-256 publicado.</p>
+          <div class="linha"><span>Neste computador</span><span class="situacao" id="compImgRec">—</span></div>
+          <div class="linha"><span>Instalado</span><span class="situacao" id="compImgInstalada">—</span></div>
+          <div class="linha"><span>Mais recente</span><span class="situacao" id="compImgDisponivel">—</span></div>
+          <div class="linha-botoes">
+            <button class="btn-primario" id="btnCompImgInstalar" hidden>Instalar</button>
+            <button class="btn-secundario" id="btnCompImgVoltar" hidden>Voltar à versão anterior</button>
+          </div>
+          <div class="teste-resultado" id="compImgStatus"></div>
         </section>
         <section class="grupo">
           <h2>Modelos por função</h2>

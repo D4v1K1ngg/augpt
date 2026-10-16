@@ -60,7 +60,9 @@ ${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}
 ÚLTIMA MENSAGEM: ${String(pergunta).slice(0, 1500)}
 
 Responda SÓ com um JSON:
-{"precisa_buscar": true ou false, "produto": true ou false, "assuntos": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
+{"precisa_buscar": true ou false, "produto": true ou false, "criar_imagem": true ou false, "assuntos": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
+
+- "criar_imagem" é true quando o usuário pede para CRIAR, gerar, desenhar, ilustrar ou editar uma imagem (logo, desenho, foto artística, transformar a foto anexada). Pedir para MOSTRAR ou achar uma foto que já existe ("mostre uma foto da Torre Eiffel") é false.
 
 - "assuntos": de 0 a 4 coisas concretas de que a pergunta trata e que têm uma imagem — pessoa, lugar, produto ou modelo, objeto, animal, obra, veículo — com o nome completo e já resolvido pela conversa (ex.: "Dunu Titan S", "Nikola Tesla", "Torre Eiffel"). Ideia abstrata, conta ou assunto genérico ("inflação", "como funciona") não entra; país, cidade ou empresa citados só como contexto ("no Brasil", "da Nvidia") também não.
 
@@ -75,6 +77,10 @@ Responda SÓ com um JSON:
 const SEM_BUSCA = /^\s*(oi|ol[aá]|bom dia|boa (tarde|noite)|e a[ií]|obrigad[oa]|valeu|vlw|tchau|ok|beleza|blz|show|legal|perfeito)\b[\s!.?]*$|^[\d\s.,+\-*/x×÷^%()=?]+$|\b(traduz|traduza|tradu[cç][aã]o|revise|revisar|corrija|reescreva|resuma este|resuma o texto|escreva um (poema|texto|conto|e-?mail|mensagem)|crie uma (hist[oó]ria|poesia|piada))\b/i;
 const podeFicarSemBusca = (pergunta) => SEM_BUSCA.test(String(pergunta || '').trim());
 
+// criar imagem (Fase 5): a regra do código cobre o que o modelo deixar passar
+const PEDE_IMAGEM = /\b(crie|cria|criar|gere|gera|gerar|fa[çc]a|desenhe|desenha|desenhar|ilustre|pinte|edite|transforme|transformar)\b[^.?!]{0,50}\b(imagem|imagens|foto|desenho|ilustra[çc][ãa]o|arte|logo|logotipo|wallpaper|papel de parede|pintura|figura|capa|banner|mascote|cartaz|ícone)\b/i;
+const pedeImagem = (pergunta) => PEDE_IMAGEM.test(String(pergunta || ''));
+
 function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
   try {
     const j = JSON.parse(String(texto).slice(String(texto).indexOf('{'), String(texto).lastIndexOf('}') + 1));
@@ -82,9 +88,9 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     const assuntos = (Array.isArray(j.assuntos) ? j.assuntos : []).map((a) => String(a || '').trim()).filter((a) => a.length >= 2 && a.length <= 80).slice(0, 4);
     // o modelo só decide "sem busca" no que é claramente conversa; um nome solto ("Dragon Ball Super Beerus") pesquisa
     const precisaBuscar = j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta));
-    return { precisaBuscar, produto: j.produto === true, assuntos, pergunta: String(j.pergunta || '').trim() || pergunta };
+    return { precisaBuscar, produto: j.produto === true, criarImagem: j.criar_imagem === true || pedeImagem(pergunta), assuntos, pergunta: String(j.pergunta || '').trim() || pergunta };
   } catch {
-    return { precisaBuscar: true, produto: false, assuntos: [], pergunta }; // JSON quebrado: busca, com a pergunta como veio
+    return { precisaBuscar: true, produto: false, criarImagem: pedeImagem(pergunta), assuntos: [], pergunta }; // JSON quebrado: busca, com a pergunta como veio
   }
 }
 
@@ -558,6 +564,99 @@ Descreva em português o que importa na imagem para responder, e copie os textos
 // (16/10: a resposta de seguimento copiou a foto da anterior e o cartão saiu com duas)
 const semImagens = (texto) => String(texto || '').replace(/^[ \t]*!\[[^\]]*\]\([^)]*\)[ \t]*(\r?\n|$)/gm, '');
 
+/* ------------------------------ criar imagem (Fase 5) ------------------------------ */
+
+const FORMATOS = { quadrado: [1024, 1024], paisagem: [1216, 832], retrato: [832, 1216] };
+
+function pedidoDePrompt({ pergunta, conversa = [], vista = '', editar = false }) {
+  const antes = conversa.filter((m) => m.role === 'user').slice(-3).map((m) => `- ${String(m.content || '').slice(0, 200)}`).join('\n');
+  return `Você escreve o prompt para o gerador de imagens FLUX.2 Klein. O usuário pediu: "${String(pergunta).slice(0, 1500)}"
+${antes ? `\nO que ele pediu antes nesta conversa:\n${antes}\n` : ''}${vista ? `\nImagem anexada${editar ? ' (é para editar esta imagem)' : ''} — o que se vê nela:\n${vista.slice(0, 1200)}\n` : ''}
+Responda SÓ com um JSON:
+{"prompt": "...", "formato": "quadrado" | "paisagem" | "retrato"${editar ? ' | "igual"' : ''}, "legenda": "uma frase em português dizendo o que a imagem mostra"}
+
+Regras do prompt:
+- em inglês, uma descrição rica e concreta: assunto, ação, cenário, estilo (foto, ilustração, 3D, aquarela, desenho animado…), luz, enquadramento e cores;
+- texto que deve aparecer na imagem vai entre aspas duplas, exatamente como deve ser escrito, e curto (até umas 4 palavras) — o gerador erra texto longo;
+- o gerador erra letra acentuada (16/10: "Pão" saiu "Pãno"): no texto entre aspas, escreva sem acento ("Pao Dourado");
+- não peça rótulos, legendas nem muitos textos: infográfico com muitas palavras sai ilegível;
+${editar ? '- é uma EDIÇÃO da imagem anexada: diga a mudança pedida e o que deve ser mantido (ex.: "turn this photo into a cartoon, keep the same pose, face and composition"); formato "igual" mantém o tamanho dela;\n' : ''}- formato: paisagem para cenários amplos e banners, retrato para pessoa de corpo inteiro e cartazes, quadrado no resto.`;
+}
+
+function lerPrompt(texto, pergunta) {
+  try {
+    const j = JSON.parse(String(texto).slice(String(texto).indexOf('{'), String(texto).lastIndexOf('}') + 1));
+    const prompt = String(j.prompt || '').trim();
+    if (prompt.length >= 10) return { prompt, formato: FORMATOS[j.formato] || j.formato === 'igual' ? j.formato : 'quadrado', legenda: String(j.legenda || '').trim() };
+  } catch {
+    /* sem JSON: usa o pedido como veio */
+  }
+  return { prompt: String(pergunta), formato: 'quadrado', legenda: '' };
+}
+
+function pedidoDeRevisao({ pergunta, prompt }) {
+  return `Esta imagem foi gerada para o pedido do usuário: "${String(pergunta).slice(0, 800)}"
+Prompt usado: "${String(prompt).slice(0, 1200)}"
+
+Confira olhando a imagem: o assunto e os detalhes pedidos estão lá? O texto pedido (se houver) está escrito certo? Há defeito grave (rosto ou mão deformados, objeto pedido faltando, coisa sem sentido)?
+Responda SÓ com um JSON:
+{"ok": true ou false, "problemas": "o que está errado, ou vazio", "prompt": "se não está ok: o prompt em inglês corrigido para gerar de novo; se está ok: vazio"}
+Seja exigente só com o que importa para o pedido: detalhe pequeno não é motivo para refazer.`;
+}
+
+function lerRevisao(texto) {
+  try {
+    const j = JSON.parse(String(texto).slice(String(texto).indexOf('{'), String(texto).lastIndexOf('}') + 1));
+    return { ok: j.ok !== false, problemas: String(j.problemas || '').trim(), prompt: String(j.prompt || '').trim() };
+  } catch {
+    return { ok: true, problemas: '', prompt: '' }; // revisão ilegível: fica a imagem que já existe
+  }
+}
+
+/**
+ * O Qwen escreve o prompt, o FLUX gera (o app tira o Qwen da placa antes) e,
+ * com a revisão ligada, o Qwen olha a imagem e corrige no máximo `revisoes`
+ * vezes. A semente fica a mesma entre as tentativas: a correção muda só o prompt.
+ */
+async function criarImagem({ pergunta, conversa, imagens, vista, ent, deps }) {
+  const { chamar, emit = () => {} } = deps;
+  const editar = imagens.length > 0;
+  let p = lerPrompt((await chamar([{ role: 'user', content: pedidoDePrompt({ pergunta, conversa, vista, editar }) }], { json: true, numPredict: 700 })).content, pergunta);
+  const revisoes = Math.max(0, Math.min(2, Number(deps.revisoesDeImagem ?? 2)));
+  const semente = Math.floor(Math.random() * 2147483647);
+  const tentativas = [];
+  let img = null;
+  for (let rodada = 0; rodada <= revisoes; rodada += 1) {
+    emit('ferramenta', { nome: 'gerar_imagem', argumentos: { consulta: p.prompt.slice(0, 200) }, risco: 'leitura' });
+    const [largura, altura] = FORMATOS[p.formato] || [null, null];
+    img = await deps.gerarImagem({ prompt: p.prompt, largura, altura, formato: p.formato, semente, referencias: imagens.map((i) => i.arquivo).filter(Boolean), legenda: p.legenda || pergunta });
+    tentativas.push({ prompt: p.prompt, ms: img.ms });
+    if (rodada === revisoes) break;
+    const rev = lerRevisao((await chamar([{ role: 'user', content: pedidoDeRevisao({ pergunta, prompt: p.prompt }), images: [img.base64] }], { json: true, numPredict: 600 })).content);
+    emit('imagem-revisada', { rodada: rodada + 1, ...rev });
+    if (rev.ok || !rev.prompt) break;
+    tentativas[tentativas.length - 1].problemas = rev.problemas;
+    p = { ...p, prompt: rev.prompt };
+  }
+  const segundos = Math.round(tentativas.reduce((t, x) => t + x.ms, 0) / 1000);
+  // texto da imagem que saiu sem o acento do pedido: a resposta avisa
+  const semAcento = (t) => t.normalize('NFD').replace(/\p{M}/gu, '');
+  const tirados = [...p.prompt.matchAll(/"([^"]{2,60})"/g)].map((m) => m[1]).filter((t) => t === semAcento(t) && semAcento(pergunta).toLowerCase().includes(t.toLowerCase()) && !pergunta.toLowerCase().includes(t.toLowerCase()));
+  const refeitas = tentativas.filter((t) => t.problemas);
+  const legenda = p.legenda || 'Imagem criada pelo AuGPT';
+  const texto = [
+    `![${legenda.replace(/[[\]\n]/g, ' ')}](${img.uri})`,
+    '',
+    legenda,
+    '',
+    `*Criada com o FLUX.2 Klein no seu computador em ${segundos} s${refeitas.length ? `; refeita ${refeitas.length === 1 ? '1 vez' : `${refeitas.length} vezes`} depois da revisão (${refeitas.map((t) => t.problemas).join('; ').slice(0, 300)})` : ''}.${img.caminho ? ` Salva em \`${img.caminho}\`.` : ''}*`,
+    ...(tirados.length ? ['', `*O gerador ainda erra letras acentuadas, então o texto foi escrito sem acento (${tirados.map((t) => `"${t}"`).join(', ')}).*`] : []),
+    '',
+    `**Prompt usado:** ${p.prompt}`,
+  ].join('\n');
+  return { vista, texto, fontes: [], entendimento: ent, buscou: false, produto: false, assuntos: [], modo: 'imagem', anosSemFonte: [], imagemCriada: { uri: img.uri, caminho: img.caminho, prompt: p.prompt, tentativas: tentativas.length } };
+}
+
 async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho = 'normal', deps, hoje = new Date().toLocaleDateString('pt-BR'), imagens = [] }) {
   const { chamar, escrever, embed, emit = () => {} } = deps;
   // imagem anexada (Fase 4): o modelo olha primeiro, e o que viu vai para o entendimento e a escrita
@@ -569,6 +668,16 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   }
   const perguntaComImagem = vista ? `${pergunta}\n\n[Imagem anexada pelo usuário — o que se vê nela: ${vista.slice(0, 1500)}]` : pergunta;
   const ent = lerEntendimento((await chamar([{ role: 'user', content: pedidoDeEntendimento({ pergunta: perguntaComImagem, conversa, hoje }) }], { json: true, numPredict: 300 })).content, pergunta, { comImagem: imagens.length > 0 });
+  // criar imagem (Fase 5): com o gerador instalado, o pedido não pesquisa — o Qwen escreve o prompt e o FLUX gera
+  if (ent.criarImagem && typeof deps.gerarImagem === 'function') {
+    emit('nucleo-entendimento', { ...ent, modo: 'imagem' });
+    return criarImagem({ pergunta, conversa, imagens, vista, ent, deps });
+  }
+  // pediu para criar imagem sem o gerador: diz como ter, em vez de pesquisar e parecer que criou
+  if (ent.criarImagem && deps.semGerador) {
+    emit('nucleo-entendimento', { ...ent, modo: 'imagem' });
+    return { vista, texto: deps.semGerador, fontes: [], entendimento: ent, buscou: false, produto: false, assuntos: [], modo: 'imagem', anosSemFonte: [] };
+  }
   // automático (15/10): produto vai para a pesquisa profunda, o resto para a normal
   const modoUsado = MODOS[modo] ? modo : ent.produto ? 'profundo' : 'normal';
   emit('nucleo-entendimento', { ...ent, modo: modoUsado });
@@ -605,4 +714,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam };
 }
 
-module.exports = { MODOS, podeFicarSemBusca, pedidoDeVisao, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

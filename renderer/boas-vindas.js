@@ -172,6 +172,22 @@ function pintar() {
     })
   );
 
+  // 7. criar imagens (Fase 5)
+  const img = e.imagem || {};
+  lista.append(
+    etapa({
+      titulo: 'Criar imagens (FLUX.2 Klein)',
+      situacao: img.instalado ? 'ok' : 'opcional',
+      texto: img.instalado
+        ? 'Instalado — peça "crie uma imagem de…" e ela é feita no seu computador.'
+        : img.pode
+          ? `Opcional: cria imagens no seu computador, sem internet. ${img.motivo.charAt(0).toUpperCase()}${img.motivo.slice(1)}. Cerca de ${String((img.downloadGB || 6).toFixed(1)).replace('.', ',')} GB de download.`
+          : `Não disponível neste computador: ${img.motivo}.`,
+      progresso: bv.progressoImagem,
+      acoes: img.instalado || !img.pode ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarImagem }, 'Instalar o gerador de imagens')],
+    })
+  );
+
   $('bvConcluir').disabled = !(ollamaOk && temModelo(escolhido.nome) && temModelo(rec.embedding.nome)) || bv.ocupado;
 }
 
@@ -254,6 +270,14 @@ const instalarOcr = () =>
     bv.progressoOcr = r.ok ? { texto: 'Tesseract instalado.', porcento: 100 } : { texto: r.error || 'A instalação falhou.', porcento: 0 };
   });
 
+const instalarImagem = () =>
+  ocupar(async () => {
+    bv.progressoImagem = { texto: 'Começando…', porcento: 2 };
+    pintar();
+    const r = await api.componentes.instalarImagem();
+    bv.progressoImagem = r.ok ? { texto: 'Gerador de imagens instalado.', porcento: 100 } : { texto: r.error || 'A instalação falhou.', porcento: 0 };
+  });
+
 // progresso que chega do processo principal (canal genérico, ver app.js api.onEvent)
 window.boasVindasEvento = (canal, dados = {}) => {
   if ($('boasVindas').hidden) return;
@@ -261,7 +285,8 @@ window.boasVindasEvento = (canal, dados = {}) => {
   else if (canal === 'ollama-pull-progresso' && bv.baixando) {
     const pct = dados.total && dados.completed != null ? Math.min(100, Math.round((dados.completed / dados.total) * 100)) : null;
     bv.progressoModelo = { texto: `${bv.baixando}: ${pct != null ? `${pct}%` : dados.status || '…'}`, porcento: pct ?? bv.progressoModelo?.porcento ?? 0 };
-  } else if (canal === 'tesseract-progresso') bv.progressoOcr = { texto: dados.texto, porcento: 50 };
+  } else if (canal === 'imagem-progresso') bv.progressoImagem = { texto: dados.texto, porcento: dados.porcento ?? bv.progressoImagem?.porcento ?? 10 };
+  else if (canal === 'tesseract-progresso') bv.progressoOcr = { texto: dados.texto, porcento: 50 };
   else if (canal === 'ytdlp-progresso') bv.progressoYoutube = { texto: dados.texto, porcento: 50 };
   else if (canal === 'runtime-searxng-progresso') bv.progressoBusca = { texto: (typeof FASES_SX_EMBUTIDO !== 'undefined' && FASES_SX_EMBUTIDO[dados.fase]) || dados.fase, porcento: 50 };
   else return;

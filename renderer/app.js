@@ -1146,6 +1146,10 @@ const manipuladores = {
   // Progresso do download de um modelo (ollama.pullModel) — mesmo padrão do
   // progresso do SearXNG embutido acima, formato de linha diferente
   // ({status, total, completed}).
+  'imagem-progresso'({ texto }) {
+    if (texto) $('compImgStatus').textContent = texto;
+  },
+
   'tesseract-progresso'({ texto }) {
     if (texto) $('compOcrStatus').textContent = texto;
   },
@@ -1939,6 +1943,7 @@ function preencherConfig() {
   $('cfgDetalhesTecnicos').checked = config.mostrarDetalhesTecnicos === true;
   $('cfgNavegacao').checked = config.navegacaoInterativa !== false;
   $('cfgImagensNasRespostas').checked = config.imagensNasRespostas !== false;
+  $('cfgRevisarImagens').checked = config.revisarImagensCriadas !== false;
   $('cfgFontesComunidade').value = (config.fontesComunidade || []).join('\n');
   $('cfgNavegadorVisivel').checked = config.navegadorVisivel !== false;
   $('cfgDownloadsDoNavegador').value = config.downloadsDoNavegador === 'pasta-de-trabalho' ? 'pasta-de-trabalho' : 'perguntar';
@@ -1992,6 +1997,7 @@ async function salvarAjustes() {
     permitirRedeLocal: $('cfgRedeLocal').checked,
     navegacaoInterativa: $('cfgNavegacao').checked,
     imagensNasRespostas: $('cfgImagensNasRespostas').checked,
+    revisarImagensCriadas: $('cfgRevisarImagens').checked,
     // um endereço por linha; vazio = lista padrão (dados/comunidades.json)
     fontesComunidade: $('cfgFontesComunidade')
       .value.split(/\n+/)
@@ -2918,7 +2924,15 @@ function pintarComponentes() {
   $('btnCompOcrInstalar').hidden = t.instalado && !t.atualizar;
   $('btnCompOcrInstalar').textContent = t.manual ? 'Como instalar' : t.faltamIdiomas ? 'Baixar os idiomas' : t.instalado ? 'Atualizar o Tesseract' : 'Instalar o Tesseract (cerca de 50 MB)';
   $('sitOcr').textContent = t.instalado ? (t.atualizar ? `atualização ${t.disponivel} disponível` : 'instalado') : 'não instalado';
-  const atualizacoes = [o.atualizar, y.atualizar, t.atualizar].filter(Boolean).length;
+  const g = componentes?.imagem || {};
+  $('compImgRec').textContent = g.pode ? `comporta — ${g.motivo}` : g.motivo ? `não comporta — ${g.motivo}` : '—';
+  $('compImgInstalada').textContent = g.instalado ? `${g.instalada || 'sim'} (${g.motor === 'cuda' ? 'CUDA' : 'Vulkan'})` : g.faltamModelos ? 'programa instalado, faltam os modelos' : 'não instalado';
+  $('compImgDisponivel').textContent = g.disponivel ? (g.atualizar ? `${g.disponivel} — atualização disponível` : `${g.disponivel}${g.instalado ? ' · em dia ✓' : ''}`) : '—';
+  $('btnCompImgInstalar').hidden = !g.pode || (g.instalado && !g.atualizar);
+  $('btnCompImgInstalar').textContent = g.instalado ? 'Atualizar o programa' : `Instalar (cerca de ${String(g.downloadGB?.toFixed?.(1) || '6').replace('.', ',')} GB, em ${g.pasta || 'pasta dos modelos'})`;
+  $('btnCompImgVoltar').hidden = !g.temAnterior;
+  $('sitImagem').textContent = g.instalado ? (g.atualizar ? 'atualização disponível' : 'instalado') : g.pode ? 'não instalado' : 'a placa não comporta';
+  const atualizacoes = [o.atualizar, y.atualizar, t.atualizar, g.atualizar].filter(Boolean).length;
   $('compAviso').textContent = atualizacoes ? `${atualizacoes} atualizaç${atualizacoes === 1 ? 'ão' : 'ões'}` : '';
   $('sitOllama').textContent = online ? `ligado · ${o.instalada || ''}` : verificacao?.ollama?.instalado ? 'desligado' : 'não instalado';
   const busca = componentes?.busca || verificacao?.busca;
@@ -2986,6 +3000,24 @@ $('btnCompOcrInstalar').addEventListener('click', async () => {
   const r = await api.componentes.instalarTesseract();
   btn.disabled = false;
   $('compOcrStatus').textContent = r.ok ? 'pronto ✓ — o texto das imagens anexadas passa a ser lido' : `erro: ${r.error}`;
+  await carregarModelosEComponentes();
+});
+
+$('btnCompImgInstalar').addEventListener('click', async () => {
+  const btn = $('btnCompImgInstalar');
+  if (!confirm(`${btn.textContent}? O download continua mesmo se você usar o agente, mas não feche o AuGPT até terminar.`)) return;
+  btn.disabled = true;
+  $('compImgStatus').textContent = 'começando…';
+  const r = await api.componentes.instalarImagem();
+  btn.disabled = false;
+  $('compImgStatus').textContent = r.ok ? 'pronto ✓ — peça, por exemplo, "crie uma imagem de um farol numa tempestade"' : `erro: ${r.error}`;
+  await carregarModelosEComponentes();
+});
+
+$('btnCompImgVoltar').addEventListener('click', async () => {
+  if (!confirm('Voltar o gerador de imagens para a versão anterior do programa?')) return;
+  const r = await api.componentes.voltarImagem();
+  $('compImgStatus').textContent = r.ok ? `voltou para ${r.info?.versao || 'a anterior'}` : `erro: ${r.error}`;
   await carregarModelosEComponentes();
 });
 

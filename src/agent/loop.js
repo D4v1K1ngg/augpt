@@ -38,6 +38,7 @@ const { lerComCache } = require('../tools/web');
 const nucleo = require('./nucleo');
 const { YtDlp, pareceMudancaDoYouTube, idDoVideo } = require('../ytdlp');
 const { Tesseract, IMAGEM } = require('../tesseract');
+const { GeradorDeImagens, pastaPadrao } = require('../gerador-de-imagens');
 
 // Fase 4 (16/10): o renderer anexa assim (app.js, consumirAnexos). Quando TODOS os anexos são
 // imagens, a pergunta vai pelo núcleo, que olha a imagem; outro anexo segue no caminho de tarefas.
@@ -1553,7 +1554,7 @@ class Agent extends EventEmitter {
         const arquivo = new Sandbox(cfg.workspace).resolve(rel);
         if (fs.statSync(arquivo).size > 20 * 1024 * 1024) continue;
         const texto = ocr?.instalado() ? await ocr.lerTexto(arquivo).catch(() => '') : '';
-        imagensDoPedido.push({ nome: path.basename(rel), base64: imagemParaOModelo(arquivo), texto });
+        imagensDoPedido.push({ nome: path.basename(rel), arquivo, base64: imagemParaOModelo(arquivo), texto });
       } catch {
         /* imagem que não abre: segue sem ela */
       }
@@ -1593,6 +1594,44 @@ class Agent extends EventEmitter {
         return achados.flat();
       },
     };
+    // Fase 5: criar imagens com o FLUX.2 Klein (Ajustes → Componentes)
+    const gerador = this.userDataPath ? new GeradorDeImagens(pastaPadrao(this.userDataPath)) : null;
+    if (gerador?.instalado()) {
+      deps.revisoesDeImagem = cfg.revisarImagensCriadas === false ? 0 : 2;
+      deps.gerarImagem = async ({ prompt, largura, altura, semente, referencias = [], legenda }) => {
+        // o FLUX usa ~7 GB da placa: os modelos do Ollama saem antes (voltam sozinhos no próximo pedido)
+        for (const m of await ollama.psModels(cfg.host).catch(() => [])) await ollama.unloadModel(cfg.host, m.name).catch(() => {});
+        for (let i = 0; i < 20 && (await ollama.psModels(cfg.host).catch(() => [])).length; i += 1) await new Promise((ok) => setTimeout(ok, 250));
+        // edição sem tamanho escolhido: o da imagem anexada, até 1024 no lado maior, múltiplo de 16
+        if ((!largura || !altura) && referencias[0]) {
+          try {
+            const { width, height } = require('electron').nativeImage.createFromPath(referencias[0]).getSize();
+            const escala = Math.min(1, 1024 / Math.max(width, height));
+            [largura, altura] = [width, height].map((x) => Math.max(256, Math.round((x * escala) / 16) * 16));
+          } catch {
+            [largura, altura] = [1024, 1024];
+          }
+        }
+        const nome = `${Array.from({ length: 32 }, () => 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]).join('')}.png`;
+        const saida = path.join(this.dirImagens(), nome);
+        fs.mkdirSync(this.dirImagens(), { recursive: true });
+        const r = await gerador.gerar({ prompt, saida, largura: largura || 1024, altura: altura || 1024, semente, referencias });
+        // uma cópia na pasta de trabalho, para o usuário achar e usar
+        let caminho = null;
+        try {
+          const pasta = path.join(cfg.workspace, 'imagens-criadas');
+          fs.mkdirSync(pasta, { recursive: true });
+          const base = String(legenda || 'imagem').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'imagem';
+          caminho = path.join('imagens-criadas', `${base}-${Date.now()}.png`);
+          fs.copyFileSync(saida, path.join(cfg.workspace, caminho));
+        } catch {
+          caminho = null;
+        }
+        return { uri: `augpt-img://${nome}`, base64: fs.readFileSync(saida).toString('base64'), ms: r.ms, caminho };
+      };
+    } else if (gerador) {
+      deps.semGerador = 'Para criar imagens, o AuGPT usa o FLUX.2 Klein, que roda no seu computador. Ele ainda não está instalado: em **Ajustes → Componentes → Criar imagens** dá para ver se a sua placa de vídeo comporta e instalar com um clique (cerca de 6 GB).';
+    }
     // Fase 4: o pesquisador olha imagens da web (a busca de imagens é a do SearXNG)
     if (cfg.searxngUrl && cfg.imagensNasRespostas !== false) {
       deps.buscarImagensParaVer = async (q) => {

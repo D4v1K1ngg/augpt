@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('augpt', {
     instalarYtdlp: () => ipcRenderer.invoke('componentes:instalarYtdlp'),
     voltarYtdlp: () => ipcRenderer.invoke('componentes:voltarYtdlp'),
     instalarTesseract: () => ipcRenderer.invoke('componentes:instalarTesseract'),
+    instalarImagem: () => ipcRenderer.invoke('componentes:instalarImagem'),
+    voltarImagem: () => ipcRenderer.invoke('componentes:voltarImagem'),
   },
   boasVindas: {
     verificar: () => ipcRenderer.invoke('boasVindas:verificar'),
