@@ -68,15 +68,21 @@ Responda SÓ com um JSON:
 
 - "precisa_buscar" é true para qualquer pedido de informação: produto, preço, recomendação, comparação, notícia, pessoa, lugar, história, ciência, como algo funciona, dado ou número. Seu conhecimento pode estar desatualizado, então mesmo o que você sabe vale conferir.
 - "precisa_buscar" é false SÓ para: saudação ou agradecimento, conta de matemática, tradução ou revisão de um texto que o usuário mandou, escrever um texto criativo, ou algo que a própria conversa já respondeu. Na dúvida, true.
-- Em "pergunta", troque "ele", "isso", "o outro" pelo que eles são na conversa, e mantenha o resto como o usuário escreveu.`;
+- Em "pergunta", troque "ele", "isso", "o outro" pelo que eles são na conversa e traga o que a conversa já disse: depois de "qual o carro mais em conta para comprar em 2026?", a mensagem "e quanto ao vectra 2.0?" vira "o Chevrolet Vectra 2.0 usado é uma boa compra em 2026, e quanto custa?". Mantenha o resto como o usuário escreveu.`;
 }
+
+// o que pode ficar sem pesquisa: saudação, agradecimento, conta, tradução/revisão de texto, texto criativo
+const SEM_BUSCA = /^\s*(oi|ol[aá]|bom dia|boa (tarde|noite)|e a[ií]|obrigad[oa]|valeu|vlw|tchau|ok|beleza|blz|show|legal|perfeito)\b[\s!.?]*$|^[\d\s.,+\-*/x×÷^%()=?]+$|\b(traduz|traduza|tradu[cç][aã]o|revise|revisar|corrija|reescreva|resuma este|resuma o texto|escreva um (poema|texto|conto|e-?mail|mensagem)|crie uma (hist[oó]ria|poesia|piada))\b/i;
+const podeFicarSemBusca = (pergunta) => SEM_BUSCA.test(String(pergunta || '').trim());
 
 function lerEntendimento(texto, pergunta) {
   try {
     const j = JSON.parse(String(texto).slice(String(texto).indexOf('{'), String(texto).lastIndexOf('}') + 1));
     // produto sempre busca (15/10: "fone de ouvido dunu titan s" saiu sem busca e o modelo disse que ele "não existe")
     const assuntos = (Array.isArray(j.assuntos) ? j.assuntos : []).map((a) => String(a || '').trim()).filter((a) => a.length >= 2 && a.length <= 80).slice(0, 4);
-    return { precisaBuscar: j.precisa_buscar !== false || j.produto === true, produto: j.produto === true, assuntos, pergunta: String(j.pergunta || '').trim() || pergunta };
+    // o modelo só decide "sem busca" no que é claramente conversa; um nome solto ("Dragon Ball Super Beerus") pesquisa
+    const precisaBuscar = j.precisa_buscar !== false || j.produto === true || !podeFicarSemBusca(pergunta);
+    return { precisaBuscar, produto: j.produto === true, assuntos, pergunta: String(j.pergunta || '').trim() || pergunta };
   } catch {
     return { precisaBuscar: true, produto: false, assuntos: [], pergunta }; // JSON quebrado: busca, com a pergunta como veio
   }
@@ -171,7 +177,7 @@ function sistemaDoPesquisador({ hoje, rodada, total, produto = false, modo = 'no
   return `Você é o pesquisador do AuGPT. Hoje é ${hoje}. Seu trabalho é juntar, com as ferramentas, a informação para responder muito bem à pergunta do usuário. Você não escreve a resposta: quando tiver o suficiente, chame "pronto".
 
 - Seu conhecimento pode estar desatualizado: pesquise mesmo o que parece básico.
-- Mantenha nas buscas as condições que o pedido deu: plataforma (PC, celular, console), tipo de produto (intra-auricular, sem fio…), orçamento, país.
+- Mantenha nas buscas as condições que o pedido deu: plataforma, tipo, versão, ano, orçamento, país. Busque exatamente o que a pergunta e a conversa falam — não troque por outro produto nem por outra categoria.
 - Em buscar_na_web, mande até 3 buscas curtas por vez, de ângulos diferentes. Para tecnologia e produtos, inclua buscas em inglês, onde há mais material.
 - Quando a pergunta pede opinião, experiência de uso ou recomendação, inclua buscas que tragam quem usa (por exemplo com "reddit" ou "fórum").
 - Use ler_pagina nas páginas mais promissoras quando o resumo não basta, sempre com um foco.
@@ -192,7 +198,7 @@ const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || d
  * O laço do pesquisador. Devolve as fontes juntadas (numeradas, com resumo e,
  * quando lidas, os trechos escolhidos da página).
  */
-async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [] }) {
+async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [] }) {
   const { chamar, buscar, lerPagina, embed, emit = () => {}, signal, buscarNaComunidade } = deps;
   // comunidade (15/10, pedido do Davi): em pedido de produto, Reddit e fóruns entram sempre
   const comComunidade = produto && typeof buscarNaComunidade === 'function';
@@ -208,7 +214,13 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   // o que o pesquisador observou no caminho ("o G502 X custa R$ 799, acima do orçamento") — vai para a escrita
   fontes.notas = [];
   const porUrl = new Map();
-  const historico = [{ role: 'user', content: `Pergunta do usuário: ${pergunta}` }];
+  const anteriores = conversa.filter((m) => m.role === 'user').slice(-3).map((m) => `- ${String(m.content || '').slice(0, 200)}`);
+  const historico = [
+    {
+      role: 'user',
+      content: `Pergunta do usuário: ${pergunta}${assuntos.length ? `\nDo que ela trata: ${assuntos.join(', ')}` : ''}${anteriores.length ? `\nO que o usuário perguntou antes nesta conversa (para entender a pergunta):\n${anteriores.join('\n')}` : ''}`,
+    },
+  ];
   let buscou = false;
 
   const executarBusca = async (buscas, { comunidade = false } = {}) => {
@@ -489,12 +501,14 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   // automático (15/10): produto vai para a pesquisa profunda, o resto para a normal
   const modoUsado = MODOS[modo] ? modo : ent.produto ? 'profundo' : 'normal';
   emit('nucleo-entendimento', { ...ent, modo: modoUsado });
-  const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [] }) : [];
+  const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa }) : [];
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
   const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed }) : [];
+  // 16/10: sem o yt-dlp, "pesquise vídeos no youtube" saiu como "realizei uma pesquisa no YouTube" — não houve
+  const semVideos = /\b(youtube|v[ií]deos?)\b/i.test(pergunta) && !(typeof deps.buscarNoYoutube === 'function');
   emit('redigindo', { fontes: usadas.length });
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho })}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}` },
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
@@ -508,7 +522,8 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')}`).join(' ')} ${notas}` : '';
   const conferido = fontes.length ? conferirAnos(String(escrito || '').trim(), { material, pergunta, hoje }) : { texto: String(escrito || '').trim(), faltam: [] };
   if (conferido.faltam.length) emit('aviso', { texto: `conferência: ano(s) sem fonte na resposta: ${conferido.faltam.join(', ')}` });
+  if (semVideos) emit('aviso', { texto: 'Para o AuGPT ver vídeos do YouTube, instale o yt-dlp em Ajustes → Componentes.' });
   return { texto: conferido.texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam };
 }
 
-module.exports = { MODOS, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { MODOS, podeFicarSemBusca, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

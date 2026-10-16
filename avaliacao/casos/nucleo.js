@@ -287,4 +287,71 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'núcleo (revisão dos chats de 16/10): nome solto ("Dragon Ball Super Beerus") pesquisa mesmo com "precisa_buscar: false" — só saudação, conta, tradução e texto criativo ficam sem busca',
+    tipo: 'unidade',
+    executar() {
+      const ent = (t) => nucleo.lerEntendimento(JSON.stringify({ precisa_buscar: false, produto: false, assuntos: [], pergunta: t }), t).precisaBuscar;
+      return [
+        ent('Dragon Ball Super Beerus') === true || 'Beerus pesquisa',
+        ['oi', 'obrigado!', 'bom dia', '2+2*3', 'traduza isso para o inglês', 'escreva um poema sobre o mar'].every((t) => ent(t) === false) || 'conversa pura fica sem busca',
+      ];
+    },
+  },
+  {
+    nome: 'núcleo (revisão dos chats de 16/10): o pesquisador vê os assuntos e o que o usuário perguntou antes ("e quanto ao Vectra 2.0?" depois de carros virava busca de fone Sony)',
+    tipo: 'unidade',
+    async executar() {
+      let primeira = null;
+      await nucleo.pesquisar({
+        pergunta: 'e quanto ao Vectra 2.0?',
+        modo: 'normal',
+        produto: true,
+        assuntos: ['Chevrolet Vectra 2.0'],
+        conversa: [
+          { role: 'user', content: 'Qual o carro mais em conta para se comprar em 2026?' },
+          { role: 'assistant', content: 'O Chevrolet Corsa…' },
+        ],
+        deps: {
+          chamar: async (messages) => ((primeira = primeira || messages), { content: '', chamadas: [{ function: { name: 'pronto', arguments: {} } }] }),
+          buscar: async () => [],
+          lerPagina: async () => ({ texto: '' }),
+        },
+      });
+      const texto = primeira.map((m) => m.content).join('\n');
+      return [
+        /Do que ela trata: Chevrolet Vectra 2\.0/.test(texto) || 'assuntos chegam ao pesquisador',
+        /carro mais em conta para se comprar em 2026/.test(texto) || 'pergunta anterior chega ao pesquisador',
+        !/intra-auricular/.test(texto) || 'sem exemplo de fone nas instruções',
+      ];
+    },
+  },
+  {
+    nome: 'núcleo (revisão dos chats de 16/10): pediu vídeo do YouTube sem o yt-dlp — a escrita é avisada para não dizer que viu vídeos, e aparece o aviso para instalar',
+    tipo: 'unidade',
+    async executar() {
+      const m = modeloFalso({ entendimento: { precisa_buscar: true, produto: false, pergunta: 'pesquise vídeos no youtube sobre o G Pro X2' } });
+      const eventos = [];
+      await nucleo.responder({
+        pergunta: 'pesquise vídeos no youtube sobre o G Pro X2',
+        modo: 'rapido',
+        deps: { chamar: m.chamar, escrever: m.escrever, buscar: async () => [{ titulo: 'G Pro X2', url: 'https://a.com/x', resumo: 'mouse' }], lerPagina: async () => ({ texto: 'x '.repeat(50) }), emit: (e, d) => eventos.push([e, d]) },
+      });
+      return [
+        /NÃO diga que pesquisou, viu ou assistiu a vídeos/.test(m.escritas[0][0].content) || 'a escrita é avisada',
+        eventos.some(([e, d]) => e === 'aviso' && /yt-dlp/.test(d.texto)) || 'aviso para instalar',
+      ];
+    },
+  },
+  {
+    nome: 'prompts (revisão dos chats de 16/10): "Use a conversa atual … como material e crie um PDF" é pedido sobre a própria conversa (pesquisava tudo de novo, 690 s); "crie um pdf sobre fones" não é',
+    tipo: 'unidade',
+    executar() {
+      const { pedeConversaCompleta } = require('../../src/agent/prompts');
+      return [
+        ['Use a conversa atual sobre os fones como material e crie um PDF', 'use a nossa conversa atual como material', 'crie um pdf com base na conversa', 'salve o chat atual em pdf'].every(pedeConversaCompleta) || 'variações reconhecidas',
+        !pedeConversaCompleta('crie um pdf sobre fones para jogar') || 'pedido sem a conversa não casa',
+      ];
+    },
+  },
 ];
