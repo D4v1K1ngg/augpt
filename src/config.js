@@ -347,7 +347,7 @@ function sanearSemprePermitidas(lista) {
 const CAMPOS_QUE_NAO_SAO_AJUSTES = new Set([
   'workspace', 'model', 'mcpServidores', 'dominiosPersonalizados', 'agendamentos',
   'skillsDesativadas', 'ferramentasDesativadas', 'lateralAberta',
-  'ollamaIniciarAutomaticamente', 'ollamaMaxModelosReinicioPendente',
+  'ollamaIniciarAutomaticamente', 'ollamaMaxModelosReinicioPendente', 'boasVindasConcluida',
 ]);
 
 class Config {

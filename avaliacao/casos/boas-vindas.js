@@ -6,7 +6,7 @@
  */
 
 const v = require('../../src/verificador-de-hardware');
-const { instalarOllama } = require('../../src/instalador-ollama');
+const { instalarOllama, versaoMaisNova, versoesDoOllama } = require('../../src/instalador-ollama');
 
 module.exports = [
   {
@@ -73,6 +73,26 @@ module.exports = [
         semWinget.ok && semWinget.via === 'instalador' && baixados[0] === 'https://ollama.com/download/OllamaSetup.exe' && /\/VERYSILENT/.test(chamadas[chamadas.length - 1][1]) || `instalador: ${JSON.stringify(semWinget)}`,
         naoLigou.ok === false && /não respondeu/.test(naoLigou.texto) || 'instalado mas não ligou: avisa',
         mac.manual === true && /ollama\.com\/download/.test(mac.texto) || 'Mac: instruções',
+      ];
+    },
+  },
+  {
+    nome: 'componentes: versão do Ollama instalada × a mais recente do GitHub; "atualizar" usa winget upgrade; sem internet, nada é oferecido',
+    tipo: 'unidade',
+    async executar() {
+      const resposta = (dados) => ({ ok: true, json: async () => dados });
+      const buscar = (instalada, ultima) => async (url) => (/api\/version$/.test(url) ? resposta({ version: instalada }) : resposta({ tag_name: ultima }));
+      const velha = await versoesDoOllama('http://127.0.0.1:11434/', { buscar: buscar('0.40.1', 'v0.40.5') });
+      const igual = await versoesDoOllama('http://h', { buscar: buscar('0.40.5', 'v0.40.5') });
+      const semRede = await versoesDoOllama('http://h', { buscar: async () => { throw new Error('offline'); } });
+      const chamadas = [];
+      await instalarOllama({ plataforma: 'win32', atualizar: true, ligar: async () => ({ ok: true }), deps: { executar: async (cmd, args) => (chamadas.push(args[0]), { codigo: 0, saida: '' }) } });
+      return [
+        versaoMaisNova('0.40.10', '0.40.9') && versaoMaisNova('v1.0', '0.99.9') && !versaoMaisNova('0.40.1', '0.40.1') && !versaoMaisNova('0.39', '0.40') || 'compara número a número',
+        velha.atualizar === true && velha.instalada === '0.40.1' && velha.disponivel === '0.40.5' || `desatualizado: ${JSON.stringify(velha)}`,
+        igual.atualizar === false || 'em dia: nada a oferecer',
+        semRede.atualizar === false && semRede.disponivel === null || 'sem rede: não oferece',
+        chamadas[0] === 'upgrade' || `winget upgrade: ${chamadas[0]}`,
       ];
     },
   },

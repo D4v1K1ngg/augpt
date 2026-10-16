@@ -72,7 +72,7 @@ async function baixar(url, destino, aoProgredir = () => {}) {
  * @param {(p: {fase, texto, porcento?}) => void} o.emitir  progresso para a tela
  * @param {() => Promise<{ok}>} o.ligar  liga o Ollama e espera responder (ollama-runtime.localizarEIniciar)
  */
-async function instalarOllama({ plataforma = process.platform, emitir = () => {}, ligar, deps = {} } = {}) {
+async function instalarOllama({ plataforma = process.platform, emitir = () => {}, ligar, atualizar = false, deps = {} } = {}) {
   const rodar = deps.executar || executar;
   const descarregar = deps.baixar || baixar;
   if (plataforma !== 'win32') {
@@ -86,8 +86,8 @@ async function instalarOllama({ plataforma = process.platform, emitir = () => {}
     };
   }
   // 1. winget
-  emitir({ fase: 'winget', texto: 'Instalando pelo winget (pacote oficial Ollama.Ollama)…' });
-  const w = await rodar('winget', ['install', '--id', 'Ollama.Ollama', '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity'], {
+  emitir({ fase: 'winget', texto: `${atualizar ? 'Atualizando' : 'Instalando'} pelo winget (pacote oficial Ollama.Ollama)…` });
+  const w = await rodar('winget', [atualizar ? 'upgrade' : 'install', '--id', 'Ollama.Ollama', '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity'], {
     aoLer: (linha) => emitir({ fase: 'winget', texto: linha.slice(0, 160) }),
   });
   const jaTinha = /already installed|já está instalado|nenhuma atualização|no available upgrade/i.test(w.saida);
@@ -120,4 +120,28 @@ async function instalarOllama({ plataforma = process.platform, emitir = () => {}
     : { ok: true, texto: 'Ollama instalado e ligado.', via: jaTinha ? 'ja-instalado' : w.codigo === 0 ? 'winget' : 'instalador' };
 }
 
-module.exports = { instalarOllama, baixar, URL_INSTALADOR_WINDOWS };
+// "0.40.1" < "0.40.5"? Compara número a número; "v" na frente é ignorado.
+function versaoMaisNova(a, b) {
+  const partes = (v) => String(v || '').replace(/^v/, '').split(/[.-]/).map((n) => parseInt(n, 10) || 0);
+  const [x, y] = [partes(a), partes(b)];
+  for (let i = 0; i < Math.max(x.length, y.length); i += 1) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  return false;
+}
+
+// Versão instalada (do Ollama rodando) e a mais recente publicada no GitHub.
+async function versoesDoOllama(host, { buscar = fetch } = {}) {
+  const ler = async (url) => {
+    try {
+      const r = await buscar(url, { signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'AuGPT' } });
+      return r.ok ? await r.json() : null;
+    } catch {
+      return null;
+    }
+  };
+  const [local, ultima] = await Promise.all([ler(`${host.replace(/\/$/, '')}/api/version`), ler('https://api.github.com/repos/ollama/ollama/releases/latest')]);
+  const instalada = local?.version || null;
+  const disponivel = ultima?.tag_name ? ultima.tag_name.replace(/^v/, '') : null;
+  return { instalada, disponivel, atualizar: !!(instalada && disponivel && versaoMaisNova(disponivel, instalada)) };
+}
+
+module.exports = { instalarOllama, versoesDoOllama, versaoMaisNova, baixar, URL_INSTALADOR_WINDOWS };

@@ -366,6 +366,10 @@ class Registro {
       pesquisa().desempenho = e;
     });
     // revisão v2: qual caminho do motor rodou (recomendação, desempenho, uso)
+    // núcleo de pesquisa (13/10): profundidade usada e se o pedido era de produto
+    agente.on('nucleo-entendimento', (e) => {
+      d.nucleo = { modo: e.modo || null, produto: e.produto === true };
+    });
     agente.on('pesquisa-modo', (e) => {
       pesquisa().modo = e.modo;
     });
@@ -607,6 +611,24 @@ function statusDaTarefa(d) {
 
 /* ------------------------------ armazenamento ------------------------------ */
 
+// pergunta/produto pelo núcleo; nos registros antigos, pelo tipo do pedido
+function tipoDaExecucao(r) {
+  if (r.nucleo) return r.nucleo.produto ? 'produto' : 'pergunta';
+  const t = r.tipoDePedido?.tipo;
+  if (t === 'produto') return 'produto';
+  // registros do núcleo gravados antes do campo `nucleo`: só buscaram e leram
+  if (t === 'guia' || t === 'explicacao' || (!r.ferramentas.length && r.fontes.length)) return 'pergunta';
+  return 'tarefa';
+}
+
+function hostDe(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
 class Registros {
   constructor(dir, limite = 300) {
     this.dir = dir;
@@ -699,6 +721,11 @@ class Registros {
         // não precisa abrir o relatório inteiro só pra confirmar que "2 IAs"
         // consultou o modelo dedicado nesta execução. `?.` cobre registros
         // salvos ANTES deste campo existir (sem quebrar a lista).
+        // Fase 1 (16/10): tipo, profundidade, buscas e sites pro cartão e os filtros
+        tipo: tipoDaExecucao(r),
+        profundidade: r.nucleo?.modo || null,
+        buscas: r.fontes.filter((f) => f.tipo === 'busca').length,
+        sites: [...new Set(r.fontes.filter((f) => f.tipo === 'leitura' && f.url).map((f) => hostDe(f.url)).filter(Boolean))],
         copilotoDedicado: r.copiloto?.dedicado || 0,
         copilotoConsultas: r.copiloto?.consultas || 0,
       }));

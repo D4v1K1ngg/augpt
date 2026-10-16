@@ -1026,14 +1026,16 @@ ipcMain.handle('runs:rate', (_e, { id, nota }) => registros.avaliar(id, nota));
 ipcMain.handle('runs:delete', (_e, id) => registros.excluir(id));
 ipcMain.handle('runs:clear', (_e, origem) => registros.limpar(origem || null));
 
-ipcMain.handle('runs:export', async () => {
+ipcMain.handle('runs:export', async (_e, ids) => {
   const r = await dialog.showSaveDialog(win, {
     title: 'Exportar execuções',
     defaultPath: path.join(app.getPath('documents'), `augpt-execucoes-${Date.now()}.json`),
     filters: [{ name: 'JSON', extensions: ['json'] }],
   });
   if (r.canceled || !r.filePath) return { ok: false };
-  fs.writeFileSync(r.filePath, JSON.stringify(registros.todas(), null, 2), 'utf8');
+  // com ids, só as execuções filtradas na tela (Fase 1, 16/10)
+  const escolhidas = Array.isArray(ids) ? new Set(ids) : null;
+  fs.writeFileSync(r.filePath, JSON.stringify(registros.todas().filter((x) => !escolhidas || escolhidas.has(x.id)), null, 2), 'utf8');
   shell.showItemInFolder(r.filePath);
   return { ok: true };
 });
@@ -1249,6 +1251,23 @@ ipcMain.handle('boasVindas:concluir', async (_e, { modelo } = {}) => {
   }
   if (agent) Object.assign(agent.config, configParaAgente());
   return config.data;
+});
+
+/* ------------------------------ componentes (Ajustes, 16/10) ------------------------------ */
+// Versões do que o AuGPT usa por fora; atualizar só quando o usuário clica.
+ipcMain.handle('componentes:estado', async () => ({
+  ollama: await instaladorOllama.versoesDoOllama(config.data.host),
+  busca: searxngRuntime.estado(),
+}));
+
+ipcMain.handle('componentes:atualizarOllama', async () => {
+  // o Ollama precisa estar fechado para o instalador trocar os arquivos
+  const r = await instaladorOllama.instalarOllama({
+    atualizar: true,
+    emitir: (p) => enviar('ollama-instalacao-progresso', p),
+    ligar: () => ollamaRuntime.localizarEIniciar(config.data.host),
+  });
+  return { ...r, versoes: await instaladorOllama.versoesDoOllama(config.data.host) };
 });
 
 ipcMain.handle('searxngRuntime:estado', () => searxngRuntime.estado());

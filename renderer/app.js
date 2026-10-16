@@ -1140,6 +1140,10 @@ const manipuladores = {
   // Progresso do download de um modelo (ollama.pullModel) — mesmo padrão do
   // progresso do SearXNG embutido acima, formato de linha diferente
   // ({status, total, completed}).
+  'ollama-instalacao-progresso'({ texto }) {
+    if (texto) $('compOllamaStatus').textContent = texto;
+  },
+
   'ollama-pull-progresso'(dados) {
     if (primeiroUso.baixando) pintarProgressoPrimeiroUso(dados);
     else pintarProgressoBaixarModelo(dados);
@@ -1707,6 +1711,8 @@ function trocarAba(qual) {
     carregarAgendamentos();
     carregarEstadoSearxngRuntime();
     carregarRecomendacaoHardware();
+    carregarModelosEComponentes();
+    pintarEspelhos();
   } else {
     el.aEntrada.focus();
   }
@@ -1719,6 +1725,31 @@ $('navExecucoes').addEventListener('click', () => trocarAba('execucoes'));
 // Fase 2: clicar em Ajustes estando em Ajustes não pula mais pro Agente
 // (parecia que o botão "fechava" a página sem motivo).
 $('navConfig').addEventListener('click', () => trocarAba('config'));
+
+// Ajustes em abas (Fase 1, 16/10)
+function abrirAjuste(painel) {
+  document.querySelectorAll('.ajustes-aba').forEach((b) => b.classList.toggle('ativa', b.dataset.painel === painel));
+  document.querySelectorAll('.ajustes-painel').forEach((p) => (p.hidden = p.id !== painel));
+  document.querySelector('#viewConfig .pagina-rolagem').scrollTop = 0;
+}
+document.querySelectorAll('.ajustes-aba').forEach((b) => b.addEventListener('click', () => abrirAjuste(b.dataset.painel)));
+
+// Modelo, profundidade e tipo de resposta na aba Geral são cópias dos
+// seletores do topo: mudar um muda o outro (o "change" do topo grava).
+function pintarEspelhos() {
+  document.querySelectorAll('[data-espelho]').forEach((copia) => {
+    const original = $(copia.dataset.espelho);
+    copia.innerHTML = original.innerHTML;
+    copia.value = original.value;
+  });
+}
+document.querySelectorAll('[data-espelho]').forEach((copia) =>
+  copia.addEventListener('change', () => {
+    const original = $(copia.dataset.espelho);
+    original.value = copia.value;
+    original.dispatchEvent(new Event('change'));
+  })
+);
 
 /* ============================ conversa (chat puro) ============================ */
 
@@ -1893,16 +1924,7 @@ function preencherConfig() {
   $('cfgRedeLocal').checked = config.permitirRedeLocal === true;
   $('cfgDetalhesTecnicos').checked = config.mostrarDetalhesTecnicos === true;
   $('cfgNavegacao').checked = config.navegacaoInterativa !== false;
-  $('cfgMotorPesquisa').checked = config.motorDePesquisa !== false;
-  $('cfgRoteadorDecisor').checked = config.roteadorDecisor === true;
   $('cfgImagensNasRespostas').checked = config.imagensNasRespostas !== false;
-  $('cfgAutoRespostaImediata').checked = config.autoRespostaImediata === true;
-  $('cfgAutoRespostaCurta').checked = config.autoRespostaCurta !== false;
-  $('cfgModoAuto').checked = config.modoAuto !== false;
-  $('cfgAutoModeloRapido').value = config.autoModeloRapido || '';
-  $('cfgAutoModeloProfundo').value = config.autoModeloProfundo || '';
-  $('cfgModeloDecisor').value = config.modeloDecisor || 'tev1';
-  $('cfgModeloDecisorRapido').value = config.modeloDecisorRapido || '';
   $('cfgFontesComunidade').value = (config.fontesComunidade || []).join('\n');
   $('cfgNavegadorVisivel').checked = config.navegadorVisivel !== false;
   $('cfgDownloadsDoNavegador').value = config.downloadsDoNavegador === 'pasta-de-trabalho' ? 'pasta-de-trabalho' : 'perguntar';
@@ -1922,7 +1944,10 @@ $('btnRestaurarPadroes').addEventListener('click', async () => {
   el.max.textContent = config.maxIterations;
 });
 
-$('btnSalvarConfig').addEventListener('click', async (e) => {
+// Fase 1 (16/10): sem botão "Salvar" — cada ajuste grava quando muda (o
+// "change" de um campo cfg* em Ajustes chama salvarAjustes).
+async function salvarAjustes() {
+  const antes = config;
   const segundos = Number($('cfgShell').value) * 1000;
   config = await api.config.set({
     host: $('cfgHost').value.trim() || 'http://127.0.0.1:11434',
@@ -1952,16 +1977,7 @@ $('btnSalvarConfig').addEventListener('click', async (e) => {
     permitirLeitorExterno: $('cfgLeitorExterno').checked,
     permitirRedeLocal: $('cfgRedeLocal').checked,
     navegacaoInterativa: $('cfgNavegacao').checked,
-    motorDePesquisa: $('cfgMotorPesquisa').checked,
-    roteadorDecisor: $('cfgRoteadorDecisor').checked,
     imagensNasRespostas: $('cfgImagensNasRespostas').checked,
-    autoRespostaImediata: $('cfgAutoRespostaImediata').checked,
-    autoRespostaCurta: $('cfgAutoRespostaCurta').checked,
-    modoAuto: $('cfgModoAuto').checked,
-    autoModeloRapido: $('cfgAutoModeloRapido').value.trim(),
-    autoModeloProfundo: $('cfgAutoModeloProfundo').value.trim(),
-    modeloDecisor: $('cfgModeloDecisor').value.trim() || 'tev1',
-    modeloDecisorRapido: $('cfgModeloDecisorRapido').value.trim(),
     // um endereço por linha; vazio = lista padrão (dados/comunidades.json)
     fontesComunidade: $('cfgFontesComunidade')
       .value.split(/\n+/)
@@ -1973,13 +1989,19 @@ $('btnSalvarConfig').addEventListener('click', async (e) => {
   });
   aplicarPreferenciasDeTela();
   el.max.textContent = config.maxIterations;
-  const botao = e.currentTarget;
-  botao.textContent = 'Salvo ✓';
-  setTimeout(() => (botao.textContent = 'Salvar'), 1600);
-  verificarOllama();
-  if (config.usarSearxngEmbutido) await api.searxngRuntime.iniciar();
-  else await api.searxngRuntime.parar();
-  carregarEstadoSearxngRuntime();
+  const aviso = $('ajustesSalvo');
+  aviso.textContent = 'Salvo ✓';
+  clearTimeout(salvarAjustes.t);
+  salvarAjustes.t = setTimeout(() => (aviso.textContent = ''), 1600);
+  if (antes.host !== config.host) verificarOllama();
+  if (antes.usarSearxngEmbutido !== config.usarSearxngEmbutido) {
+    if (config.usarSearxngEmbutido) await api.searxngRuntime.iniciar();
+    else await api.searxngRuntime.parar();
+    carregarEstadoSearxngRuntime();
+  }
+}
+$('viewConfig').addEventListener('change', (e) => {
+  if (/^cfg/.test(e.target.id || '')) salvarAjustes();
 });
 
 /** Preenche os seletores de modelo por etapa com os modelos disponíveis. */
@@ -2551,7 +2573,7 @@ async function acaoPrimeiroUso(acao, botao) {
   }
   if (acao === 'outro-modelo') {
     trocarAba('config');
-    $('bmNome')?.scrollIntoView({ block: 'center' });
+    abrirAjuste('ajModelos');
     $('bmNome')?.focus();
     return;
   }
@@ -2612,16 +2634,6 @@ async function acaoPrimeiroUso(acao, botao) {
 // pra recomendar o modo do Copiloto quanto pra anotar qual modelo sugerido
 // cabe no computador do usuário — nunca bloqueia a escolha, só avisa.
 
-// Mesma tabela do guia de primeira execução (src/primeiro-uso.js,
-// MODELOS_POR_MEMORIA), agora pela memória TOTAL do computador — antes era a
-// livre, que sub-reporta (cache conta como usado) e fazia o 8B aparecer como
-// "não cabe" em máquina de 16 GB. Fase 2, 2026-09-23.
-const MODELOS_SUGERIDOS = [
-  { nome: 'llama3.2:3b', rotulo: 'Llama 3.2 3B', memoriaGB: 8 },
-  { nome: 'llama3.1:8b', rotulo: 'Llama 3.1 8B', memoriaGB: 16 },
-  { nome: 'qwen2.5:14b', rotulo: 'Qwen 2.5 14B', memoriaGB: 32 },
-];
-
 let recomendacaoHardware = null;
 
 async function carregarRecomendacaoHardware() {
@@ -2631,7 +2643,6 @@ async function carregarRecomendacaoHardware() {
     recomendacaoHardware = null;
   }
   pintarRecomendacaoCopiloto();
-  pintarSugestoesModelos();
 }
 
 function pintarRecomendacaoCopiloto() {
@@ -2824,25 +2835,125 @@ async function clicarReiniciarOllama(btn) {
 $('btnReiniciarOllamaPraMim')?.addEventListener('click', () => clicarReiniciarOllama($('btnReiniciarOllamaPraMim')));
 $('btnFaixaReiniciarOllamaPraMim')?.addEventListener('click', () => clicarReiniciarOllama($('btnFaixaReiniciarOllamaPraMim')));
 
+/* ------------------- Ajustes → Modelos e Componentes (Fase 1, 16/10) ------------------- */
+// Leem o mesmo verificador da tela de boas-vindas (hardware, modelos do
+// Ollama, busca embutida) e as versões do Ollama (instalada × GitHub).
+let verificacao = null;
+let componentes = null;
+
+async function carregarModelosEComponentes() {
+  const [v, c] = await Promise.all([api.boasVindas.verificar().catch(() => null), api.componentes.estado().catch(() => null)]);
+  verificacao = v;
+  componentes = c;
+  pintarSugestoesModelos();
+  pintarModelosInstalados();
+  pintarComponentes();
+}
+
 function pintarSugestoesModelos() {
   const alvo = $('bmSugestoes');
-  if (!alvo) return;
-  const ramTotal = recomendacaoHardware?.hardware?.ramTotalGB ?? null;
-  const sugerido = primeiroUso.diagnostico?.recomendado?.nome || null;
-  alvo.innerHTML = MODELOS_SUGERIDOS.map((m) => {
-    // ~5% de folga: 16 GB físicos aparecem como 15,6 GB pro sistema
-    const cabe = ramTotal == null || ramTotal >= m.memoriaGB * 0.95;
-    const destaque = sugerido ? m.nome === sugerido : cabe;
-    const nota = !cabe ? `pede ${m.memoriaGB} GB de memória` : destaque ? 'recomendado' : 'cabe neste computador';
-    return `<button type="button" class="bm-sugestao${destaque ? ' recomendado' : ''}" data-nome="${esc(m.nome)}">${esc(
-      m.rotulo
-    )}<small>${nota}</small></button>`;
-  }).join('');
-  alvo.querySelectorAll('button').forEach((b) =>
-    b.addEventListener('click', () => {
-      $('bmNome').value = b.dataset.nome;
+  const r = verificacao?.recomendacao;
+  if (!r) {
+    alvo.innerHTML = '';
+    return;
+  }
+  const instalados = new Set(verificacao.modelos || []);
+  const lista = [{ ...r.principal, recomendado: true }, ...r.alternativas, { ...r.embedding, cabe: true }];
+  alvo.innerHTML = lista
+    .map((m) => {
+      const nota = instalados.has(m.nome) || instalados.has(`${m.nome}:latest`)
+        ? 'instalado ✓'
+        : `${m.recomendado ? 'recomendado' : m.cabe ? 'cabe' : 'pesado para este PC'} · ${String(m.downloadGB).replace('.', ',')} GB`;
+      return `<button type="button" class="bm-sugestao${m.recomendado ? ' recomendado' : ''}" data-nome="${esc(m.nome)}" title="${esc(m.motivo || '')}">${esc(m.rotulo)}<small>${nota}</small></button>`;
     })
-  );
+    .join('');
+  alvo.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => ($('bmNome').value = b.dataset.nome)));
+  $('bmTitulo').textContent = `Recomendado para este computador: ${r.principal.rotulo} — ${r.principal.motivo}`;
+}
+
+function pintarModelosInstalados() {
+  const nomes = verificacao?.modelos || [];
+  $('modelosTotal').textContent = nomes.length;
+  const embed = config.embedModel || 'nomic-embed-text';
+  $('modelosInstalados').innerHTML = nomes.length
+    ? nomes
+        .map((n) => {
+          const papel = n === config.model ? 'principal' : n === embed || n === `${embed}:latest` ? 'embedding' : '';
+          return `<div class="dom-item"><span class="dom-nome"><b>${esc(n)}</b>${papel ? ` <small>· ${papel}</small>` : ''}</span><button class="btn-linha" data-atualizar="${esc(n)}">Atualizar</button></div>`;
+        })
+        .join('')
+    : `<p class="dica">${verificacao?.ollama?.online === false ? 'O Ollama está desligado — ligue-o para ver os modelos.' : 'Nenhum modelo instalado.'}</p>`;
+}
+
+function pintarComponentes() {
+  const o = componentes?.ollama || {};
+  const online = verificacao?.ollama?.online;
+  $('compOllamaInstalada').textContent = o.instalada || (verificacao?.ollama?.instalado ? 'instalado, desligado' : 'não instalado');
+  $('compOllamaDisponivel').textContent = o.disponivel ? (o.atualizar ? `${o.disponivel} — atualização disponível` : `${o.disponivel} · em dia ✓`) : 'não consegui consultar';
+  $('btnCompAtualizarOllama').hidden = !o.atualizar;
+  $('compAviso').textContent = o.atualizar ? '1 atualização' : '';
+  $('sitOllama').textContent = online ? `ligado · ${o.instalada || ''}` : verificacao?.ollama?.instalado ? 'desligado' : 'não instalado';
+  const busca = componentes?.busca || verificacao?.busca;
+  $('sitBusca').textContent = !busca?.instalado ? 'não instalada (usa as reservas)' : busca.rodando ? 'ligada' : 'instalada, parada';
+  $('sitComponentes').textContent = o.atualizar ? `Ollama ${o.disponivel} disponível` : o.disponivel ? 'em dia ✓' : '—';
+  const instalados = verificacao?.modelos || [];
+  const tem = (n) => n && instalados.some((i) => i === n || i === `${n}:latest`);
+  $('compModelos').innerHTML = [
+    ['Responder e pesquisar', config.model],
+    ['Escolher os trechos das páginas', config.embedModel || 'nomic-embed-text'],
+  ]
+    .map(
+      ([papel, nome]) =>
+        `<div class="dom-item"><span class="dom-nome">${papel}<small> · ${esc(nome || 'nenhum')} ${tem(nome) ? '· instalado ✓' : '· não instalado'}</small></span>${
+          nome ? `<button class="btn-linha" data-atualizar="${esc(nome)}">${tem(nome) ? 'Atualizar' : 'Instalar'}</button>` : ''
+        }</div>`
+    )
+    .join('');
+}
+
+// "Atualizar" um modelo = baixar de novo (o Ollama só transfere o que mudou)
+$('viewConfig').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-atualizar]');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = 'baixando…';
+  const r = await baixarModelo(btn.dataset.atualizar);
+  btn.textContent = r.ok ? 'atualizado ✓' : 'erro';
+  btn.title = r.ok ? '' : r.error || '';
+  btn.disabled = false;
+});
+
+$('btnCompVerificar').addEventListener('click', async () => {
+  $('compOllamaStatus').textContent = 'verificando…';
+  await carregarModelosEComponentes();
+  $('compOllamaStatus').textContent = '';
+});
+
+$('btnCompAtualizarOllama').addEventListener('click', async () => {
+  if (!confirm(`Atualizar o Ollama para ${componentes?.ollama?.disponivel}? Ele fecha durante a atualização — não use o agente até terminar.`)) return;
+  const btn = $('btnCompAtualizarOllama');
+  btn.disabled = true;
+  $('compOllamaStatus').textContent = 'atualizando…';
+  const r = await api.componentes.atualizarOllama();
+  btn.disabled = false;
+  $('compOllamaStatus').textContent = r.texto || '';
+  await carregarModelosEComponentes();
+  verificarOllama();
+});
+
+async function baixarModelo(nome) {
+  $('bmStatus').textContent = `${nome}: iniciando…`;
+  $('bmProgresso').hidden = false;
+  $('bmProgressoBarra').style.width = '0%';
+  const r = await api.ollama.pull(nome);
+  $('bmProgresso').hidden = true;
+  $('bmStatus').textContent = r.ok ? `"${nome}" instalado.` : `erro: ${r.error}`;
+  if (r.ok) {
+    await carregarModelos();
+    pintarModelosDeEtapa(); // atualiza também o seletor do modelo dedicado do Copiloto
+    carregarModelosEComponentes();
+  }
+  return r;
 }
 
 function pintarProgressoBaixarModelo({ status, total, completed }) {
@@ -2858,22 +2969,9 @@ function pintarProgressoBaixarModelo({ status, total, completed }) {
 $('btnBmBaixar').addEventListener('click', async () => {
   const nome = $('bmNome').value.trim();
   if (!nome) return;
-  const btn = $('btnBmBaixar');
-  btn.disabled = true;
-  $('bmStatus').textContent = 'iniciando…';
-  $('bmProgresso').hidden = false;
-  $('bmProgressoBarra').style.width = '0%';
-  const r = await api.ollama.pull(nome);
-  btn.disabled = false;
-  $('bmProgresso').hidden = true;
-  if (r.ok) {
-    $('bmStatus').textContent = `"${nome}" instalado.`;
-    $('bmNome').value = '';
-    await carregarModelos();
-    pintarModelosDeEtapa(); // atualiza também o seletor do modelo dedicado do Copiloto
-  } else {
-    $('bmStatus').textContent = `erro: ${r.error}`;
-  }
+  $('btnBmBaixar').disabled = true;
+  if ((await baixarModelo(nome)).ok) $('bmNome').value = '';
+  $('btnBmBaixar').disabled = false;
 });
 
 async function carregarArvore(destacarNovos = false) {
@@ -3577,6 +3675,7 @@ function cartaoSkill(skill) {
       </label>
     </div>
     <p class="skill-desc"></p>
+    <details class="skill-detalhes"><summary>gatilhos e ferramentas</summary>
     ${
       skill.ferramentas?.length
         ? `<div class="deps ok">usa ${skill.ferramentas.map((f) => `<code>${esc(f)}</code>`).join(' ')}</div>`
@@ -3594,6 +3693,7 @@ function cartaoSkill(skill) {
         ? skill.gatilhos.map((g) => `<span class="gatilho">${esc(g)}</span>`).join('')
         : '<span class="gatilho vazio">sem gatilhos</span>'
     }</div>
+    </details>
     <div class="skill-rodape">
       <span class="skill-meta">${esc(skill.etapa)} · prioridade ${skill.prioridade} · ${skill.tamanho} caracteres</span>
       <button class="btn-linha ver">ver instruções</button>
@@ -3839,7 +3939,54 @@ async function carregarExecucoes() {
   const [lista, stats] = await Promise.all([api.runs.list(filtro), api.runs.stats(filtro)]);
   execucoes.itens = lista;
   pintarEstatisticas(stats);
+  const modelos = [...new Set(lista.map((r) => r.modelo).filter(Boolean))];
+  const sel = $('execModelo');
+  const antes = sel.value;
+  sel.innerHTML = '<option value="">todos os modelos</option>' + modelos.map((m) => `<option>${esc(m)}</option>`).join('');
+  sel.value = modelos.includes(antes) ? antes : '';
+  pintarResumoExecucoes(lista);
+  pintarExecucoesFiltradas();
+}
+
+// Fase 1 (16/10): filtros da lista e resumo da semana do modelo em uso
+function execucoesFiltradas() {
+  const dias = Number($('execPeriodo').value);
+  const desde = dias ? Date.now() - dias * 864e5 : 0;
+  const [tipo, resultado, modelo] = [$('execTipo').value, $('execResultado').value, $('execModelo').value];
+  return execucoes.itens.filter(
+    (r) => new Date(r.em).getTime() >= desde && (!tipo || r.tipo === tipo) && (!resultado || r.resultado === resultado) && (!modelo || r.modelo === modelo)
+  );
+}
+
+function pintarExecucoesFiltradas() {
+  const lista = execucoesFiltradas();
+  $('execContagem').textContent = `${lista.length} execuç${lista.length === 1 ? 'ão' : 'ões'}`;
   pintarExecucoes(lista);
+}
+['execPeriodo', 'execTipo', 'execResultado', 'execModelo'].forEach((id) => $(id).addEventListener('change', pintarExecucoesFiltradas));
+
+function pintarResumoExecucoes(lista) {
+  const modelo = config.model || '';
+  const semana = lista.filter((r) => r.modelo === modelo && Date.now() - new Date(r.em).getTime() < 7 * 864e5);
+  $('execResumoModelo').textContent = modelo || 'nenhum modelo';
+  if (!semana.length) {
+    $('execResumo').innerHTML = '<p class="dica">Nenhuma execução com este modelo nos últimos 7 dias.</p>';
+    return;
+  }
+  const tempos = semana.map((r) => r.duracaoMs).sort((a, b) => a - b);
+  const virgula = (n) => n.toFixed(1).replace('.', ',');
+  const media = (f) => virgula(semana.reduce((t, r) => t + (f(r) || 0), 0) / semana.length);
+  const concluidas = semana.filter((r) => r.resultado === 'concluido').length;
+  const notas = semana.filter((r) => r.nota);
+  const caixas = [
+    [semana.length, 'execuções'],
+    [`${Math.round((concluidas / semana.length) * 100)}%`, 'concluídas'],
+    [seg(tempos[Math.floor(tempos.length / 2)]), 'tempo típico (mediana)'],
+    [media((r) => r.buscas), 'buscas por execução'],
+    [media((r) => r.fontes), 'páginas lidas por execução'],
+    [notas.length ? virgula(notas.reduce((t, r) => t + r.nota, 0) / notas.length) : '—', `nota média${notas.length ? ` (${notas.length})` : ''}`],
+  ];
+  $('execResumo').innerHTML = caixas.map(([v, r]) => `<div><b>${esc(String(v))}</b><span>${r}</span></div>`).join('');
 }
 
 function pintarEstatisticas(stats) {
@@ -3887,14 +4034,17 @@ function pintarExecucoes(lista) {
       <div class="exec-topo">
         <span class="exec-resultado ${rotulo.classe}">${rotulo.texto}</span>
         <span class="exec-modelo">${esc(r.modelo || '—')}</span>
+        ${r.tipo ? `<span class="origem">${r.tipo}</span>` : ''}
         ${r.origem === 'bancada' ? `<span class="origem">bancada${r.caso ? `: ${esc(r.caso.slice(0, 34))}` : ''}</span>` : ''}
         <span class="exec-quando">${quando(r.em)}</span>
       </div>
       <p class="exec-pedido"></p>
+      ${r.sites?.length ? `<p class="exec-sites" title="${esc(r.sites.join(', '))}">${esc(r.sites.slice(0, 6).join(' · '))}${r.sites.length > 6 ? ` · +${r.sites.length - 6}` : ''}</p>` : ''}
       <div class="exec-medidas">
-        <span><b>${r.passos}</b> passos</span>
-        <span><b>${r.ferramentas}</b> ferramentas</span>
-        <span><b>${r.fontes}</b> fontes</span>
+        ${r.profundidade ? `<span>pesquisa <b>${esc(r.profundidade)}</b></span>` : ''}
+        ${r.tipo === 'tarefa' ? `<span><b>${r.passos}</b> passos</span><span><b>${r.ferramentas}</b> ferramentas</span>` : ''}
+        <span><b>${r.buscas ?? 0}</b> buscas</span>
+        <span><b>${r.fontes}</b> páginas lidas</span>
         <span><b>${seg(r.duracaoMs)}</b></span>
         <span><b>${(r.tokens || 0).toLocaleString('pt-BR')}</b> tokens</span>
         ${r.erros ? `<span class="ruim"><b>${r.erros}</b> erros</span>` : ''}
@@ -4107,7 +4257,7 @@ $('filtroOrigem').addEventListener('click', (e) => {
 // (3 colunas + buscador + gráfico de linhas) — ver renderer/execucoes.html/js.
 $('btnAbrirJanelaExec').addEventListener('click', () => api.runs.abrirJanela());
 
-$('btnExportarExec').addEventListener('click', () => api.runs.export());
+$('btnExportarExec').addEventListener('click', () => api.runs.export(execucoesFiltradas().map((r) => r.id)));
 
 $('btnLimparExec').addEventListener('click', async () => {
   const alvo = execucoes.origem || null;

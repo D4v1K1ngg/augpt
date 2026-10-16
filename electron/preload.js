@@ -28,6 +28,10 @@ contextBridge.exposeInMainWorld('augpt', {
     reiniciar: () => ipcRenderer.invoke('ollama:reiniciar'),
   },
   // tela de boas-vindas (15/10)
+  componentes: {
+    estado: () => ipcRenderer.invoke('componentes:estado'),
+    atualizarOllama: () => ipcRenderer.invoke('componentes:atualizarOllama'),
+  },
   boasVindas: {
     verificar: () => ipcRenderer.invoke('boasVindas:verificar'),
     instalarOllama: () => ipcRenderer.invoke('boasVindas:instalarOllama'),
@@ -76,7 +80,7 @@ contextBridge.exposeInMainWorld('augpt', {
     rate: (id, nota) => ipcRenderer.invoke('runs:rate', { id, nota }),
     remove: (id) => ipcRenderer.invoke('runs:delete', id),
     clear: (origem) => ipcRenderer.invoke('runs:clear', origem),
-    export: () => ipcRenderer.invoke('runs:export'),
+    export: (ids) => ipcRenderer.invoke('runs:export', ids),
   },
   chats: {
     list: () => ipcRenderer.invoke('chats:list'),

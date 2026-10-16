@@ -1071,31 +1071,27 @@ body.sem-lateral .lateral > * { min-width: calc(var(--lateral) - 32px); }
 }
 .caixa-teste input:focus { outline: none; border-color: var(--amber); }
 
-/* Categorias da página de Configurações — pedido do Davi (2026-09-19): "hoje
-   dentro dessa tela temos uma lista gigante de opcoes que ja mostram o seu
-   conteudo de cara, isso fica muito desorganizado, vamos criar algo mais
-   organizado e dividido por sessoes". Cada categoria é um <details> nativo
-   (sem JS extra pra abrir/fechar) agrupando os .grupo relacionados — o card
-   de cada .grupo continua igual por dentro, só ganhou um cabeçalho
-   recolhível por cima. As duas categorias mais usadas no dia a dia
-   ("Arquivos" e "Modelos e execução") começam abertas; o resto começa
-   fechado. */
-.categoria-config { margin-bottom: 26px; }
-.categoria-config:last-of-type { margin-bottom: 0; }
-.categoria-titulo {
-  display: flex; align-items: center; gap: 10px; cursor: pointer;
-  padding: 4px 2px 12px; margin-bottom: 14px; border-bottom: 1px solid var(--line-forte);
-  font-size: 13.5px; font-weight: 500; color: var(--text-forte); transition: color 0.15s;
+/* Ajustes em abas (Fase 1, 16/10): lista de abas à esquerda, um painel por vez. */
+#viewConfig .ajustes { flex: 1; display: grid; grid-template-columns: 220px 1fr; min-height: 0; }
+.ajustes-lado { border-right: 1px solid var(--line); padding: 30px 14px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.ajustes-lado h1 { font-size: 22px; font-weight: 300; letter-spacing: -0.03em; color: var(--text-forte); margin: 0 10px 18px; }
+.ajustes-aba { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border: 0; border-radius: 9px; background: none; color: var(--muted); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.ajustes-aba:hover { color: var(--text-forte); }
+.ajustes-aba.ativa { background: var(--panel-2); color: var(--amber); box-shadow: inset 0 0 0 1px var(--line-forte); }
+.ajustes-aba small { margin-left: auto; font-size: 10.5px; color: var(--fraco); }
+.ajustes-aba small:empty { display: none; }
+#compAviso { color: var(--amber); }
+.ajustes-salvo { margin: 14px 12px 0; font-size: 12px; color: var(--green); min-height: 1em; }
+.situacao { margin-left: auto; color: var(--text-forte); font-size: 12.5px; }
+#viewConfig .ajustes > * { min-height: 0; }
+.dom-item > .dom-nome { flex: 1; min-width: 0; }
+.dom-aprendidos > summary { cursor: pointer; }
+@media (max-width: 900px) {
+  #viewConfig .ajustes { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .ajustes-lado { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); padding: 14px; }
+  .ajustes-lado h1, .ajustes-aba small { display: none; }
 }
-.categoria-titulo::-webkit-details-marker { display: none; }
-.categoria-titulo::before {
-  content: ''; flex: none; width: 7px; height: 7px;
-  border-right: 1.6px solid var(--muted); border-bottom: 1.6px solid var(--muted);
-  transform: rotate(-45deg); transition: transform 0.15s;
-}
-.categoria-config[open] > .categoria-titulo::before { transform: rotate(45deg); }
-.categoria-titulo:hover { color: var(--amber); }
-.categoria-config .grupo:last-child { margin-bottom: 0; }
+
 
 /* grupos da página de configurações */
 .grupo {
@@ -1121,11 +1117,11 @@ body.sem-lateral .lateral > * { min-width: calc(var(--lateral) - 32px); }
 .grupo .dica { margin: 0 0 12px; }
 .grupo .arvore { max-height: 300px; }
 .btn-icone.ativo { color: var(--amber); border-color: rgba(217,130,46,0.4); }
-.grupo select {
+.grupo select, .exec-filtros select {
   width: 220px; background: var(--void); border: 1px solid var(--line-forte);
   border-radius: var(--r); padding: 7px 10px; font-size: 12px; cursor: pointer;
 }
-.grupo select:focus { outline: none; border-color: var(--amber); }
+.grupo select:focus, .exec-filtros select:focus { outline: none; border-color: var(--amber); }
 
 /* Baixar modelo (Ollama) — sugestões prontas anotadas com a recomendação de
    hardware (ver src/agent/hardware.js) + campo livre pra qualquer outro
@@ -1486,3 +1482,25 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .bv-rodape { display: flex; align-items: center; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
 .bv-espaco { flex: 1; }
 @media (max-width: 560px) { .bv-caixa { padding: 20px 16px 16px; } .bv-ficha span { min-width: 0; display: block; } }
+
+/* Execuções (Fase 1, 16/10): resumo da semana, filtros e sites lidos */
+.exec-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.exec-resumo div { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--void); }
+.exec-resumo b { font-size: 19px; font-weight: 400; color: var(--text-forte); }
+.exec-resumo span { font-size: 11.5px; color: var(--muted); }
+.exec-filtros { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
+.exec-filtros select { width: auto; }
+.exec-filtros .filtro-origem { margin: 0; }
+.exec-contagem { margin-left: auto; font-size: 12px; color: var(--muted); }
+.exec-comparativo > summary { cursor: pointer; list-style: none; }
+.exec-comparativo > summary::-webkit-details-marker { display: none; }
+.exec-comparativo > summary h2 { display: inline; }
+.exec-comparativo > summary h2::after { content: ' ▸'; color: var(--fraco); }
+.exec-comparativo[open] > summary h2::after { content: ' ▾'; }
+.exec-sites { margin: 2px 0 6px; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Skills (Fase 1, 16/10): aviso de onde valem e cartão compacto */
+.aviso-skills { margin-top: 10px !important; padding: 8px 12px; border: 1px solid var(--line-forte); border-radius: 8px; color: var(--text) !important; font-size: 12.5px; }
+.skill-detalhes > summary { cursor: pointer; font-size: 11.5px; color: var(--muted); margin: 4px 0 8px; }
+.skill-detalhes > summary:hover { color: var(--amber); }
+#painelFerramentas .grupo.mcp { margin-top: 28px; }

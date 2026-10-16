@@ -299,6 +299,42 @@ module.exports = [
   },
 
   {
+    nome: 'registro (Fase 1, 16/10): lista traz tipo (pergunta/produto/tarefa), profundidade, buscas e sites lidos; registro antigo do núcleo vira pergunta',
+    tipo: 'unidade',
+    executar() {
+      const dir = path.join(require('os').tmpdir(), `augpt-registros-tipo-${Date.now()}`);
+      const loja = new Registros(dir);
+      const salvar = (extra) => {
+        const r = new Registro({ origem: 'app', modelo: 'm', host: 'x' });
+        Object.assign(r.dados, extra);
+        r.encerrar('concluido', 'ok');
+        return loja.salvar(r.dados).id;
+      };
+      const leituras = [
+        { tipo: 'busca', provedor: 'web' },
+        { tipo: 'leitura', url: 'https://www.reddit.com/r/x' },
+        { tipo: 'leitura', url: 'https://reddit.com/r/y' },
+        { tipo: 'leitura', url: 'https://rtings.com/a' },
+      ];
+      const ids = {
+        produto: salvar({ nucleo: { modo: 'profundo', produto: true }, fontes: leituras }),
+        antigo: salvar({ fontes: leituras }),
+        tarefa: salvar({ ferramentas: [{ nome: 'escrever_arquivo' }] }),
+      };
+      const lista = loja.listar();
+      const de = (id) => lista.find((r) => r.id === id);
+      fs.rmSync(dir, { recursive: true, force: true });
+      const p = de(ids.produto);
+      return [
+        p.tipo === 'produto' && p.profundidade === 'profundo' && p.buscas === 1 && p.fontes === 3 || `produto: ${JSON.stringify(p)}`,
+        p.sites.join(',') === 'reddit.com,rtings.com' || `sites sem www e sem repetir: ${p.sites}`,
+        de(ids.antigo).tipo === 'pergunta' || `antigo do núcleo: ${de(ids.antigo).tipo}`,
+        de(ids.tarefa).tipo === 'tarefa' || `tarefa: ${de(ids.tarefa).tipo}`,
+      ];
+    },
+  },
+
+  {
     // Pedido de Davi 2026-09-15: "anexar todo o raciocinio que podemos ver
     // na tela do chat junto do relatorio na aba execuções" — caso real que
     // motivou isso: mu2shec3-1pru.json (pergunta sobre relatividade saiu
