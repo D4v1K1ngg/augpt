@@ -523,12 +523,12 @@ ipcMain.handle('ollama:iniciar', async (_e, { lembrar } = {}) => {
  */
 ipcMain.handle('ollama:pull', async (_e, { nome } = {}) => {
   try {
-    const r = await ollama.pullModel({
+    // com novas tentativas e, se preciso, pelo programa `ollama pull` (src/baixar-modelo.js)
+    const r = await require('../src/baixar-modelo').baixarModelo(nome, {
       host: config.data.host,
-      name: nome,
-      onProgress: (p) => enviar('ollama-pull-progresso', p),
+      onProgress: (p) => enviar('ollama-pull-progresso', p.porcento != null ? { status: p.status, total: 100, completed: p.porcento } : p),
     });
-    return { ok: true, status: r.status };
+    return { ok: true, status: r.status, via: r.via };
   } catch (err) {
     return { ok: false, error: err.message };
   }
