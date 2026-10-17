@@ -762,7 +762,9 @@
           <div class="linha-botoes">
             <button class="btn-secundario" id="btnCompVerificar">Verificar de novo</button>
             <button class="btn-primario" id="btnCompAtualizarOllama" hidden>Atualizar o Ollama</button>
+            <button class="btn-secundario" id="btnCompTestarPlaca">Testar a placa de vídeo</button>
           </div>
+          <p class="dica">O teste carrega o modelo em uso e mostra se ele roda na placa de vídeo, dividido ou só no processador, e a quantos tokens por segundo. Em placa AMD antiga, sem ROCm (como a RX 580), o Ollama usa o Vulkan dela.</p>
           <div class="teste-resultado" id="compOllamaStatus"></div>
         </section>
         <section class="grupo">

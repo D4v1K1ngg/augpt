@@ -2971,6 +2971,15 @@ $('btnCompVerificar').addEventListener('click', async () => {
   $('compOllamaStatus').textContent = '';
 });
 
+$('btnCompTestarPlaca').addEventListener('click', async () => {
+  const btn = $('btnCompTestarPlaca');
+  btn.disabled = true;
+  $('compOllamaStatus').textContent = `testando ${config.model}… (carregar o modelo pode levar alguns segundos)`;
+  const r = await api.componentes.testarPlaca();
+  btn.disabled = false;
+  $('compOllamaStatus').textContent = r.ok ? `${r.modelo}: ${r.veredito}` : `erro: ${r.error}`;
+});
+
 $('btnCompAtualizarOllama').addEventListener('click', async () => {
   if (!confirm(`Atualizar o Ollama para ${componentes?.ollama?.disponivel}? Ele fecha durante a atualização — não use o agente até terminar.`)) return;
   const btn = $('btnCompAtualizarOllama');

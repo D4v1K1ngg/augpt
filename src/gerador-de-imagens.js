@@ -49,7 +49,10 @@ function recomendar(computador = {}) {
   const outra = gpus.filter((g) => !/nvidia|geforce|rtx|gtx|quadro/i.test(g.nome)).sort((a, b) => b.vramGB - a.vramGB)[0];
   if (computador.plataforma && computador.plataforma !== 'win32') return { pode: false, motivo: 'por enquanto o AuGPT instala o gerador de imagens só no Windows' };
   if (nvidia && nvidia.vramGB >= 7.5) return { pode: true, motor: 'cuda', motivo: `sua ${nvidia.nome} (${nvidia.vramGB} GB) gera uma imagem em cerca de 7 a 15 segundos`, downloadGB: (BYTES_DOS_MODELOS + 9e8) / 1e9 };
-  if (outra && outra.vramGB >= 8) return { pode: true, motor: 'vulkan', motivo: `sua ${outra.nome} (${outra.vramGB} GB) roda pela versão Vulkan, que funciona mas é lenta: cerca de 1 minuto por imagem`, downloadGB: (BYTES_DOS_MODELOS + 3e7) / 1e9 };
+  if (outra && outra.vramGB >= 8) {
+    const antiga = /\b(rx\s?(4[6-9]0|5[4-9]0)|r9|vega)\b|2048\s?sp/i.test(outra.nome);
+    return { pode: true, motor: 'vulkan', motivo: `sua ${outra.nome} (${outra.vramGB} GB) roda pela versão Vulkan, que funciona mas é lenta: ${antiga ? 'numa placa dessa geração, alguns minutos por imagem' : 'cerca de 1 minuto por imagem'}`, downloadGB: (BYTES_DOS_MODELOS + 3e7) / 1e9 };
+  }
   const melhor = nvidia || outra;
   return { pode: false, motivo: melhor ? `a placa ${melhor.nome} tem ${melhor.vramGB} GB; o gerador de imagens precisa de 8 GB` : 'não achei placa de vídeo com 8 GB ou mais; no processador, uma imagem levaria vários minutos' };
 }

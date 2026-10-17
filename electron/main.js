@@ -1304,6 +1304,15 @@ ipcMain.handle('componentes:voltarImagem', () => {
     return { ok: false, error: err.message };
   }
 });
+// teste da placa (17/10): onde o modelo roda e a que velocidade
+ipcMain.handle('componentes:testarPlaca', async () => {
+  try {
+    const { gpus } = await verificadorDeHardware.verificarComputador();
+    return { ok: true, ...(await verificadorDeHardware.testarAceleracao({ host: config.data.host, modelo: config.data.model, gpus })) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
 ipcMain.handle('componentes:voltarYtdlp', async () => {
   try {
     return { ok: true, estado: await ytdlp().voltar() };

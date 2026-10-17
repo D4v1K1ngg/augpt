@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('augpt', {
     instalarTesseract: () => ipcRenderer.invoke('componentes:instalarTesseract'),
     instalarImagem: () => ipcRenderer.invoke('componentes:instalarImagem'),
     voltarImagem: () => ipcRenderer.invoke('componentes:voltarImagem'),
+    testarPlaca: () => ipcRenderer.invoke('componentes:testarPlaca'),
   },
   boasVindas: {
     verificar: () => ipcRenderer.invoke('boasVindas:verificar'),

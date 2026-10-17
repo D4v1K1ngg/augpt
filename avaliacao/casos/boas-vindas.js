@@ -97,4 +97,38 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'boas-vindas (17/10, RX 580): placa AMD antiga (sem ROCm, roda pelo Vulkan) desce um degrau — 8 GB → 4B, 4 GB → 2B, com aviso para testar a placa; AMD nova e NVIDIA continuam iguais',
+    tipo: 'unidade',
+    executar() {
+      const r = (nome, vramGB) => v.recomendarModelos({ gpus: [{ nome, vramGB }], vramGB, ramTotalGB: 16 });
+      const rx8 = r('Radeon RX 580 2048SP', 8);
+      return [
+        rx8.principal.nome === 'qwen3.5:4b' && rx8.avisos.some((a) => /Testar a placa/.test(a)) || `RX 580 8 GB: ${rx8.principal.nome}`,
+        r('AMD Radeon RX 580', 4).principal.nome === 'qwen3.5:2b' || 'RX 580 4 GB → 2B',
+        r('AMD Radeon RX 6600', 8).principal.nome === 'qwen3.5:9b' && r('NVIDIA GeForce RTX 3060 Ti', 8).principal.nome === 'qwen3.5:9b' || 'placa nova continua 9B',
+      ];
+    },
+  },
+  {
+    nome: 'boas-vindas (17/10): teste da placa — diz se o modelo roda na placa, dividido ou no processador, com tokens por segundo; no processador com placa AMD, a dica fala do Vulkan e do driver Adrenalin',
+    tipo: 'unidade',
+    async executar() {
+      const teste = (sizeVram, gpus) =>
+        v.testarAceleracao({
+          host: 'http://h',
+          modelo: 'qwen3.5:4b',
+          gpus,
+          buscar: async (url) => ({ json: async () => (/api\/ps/.test(url) ? { models: [{ name: 'qwen3.5:4b', size: 100, size_vram: sizeVram }] } : { eval_count: 100, eval_duration: 2e9, load_duration: 3e9 }) }),
+        });
+      const placa = await teste(100, [{ nome: 'NVIDIA GeForce RTX 3060 Ti' }]);
+      const dividido = await teste(60, [{ nome: 'NVIDIA GeForce RTX 3060 Ti' }]);
+      const cpuAmd = await teste(0, [{ nome: 'Radeon RX 580 2048SP' }]);
+      return [
+        placa.naPlaca === 100 && placa.tokensPorSegundo === 50 && /na placa de vídeo/.test(placa.veredito) || `placa: ${JSON.stringify(placa)}`,
+        /dividido: 60%/.test(dividido.veredito) || `dividido: ${dividido.veredito}`,
+        /só no processador/.test(cpuAmd.veredito) && /Vulkan/.test(cpuAmd.veredito) && /Adrenalin/.test(cpuAmd.veredito) || `AMD no processador: ${cpuAmd.veredito}`,
+      ];
+    },
+  },
 ];

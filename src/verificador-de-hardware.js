@@ -50,7 +50,9 @@ async function detectarGpus({ plataforma = process.platform, executar = rodar } 
   const nvidia = lerGpusNvidiaSmi(await executar('nvidia-smi', ['--query-gpu=name,memory.total', '--format=csv,noheader,nounits']));
   if (nvidia.length) return nvidia;
   if (plataforma === 'win32') {
-    const ps = "Get-ItemProperty 'HKLM:\\SYSTEM\\ControlSet001\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\0*' -ErrorAction SilentlyContinue | ForEach-Object { '{0}|{1}' -f $_.DriverDesc, $_.'HardwareInformation.qwMemorySize' }";
+    // qwMemorySize (64 bits) primeiro; driver antigo (ex.: AMD Polaris, RX 580) pode gravar só o
+    // MemorySize (32 bits, às vezes como bytes) — 17/10, preparando o AuGPT para a RX 580
+    const ps = "Get-ItemProperty 'HKLM:\\SYSTEM\\ControlSet001\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\0*' -ErrorAction SilentlyContinue | ForEach-Object { $m = $_.'HardwareInformation.qwMemorySize'; if (-not $m) { $m = $_.'HardwareInformation.MemorySize'; if ($m -is [byte[]]) { $m = [BitConverter]::ToUInt32($m, 0) } }; '{0}|{1}' -f $_.DriverDesc, $m }";
     return lerGpusDoRegistro(await executar('powershell', ['-NoProfile', '-Command', ps]));
   }
   // Mac com chip Apple: a placa usa a RAM (memória unificada); ~70% fica disponível para o modelo
@@ -112,10 +114,20 @@ const EMBEDDING = { nome: 'nomic-embed-text', rotulo: 'Nomic Embed Text', downlo
  * placa é várias vezes mais rápido); sem ela, a RAM (roda no processador, bem
  * mais devagar). Devolve o principal, o de embedding, as alternativas e avisos.
  */
-function recomendarModelos({ vramGB = 0, ramTotalGB = 0, discoLivreGB = null } = {}) {
+/**
+ * Placa AMD antiga (Polaris/GCN: RX 400/500, R7/R9, Vega, HD): sem ROCm, o Ollama usa o Vulkan dela,
+ * que funciona mas é mais lento — o recomendador desce um degrau (4B em vez do 9B).
+ */
+const PLACA_AMD_ANTIGA = /\b(rx\s?(4[6-9]0|5[4-9]0)|r[579]\s?\d{3}x?|r9|radeon\s?hd|vega|firepro)\b|2048\s?sp/i;
+const placaAntiga = (gpus = [], vramGB = 0) => gpus.some((g) => PLACA_AMD_ANTIGA.test(g.nome) && g.vramGB >= vramGB - 0.1);
+
+function recomendarModelos({ vramGB = 0, ramTotalGB = 0, discoLivreGB = null, gpus = [] } = {}) {
   let chave;
   let motivo;
-  if (vramGB >= 20) [chave, motivo] = ['27b', `sua placa tem ${vramGB} GB: cabe o modelo grande, o de melhor qualidade`];
+  const antiga = vramGB >= 3 && placaAntiga(gpus, vramGB);
+  if (antiga && vramGB >= 4.5) [chave, motivo] = ['4b', `sua placa AMD tem ${vramGB} GB, mas é de uma geração antiga (sem ROCm): o Ollama usa o Vulkan dela, mais devagar — o 4B é o equilíbrio entre qualidade e velocidade`];
+  else if (antiga) [chave, motivo] = ['2b', `sua placa AMD tem ${vramGB} GB e é de uma geração antiga: o 2B (2,6 GB) cabe nela e roda pelo Vulkan`];
+  else if (vramGB >= 20) [chave, motivo] = ['27b', `sua placa tem ${vramGB} GB: cabe o modelo grande, o de melhor qualidade`];
   else if (vramGB >= 7.5) [chave, motivo] = ['9b', `sua placa tem ${vramGB} GB: o 9B cabe inteiro nela — é o que o AuGPT foi ajustado e medido`];
   else if (vramGB >= 4.5) [chave, motivo] = ['4b', `sua placa tem ${vramGB} GB: o 4B cabe inteiro; o 9B ficaria lento`];
   // 17/10, medido: o 2B ocupa 2,6 GB na placa e teve a mesma nota do 4B (9,5) na metade do tempo
@@ -129,7 +141,29 @@ function recomendarModelos({ vramGB = 0, ramTotalGB = 0, discoLivreGB = null } =
   const total = principal.downloadGB + EMBEDDING.downloadGB;
   if (discoLivreGB != null && discoLivreGB < total + 2) avisos.push(`pouco espaço no disco dos modelos: ${discoLivreGB} GB livres, precisa de uns ${Math.ceil(total + 2)} GB`);
   if (!vramGB) avisos.push('não achei placa de vídeo com memória dedicada: o modelo roda no processador e cada resposta demora bem mais');
+  if (antiga) avisos.push('placa AMD antiga: depois de instalar, use "Testar a placa de vídeo" em Ajustes → Componentes para conferir se o Ollama está usando ela');
   return { principal, embedding: EMBEDDING, alternativas, avisos, downloadTotalGB: arred(total) };
 }
 
-module.exports = { verificarComputador, detectarGpus, lerGpusNvidiaSmi, lerGpusDoRegistro, recomendarModelos, espacoLivreGB, pastaDosModelos, MODELOS, EMBEDDING };
+/**
+ * Teste da placa (17/10): carrega o modelo com o contexto do AuGPT, gera um texto curto e diz onde
+ * ele rodou (placa, dividido ou processador) e a quantos tokens por segundo. É o jeito de saber se
+ * uma placa sem ROCm (ex.: RX 580) está mesmo sendo usada pelo Vulkan do Ollama.
+ */
+async function testarAceleracao({ host, modelo, buscar = (...a) => fetch(...a), gpus = [] }) {
+  const pedir = (caminho, corpo) => buscar(`${String(host).replace(/\/$/, '')}${caminho}`, { method: corpo ? 'POST' : 'GET', body: corpo ? JSON.stringify(corpo) : undefined, signal: AbortSignal.timeout(180000) }).then((r) => r.json());
+  const r = await pedir('/api/generate', { model: modelo, prompt: 'Conte de 1 a 40, separando com vírgulas.', stream: false, think: false, options: { num_ctx: 16384, num_predict: 120 } });
+  if (r.error) throw new Error(r.error);
+  const ps = await pedir('/api/ps');
+  const m = (ps.models || []).find((x) => x.name === modelo || x.model === modelo) || {};
+  const naPlaca = m.size ? Math.round((100 * (m.size_vram || 0)) / m.size) : 0;
+  const tokensPorSegundo = r.eval_count && r.eval_duration ? Math.round(r.eval_count / (r.eval_duration / 1e9)) : null;
+  const amd = gpus.some((g) => /amd|radeon/i.test(g.nome));
+  let veredito;
+  if (naPlaca >= 90) veredito = `rodando na placa de vídeo (${naPlaca}%), ${tokensPorSegundo} tokens por segundo`;
+  else if (naPlaca >= 10) veredito = `dividido: ${naPlaca}% na placa e o resto no processador, ${tokensPorSegundo} tokens por segundo — um modelo menor caberia inteiro e ficaria mais rápido`;
+  else veredito = `rodando só no processador (${tokensPorSegundo} tokens por segundo): a placa de vídeo não está sendo usada. ${amd ? 'Em placa AMD sem ROCm (como a RX 580), o Ollama usa o Vulkan: atualize o driver da AMD (Adrenalin) e o Ollama (em Componentes) e teste de novo.' : 'Atualize o driver da placa e o Ollama (em Componentes) e teste de novo.'}`;
+  return { modelo, naPlaca, tokensPorSegundo, carregouEmS: r.load_duration ? Math.round(r.load_duration / 1e8) / 10 : null, veredito };
+}
+
+module.exports = { testarAceleracao, placaAntiga, PLACA_AMD_ANTIGA, verificarComputador, detectarGpus, lerGpusNvidiaSmi, lerGpusDoRegistro, recomendarModelos, espacoLivreGB, pastaDosModelos, MODELOS, EMBEDDING };
