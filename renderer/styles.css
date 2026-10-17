@@ -1522,3 +1522,8 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .md-seta[data-dir="-1"] { left: 6px; }
 .md-seta[data-dir="1"] { right: 6px; }
 .md-seta:hover { border-color: var(--amber); color: var(--amber); }
+
+/* Investigação com tempo (17/10): os minutos ao lado dos modos */
+.tempo-investigacao { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px 0 4px; font-size: 12.5px; color: var(--muted); }
+.tempo-investigacao input { width: 58px; padding: 5px 8px; border: 1px solid var(--line-forte); border-radius: 7px; background: var(--void); color: var(--text-forte); font: inherit; font-size: 12.5px; }
+.tempo-investigacao input:focus { outline: none; border-color: var(--amber); }

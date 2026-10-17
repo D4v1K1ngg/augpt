@@ -56,6 +56,7 @@
             <option value="rapido">rápido · 1 ou 2 buscas, segundos</option>
             <option value="normal">normal · várias buscas e leituras</option>
             <option value="profundo">profundo · muitos ângulos e fontes, mais lento</option>
+            <option value="investigacao">investigação · você dá o tempo; relatório em PDF</option>
           </select>
         </label>
         <label class="campo" id="campoAutonomia" title="Autonomia: o que o agente pode fazer sem pedir sua confirmação, em tarefas com arquivo, pasta, site ou comando">
@@ -249,6 +250,10 @@
           <button type="button" data-modo="rapido" title="Uma ou duas buscas e a resposta em segundos">Rápido</button>
           <button type="button" data-modo="normal" title="Várias buscas e leituras (pelo menos 2 buscas)">Normal</button>
           <button type="button" data-modo="profundo" title="Pesquisa de vários ângulos: pelo menos 5 buscas e até 10 páginas lidas. Mais lento">Profundo</button>
+          <button type="button" data-modo="investigacao" title="Você dá o tempo e o AuGPT pesquisa o tema por partes até ele acabar; entrega um resumo aqui e o relatório completo em PDF">Investigação</button>
+          <label class="tempo-investigacao" id="tempoInvestigacao" hidden title="Quanto tempo o AuGPT pode pesquisar">
+            <input type="number" id="minutosInvestigacao" min="2" max="180" step="1" aria-label="Minutos de investigação" /> min
+          </label>
         </div>
         <!-- Fase 2 (facilidade de uso, 2026-09-23): guia de primeira execução.
              Só aparece enquanto falta algo (Ollama, ou um modelo de conversa) —

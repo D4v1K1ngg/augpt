@@ -955,6 +955,18 @@ const manipuladores = {
   'contexto-ajustado'() {},
   // Revisão v4: download do navegador dentro da pasta de trabalho vira anexo
   // (mesmo cartão dos arquivos gerados); fora dela, só o aviso com o caminho
+  'arquivo-criado'({ relativo, bytes }) {
+    const t = agente.turno;
+    if (t && relativo) t.arquivosGerados.push({ caminho: relativo, tamanho: bytes || null });
+  },
+  'investigacao-plano'({ subtemas = [], minutos, lacunas }) {
+    situacao(lacunas ? `investigação: mais ${subtemas.length} partes para cobrir o que faltou` : `investigação de ${minutos} min: ${subtemas.length} partes planejadas`);
+  },
+  'investigacao-progresso'({ parte, previstas, titulo, restanteS }) {
+    situacao(`investigando parte ${parte} de ~${previstas}: ${titulo} · faltam ${Math.max(1, Math.round(restanteS / 60))} min`);
+  },
+  'investigacao-secao'() {},
+
   'download-concluido'({ nome, caminho, relativo, bytes }) {
     const t = agente.turno;
     if (t && relativo) t.arquivosGerados.push({ caminho: relativo, tamanho: bytes || null });
@@ -3184,6 +3196,9 @@ const modoAtual = () => (config.respostaDireta === true ? 'rapido' : config.modo
 function pintarModoDoAgente() {
   for (const b of $('modoDoAgente').querySelectorAll('button')) b.classList.toggle('ativo', b.dataset.modo === modoAtual());
   $('modoDePesquisa').value = modoAtual();
+  // investigação: o tempo aparece ao lado dos modos
+  $('tempoInvestigacao').hidden = modoAtual() !== 'investigacao';
+  $('minutosInvestigacao').value = config.minutosDeInvestigacao || 10;
 }
 async function escolherModo(modo) {
   config = await api.config.set({ modoDePesquisa: modo, respostaDireta: false });
@@ -3194,6 +3209,11 @@ $('modoDoAgente').addEventListener('click', (e) => {
   if (b) escolherModo(b.dataset.modo);
 });
 $('modoDePesquisa').addEventListener('change', (e) => escolherModo(e.target.value));
+$('minutosInvestigacao').addEventListener('change', async (e) => {
+  const minutos = Math.max(2, Math.min(180, Math.round(Number(e.target.value) || 10)));
+  e.target.value = minutos;
+  config = await api.config.set({ minutosDeInvestigacao: minutos });
+});
 
 $('modoResposta').addEventListener('change', async (e) => {
   config = await api.config.set({ modoResposta: e.target.value });
@@ -4389,7 +4409,8 @@ $('btnLimparExec').addEventListener('click', async () => {
   const resumir = () => {
     const ollama = $('statusOllama');
     const modelos = $('btnModelos');
-    const partes = [$('modelo').value || 'sem modelo', `pesquisa ${curto($('modoDePesquisa'))}`, curto($('modoResposta'))].filter(Boolean);
+    const pesquisa = $('modoDePesquisa').value === 'investigacao' ? `investigação ${config.minutosDeInvestigacao || 10} min` : `pesquisa ${curto($('modoDePesquisa'))}`;
+    const partes = [$('modelo').value || 'sem modelo', pesquisa, curto($('modoResposta'))].filter(Boolean);
     const desligado = ollama.classList.contains('offline');
     const texto = desligado ? `Ollama desligado · ${partes.join(' · ')}` : partes.join(' · ');
     if ($('resumoExecucao').textContent !== texto) $('resumoExecucao').textContent = texto;

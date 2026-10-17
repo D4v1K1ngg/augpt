@@ -36,6 +36,8 @@ const { escopoDoPedido, foraDoEscopo } = require('./escopo');
 const search = require('../tools/search');
 const { lerComCache } = require('../tools/web');
 const nucleo = require('./nucleo');
+const { investigar } = require('./nucleo/investigacao');
+const { gerarPdf } = require('../formatos/pdf-escrita');
 const { YtDlp, pareceMudancaDoYouTube, idDoVideo } = require('../ytdlp');
 const { Tesseract, IMAGEM } = require('../tesseract');
 const { GeradorDeImagens, pastaPadrao } = require('../gerador-de-imagens');
@@ -1697,7 +1699,29 @@ class Agent extends EventEmitter {
         }
         emitirOriginal(evento, dados);
       };
-      const r = await nucleo.responder({ pergunta: objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido });
+      // investigação com tempo (17/10): o usuário dá os minutos; o código pesquisa por partes até o tempo acabar
+      const investigando = modo === 'investigacao' && !imagensDoPedido.length;
+      const r = investigando
+        ? await investigar({ pergunta: objetivo, conversa, minutos: Number(cfg.minutosDeInvestigacao) || 10, tamanho: cfg.modoResposta || 'normal', deps })
+        : await nucleo.responder({ pergunta: objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido });
+      // o relatório completo vira PDF na pasta de trabalho, anexado à resposta
+      let relatorioPdf = null;
+      if (r.relatorio) {
+        try {
+          const data = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+          const base = String(r.relatorio.titulo || 'investigacao').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'investigacao';
+          relatorioPdf = path.join('investigacoes', `${base}-${data}.pdf`);
+          // o gerador de PDF já põe o título no topo: o "# título" do relatório sai
+          const buffer = gerarPdf({ conteudo: r.relatorio.markdown.replace(/^# .*\n+/, ''), titulo: r.relatorio.titulo });
+          const alvo = new Sandbox(cfg.workspace).resolve(relatorioPdf);
+          fs.mkdirSync(path.dirname(alvo), { recursive: true });
+          fs.writeFileSync(alvo, buffer);
+          this.emit('arquivo-criado', { nome: path.basename(alvo), relativo: relatorioPdf, bytes: buffer.length });
+        } catch (err) {
+          relatorioPdf = null;
+          this.emit('aviso', { texto: `Não consegui gravar o relatório em PDF: ${err.message}` });
+        }
+      }
       if (!r.texto) throw new Error('a escrita veio vazia');
       // produto: uma foto em cada cartão "#### N. Nome"; o resto: a imagem de cada assunto no topo
       const limparNome = (t) => String(t).replace(/[*_[\]]/g, '').trim();
@@ -1727,7 +1751,10 @@ class Agent extends EventEmitter {
             .join('\n')}`
         : '';
       const comVideos = `${comFoto}${videos}`;
-      const final = r.fontes.length ? `${comVideos}\n\n---\n**Fontes**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comVideos;
+      const comRelatorio = r.relatorio
+        ? `${comVideos}\n\n${relatorioPdf ? `**Relatório completo em PDF:** \`${relatorioPdf}\` — ${r.secoes.length} partes, ${r.fontes.length} fontes, ${Math.max(1, Math.round(r.gastoS / 60))} min de pesquisa${r.interrompida ? ' (interrompida antes do fim)' : ''}.` : ''}`
+        : comVideos;
+      const final = r.fontes.length ? `${comRelatorio}\n\n---\n**Fontes**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comRelatorio;
       this.emit('nucleo-fim', { modo, ms: Date.now() - inicio, fontes: r.fontes.length, entendimento: r.entendimento });
       await this.fotografarModelos();
       this.emit('concluido', { resumo: final, resposta: true, iteracoes: 0, uso: this.uso, verificacao: null, confianca: null });

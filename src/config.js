@@ -243,6 +243,8 @@ const DEFAULTS = {
   boasVindasConcluida: false,
   // Fase 5: o modelo olha a imagem criada e corrige no máximo 2 vezes
   revisarImagensCriadas: true,
+  // investigação com tempo (17/10): minutos que o usuário dá para o AuGPT pesquisar
+  minutosDeInvestigacao: 10,
   // Início automático do Ollama sem perguntar — só fica true depois que o
   // usuário marcou "sempre iniciar automaticamente" na oferta ("Detectei que
   // o Ollama está desligado. Deseja que eu ative ele?"). Padrão false:

@@ -100,6 +100,10 @@ const EVENTOS = [
   'download-concluido',
   // Modo AUTO (auto.js, 10/10): nível do pedido e o que a resposta rápida fez
   'nivel-auto', 'resposta-rapida', 'auto-correcao', 'auto-pesquisa', 'resposta-vazia',
+  // núcleo, imagens e investigação (15–17/10): sem estar aqui, o evento não chega na tela
+  // (17/10: o PDF da investigação não virava anexo na resposta)
+  'nucleo-entendimento', 'nucleo-fim', 'imagem-vista', 'imagem-revisada', 'referencia-escolhida',
+  'arquivo-criado', 'investigacao-plano', 'investigacao-progresso', 'investigacao-secao',
 ];
 
 /**
