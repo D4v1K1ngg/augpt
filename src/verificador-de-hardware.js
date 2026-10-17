@@ -118,8 +118,9 @@ function recomendarModelos({ vramGB = 0, ramTotalGB = 0, discoLivreGB = null } =
   if (vramGB >= 20) [chave, motivo] = ['27b', `sua placa tem ${vramGB} GB: cabe o modelo grande, o de melhor qualidade`];
   else if (vramGB >= 7.5) [chave, motivo] = ['9b', `sua placa tem ${vramGB} GB: o 9B cabe inteiro nela — é o que o AuGPT foi ajustado e medido`];
   else if (vramGB >= 4.5) [chave, motivo] = ['4b', `sua placa tem ${vramGB} GB: o 4B cabe inteiro; o 9B ficaria lento`];
-  else if (ramTotalGB >= 16) [chave, motivo] = ['4b', `sem placa de vídeo com memória suficiente: roda no processador, usando ${ramTotalGB} GB de RAM (mais devagar)`];
-  else if (ramTotalGB >= 8) [chave, motivo] = ['2b', `pouca memória (${ramTotalGB} GB de RAM, sem placa adequada): um modelo leve, que responde pior`];
+  // 17/10, medido: o 2B ocupa 2,6 GB na placa e teve a mesma nota do 4B (9,5) na metade do tempo
+  else if (vramGB >= 3) [chave, motivo] = ['2b', `sua placa tem ${vramGB} GB: o 2B (2,6 GB) cabe inteiro nela e é rápido`];
+  else if (ramTotalGB >= 8) [chave, motivo] = ['2b', `sem placa de vídeo com memória suficiente: roda no processador, usando a RAM (${ramTotalGB} GB); o 2B é o mais indicado aí — nos testes teve a mesma nota do 4B na metade do tempo`];
   else [chave, motivo] = ['0.8b', `memória muito limitada (${ramTotalGB} GB): só o menor modelo roda, com qualidade baixa`];
   const principal = { ...MODELOS[chave], motivo };
   const ordem = ['27b', '9b', '4b', '2b', '0.8b'];

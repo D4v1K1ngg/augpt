@@ -26,7 +26,7 @@ module.exports = [
     },
   },
   {
-    nome: 'boas-vindas: recomendação pelo hardware — VRAM decide quando há placa (27B / 9B / 4B), RAM quando não há (4B / 2B / 0.8B); sempre com o nomic-embed-text; avisa disco curto e falta de placa',
+    nome: 'boas-vindas: recomendação pelo hardware — VRAM decide quando há placa (27B / 9B / 4B), RAM quando não há (2B / 0.8B); placa de 3 a 4,5 GB → 2B; sempre com o nomic-embed-text; avisa disco curto e falta de placa',
     tipo: 'unidade',
     executar() {
       const r = (hw) => v.recomendarModelos(hw);
@@ -37,7 +37,8 @@ module.exports = [
         r({ vramGB: 24, ramTotalGB: 64 }).principal.nome === 'qwen3.5:27b' || '24 GB → 27B',
         pc.principal.nome === 'qwen3.5:9b' && pc.avisos.length === 0 || `8 GB → 9B sem aviso: ${pc.principal.nome} ${pc.avisos}`,
         r({ vramGB: 6, ramTotalGB: 16 }).principal.nome === 'qwen3.5:4b' || '6 GB → 4B',
-        semPlaca.principal.nome === 'qwen3.5:4b' && semPlaca.avisos.some((a) => /processador/.test(a)) || 'sem placa, 16 GB → 4B no processador, com aviso',
+        semPlaca.principal.nome === 'qwen3.5:2b' && semPlaca.avisos.some((a) => /processador/.test(a)) || 'sem placa, 16 GB → 2B no processador (mais rápido, mesma nota do 4B), com aviso',
+        r({ vramGB: 4, ramTotalGB: 16 }).principal.nome === 'qwen3.5:2b' || 'placa de 3 a 4,5 GB → 2B inteiro nela',
         r({ vramGB: 0, ramTotalGB: 8 }).principal.nome === 'qwen3.5:2b' && r({ vramGB: 0, ramTotalGB: 4 }).principal.nome === 'qwen3.5:0.8b' || 'pouca RAM → 2B / 0.8B',
         pc.embedding.nome === 'nomic-embed-text' && pc.downloadTotalGB === 6.9 || `embedding e total: ${pc.downloadTotalGB}`,
         semDisco.avisos.some((a) => /pouco espaço/.test(a)) || 'disco curto avisa',
