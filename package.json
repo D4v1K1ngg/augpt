@@ -1,6 +1,6 @@
 {
   "name": "augpt",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Agente autônomo para desktop que planeja, pesquisa na web, lê e gera documentos — com o modelo de IA rodando no seu computador via Ollama.",
   "main": "electron/main.js",
   "author": "Davi",

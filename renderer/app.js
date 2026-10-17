@@ -1956,6 +1956,7 @@ function preencherConfig() {
   $('cfgNavegacao').checked = config.navegacaoInterativa !== false;
   $('cfgImagensNasRespostas').checked = config.imagensNasRespostas !== false;
   $('cfgRevisarImagens').checked = config.revisarImagensCriadas !== false;
+  $('cfgOndeComprar').checked = config.ondeComprar !== false;
   $('cfgFontesComunidade').value = (config.fontesComunidade || []).join('\n');
   $('cfgNavegadorVisivel').checked = config.navegadorVisivel !== false;
   $('cfgDownloadsDoNavegador').value = config.downloadsDoNavegador === 'pasta-de-trabalho' ? 'pasta-de-trabalho' : 'perguntar';
@@ -2010,6 +2011,7 @@ async function salvarAjustes() {
     navegacaoInterativa: $('cfgNavegacao').checked,
     imagensNasRespostas: $('cfgImagensNasRespostas').checked,
     revisarImagensCriadas: $('cfgRevisarImagens').checked,
+    ondeComprar: $('cfgOndeComprar').checked,
     // um endereço por linha; vazio = lista padrão (dados/comunidades.json)
     fontesComunidade: $('cfgFontesComunidade')
       .value.split(/\n+/)

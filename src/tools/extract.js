@@ -1,6 +1,7 @@
 'use strict';
 
 const { baixar } = require('./http');
+const { ofertasDoHtml, textoDasOfertas } = require('./ofertas');
 const { pdf: extrairPdf } = require('../formatos/pdf');
 
 /* ------------------------------ limpeza básica ------------------------------ */
@@ -338,7 +339,7 @@ function pareceMalcodificado(txt) {
 }
 
 /** Orquestra as estratégias e devolve a melhor extração do HTML. */
-function extrairDoHtml(htmlBruto) {
+function extrairDoHtml(htmlBruto, url = undefined) {
   const html = podar(htmlBruto);
   const estruturados = dadosEstruturados(htmlBruto);
   const data = dataDePublicacao(htmlBruto);
@@ -351,11 +352,21 @@ function extrairDoHtml(htmlBruto) {
     const cru = texto(html);
     if (cru.length > 60) candidatos.push({ texto: cru, via: 'texto-cru' });
   }
-  const melhor = candidatos.sort((a, b) => b.texto.length - a.texto.length)[0];
+  let melhor = candidatos.sort((a, b) => b.texto.length - a.texto.length)[0];
+  // loja (17/10): os produtos e preços vêm dos dados estruturados da página — a extração de
+  // matéria descarta a grade de produtos (no KaBuM sobravam ~1.000 caracteres, sem preço)
+  const ofertas = ofertasDoHtml(htmlBruto, url);
+  if (ofertas.length >= 2) {
+    melhor = {
+      texto: `Ofertas nesta página (dados publicados pela própria loja):\n${textoDasOfertas(ofertas)}${melhor ? `\n\n${melhor.texto.slice(0, 1500)}` : ''}`,
+      via: 'ofertas',
+    };
+  }
   if (!melhor) return null;
 
   const cabecalho = [
     data ? `[publicado em ${data}]` : '',
+    ofertas.length === 1 ? `[preço nesta página: ${textoDasOfertas(ofertas).replace(/^- /, '')}]` : '',
     ...estruturados.map((e) => `[${e}]`),
   ].filter(Boolean).join('\n');
 
@@ -364,7 +375,8 @@ function extrairDoHtml(htmlBruto) {
     titulo: titulo(htmlBruto),
     data,
     estruturados,
-    listagem: pareceListagem(melhor.texto),
+    listagem: melhor.via === 'ofertas' ? false : pareceListagem(melhor.texto),
+    ofertas,
     texto: cabecalho ? `${cabecalho}\n\n${melhor.texto}` : melhor.texto,
   };
 }
@@ -547,7 +559,7 @@ async function lerEmCamadas(url, { render, permitirExterno = true, minimo = 250,
       // os tópicos saíam pela extração genérica, que poda os comentários)
       const topico = html ? comunidade.topicoDeForum(html) : null;
       if (topico && topico.texto.length >= 120) return { ...topico, via: `${topico.via}+render-js`, url };
-      const pronto = html ? extrairDoHtml(html) : null;
+      const pronto = html ? extrairDoHtml(html, url) : null;
       if (pronto && pronto.texto.length >= minimo && !pareceMalcodificado(pronto.texto)) {
         return { ...pronto, via: 'render-js', url };
       }
@@ -601,7 +613,7 @@ async function lerEmCamadas(url, { render, permitirExterno = true, minimo = 250,
         // tópico de fórum: posts em ordem, sem citação repetida nem assinatura
         const topico = comunidade.topicoDeForum(r.texto);
         if (topico && topico.texto.length >= 120) return { ...topico, url: r.url };
-        direto = extrairDoHtml(r.texto);
+        direto = extrairDoHtml(r.texto, r.url || url);
         if (direto && direto.texto.length >= minimo) {
           if (!pareceMalcodificado(direto.texto)) return { ...direto, url: r.url };
           tentativas.push('html direto: texto malcodificado (charset errado), descartado');
@@ -623,7 +635,7 @@ async function lerEmCamadas(url, { render, permitirExterno = true, minimo = 250,
       const html = await render(url);
       const topico = html ? comunidade.topicoDeForum(html) : null;
       if (topico && topico.texto.length >= 120) return { ...topico, via: `${topico.via}+render-js`, url };
-      const rendered = html ? extrairDoHtml(html) : null;
+      const rendered = html ? extrairDoHtml(html, url) : null;
       if (rendered && rendered.texto.length >= minimo && !pareceMalcodificado(rendered.texto)) {
         return { ...rendered, via: 'render-js', url };
       }

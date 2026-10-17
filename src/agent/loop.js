@@ -37,6 +37,7 @@ const search = require('../tools/search');
 const { lerComCache } = require('../tools/web');
 const nucleo = require('./nucleo');
 const { investigar } = require('./nucleo/investigacao');
+const { ondeComprar, linhaOndeComprar } = require('./onde-comprar');
 const { gerarPdf } = require('../formatos/pdf-escrita');
 const { YtDlp, pareceMudancaDoYouTube, idDoVideo } = require('../ytdlp');
 const { Tesseract, IMAGEM } = require('../tesseract');
@@ -1726,12 +1727,18 @@ class Agent extends EventEmitter {
       // produto: uma foto em cada cartão "#### N. Nome"; o resto: a imagem de cada assunto no topo
       const limparNome = (t) => String(t).replace(/[*_[\]]/g, '').trim();
       const nomes = r.produto ? [...r.texto.matchAll(/^#### \d+\. (.+)$/gm)].map((m) => limparNome(m[1])) : [];
+      // fotos e "onde comprar" (17/10) ao mesmo tempo: o preço de hoje vem da página de cada loja
+      const lojasDosProdutos = nomes.length && cfg.ondeComprar !== false
+        ? imagens.comLimite(Promise.all(nomes.slice(0, 6).map((n) => ondeComprar(n, { ler: (url) => lerComCache(url, ctxWeb) }).catch(() => []))), 35000, [])
+        : Promise.resolve([]);
       const fotos = nomes.length ? await imagens.comLimite(imagens.imagensDosProdutos(nomes, { config: cfg, dir: this.dirImagens() }), 20000, new Map()) : new Map();
+      const precosNasLojas = new Map((await lojasDosProdutos).map((achados, i) => [nomes[i], achados]));
       const doTopo = r.buscou && !nomes.length ? (await figuras).filter(Boolean) : [];
       const comCartoes = nomes.length
         ? r.texto.replace(/^#### \d+\. (.+)$/gm, (linha, nome) => {
             const img = fotos.get(limparNome(nome));
-            return img ? `${linha}\n${imagens.marcacao(limparNome(nome), img)}\n` : linha;
+            const lojas = linhaOndeComprar(precosNasLojas.get(limparNome(nome)) || []);
+            return `${linha}${img ? `\n${imagens.marcacao(limparNome(nome), img)}\n` : ''}${lojas ? `\n${lojas}\n` : ''}`;
           })
         : r.texto;
       const corpo = explicarTermos(comLinks(comCartoes, r.fontes));

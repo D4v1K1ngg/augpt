@@ -266,9 +266,30 @@ async function lerComLimite(url, ctx, chave) {
 /** Mesma URL lida duas vezes na mesma execução: uma requisição só.
  * A chave descarta fragmento E query string — "…?utm_source=x" e "…?utm_source=y"
  * do mesmo artigo não podiam furar o cache por causa de um parâmetro de rastreio. */
+/**
+ * Chave do cache de páginas (na execução e em disco, entre conversas). Tira o
+ * "#" e os parâmetros de rastreio, mas MANTÉM o resto do "?" (17/10: sem ele,
+ * toda busca da Amazon "/s?k=…", todo "noticia.php?id=…" e toda busca do eBay
+ * virava a mesma página — a primeira lida — por vários dias).
+ */
+function chaveDaPagina(url) {
+  const texto = String(url || '');
+  try {
+    const u = new URL(texto);
+    u.hash = '';
+    for (const p of [...u.searchParams.keys()]) {
+      if (/^(utm_|fbclid$|gclid$|gad_source$|mc_|ref$|ref_$|tag$|spm$|srsltid$|_ga$)/i.test(p)) u.searchParams.delete(p);
+    }
+    u.searchParams.sort();
+    return u.toString().replace(/\?$/, '');
+  } catch {
+    return texto.replace(/#.*$/, '');
+  }
+}
+
 async function lerComCache(url, ctx) {
   ctx.estado.cachePaginas = ctx.estado.cachePaginas || new Map();
-  const chave = String(url).replace(/[#?].*$/, '');
+  const chave = chaveDaPagina(url);
   if (ctx.estado.cachePaginas.has(chave)) {
     const guardada = ctx.estado.cachePaginas.get(chave);
     ctx.emit('cache-usado', { url: chave });
@@ -856,3 +877,4 @@ module.exports.aplicarClusteringDeCredibilidade = aplicarClusteringDeCredibilida
 module.exports.deveDescobrirAutoridade = deveDescobrirAutoridade;
 module.exports.construirConsultaDeAutoridade = construirConsultaDeAutoridade;
 module.exports.descobrirAutoridade = descobrirAutoridade;
+module.exports.chaveDaPagina = chaveDaPagina;
