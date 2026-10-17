@@ -64,13 +64,13 @@ Responda SÓ com um JSON:
 
 - "criar_imagem" é true quando o usuário pede para CRIAR, gerar, desenhar, ilustrar ou editar uma imagem (logo, desenho, foto artística, transformar a foto anexada). Pedir para MOSTRAR ou achar uma foto que já existe ("mostre uma foto da Torre Eiffel") é false.
 
-- "assuntos": de 0 a 4 coisas concretas de que a pergunta trata e que têm uma imagem — pessoa, lugar, produto ou modelo, objeto, animal, obra, veículo — com o nome completo e já resolvido pela conversa (ex.: "Dunu Titan S", "Nikola Tesla", "Torre Eiffel"). Ideia abstrata, conta ou assunto genérico ("inflação", "como funciona") não entra; país, cidade ou empresa citados só como contexto ("no Brasil", "da Nvidia") também não.
+- "assuntos": de 0 a 4 coisas concretas de que a pergunta trata e que têm uma imagem — pessoa, lugar, produto ou modelo, objeto, animal, obra, veículo — com o nome completo e já resolvido pela conversa (com o nome que o usuário usou). Ideia abstrata, conta ou assunto genérico ("inflação", "como funciona") não entra; país, cidade ou empresa citados só como contexto ("no Brasil", "da Nvidia") também não.
 
 - "produto" é true quando o usuário quer escolher, comparar, avaliar ou conhecer produtos ou itens para comprar ou usar (fone, mouse, celular, geladeira, carro, um modelo específico…). Para explicação, notícia, pessoa, história ou como algo funciona, false.
 
 - "precisa_buscar" é true para qualquer pedido de informação: produto, preço, recomendação, comparação, notícia, pessoa, lugar, história, ciência, como algo funciona, dado ou número. Seu conhecimento pode estar desatualizado, então mesmo o que você sabe vale conferir.
 - "precisa_buscar" é false SÓ para: saudação ou agradecimento, conta de matemática, tradução ou revisão de um texto que o usuário mandou, escrever um texto criativo, ou algo que a própria conversa já respondeu. Na dúvida, true.
-- Em "pergunta", troque "ele", "isso", "o outro" pelo que eles são na conversa e traga o que a conversa já disse: depois de "qual o carro mais em conta para comprar em 2026?", a mensagem "e quanto ao vectra 2.0?" vira "o Chevrolet Vectra 2.0 usado é uma boa compra em 2026, e quanto custa?". Mantenha o resto como o usuário escreveu.`;
+- Em "pergunta", troque "ele", "isso", "o outro" pelo que eles são na conversa e traga o que a conversa já disse: por exemplo, depois de "qual o melhor <tipo de produto> para <uso>?", a mensagem "e quanto ao <modelo>?" vira "o <modelo> é bom como <tipo de produto> para <uso>, e quanto custa?" (use os nomes reais da conversa, nunca os deste exemplo). Mantenha o resto como o usuário escreveu.`;
 }
 
 // o que pode ficar sem pesquisa: saudação, agradecimento, conta, tradução/revisão de texto, texto criativo
@@ -92,6 +92,35 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
   } catch {
     return { precisaBuscar: true, produto: false, criarImagem: pedeImagem(pergunta), assuntos: [], pergunta }; // JSON quebrado: busca, com a pergunta como veio
   }
+}
+
+/**
+ * Trava do código no entendimento (17/10, Llama 3.2 3B): o modelo pequeno
+ * copiou o exemplo das instruções e reescreveu "top 5 fones para PUBG" como
+ * "Chevrolet Vectra 2.0". Pergunta reescrita ou assunto sem nenhuma palavra do
+ * que o usuário escreveu (na mensagem ou na conversa) não vale.
+ */
+// pistas de pedido de produto (17/10: o 3B marcou "como o acidente de Chernobyl aconteceu?" como produto
+// e a resposta virou um cartão com "faixa de preço"): intenção de escolha ou compra, categoria de
+// produto, ou um nome de modelo com letras e números (QC20, G502, RTX 5080)
+const PISTA_DE_PRODUTO = /\b(melhor(es)?|recomend\w*|indica\w*|sugest\w*|compr\w*|pre[çc]o|custa|vale a pena|review|an[áa]lise|compar\w*|versus|vs\.?|top \d+|qual (escolher|pegar)|custo[- ]benef[íi]cio|fones?|headsets?|iems?|earbuds?|mouses?|teclados?|monitor(es)?|celular(es)?|smartphones?|notebooks?|laptops?|tablets?|tvs?|televis\w+|placas? de v[íi]deo|gpus?|processador(es)?|ssds?|hds?|roteador(es)?|c[âa]meras?|caixas? de som|soundbars?|geladeiras?|fog[õo]es?|micro-?ondas|m[áa]quinas? de lavar|ar[- ]condicionado|carros?|motos?|bicicletas?|t[êe]nis|rel[óo]gios?|smartwatch\w*|consoles?|cadeiras?|perfumes?)\b|\b(?=[a-z]*\d)(?=\d*[a-z])[a-z\d-]{2,}\b/i;
+// nome solto e curto ("dunu titan s") sem palavra de pergunta também vale: aí o modelo decide
+const PALAVRA_DE_PERGUNTA = /(^|[^a-z])(como|por ?que|porque|quem|quando|onde|o que|qual a|quais)([^a-z]|$)/i;
+const temPistaDeProduto = (t) => {
+  const texto = String(t || '').trim();
+  return PISTA_DE_PRODUTO.test(texto) || (texto.split(/\s+/).length <= 5 && !PALAVRA_DE_PERGUNTA.test(texto));
+};
+
+function conferirEntendimento(ent, { pergunta, conversa = [] }) {
+  const doUsuario = new Set(palavrasDe(`${pergunta} ${conversa.map((m) => m.content).join(' ')}`));
+  const tem = (t) => palavrasDe(t).some((w) => doUsuario.has(w));
+  const pedidosDoUsuario = `${pergunta} ${conversa.filter((m) => m.role === 'user').slice(-3).map((m) => m.content).join(' ')}`;
+  return {
+    ...ent,
+    produto: ent.produto === true && temPistaDeProduto(pedidosDoUsuario),
+    pergunta: tem(ent.pergunta) ? ent.pergunta : pergunta,
+    assuntos: (ent.assuntos || []).filter(tem),
+  };
 }
 
 /* ------------------------------ 2. pesquisar ------------------------------ */
@@ -214,6 +243,37 @@ ${produto ? `- Este pedido é sobre produtos: use buscar_na_comunidade pelo meno
   }- Esta é a rodada ${rodada} de ${total}.`;
 }
 
+/**
+ * As buscas que o modelo mandou, como lista (17/10, Llama 3.2 3B): modelo
+ * pequeno manda a lista como TEXTO ("[\"a\", \"b\"]") ou separada por vírgula,
+ * e o núcleo buscava o texto inteiro como uma busca só — vinham sites de filme.
+ */
+function listaDeBuscas(valor) {
+  let v = valor;
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (t.startsWith('[')) {
+      try {
+        v = JSON.parse(t);
+      } catch {
+        v = t.replace(/^\[|\]$/g, '').split(/"\s*,\s*"/);
+      }
+    } else v = /"\s*,\s*"/.test(t) ? t.split(/"\s*,\s*"/) : [t];
+  }
+  return (Array.isArray(v) ? v : [v])
+    .flat()
+    .map((q) => String(q ?? '').replace(/^[\s"'[\]]+|[\s"'[\]]+$/g, '').trim())
+    .filter((q) => q.length >= 2);
+}
+
+const palavrasDe = (t) =>
+  String(t || '')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 4 || /\d/.test(w));
+
 /** Os resultados como o pesquisador vê: "[n] título (domínio)\nresumo". */
 const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || dominio(f.url)} (${dominio(f.url)}${f.comunidade ? ', comunidade' : ''}${f.video ? ', vídeo' : ''})\n${String(f.resumo || '').slice(0, 300)}`).join('\n\n');
 
@@ -247,8 +307,25 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   ];
   let buscou = false;
 
+  // 17/10 (Llama 3.2 3B): busca sem o assunto ("especificações e dados técnicos", copiado das
+  // instruções) ganha o assunto na frente; busca repetida não roda de novo
+  const termosDoAssunto = new Set(palavrasDe(`${pergunta} ${assuntos.join(' ')}`));
+  const assuntoCurto = (assuntos.length ? assuntos.slice(0, 2).join(' ') : pergunta).slice(0, 80);
+  const feitas = new Set();
+  const prepararBuscas = (buscas, maximo, onde = 'web') =>
+    listaDeBuscas(buscas)
+      .map((q) => (palavrasDe(q).some((w) => termosDoAssunto.has(w)) ? q : `${assuntoCurto} ${q}`))
+      .filter((q) => {
+        const chave = `${onde}:${palavrasDe(q).sort().join(' ')}`;
+        if (feitas.has(chave)) return false;
+        feitas.add(chave);
+        return true;
+      })
+      .slice(0, maximo);
+
   const executarBusca = async (buscas, { comunidade = false } = {}) => {
-    const lista = (Array.isArray(buscas) ? buscas : [buscas]).map(String).filter(Boolean).slice(0, 3);
+    const lista = prepararBuscas(buscas, 3, comunidade ? 'comunidade' : 'web');
+    if (!lista.length) return 'Essas buscas já foram feitas. Leia as fontes mais promissoras com ler_pagina, busque outro ângulo com o nome do assunto, ou chame pronto.';
     emit('ferramenta', { nome: comunidade ? 'buscar_na_comunidade' : 'buscar_na_web', argumentos: { consulta: lista.join(' · ') }, risco: 'leitura' });
     const achados = (await Promise.all(lista.map((q) => (comunidade ? buscarNaComunidade(q) : buscar(q)).catch(() => [])))).flat();
     for (const q of lista) emit('fonte', { tipo: 'busca', provedor: 'web', consultas: [q], resultados: Math.round(achados.length / lista.length) });
@@ -269,7 +346,8 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   };
 
   const executarBuscaNoYoutube = async (buscas) => {
-    const lista = (Array.isArray(buscas) ? buscas : [buscas]).map(String).filter(Boolean).slice(0, 2);
+    const lista = prepararBuscas(buscas, 2, 'youtube');
+    if (!lista.length) return 'Essas buscas já foram feitas.';
     emit('ferramenta', { nome: 'buscar_no_youtube', argumentos: { consulta: lista.join(' · ') }, risco: 'leitura' });
     const achados = (await Promise.all(lista.map((q) => deps.buscarNoYoutube(q).catch(() => [])))).flat();
     for (const q of lista) emit('fonte', { tipo: 'busca', provedor: 'youtube', consultas: [q], resultados: Math.round(achados.length / lista.length) });
@@ -336,6 +414,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   const executarLeitura = async ({ fonte, foco }, { garantia = false } = {}) => {
     const f = fontes.find((x) => x.n === Number(fonte));
     if (!f) return `Não existe a fonte [${fonte}] nos resultados.`;
+    if (f.trechos.length) return `[${f.n}] já foi lida — o que ela traz:\n${f.trechos.join('\n…\n').slice(0, 1500)}\nLeia outra fonte ou chame pronto.`;
     if (leiturasFeitas >= regras.leituras && !garantia) return `Limite de ${regras.leituras} páginas lidas nesta pesquisa: use o que já tem ou chame pronto.`;
     leiturasFeitas += 1;
     if (f.video && comYoutube) {
@@ -434,7 +513,9 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
     const faltam = regras.minLeituras - lidas();
     const naoLidas = fontes.filter((f) => !f.trechos.length).map((f) => ({ f, texto: `${f.titulo} ${f.resumo}` }));
     const ordenadas = (await ordenar(pergunta, naoLidas, { embed })).map((x) => x.f);
-    const ordem = [...ordenadas.filter(citaAssunto), ...ordenadas.filter((f) => !citaAssunto(f))];
+    // só página que cita o assunto: faltando, lê menos — completar a conta com página fora do assunto
+    // (17/10, um tópico de SSD num pedido de fone) piora a resposta em vez de melhorar
+    const ordem = ordenadas.filter(citaAssunto);
     const sites = new Set(fontes.filter((f) => f.trechos.length).map((f) => dominio(f.url)));
     const primeiroDeCadaSite = ordem.filter((f) => !sites.has(dominio(f.url)) && sites.add(dominio(f.url)));
     const candidatas = [...new Set([...primeiroDeCadaSite, ...ordem])].slice(0, faltam * 2);
@@ -539,6 +620,66 @@ function conferirAnos(texto, { material = '', pergunta = '', hoje = '' } = {}) {
   if (!faltam.size) return { texto: marcado, faltam: [] };
   const lista = [...faltam].sort();
   return { texto: `${marcado}\n\n*⚠ ${lista.length === 1 ? 'Este ano não aparece' : 'Estes anos não aparecem'} nas fontes lidas: ${lista.join(', ')}. Vale conferir.*`, faltam: lista };
+}
+
+/**
+ * Conferência da resposta pelo código (17/10, medido com o Llama 3.2 3B, que
+ * citava [9] e [10] com 8 fontes, punha preço redondo que não estava em
+ * lugar nenhum e recomendava headset que nenhuma fonte citava num pedido de
+ * intra-auricular). Vale para qualquer modelo:
+ * - citação de fonte que não existe sai;
+ * - preço que não aparece no material ganha ⚠ (como os anos);
+ * - cartão de produto cujo nome não aparece em nenhuma fonte sai, com aviso
+ *   (se nenhum cartão sobraria, ficam todos e o aviso diz isso).
+ */
+const inteiroDoPreco = (t) => String(t).replace(/[.\s](?=\d{3}\b)/g, '').replace(/[,.]\d{1,2}$/, '').replace(/\D/g, '');
+
+function conferirResposta(texto, { numeros = [], material = '', produto = false } = {}) {
+  const validos = new Set(numeros);
+  let t = String(texto || '').replace(/\[(\d+)\]/g, (m, n) => (validos.has(Number(n)) ? m : ''));
+  t = t.replace(/\(\s*fontes?:?\s*\)/gi, '').replace(/[ \t]+([.,;])/g, '$1');
+
+  const removidos = [];
+  if (produto) {
+    const partes = t.split(/(?=^#### \d+\.)/m);
+    const cartoes = partes.filter((x) => /^#### \d+\./.test(x));
+    // o cartão termina no próximo título que não é cartão (## ou ###) ou num ---
+    const corpo = (x) => x.split(/^(?=#{2,3} (?!#)|---\s*$)/m)[0];
+    const semFonte = cartoes.filter((x) => !tituloCita(material, /^#### \d+\.\s*(.+)$/m.exec(x)[1].replace(/[*_[\]]/g, '')));
+    if (semFonte.length && semFonte.length < cartoes.length) {
+      let n = 0;
+      t = partes
+        .map((x) => {
+          if (!/^#### \d+\./.test(x)) return x;
+          const nome = /^#### \d+\.\s*(.+)$/m.exec(x)[1].replace(/[*_[\]]/g, '').trim();
+          if (semFonte.includes(x)) {
+            removidos.push(nome);
+            return x.slice(corpo(x).length); // tira o cartão, fica o que vem depois dele
+          }
+          n += 1;
+          return x.replace(/^#### \d+\./, `#### ${n}.`);
+        })
+        .join('');
+    } else if (semFonte.length) {
+      removidos.push(...semFonte.map((x) => `${/^#### \d+\.\s*(.+)$/m.exec(x)[1].replace(/[*_[\]]/g, '').trim()} (mantido)`));
+    }
+  }
+  const valoresDoMaterial = new Set((material.match(/\d[\d.,]*\d|\d/g) || []).map(inteiroDoPreco));
+  const precosSemFonte = new Set();
+  t = t.replace(/((?:R\$|US\$|U\$|€|£)\s?)(\d[\d.,]*\d|\d)(?![\d%])/g, (m, moeda, valor) => {
+    if (valoresDoMaterial.has(inteiroDoPreco(valor))) return m;
+    precosSemFonte.add(`${moeda.trim()} ${valor}`);
+    return `${m} ⚠`;
+  });
+
+  const notas = [];
+  if (removidos.length) {
+    notas.push(removidos.every((r) => /\(mantido\)$/.test(r))
+      ? `*⚠ Nenhuma das opções aparece com esse nome nas fontes lidas — confira antes de comprar.*`
+      : `*Tirei ${removidos.length === 1 ? '1 opção que não aparece' : `${removidos.length} opções que não aparecem`} em nenhuma fonte lida: ${removidos.join(', ')}.*`);
+  }
+  if (precosSemFonte.size) notas.push(`*⚠ ${precosSemFonte.size === 1 ? 'Este preço não aparece' : 'Estes preços não aparecem'} nas fontes lidas: ${[...precosSemFonte].join(', ')}. Vale conferir.*`);
+  return { texto: notas.length ? `${t.trim()}\n\n${notas.join('\n\n')}` : t, precosSemFonte: [...precosSemFonte], removidos };
 }
 
 /**
@@ -701,13 +842,21 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const { chamar, escrever, embed, emit = () => {} } = deps;
   // imagem anexada (Fase 4): o modelo olha primeiro, e o que viu vai para o entendimento e a escrita
   let vista = '';
-  if (imagens.length) {
+  // modelo que não enxerga (17/10, Llama 3.2 3B): usa o texto do OCR, se houver; senão diz como resolver
+  if (imagens.length && deps.semVisao) {
+    const lido = imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n');
+    if (!lido && !pedeImagem(pergunta)) {
+      return { vista: '', texto: deps.semVisao, fontes: [], entendimento: { precisaBuscar: false, produto: false, assuntos: [], pergunta }, buscou: false, produto: false, assuntos: [], modo: 'imagem', anosSemFonte: [] };
+    }
+    vista = lido ? `ESCRITO NA IMAGEM (lido por OCR; o modelo atual não vê a imagem): ${lido}` : '';
+    imagens = imagens.map((i) => ({ ...i, base64: undefined }));
+  } else if (imagens.length) {
     emit('ferramenta', { nome: 'ver_imagem', argumentos: { arquivos: imagens.map((i) => i.nome).join(', ') }, risco: 'leitura' });
     vista = String((await chamar([{ role: 'user', content: pedidoDeVisao({ pergunta, imagens }), images: imagens.map((i) => i.base64) }], { numPredict: 900 })).content || '').trim();
     emit('imagem-vista', { texto: vista });
   }
   const perguntaComImagem = vista ? `${pergunta}\n\n[Imagem anexada pelo usuário — o que se vê nela: ${vista.slice(0, 1500)}]` : pergunta;
-  const ent = lerEntendimento((await chamar([{ role: 'user', content: pedidoDeEntendimento({ pergunta: perguntaComImagem, conversa, hoje }) }], { json: true, numPredict: 300 })).content, pergunta, { comImagem: imagens.length > 0 });
+  const ent = conferirEntendimento(lerEntendimento((await chamar([{ role: 'user', content: pedidoDeEntendimento({ pergunta: perguntaComImagem, conversa, hoje }) }], { json: true, numPredict: 300 })).content, pergunta, { comImagem: imagens.length > 0 }), { pergunta: perguntaComImagem, conversa });
   // criar imagem (Fase 5): com o gerador instalado, o pedido não pesquisa — o Qwen escreve o prompt e o FLUX gera
   if (ent.criarImagem && typeof deps.gerarImagem === 'function') {
     emit('nucleo-entendimento', { ...ent, modo: 'imagem' });
@@ -732,9 +881,12 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
-    { role: 'user', ...(imagens.length ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.)` : pergunta },
+    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.)` : pergunta },
   ];
-  const escrito = semImagens(await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco }))).replace(/\s*\[(imagem_anexada|imagem anexada)\]/gi, '');
+  const escrito = semImagens(await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco })))
+    .replace(/\s*\[(imagem_anexada|imagem anexada)\]/gi, '')
+    // título dentro de negrito (17/10, Llama 3.2 3B: "**#### 1. HyperX…**") não vira cartão nem título
+    .replace(/^\s*\*\*\s*(#{2,4} [^*\n]+?)\s*\*\*\s*$/gm, '$1');
   // só ficam na lista as fontes que a resposta citou (ou todas as usadas, se ela não citou nenhuma)
   const citadas = new Set([...String(escrito).matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
   const lista = usadas.filter((f) => !citadas.size || citadas.has(f.n)).map(({ n, url, titulo, video, trechos }) => ({ n, url, titulo, ...(video ? { video: true, lido: trechos.length > 0 } : {}) }));
@@ -742,6 +894,12 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')}`).join(' ')} ${notas} ${vista}` : '';
   const conferido = fontes.length ? conferirAnos(String(escrito || '').trim(), { material, pergunta, hoje }) : { texto: String(escrito || '').trim(), faltam: [] };
   if (conferido.faltam.length) emit('aviso', { texto: `conferência: ano(s) sem fonte na resposta: ${conferido.faltam.join(', ')}` });
+  if (fontes.length) {
+    const r = conferirResposta(conferido.texto, { numeros: usadas.map((f) => f.n), material, produto: ent.produto });
+    conferido.texto = r.texto;
+    if (r.removidos.length) emit('aviso', { texto: `conferência: opções sem fonte: ${r.removidos.join(', ')}` });
+    if (r.precosSemFonte.length) emit('aviso', { texto: `conferência: preços sem fonte: ${r.precosSemFonte.join(', ')}` });
+  }
   if (semVideos) emit('aviso', { texto: 'Para o AuGPT ver vídeos do YouTube, instale o yt-dlp em Ajustes → Componentes.' });
   // identificação só pela aparência: a resposta avisa, pelo código (16/10: a foto de um EPOS H6PRO
   // virou "o fone na imagem é o EPOS H3 Pro Hybrid", um irmão quase igual, dito como certo)
@@ -754,4 +912,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam };
 }
 
-module.exports = { MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

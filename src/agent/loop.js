@@ -1594,10 +1594,17 @@ class Agent extends EventEmitter {
         return achados.flat();
       },
     };
+    // modelo sem visão (17/10, Llama 3.2 3B): nada de mandar imagem para ele
+    const capacidades = await ollama.capacidades(cfg.host, modelo).catch(() => []);
+    const enxerga = !capacidades.length || capacidades.includes('vision'); // sem a lista (Ollama antigo): tenta
+    if (!enxerga) {
+      deps.semVisao = `O modelo em uso (**${modelo}**) não enxerga imagens. Para perguntar sobre fotos, escolha um **Qwen 3.5** no seletor de modelo do topo — até o de 2B enxerga. Para ler o texto de prints e documentos, instale o **Tesseract** em Ajustes → Componentes.`;
+    }
     // Fase 5: criar imagens com o FLUX.2 Klein (Ajustes → Componentes)
     const gerador = this.userDataPath ? new GeradorDeImagens(pastaPadrao(this.userDataPath)) : null;
     if (gerador?.instalado()) {
-      deps.revisoesDeImagem = cfg.revisarImagensCriadas === false ? 0 : 2;
+      // revisar e escolher a foto de referência pedem visão
+      deps.revisoesDeImagem = cfg.revisarImagensCriadas === false || !enxerga ? 0 : 2;
       deps.gerarImagem = async ({ prompt, largura, altura, semente, referencias = [], legenda }) => {
         // o FLUX usa ~7 GB da placa: os modelos do Ollama saem antes (voltam sozinhos no próximo pedido)
         for (const m of await ollama.psModels(cfg.host).catch(() => [])) await ollama.unloadModel(cfg.host, m.name).catch(() => {});
@@ -1630,7 +1637,7 @@ class Agent extends EventEmitter {
         return { uri: `augpt-img://${nome}`, base64: fs.readFileSync(saida).toString('base64'), ms: r.ms, caminho };
       };
       // fotos reais de referência: versão grande da busca de imagens; miniatura (menos de 300 px) fica de fora
-      if (cfg.searxngUrl) {
+      if (cfg.searxngUrl && enxerga) {
         deps.buscarReferencias = async (q) => {
           const candidatas = (await imagens.buscarImagens(q, { config: cfg, maximo: 12, grande: true })).slice(0, 8);
           const uris = await Promise.all(candidatas.map((c) => imagens.guardarImagem(c.url, { dir: this.dirImagens(), config: cfg }).catch(() => null)));
@@ -1653,7 +1660,7 @@ class Agent extends EventEmitter {
       deps.semGerador = 'Para criar imagens, o AuGPT usa o FLUX.2 Klein, que roda no seu computador. Ele ainda não está instalado: em **Ajustes → Componentes → Criar imagens** dá para ver se a sua placa de vídeo comporta e instalar com um clique (cerca de 6 GB).';
     }
     // Fase 4: o pesquisador olha imagens da web (a busca de imagens é a do SearXNG)
-    if (cfg.searxngUrl && cfg.imagensNasRespostas !== false) {
+    if (cfg.searxngUrl && cfg.imagensNasRespostas !== false && enxerga) {
       deps.buscarImagensParaVer = async (q) => {
         const candidatas = (await imagens.buscarImagens(q, { config: cfg, maximo: 8 })).slice(0, 6);
         const uris = await Promise.all(candidatas.map((c) => imagens.guardarImagem(c.url, { dir: this.dirImagens(), config: cfg }).catch(() => null)));

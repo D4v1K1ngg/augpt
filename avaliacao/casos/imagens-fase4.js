@@ -196,4 +196,26 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'fase 4 (17/10, Llama 3.2 3B): modelo que não enxerga não recebe imagem — com texto do OCR, responde a partir dele; sem OCR, explica como resolver (trocar para um Qwen 3.5 ou instalar o Tesseract) sem chamar o modelo com a imagem',
+    tipo: 'unidade',
+    async executar() {
+      const rodar = async (texto) => {
+        const m = modelo({ entendimento: { precisa_buscar: false, produto: false, assuntos: [], pergunta: 'o que diz esse print?' } });
+        const r = await nucleo.responder({
+          pergunta: 'o que diz esse print?',
+          imagens: [{ nome: 'p.png', base64: 'QUJD', texto }],
+          deps: { chamar: m.chamar, escrever: m.escrever, buscar: async () => [], lerPagina: async () => ({}), semVisao: 'O modelo em uso não enxerga imagens… Qwen 3.5… Tesseract' },
+        });
+        return { r, m };
+      };
+      const comOcr = await rodar('Reunião às 15h na sala 2');
+      const semOcr = await rodar('');
+      const recebeuImagem = (m) => m.chamadas.some((c) => c.messages.some((x) => x.images)) || m.escritas.some((e) => e.some((x) => x.images));
+      return [
+        !recebeuImagem(comOcr.m) && /Reunião às 15h na sala 2/.test(comOcr.m.escritas[0][0].content) || 'com OCR: responde pelo texto lido, sem mandar a imagem',
+        semOcr.m.escritas.length === 0 && !recebeuImagem(semOcr.m) && /Qwen 3\.5/.test(semOcr.r.texto) || `sem OCR: explica (${semOcr.r.texto})`,
+      ];
+    },
+  },
 ];

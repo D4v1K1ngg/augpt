@@ -96,7 +96,7 @@ module.exports = [
       const semFerramenta = modeloFalso({ roteiro: [{ texto: 'vou responder de memória' }, { pronto: true }] });
       const buscas = [];
       const deps = (m) => ({ chamar: m.chamar, escrever: m.escrever, buscar: async (q) => (buscas.push(q), [{ titulo: 't', url: 'https://a.com/x', resumo: 'algo sobre o tema' }]), lerPagina: async () => ({}) });
-      await nucleo.responder({ pergunta: 'quem ganhou a copa de 2026?', deps: deps(semFerramenta) });
+      await nucleo.responder({ pergunta: 'o que é o fone Dunu Titan S?', deps: deps(semFerramenta) });
       const conversaFiada = modeloFalso({ entendimento: { precisa_buscar: false, pergunta: 'obrigado!' }, texto: 'De nada!' });
       const semBusca = await nucleo.responder({ pergunta: 'obrigado!', deps: deps(conversaFiada) });
       const quebrado = nucleo.lerEntendimento('não sei responder em JSON', 'pergunta original');
@@ -184,7 +184,7 @@ module.exports = [
         const eventos = [];
         let n = 0;
         const res = await nucleo.responder({
-          pergunta: 'p',
+          pergunta: entendimento?.pergunta || 'p',
           modo,
           tamanho,
           deps: {
@@ -385,6 +385,84 @@ module.exports = [
         !/augpt-img:/.test(enviado) || 'a conversa chega à escrita sem as imagens',
         !/augpt-img:/.test(r.texto) && /#### 1\. G Pro X2\n\*\*Faixa/.test(r.texto) || `a imagem escrita pelo modelo sai: ${r.texto}`,
       ];
+    },
+  },
+  {
+    nome: 'núcleo (17/10, Llama 3.2 3B): lista de buscas mandada como texto vira lista; busca sem o assunto ("especificações e dados técnicos") ganha o assunto; busca repetida não roda de novo (na mesma ferramenta)',
+    tipo: 'unidade',
+    async executar() {
+      const buscas = [];
+      const m = modeloFalso({
+        entendimento: { precisa_buscar: true, produto: false, assuntos: ['Dunu Titan S'], pergunta: 'o Dunu Titan S é bom?' },
+        roteiro: [
+          { ferramentas: [['buscar_na_web', { buscas: '["Dunu Titan S review", "especificações e dados técnicos"]' }]] },
+          { ferramentas: [['buscar_na_web', { buscas: ['dunu titan s REVIEW'] }]] },
+          { pronto: true },
+        ],
+      });
+      await nucleo.responder({ pergunta: 'o Dunu Titan S é bom?', modo: 'normal', deps: { chamar: m.chamar, escrever: m.escrever, buscar: async (q) => (buscas.push(q), []), lerPagina: async () => ({}) } });
+      const resposta2 = m.chamadas.flatMap((c) => c.messages).filter((x) => x.role === 'tool').map((x) => x.content).find((t) => /já foram feitas/.test(t)) || '';
+      return [
+        JSON.stringify(nucleo.listaDeBuscas('["a b", "c d"]')) === '["a b","c d"]' && JSON.stringify(nucleo.listaDeBuscas('"um", "dois"')) === '["um","dois"]' || 'texto vira lista',
+        buscas[0] === 'Dunu Titan S review' && buscas[1] === 'Dunu Titan S especificações e dados técnicos' || `buscas: ${JSON.stringify(buscas)}`,
+        buscas.length === 2 && /já foram feitas/.test(resposta2) || `repetida não roda: ${buscas.length} / ${resposta2.slice(0, 60)}`,
+      ];
+    },
+  },
+  {
+    nome: 'núcleo (17/10, Llama 3.2 3B): o entendimento que copia o exemplo das instruções ("Chevrolet Vectra 2.0" num pedido de fone) é descartado pelo código — vale a pergunta do usuário; assunto da conversa continua valendo',
+    tipo: 'unidade',
+    async executar() {
+      const m = modeloFalso({ entendimento: { precisa_buscar: true, produto: true, assuntos: ['Chevrolet Vectra 2.0'], pergunta: 'o Chevrolet Vectra 2.0 usado é uma boa compra em 2026?' }, roteiro: [{ pronto: true }] });
+      const r = await nucleo.responder({ pergunta: 'top 5 fones intra auriculares para pubg', modo: 'rapido', deps: { chamar: m.chamar, escrever: m.escrever, buscar: async () => [], lerPagina: async () => ({}) } });
+      const m2 = modeloFalso({ entendimento: { precisa_buscar: true, produto: true, assuntos: ['Dunu Titan S'], pergunta: 'o Dunu Titan S é bom para jogar?' }, roteiro: [{ pronto: true }] });
+      const r2 = await nucleo.responder({ pergunta: 'e ele é bom para jogar?', conversa: [{ role: 'user', content: 'o que acha do Dunu Titan S?' }, { role: 'assistant', content: 'É um bom IEM.' }], modo: 'rapido', deps: { chamar: m2.chamar, escrever: m2.escrever, buscar: async () => [], lerPagina: async () => ({}) } });
+      return [
+        r.entendimento.pergunta === 'top 5 fones intra auriculares para pubg' && r.assuntos.length === 0 || `copiado: ${JSON.stringify(r.entendimento)}`,
+        r2.entendimento.pergunta === 'o Dunu Titan S é bom para jogar?' && r2.assuntos.join() === 'Dunu Titan S' || `da conversa: ${JSON.stringify(r2.entendimento)}`,
+      ];
+    },
+  },
+  {
+    nome: 'núcleo (17/10, Llama 3.2 3B): conferência da resposta — citação de fonte que não existe sai; cartão de produto que nenhuma fonte cita sai (renumerando, com aviso); preço que não está no material ganha ⚠; se nenhum cartão tem fonte, ficam todos com o aviso',
+    tipo: 'unidade',
+    executar() {
+      const material = 'Kefine Delci AE custa R$ 649,90 no Mercado Livre. HyperX Cloud Earbuds II por R$ 299.';
+      const texto = 'Intro [1][9].\n\n#### 1. Kefine Delci AE\n**Faixa de preço:** R$ 649,90 (fonte: [9])\n\n#### 2. Razer Opus 7\n**Faixa de preço:** R$ 499,00 [2]\n\n#### 3. HyperX Cloud Earbuds II\n**Faixa de preço:** R$ 350 [1]\n\n## Conclusão\nfim';
+      const r = nucleo.conferirResposta(texto, { numeros: [1, 2], material, produto: true });
+      const nenhum = nucleo.conferirResposta('#### 1. Marca X1\ntexto\n\n#### 2. Marca Y2\ntexto', { numeros: [1], material: 'nada a ver', produto: true });
+      return [
+        !/\[9\]/.test(r.texto) && /Intro \[1\]\./.test(r.texto) && !/\(fonte: \)/.test(r.texto) || `citação inexistente: ${r.texto}`,
+        !/Razer Opus 7\n/.test(r.texto) && /#### 2\. HyperX Cloud Earbuds II/.test(r.texto) && /Tirei 1 opção que não aparece em nenhuma fonte lida: Razer Opus 7/.test(r.texto) || `cartão sem fonte: ${r.texto}`,
+        /R\$ 350 ⚠/.test(r.texto) && /R\$ 649,90(?! ⚠)/.test(r.texto) && !/R\$ 499,00/.test(r.texto) || `preço: ${r.texto}`,
+        /## Conclusão\nfim/.test(r.texto) || 'o que vem depois dos cartões fica',
+        /#### 1\. Marca X1/.test(nenhum.texto) && /Nenhuma das opções aparece/.test(nenhum.texto) || `nenhum com fonte: ${nenhum.texto}`,
+      ];
+    },
+  },
+  {
+    nome: 'núcleo (17/10, Llama 3.2 3B): "produto" do modelo só vale com pista no pedido (compra, categoria, modelo com número) ou nome curto sem palavra de pergunta — "como o acidente de Chernobyl aconteceu?" não vira cartão de produto',
+    tipo: 'unidade',
+    async executar() {
+      const ent = async (pergunta, conversa = []) => {
+        const m = modeloFalso({ entendimento: { precisa_buscar: true, produto: true, assuntos: [], pergunta }, roteiro: [{ pronto: true }] });
+        return (await nucleo.responder({ pergunta, conversa, modo: 'rapido', deps: { chamar: m.chamar, escrever: m.escrever, buscar: async () => [], lerPagina: async () => ({}) } })).produto;
+      };
+      return [
+        (await ent('como que o acidente de chernobyl aconteceu?')) === false || 'Chernobyl não é produto',
+        (await ent('quem foi santos dumont')) === false || 'pessoa não é produto',
+        (await ent('fone bose qc 20')) === true && (await ent('dunu titan s')) === true && (await ent('qual o melhor mouse gamer?')) === true || 'produto de verdade continua',
+        (await ent('e ele é bom?', [{ role: 'user', content: 'qual o melhor fone para jogar?' }, { role: 'assistant', content: '…' }])) === true || 'seguimento de conversa de produto continua',
+      ];
+    },
+  },
+  {
+    nome: 'núcleo (17/10, Llama 3.2 3B): título de cartão dentro de negrito ("**#### 1. HyperX Cloud Earbuds**") é desembrulhado e vira cartão',
+    tipo: 'unidade',
+    async executar() {
+      const m = modeloFalso({ entendimento: { precisa_buscar: true, produto: true, assuntos: [], pergunta: 'melhor fone intra auricular para jogar' }, roteiro: [{ pronto: true }], texto: '**#### 1. HyperX Cloud Earbuds**\n\n**Faixa de preço:** R$ 229 [1]' });
+      const r = await nucleo.responder({ pergunta: 'melhor fone intra auricular para jogar', modo: 'rapido', deps: { chamar: m.chamar, escrever: m.escrever, buscar: async () => [{ titulo: 'HyperX Cloud Earbuds R$ 229', url: 'https://a.com/x', resumo: 'HyperX Cloud Earbuds custa R$ 229' }], lerPagina: async () => ({}) } });
+      return [/^#### 1\. HyperX Cloud Earbuds$/m.test(r.texto) || `cartão: ${r.texto.slice(0, 120)}`];
     },
   },
 ];
