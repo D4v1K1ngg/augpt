@@ -573,25 +573,42 @@ function pedidoDePrompt({ pergunta, conversa = [], vista = '', editar = false })
   return `Você escreve o prompt para o gerador de imagens FLUX.2 Klein. O usuário pediu: "${String(pergunta).slice(0, 1500)}"
 ${antes ? `\nO que ele pediu antes nesta conversa:\n${antes}\n` : ''}${vista ? `\nImagem anexada${editar ? ' (é para editar esta imagem)' : ''} — o que se vê nela:\n${vista.slice(0, 1200)}\n` : ''}
 Responda SÓ com um JSON:
-{"prompt": "...", "formato": "quadrado" | "paisagem" | "retrato"${editar ? ' | "igual"' : ''}, "legenda": "uma frase em português dizendo o que a imagem mostra"}
+{"prompt": "...", "formato": "quadrado" | "paisagem" | "retrato"${editar ? ' | "igual"' : ''}, "legenda": "uma frase em português dizendo o que a imagem mostra"${editar ? '' : ', "referencia": "busca de foto real para o gerador copiar a aparência, ou vazio"'}}
 
 Regras do prompt:
 - em inglês, uma descrição rica e concreta: assunto, ação, cenário, estilo (foto, ilustração, 3D, aquarela, desenho animado…), luz, enquadramento e cores;
 - texto que deve aparecer na imagem vai entre aspas duplas, exatamente como deve ser escrito, e curto (até umas 4 palavras) — o gerador erra texto longo;
 - o gerador erra letra acentuada (16/10: "Pão" saiu "Pãno"): no texto entre aspas, escreva sem acento ("Pao Dourado");
 - não peça rótulos, legendas nem muitos textos: infográfico com muitas palavras sai ilegível;
-${editar ? '- é uma EDIÇÃO da imagem anexada: diga a mudança pedida e o que deve ser mantido (ex.: "turn this photo into a cartoon, keep the same pose, face and composition"); formato "igual" mantém o tamanho dela;\n' : ''}- formato: paisagem para cenários amplos e banners, retrato para pessoa de corpo inteiro e cartazes, quadrado no resto.`;
+${editar ? '- é uma EDIÇÃO da imagem anexada: diga a mudança pedida e o que deve ser mantido (ex.: "turn this photo into a cartoon, keep the same pose, face and composition"); formato "igual" mantém o tamanho dela;\n' : ''}- formato: paisagem para cenários amplos e banners, retrato para pessoa de corpo inteiro e cartazes, quadrado no resto.${editar ? '' : `
+- "referencia": quando a imagem precisa mostrar fiel um objeto, produto, veículo, prédio ou lugar REAL e específico que o gerador pode não conhecer (um modelo de carro, de fone, uma edição, um monumento), escreva a busca de foto dele (ex.: "Chevrolet Vectra GT 2008 hatch"). Vazio para coisa genérica (um gato, um farol, uma paisagem) e SEMPRE vazio para pessoas.`}`;
 }
 
 function lerPrompt(texto, pergunta) {
   try {
     const j = JSON.parse(String(texto).slice(String(texto).indexOf('{'), String(texto).lastIndexOf('}') + 1));
     const prompt = String(j.prompt || '').trim();
-    if (prompt.length >= 10) return { prompt, formato: FORMATOS[j.formato] || j.formato === 'igual' ? j.formato : 'quadrado', legenda: String(j.legenda || '').trim() };
+    if (prompt.length >= 10) return { prompt, formato: FORMATOS[j.formato] || j.formato === 'igual' ? j.formato : 'quadrado', legenda: String(j.legenda || '').trim(), referencia: String(j.referencia || '').trim().slice(0, 120) };
   } catch {
     /* sem JSON: usa o pedido como veio */
   }
   return { prompt: String(pergunta), formato: 'quadrado', legenda: '' };
+}
+
+/**
+ * Escolha da foto de referência (17/10, medido: "Vectra GT vermelho na estrada"
+ * sem referência saiu um hatch genérico; com a foto do GT, o carro certo). A
+ * busca traz de tudo (sedã, oficina, miniatura), então o modelo olha e escolhe.
+ */
+function pedidoDeEscolha({ pergunta, prompt, busca, quantas }) {
+  return `O usuário pediu: "${String(pergunta).slice(0, 800)}"
+Prompt atual: "${String(prompt).slice(0, 1000)}"
+Estas ${quantas} fotos vieram da busca "${busca}", numeradas de 1 a ${quantas} na ordem.
+
+Escolha a foto que mostra EXATAMENTE o item pedido (o modelo, a versão), inteiro, nítido e sem nada cobrindo. Se nenhuma mostra o item certo, escolha 0.
+Depois reescreva o prompt para usar a foto escolhida como referência: comece com "the <item> from the reference image" e diga só o que muda (cor, cenário, ação, estilo, luz), sem descrever de novo o formato do item.
+Responda SÓ com um JSON:
+{"foto": número de 0 a ${quantas}, "prompt": "o prompt reescrito (vazio se foto for 0)"}`;
 }
 
 function pedidoDeRevisao({ pergunta, prompt }) {
@@ -622,6 +639,28 @@ async function criarImagem({ pergunta, conversa, imagens, vista, ent, deps }) {
   const { chamar, emit = () => {} } = deps;
   const editar = imagens.length > 0;
   let p = lerPrompt((await chamar([{ role: 'user', content: pedidoDePrompt({ pergunta, conversa, vista, editar }) }], { json: true, numPredict: 700 })).content, pergunta);
+  // foto real de referência (17/10): para o item específico que o gerador não conhece
+  let referencia = null;
+  if (!editar && p.referencia && typeof deps.buscarReferencias === 'function') {
+    emit('ferramenta', { nome: 'buscar_referencia', argumentos: { consulta: p.referencia }, risco: 'leitura' });
+    const candidatas = (await deps.buscarReferencias(p.referencia).catch(() => [])).slice(0, 4);
+    if (candidatas.length) {
+      let escolha = { foto: 0, prompt: '' };
+      try {
+        const r = (await chamar([{ role: 'user', content: pedidoDeEscolha({ pergunta, prompt: p.prompt, busca: p.referencia, quantas: candidatas.length }), images: candidatas.map((c) => c.base64) }], { json: true, numPredict: 500 })).content;
+        const j = JSON.parse(String(r).slice(String(r).indexOf('{'), String(r).lastIndexOf('}') + 1));
+        escolha = { foto: Number(j.foto) || 0, prompt: String(j.prompt || '').trim() };
+      } catch {
+        /* escolha ilegível: gera sem referência */
+      }
+      const c = candidatas[escolha.foto - 1];
+      if (c && escolha.prompt.length >= 10) {
+        referencia = c;
+        p = { ...p, prompt: escolha.prompt };
+      }
+      emit('referencia-escolhida', { busca: p.referencia, foto: escolha.foto, titulo: c?.titulo || null });
+    }
+  }
   const revisoes = Math.max(0, Math.min(2, Number(deps.revisoesDeImagem ?? 2)));
   const semente = Math.floor(Math.random() * 2147483647);
   const tentativas = [];
@@ -629,7 +668,7 @@ async function criarImagem({ pergunta, conversa, imagens, vista, ent, deps }) {
   for (let rodada = 0; rodada <= revisoes; rodada += 1) {
     emit('ferramenta', { nome: 'gerar_imagem', argumentos: { consulta: p.prompt.slice(0, 200) }, risco: 'leitura' });
     const [largura, altura] = FORMATOS[p.formato] || [null, null];
-    img = await deps.gerarImagem({ prompt: p.prompt, largura, altura, formato: p.formato, semente, referencias: imagens.map((i) => i.arquivo).filter(Boolean), legenda: p.legenda || pergunta });
+    img = await deps.gerarImagem({ prompt: p.prompt, largura, altura, formato: p.formato, semente, referencias: referencia ? [referencia.arquivo] : imagens.map((i) => i.arquivo).filter(Boolean), legenda: p.legenda || pergunta });
     tentativas.push({ prompt: p.prompt, ms: img.ms });
     if (rodada === revisoes) break;
     const rev = lerRevisao((await chamar([{ role: 'user', content: pedidoDeRevisao({ pergunta, prompt: p.prompt }), images: [img.base64] }], { json: true, numPredict: 600 })).content);
@@ -650,11 +689,12 @@ async function criarImagem({ pergunta, conversa, imagens, vista, ent, deps }) {
     legenda,
     '',
     `*Criada com o FLUX.2 Klein no seu computador em ${segundos} s${refeitas.length ? `; refeita ${refeitas.length === 1 ? '1 vez' : `${refeitas.length} vezes`} depois da revisão (${refeitas.map((t) => t.problemas).join('; ').slice(0, 300)})` : ''}.${img.caminho ? ` Salva em \`${img.caminho}\`.` : ''}*`,
+    ...(referencia ? ['', `*Foto de referência: [${String(referencia.titulo || 'imagem da web').replace(/[[\]]/g, '').slice(0, 90)}](${referencia.pagina || referencia.url}) — o gerador copiou a aparência dela; logotipos e letras podem sair diferentes.*`] : []),
     ...(tirados.length ? ['', `*O gerador ainda erra letras acentuadas, então o texto foi escrito sem acento (${tirados.map((t) => `"${t}"`).join(', ')}).*`] : []),
     '',
     `**Prompt usado:** ${p.prompt}`,
   ].join('\n');
-  return { vista, texto, fontes: [], entendimento: ent, buscou: false, produto: false, assuntos: [], modo: 'imagem', anosSemFonte: [], imagemCriada: { uri: img.uri, caminho: img.caminho, prompt: p.prompt, tentativas: tentativas.length } };
+  return { vista, texto, fontes: [], entendimento: ent, buscou: false, produto: false, assuntos: [], modo: 'imagem', anosSemFonte: [], imagemCriada: { uri: img.uri, caminho: img.caminho, prompt: p.prompt, tentativas: tentativas.length, referencia: referencia ? referencia.pagina || referencia.url : null } };
 }
 
 async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho = 'normal', deps, hoje = new Date().toLocaleDateString('pt-BR'), imagens = [] }) {

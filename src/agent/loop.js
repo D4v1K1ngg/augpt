@@ -1629,6 +1629,26 @@ class Agent extends EventEmitter {
         }
         return { uri: `augpt-img://${nome}`, base64: fs.readFileSync(saida).toString('base64'), ms: r.ms, caminho };
       };
+      // fotos reais de referência: versão grande da busca de imagens; miniatura (menos de 300 px) fica de fora
+      if (cfg.searxngUrl) {
+        deps.buscarReferencias = async (q) => {
+          const candidatas = (await imagens.buscarImagens(q, { config: cfg, maximo: 12, grande: true })).slice(0, 8);
+          const uris = await Promise.all(candidatas.map((c) => imagens.guardarImagem(c.url, { dir: this.dirImagens(), config: cfg }).catch(() => null)));
+          const prontas = [];
+          for (const [i, uri] of uris.entries()) {
+            if (!uri || prontas.length >= 4) continue;
+            const arquivo = path.join(this.dirImagens(), uri.replace(/^augpt-img:\/\//, ''));
+            try {
+              const { width, height } = require('electron').nativeImage.createFromPath(arquivo).getSize();
+              if (Math.min(width, height) < 300) continue;
+            } catch {
+              if (fs.statSync(arquivo).size < 20000) continue; // fora do Electron: pelo tamanho do arquivo
+            }
+            prontas.push({ ...candidatas[i], arquivo, base64: imagemParaOModelo(arquivo) });
+          }
+          return prontas;
+        };
+      }
     } else if (gerador) {
       deps.semGerador = 'Para criar imagens, o AuGPT usa o FLUX.2 Klein, que roda no seu computador. Ele ainda não está instalado: em **Ajustes → Componentes → Criar imagens** dá para ver se a sua placa de vídeo comporta e instalar com um clique (cerca de 6 GB).';
     }

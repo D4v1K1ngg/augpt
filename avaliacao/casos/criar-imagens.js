@@ -187,4 +187,41 @@ module.exports = [
       return [/escrito sem acento \("Pao Dourado"\)/.test(r.texto) || `aviso: ${r.texto}`];
     },
   },
+  {
+    nome: 'imagens no núcleo (17/10): item real específico — busca fotos, o modelo escolhe a que mostra exatamente o item e reescreve o prompt em torno dela, o FLUX recebe a foto como referência e a resposta cita a fonte; nenhuma foto certa (0) ou item genérico: gera sem referência',
+    tipo: 'unidade',
+    async executar() {
+      const rodar = async ({ referencia = 'Chevrolet Vectra GT 2008 hatch', foto = 2 } = {}) => {
+        const geradas = [];
+        const vistas = [];
+        const deps = {
+          revisoesDeImagem: 0,
+          chamar: async (messages, opcoes = {}) => {
+            const c = messages[0].content;
+            if (opcoes.json && /"criar_imagem"/.test(c)) return { content: JSON.stringify({ precisa_buscar: false, criar_imagem: true, assuntos: [], pergunta: 'vectra gt vermelho' }) };
+            if (/Você escreve o prompt para o gerador/.test(c)) return { content: JSON.stringify({ prompt: 'a red Chevrolet Vectra GT hatchback on a coastal road at sunset', formato: 'paisagem', legenda: 'Um Vectra GT vermelho', referencia }) };
+            if (/Escolha a foto que mostra EXATAMENTE/.test(c)) return (vistas.push(messages[0].images), { content: JSON.stringify({ foto, prompt: foto ? 'the car from the reference image, painted red, on a coastal road at sunset' : '' }) });
+            throw new Error(`inesperado: ${c.slice(0, 60)}`);
+          },
+          gerarImagem: async (o) => (geradas.push(o), { uri: `augpt-img://${'c'.repeat(30)}.png`, base64: 'x', ms: 12000, caminho: null }),
+          buscarReferencias: async () => [
+            { titulo: 'Vectra sedã', pagina: 'https://a.com/sedan', arquivo: 'C:/i/1.jpg', base64: 'U0VE' },
+            { titulo: 'Chevrolet Vectra GT', pagina: 'https://b.com/gt', arquivo: 'C:/i/2.jpg', base64: 'R1Q=' },
+          ],
+        };
+        const r = await nucleo.responder({ pergunta: 'crie uma imagem de um Vectra GT vermelho numa estrada no litoral', deps });
+        return { r, geradas, vistas };
+      };
+      const ok = await rodar();
+      const nenhuma = await rodar({ foto: 0 });
+      const generico = await rodar({ referencia: '' });
+      return [
+        ok.vistas[0]?.join() === 'U0VE,R1Q=' || 'o modelo olha as candidatas',
+        ok.geradas[0].referencias[0] === 'C:/i/2.jpg' && /from the reference image/.test(ok.geradas[0].prompt) || `gera com a foto escolhida: ${JSON.stringify(ok.geradas[0])}`,
+        /Foto de referência: \[Chevrolet Vectra GT\]\(https:\/\/b\.com\/gt\)/.test(ok.r.texto) || `cita a fonte: ${ok.r.texto}`,
+        nenhuma.geradas[0].referencias.length === 0 && /Vectra GT hatchback/.test(nenhuma.geradas[0].prompt) && !/Foto de referência/.test(nenhuma.r.texto) || 'nenhuma foto certa: sem referência, prompt original',
+        generico.vistas.length === 0 && generico.geradas[0].referencias.length === 0 || 'item genérico: não busca referência',
+      ];
+    },
+  },
 ];

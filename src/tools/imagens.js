@@ -78,7 +78,7 @@ async function guardarImagem(url, { dir, config = {}, deps = {} } = {}) {
 }
 
 /** Busca de imagens no SearXNG. Devolve `[{ url, titulo }]` (miniatura quando há: é leve e basta). */
-async function buscarImagens(consulta, { config = {}, deps = {}, maximo = 12 } = {}) {
+async function buscarImagens(consulta, { config = {}, deps = {}, maximo = 12, grande = false } = {}) {
   const base = String(config.searxngUrl || '').replace(/\/$/, '');
   if (!base || !String(consulta || '').trim()) return [];
   try {
@@ -89,7 +89,7 @@ async function buscarImagens(consulta, { config = {}, deps = {}, maximo = 12 } =
     if (!r?.ok) return [];
     return (JSON.parse(r.texto).results || [])
       .filter((x) => x && (x.thumbnail_src || x.img_src) && !FONTES_FORA.test(`${x.img_src || ''} ${x.url || ''}`))
-      .map((x) => ({ url: String(x.thumbnail_src || x.img_src).replace(/^\/\//, 'https://'), titulo: String(x.title || ''), pagina: /^https?:\/\//.test(String(x.url || '')) ? String(x.url) : null }))
+      .map((x) => ({ url: String((grande ? x.img_src || x.thumbnail_src : x.thumbnail_src || x.img_src)).replace(/^\/\//, 'https://'), titulo: String(x.title || ''), pagina: /^https?:\/\//.test(String(x.url || '')) ? String(x.url) : null }))
       .slice(0, maximo);
   } catch {
     return [];
