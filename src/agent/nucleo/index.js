@@ -240,7 +240,7 @@ ${produto ? `- Este pedido é sobre produtos: use buscar_na_comunidade pelo meno
       : modo === 'rapido'
         ? '- Esta é uma pesquisa RÁPIDA: uma ou duas buscas certeiras e pronto.\n'
         : `- Faça pelo menos ${regras.minBuscas} buscas e leia de ${regras.minLeituras} a ${regras.leituras} páginas.\n`
-  }- Esta é a rodada ${rodada} de ${total}.`;
+  }- Você tem até ${total} rodadas de ferramentas.`;
 }
 
 /**
@@ -452,7 +452,10 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   for (let rodada = 1; rodada <= total; rodada += 1) {
     if (signal?.aborted) break;
     emit('iteracao', { n: rodada, de: total });
-    const r = await chamar([{ role: 'system', content: sistemaDoPesquisador({ hoje, rodada, total, produto: comComunidade, modo, youtube: comYoutube, verImagens: comImagens }) }, ...historico], { tools: ferramentas });
+    // o começo da conversa fica IGUAL em toda rodada: o Ollama reaproveita o que já leu (17/10, RX 580:
+    // com "rodada N de 6" nas instruções, cada rodada relia o histórico inteiro — 6.337 tokens, 87 s)
+    const ultima = rodada === total ? [{ role: 'user', content: 'Esta é a última rodada: se já tem o suficiente, chame pronto.' }] : [];
+    const r = await chamar([{ role: 'system', content: sistemaDoPesquisador({ hoje, rodada, total, produto: comComunidade, modo, youtube: comYoutube, verImagens: comImagens }) }, ...historico, ...ultima], { tools: ferramentas });
     const chamadas = (r.chamadas || []).map((c) => ({ nome: c.function?.name, args: typeof c.function?.arguments === 'string' ? safeJson(c.function.arguments) : c.function?.arguments || {} }));
     if (r.content?.trim()) {
       emit('raciocinio', { n: rodada, pensamento: r.content.trim().slice(0, 400) });

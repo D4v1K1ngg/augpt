@@ -465,4 +465,19 @@ module.exports = [
       return [/^#### 1\. HyperX Cloud Earbuds$/m.test(r.texto) || `cartão: ${r.texto.slice(0, 120)}`];
     },
   },
+  {
+    nome: 'núcleo (17/10, RX 580): o começo da conversa do pesquisador é igual em toda rodada (o Ollama reaproveita o que já leu); "última rodada" vai no fim, só na última',
+    tipo: 'unidade',
+    async executar() {
+      const m = modeloFalso({ entendimento: { precisa_buscar: true, produto: false, assuntos: [], pergunta: 'como foi a segunda guerra?' }, roteiro: Array.from({ length: 6 }, (_, i) => ({ ferramentas: [['buscar_na_web', { buscas: [`segunda guerra ${i}`] }]] })) });
+      await nucleo.responder({ pergunta: 'como foi a segunda guerra?', modo: 'normal', deps: { chamar: m.chamar, escrever: m.escrever, buscar: async () => [], lerPagina: async () => ({}) } });
+      const rodadas = m.chamadas.filter((c) => c.opcoes.tools);
+      const sistemas = new Set(rodadas.map((c) => c.messages[0].content));
+      const ultimas = rodadas.map((c) => /última rodada/.test(c.messages[c.messages.length - 1].content || ''));
+      return [
+        rodadas.length === 6 && sistemas.size === 1 || `instruções iguais nas ${rodadas.length} rodadas: ${sistemas.size} versões`,
+        ultimas.slice(0, -1).every((x) => !x) && ultimas[ultimas.length - 1] === true || `aviso só na última: ${ultimas}`,
+      ];
+    },
+  },
 ];

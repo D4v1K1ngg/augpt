@@ -163,6 +163,8 @@ async function testarAceleracao({ host, modelo, buscar = (...a) => fetch(...a), 
   if (naPlaca >= 90) veredito = `rodando na placa de vídeo (${naPlaca}%), ${tokensPorSegundo} tokens por segundo`;
   else if (naPlaca >= 10) veredito = `dividido: ${naPlaca}% na placa e o resto no processador, ${tokensPorSegundo} tokens por segundo — um modelo menor caberia inteiro e ficaria mais rápido`;
   else veredito = `rodando só no processador (${tokensPorSegundo} tokens por segundo): a placa de vídeo não está sendo usada. ${amd ? 'Em placa AMD sem ROCm (como a RX 580), o Ollama usa o Vulkan: atualize o driver da AMD (Adrenalin) e o Ollama (em Componentes) e teste de novo.' : 'Atualize o driver da placa e o Ollama (em Componentes) e teste de novo.'}`;
+  // placa lenta (17/10, RX 580: 8 minutos numa pergunta): o ajuste que mais ajuda é pesquisar e escrever menos
+  if (tokensPorSegundo && tokensPorSegundo < 25) veredito += ` Placa lenta para IA: em Ajustes → Geral, Profundidade "rápido" e Tipo de resposta "direta" deixam cada resposta várias vezes mais rápida.`;
   return { modelo, naPlaca, tokensPorSegundo, carregouEmS: r.load_duration ? Math.round(r.load_duration / 1e8) / 10 : null, veredito };
 }
 
