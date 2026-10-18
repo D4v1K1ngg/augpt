@@ -13,6 +13,8 @@
 
 const TIPOS = ['line', 'area', 'bar', 'column', 'horizontalBar', 'pie', 'doughnut'];
 const BLOCO = /```chart\s*\n([\s\S]*?)```/g;
+// qualquer bloco de código (18/10): as conferências punham ⚠ em ano e cortavam "[0]" de dentro do código
+const QUALQUER_BLOCO = /```[\s\S]*?```/g;
 const MARCADOR = /\u0000GRAFICO(\d+)\u0000/g;
 
 const numero = (v) => (typeof v === 'number' ? v : Number(String(v ?? '').replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.')));
@@ -64,7 +66,12 @@ function separarGraficos(texto, { material = '' } = {}) {
     graficos.push(`\`\`\`chart\n${JSON.stringify(v.spec)}\n\`\`\``);
     return `\u0000GRAFICO${graficos.length - 1}\u0000`;
   });
-  return { texto: semGraficos.replace(/\n{3,}/g, '\n\n'), graficos, descartados };
+  // os outros blocos de código (```visual, ```python…) saem também, sem mudança
+  const semBlocos = semGraficos.replace(QUALQUER_BLOCO, (m) => {
+    graficos.push(m);
+    return `\u0000GRAFICO${graficos.length - 1}\u0000`;
+  });
+  return { texto: semBlocos.replace(/\n{3,}/g, '\n\n'), graficos, descartados };
 }
 
 const recolocarGraficos = (texto, graficos) => String(texto).replace(MARCADOR, (_, i) => graficos[Number(i)] || '');
@@ -72,7 +79,7 @@ const recolocarGraficos = (texto, graficos) => String(texto).replace(MARCADOR, (
 /** Aplica `fn` ao texto com os gráficos protegidos (links, glossário e afins não entram no JSON). */
 function protegerGraficos(texto, fn) {
   const graficos = [];
-  const marcado = String(texto || '').replace(BLOCO, (m) => {
+  const marcado = String(texto || '').replace(QUALQUER_BLOCO, (m) => {
     graficos.push(m);
     return `\u0000GRAFICO${graficos.length - 1}\u0000`;
   });
@@ -87,4 +94,8 @@ const INSTRUCAO_DE_GRAFICO = `
 \`\`\`
   "type": "bar" para comparar itens, "line" para evolução no tempo, "pie" para partes de um total. Em "data", só números (sem unidade nem texto), na ordem dos "labels", e só números que estão nas fontes ou que o usuário deu. Sem números comparáveis, sem gráfico.`;
 
-module.exports = { validarGrafico, separarGraficos, recolocarGraficos, protegerGraficos, INSTRUCAO_DE_GRAFICO };
+// item 4 (18/10): o visual interativo, só quando pedido
+const INSTRUCAO_DE_VISUAL = `
+- Visual interativo: SÓ quando o usuário pedir para criar algo interativo ou visual que um gráfico não resolve (uma calculadora, simulação, animação, mini jogo, painel, página, linha do tempo clicável), escreva a página inteira num bloco \`\`\`visual com HTML, CSS e JavaScript juntos. Ela roda numa caixa isolada, SEM internet: nada de link para CDN, biblioteca de fora, imagem de URL, fetch ou formulário — tudo no próprio código (desenho com canvas ou SVG). Fundo escuro (#131316) e texto claro combinam com o app. Depois do bloco, explique em 1 ou 2 frases o que ela faz e como usar.`;
+
+module.exports = { validarGrafico, separarGraficos, recolocarGraficos, protegerGraficos, INSTRUCAO_DE_GRAFICO, INSTRUCAO_DE_VISUAL };

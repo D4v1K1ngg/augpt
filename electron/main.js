@@ -1504,9 +1504,16 @@ ipcMain.handle('chat:stop', () => {
 // Imagens das respostas (src/tools/imagens.js): a tela pede `augpt-img://arquivo`
 // e quem entrega é este processo, lendo SÓ da pasta de imagens do app. Assim a
 // janela continua sem carregar nada direto da internet (ver a CSP do index.html).
-protocol.registerSchemesAsPrivileged([{ scheme: imagens.ESQUEMA, privileges: { standard: true, secure: true } }]);
+// Caixa isolada (18/10, item 4): o HTML/JS que o modelo escreve num bloco ```visual roda num
+// iframe com sandbox servido por augpt-caixa://, com CSP própria (sem rede) — ver src/caixa.js
+const caixa = require('../src/caixa');
+protocol.registerSchemesAsPrivileged([
+  { scheme: imagens.ESQUEMA, privileges: { standard: true, secure: true } },
+  { scheme: caixa.ESQUEMA, privileges: { standard: true, secure: true } },
+]);
 
 app.whenReady().then(() => {
+  protocol.handle(caixa.ESQUEMA, (pedido) => caixa.responderCaixa(pedido.url));
   protocol.handle(imagens.ESQUEMA, (pedido) => {
     const nome = new URL(pedido.url).hostname;
     if (!imagens.NOME_VALIDO.test(nome)) return new Response('', { status: 404 });

@@ -29,14 +29,24 @@
 
   // specs de gráfico da última renderização, consumidas por montarGraficos
   let graficos = {};
+  // HTML dos blocos ```visual (caixa isolada, item 4 de 18/10), idem
+  let caixas = {};
 
   function render(texto) {
     graficos = {};
+    caixas = {};
     const blocos = [];
     // 1. blocos de código saem de cena antes de qualquer outra regra
     let src = escapar(texto).replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, codigo) => {
       // Bloco ```chart vira marcador; o Canvas é montado depois, fora do HTML.
       // O JSON NUNCA é executado — é validado e desenhado como dado.
+      // Bloco ```visual: HTML/CSS/JS do modelo, que roda numa caixa isolada (iframe com sandbox,
+      // servido por augpt-caixa:// com CSP própria — sem rede, sem acesso ao app)
+      if (String(lang).toLowerCase() === 'visual') {
+        blocos.push(`<div class="caixa-lugar" data-caixa="${blocos.length}"></div>`);
+        caixas[blocos.length - 1] = desescapar(codigo);
+        return `\u0000BLOCO${blocos.length - 1}\u0000`;
+      }
       if (String(lang).toLowerCase() === 'chart') {
         blocos.push(`<div class="grafico-lugar" data-grafico="${blocos.length}"></div>`);
         graficos[blocos.length - 1] = desescapar(codigo);
@@ -232,7 +242,43 @@
    * Troca os marcadores por Canvas de verdade. Chamado depois de inserir o HTML,
    * porque canvas precisa estar no documento para ter largura.
    */
+  const base64url = (t) => global.btoa(unescape(encodeURIComponent(t))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  function montarCaixas(elemento) {
+    for (const lugar of elemento.querySelectorAll('.caixa-lugar[data-caixa]')) {
+      const html = caixas[lugar.dataset.caixa];
+      if (html === undefined) continue;
+      const caixa = document.createElement('div');
+      caixa.className = 'caixa-visual';
+      const quadro = document.createElement('iframe');
+      quadro.setAttribute('sandbox', 'allow-scripts');
+      quadro.setAttribute('referrerpolicy', 'no-referrer');
+      quadro.title = 'Visual criado pelo AuGPT';
+      quadro.src = `augpt-caixa://v/${base64url(html)}`;
+      const codigo = document.createElement('details');
+      const resumo = document.createElement('summary');
+      resumo.textContent = 'ver código';
+      const pre = document.createElement('pre');
+      pre.className = 'bloco-codigo';
+      pre.textContent = html;
+      codigo.append(resumo, pre);
+      caixa.append(quadro, codigo);
+      lugar.replaceWith(caixa);
+    }
+  }
+
+  // a caixa avisa a altura do conteúdo (src/caixa.js); só vale de um iframe de caixa
+  if (global.addEventListener) {
+    global.addEventListener('message', (e) => {
+      if (!e.data || typeof e.data.augptCaixa !== 'number') return;
+      for (const quadro of document.querySelectorAll('.caixa-visual iframe')) {
+        if (quadro.contentWindow === e.source) quadro.style.height = `${Math.max(120, Math.min(1400, e.data.augptCaixa + 4))}px`;
+      }
+    });
+  }
+
   function montarGraficos(elemento) {
+    montarCaixas(elemento);
     if (!global.grafico) return;
     for (const lugar of elemento.querySelectorAll('.grafico-lugar[data-grafico]')) {
       const spec = graficos[lugar.dataset.grafico];

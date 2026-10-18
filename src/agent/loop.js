@@ -1552,7 +1552,8 @@ class Agent extends EventEmitter {
     // prova com várias questões (18/10): ~700 tokens por questão resolvida; o
     // padrão de 3.072 cortava a resposta na 4ª de 10
     const questoes = new Set((String(objetivo).match(/\bquest(?:ão|ao)\s*(\d+)/gi) || []).map((q) => q.replace(/\D/g, ''))).size;
-    const limiteDaEscrita = Math.max(Number(this.config.numPredictResposta) || 3072, Math.min(12000, questoes * 700));
+    // página interativa (bloco visual, item 4): o HTML inteiro não cabe em 3.072 (18/10: a animação foi cortada no meio)
+    const limiteDaEscrita = Math.max(Number(this.config.numPredictResposta) || 3072, Math.min(12000, questoes * 700), nucleo.pedeVisual(objetivo) ? 8000 : 0);
     const inicio = Date.now();
     const cfg = this.config;
     // imagens anexadas: lidas da pasta de trabalho; com o Tesseract instalado, o texto delas vai junto (OCR)
