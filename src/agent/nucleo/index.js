@@ -60,7 +60,11 @@ ${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}
 ÚLTIMA MENSAGEM: ${String(pergunta).slice(0, 1500)}
 
 Responda SÓ com um JSON:
-{"precisa_buscar": true ou false, "produto": true ou false, "criar_imagem": true ou false, "assuntos": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
+{"precisa_buscar": true ou false, "produto": true ou false, "criar_imagem": true ou false, "muda_com_o_tempo": true ou false, "sobre_o_usuario": true ou false, "imagem_ajuda": true ou false, "assuntos": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
+
+- "muda_com_o_tempo" é true quando a resposta certa hoje pode ser diferente da de alguns meses atrás: notícia, resultado, placar, eleição, cotação, preço, previsão, lançamento, versão mais nova, quem ocupa um cargo, situação atual de algo. Fato histórico, definição, ciência e como algo funciona: false.
+- "sobre_o_usuario" é true quando a resposta depende de algo do próprio usuário: o computador, o celular, o carro, a cidade, o curso, a rotina ou o que ele já tem ("meu PC", "no meu celular", "pra minha cidade").
+- "imagem_ajuda" é true quando ver uma foto ajuda a entender a resposta (um produto, um lugar, um animal, um objeto, uma pessoa conhecida, uma obra). Notícia, política, conta, conceito, passo a passo e pedido sobre um site: false.
 
 - "criar_imagem" é true quando o usuário pede para CRIAR, gerar, desenhar, ilustrar ou editar uma imagem (logo, desenho, foto artística, transformar a foto anexada). Pedir para MOSTRAR ou achar uma foto que já existe ("mostre uma foto da Torre Eiffel") é false.
 
@@ -81,6 +85,11 @@ const SEM_BUSCA = /^\s*(oi|ol[aá]|bom dia|boa (tarde|noite)|e a[ií]|obrigad[oa
 const QUESTAO_DE_EXATAS = (t) => /\bquest[aã]o\s*\d/i.test(t) && /\\\(|\\\[|\\frac|\^|\b\d+\s*[=+*/x×]\s*\d|\b[a-z]\s*[=+]\s*\d|\bf\(x\)|\blog_?\d|\bmatriz\b/i.test(t);
 const podeFicarSemBusca = (pergunta) => SEM_BUSCA.test(String(pergunta || '').trim()) || QUESTAO_DE_EXATAS(String(pergunta || ''));
 
+// Travas do código para o modelo pequeno que erra os campos do entendimento (18/10): palavras que
+// dizem "depende de quando" e "é sobre o usuário" valem em qualquer tema
+const PISTA_DE_ATUAL = /\b(hoje|agora|atual|atualmente|atuais|recentes?|recentemente|[uú]ltim[oa]s? (not[ií]cias?|resultados?|vers[aã]o|semana|m[eê]s|dias)|mais (nov[oa]s?|recentes?)|vers[aã]o atual|esta semana|este (m[eê]s|ano)|neste momento|ainda (est[aá]|tem|existe|vale)|novidades?|cota[cç][aã]o|previs[aã]o|placar|resultado|vai (ganhar|vencer|sair|lan[cç]ar)|quem (ganhou|venceu|est[aá] na frente)|j[aá] (saiu|lan[cç]ou|foi lan[cç]ad))\b/i;
+const PISTA_DO_USUARIO = /\b(meu|minha|meus|minhas|comigo|aqui em casa)\b/i;
+
 // criar imagem (Fase 5): a regra do código cobre o que o modelo deixar passar
 const PEDE_IMAGEM = /\b(crie|cria|criar|gere|gera|gerar|fa[çc]a|desenhe|desenha|desenhar|ilustre|pinte|edite|transforme|transformar)\b[^.?!]{0,50}\b(imagem|imagens|foto|desenho|ilustra[çc][ãa]o|arte|logo|logotipo|wallpaper|papel de parede|pintura|figura|capa|banner|mascote|cartaz|ícone)\b/i;
 const pedeImagem = (pergunta) => PEDE_IMAGEM.test(String(pergunta || ''));
@@ -91,10 +100,21 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     // produto sempre busca (15/10: "fone de ouvido dunu titan s" saiu sem busca e o modelo disse que ele "não existe")
     const assuntos = (Array.isArray(j.assuntos) ? j.assuntos : []).map((a) => String(a || '').trim()).filter((a) => a.length >= 2 && a.length <= 80).slice(0, 4);
     // o modelo só decide "sem busca" no que é claramente conversa; um nome solto ("Dragon Ball Super Beerus") pesquisa
-    const precisaBuscar = !QUESTAO_DE_EXATAS(String(pergunta || '')) && (j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta)));
-    return { precisaBuscar, produto: j.produto === true, criarImagem: j.criar_imagem === true || pedeImagem(pergunta), assuntos, pergunta: String(j.pergunta || '').trim() || pergunta };
+    const exatas = QUESTAO_DE_EXATAS(String(pergunta || ''));
+    const precisaBuscar = !exatas && (j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta)));
+    return {
+      precisaBuscar,
+      produto: j.produto === true,
+      criarImagem: j.criar_imagem === true || pedeImagem(pergunta),
+      atual: precisaBuscar && (j.muda_com_o_tempo === true || PISTA_DE_ATUAL.test(pergunta)),
+      sobreOUsuario: j.sobre_o_usuario === true || PISTA_DO_USUARIO.test(pergunta),
+      imagemAjuda: !exatas && j.imagem_ajuda !== false,
+      assuntos,
+      pergunta: String(j.pergunta || '').trim() || pergunta,
+    };
   } catch {
-    return { precisaBuscar: true, produto: false, criarImagem: pedeImagem(pergunta), assuntos: [], pergunta }; // JSON quebrado: busca, com a pergunta como veio
+    // JSON quebrado: busca, com a pergunta como veio
+    return { precisaBuscar: true, produto: false, criarImagem: pedeImagem(pergunta), atual: PISTA_DE_ATUAL.test(pergunta), sobreOUsuario: PISTA_DO_USUARIO.test(pergunta), imagemAjuda: false, assuntos: [], pergunta };
   }
 }
 
@@ -115,15 +135,37 @@ const temPistaDeProduto = (t) => {
   return PISTA_DE_PRODUTO.test(texto) || (texto.split(/\s+/).length <= 5 && !PALAVRA_DE_PERGUNTA.test(texto));
 };
 
+/**
+ * Assunto que rende foto (18/10: "presidente", "Brasil" e "login no site" viraram 12 fotos no topo):
+ * tem número ("RTX 5080", "SR-71") ou uma palavra escrita com maiúscula pelo usuário no meio da
+ * frase (nome próprio). Vale para qualquer tema — é a forma do nome, não o assunto.
+ */
+function assuntoConcreto(assunto, textoDoUsuario) {
+  if (/\d/.test(assunto)) return true;
+  const proprios = new Set(
+    [...String(textoDoUsuario || '').matchAll(/(?<=[\p{Ll}\d,;:)'"]\s+)(\p{Lu}[\p{L}\d-]{2,})/gu)].map((m) => palavrasDe(m[1])[0]).filter(Boolean)
+  );
+  return palavrasDe(assunto).some((w) => proprios.has(w));
+}
+
 function conferirEntendimento(ent, { pergunta, conversa = [] }) {
   const doUsuario = new Set(palavrasDe(`${pergunta} ${conversa.map((m) => m.content).join(' ')}`));
   const tem = (t) => palavrasDe(t).some((w) => doUsuario.has(w));
   const pedidosDoUsuario = `${pergunta} ${conversa.filter((m) => m.role === 'user').slice(-3).map((m) => m.content).join(' ')}`;
+  const assuntos = (ent.assuntos || []).filter(tem);
+  const produto = ent.produto === true && temPistaDeProduto(pedidosDoUsuario);
   return {
     ...ent,
-    produto: ent.produto === true && temPistaDeProduto(pedidosDoUsuario),
+    produto,
     pergunta: tem(ent.pergunta) ? ent.pergunta : pergunta,
-    assuntos: (ent.assuntos || []).filter(tem),
+    assuntos,
+    // as fotos do topo: no máximo 3 assuntos, só os concretos, e só quando ver ajuda
+    // (18/10, 2B: "me fale da Torre Eiffel" veio com imagem_ajuda false); nome de uma palavra só
+    // ("Brasil", "Lula") segue o que o modelo disse
+    fotos: assuntos
+      .filter((a) => produto || assuntoConcreto(a, pedidosDoUsuario))
+      .filter((a) => ent.imagemAjuda !== false || produto || /\d/.test(a) || palavrasDe(a).length >= 2)
+      .slice(0, 3),
   };
 }
 
@@ -228,8 +270,14 @@ const FERRAMENTAS = [
   },
 ];
 
-function sistemaDoPesquisador({ hoje, rodada, total, produto = false, modo = 'normal', youtube = false, verImagens = false }) {
-  const regras = MODOS[modo] || MODOS.normal;
+/** Regras do modo, mais as de pergunta que muda com o tempo (lê pelo menos 2 páginas até no rápido). */
+function regrasDoModo(modo, atual = false) {
+  const base = MODOS[modo] || MODOS.normal;
+  return atual ? { ...base, minLeituras: Math.max(2, base.minLeituras), leituras: Math.max(3, base.leituras), minBuscas: Math.max(1, base.minBuscas) } : base;
+}
+
+function sistemaDoPesquisador({ hoje, rodada, total, produto = false, modo = 'normal', youtube = false, verImagens = false, atual = false }) {
+  const regras = regrasDoModo(modo, atual);
   return `Você é o pesquisador do AuGPT. Hoje é ${hoje}. Seu trabalho é juntar, com as ferramentas, a informação para responder muito bem à pergunta do usuário. Você não escreve a resposta: quando tiver o suficiente, chame "pronto".
 
 - Seu conhecimento pode estar desatualizado: pesquise mesmo o que parece básico.
@@ -242,9 +290,9 @@ ${produto ? `- Este pedido é sobre produtos: use buscar_na_comunidade pelo meno
     modo === 'profundo'
       ? `- Esta é uma PESQUISA PROFUNDA: cubra vários ângulos (${ANGULOS}), faça pelo menos ${regras.minBuscas} buscas e leia de ${regras.minLeituras} a ${regras.leituras} páginas, cruzando o que uma fonte diz com as outras. Não pare cedo.\n`
       : modo === 'rapido'
-        ? '- Esta é uma pesquisa RÁPIDA: uma ou duas buscas certeiras e pronto.\n'
+        ? `- Esta é uma pesquisa RÁPIDA: uma ou duas buscas certeiras${atual ? ` e leia ${regras.minLeituras} páginas` : ''} e pronto.\n`
         : `- Faça pelo menos ${regras.minBuscas} buscas e leia de ${regras.minLeituras} a ${regras.leituras} páginas.\n`
-  }- Você tem até ${total} rodadas de ferramentas.`;
+  }${atual ? `- A resposta desta pergunta MUDA COM O TEMPO: busque o que aconteceu até hoje (${hoje}) — se puser ano na busca, use ${String(hoje).slice(-4)}, nunca um ano que ainda não chegou. Prefira as notícias do último mês e as páginas com data recente (aparece junto de cada resultado) e desconfie de página antiga falando como se fosse hoje.\n` : ''}- Você tem até ${total} rodadas de ferramentas.`;
 }
 
 /**
@@ -279,20 +327,22 @@ const palavrasDe = (t) =>
     .filter((w) => w.length >= 4 || /\d/.test(w));
 
 /** Os resultados como o pesquisador vê: "[n] título (domínio)\nresumo". */
-const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || dominio(f.url)} (${dominio(f.url)}${f.comunidade ? ', comunidade' : ''}${f.video ? ', vídeo' : ''})\n${String(f.resumo || '').slice(0, 300)}`).join('\n\n');
+const dataBr = (d) => (/^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
+const quando = (f) => (f.data ? `publicado em ${dataBr(f.data)}` : f.recente ? 'notícia do último mês' : '');
+const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || dominio(f.url)} (${dominio(f.url)}${quando(f) ? `, ${quando(f)}` : ''}${f.comunidade ? ', comunidade' : ''}${f.video ? ', vídeo' : ''})\n${String(f.resumo || '').slice(0, 300)}`).join('\n\n');
 
 /**
  * O laço do pesquisador. Devolve as fontes juntadas (numeradas, com resumo e,
  * quando lidas, os trechos escolhidos da página).
  */
-async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [], imagemAnexada = '' }) {
+async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [], imagemAnexada = '', atual = false, sobreOUsuario = '' }) {
   const { chamar, buscar, lerPagina, embed, emit = () => {}, signal, buscarNaComunidade } = deps;
   // comunidade (15/10, pedido do Davi): em pedido de produto, Reddit e fóruns entram sempre
   const comComunidade = produto && typeof buscarNaComunidade === 'function';
   const comYoutube = typeof deps.buscarNoYoutube === 'function' && typeof deps.verVideo === 'function' && modo !== 'rapido';
   const comImagens = typeof deps.buscarImagensParaVer === 'function' && modo !== 'rapido';
   const ferramentas = [...(comComunidade ? [FERRAMENTA_DA_COMUNIDADE] : []), ...FERRAMENTAS, ...(comYoutube ? FERRAMENTAS_DO_YOUTUBE : []), ...(comImagens ? [FERRAMENTA_DE_IMAGENS] : [])];
-  const regras = MODOS[modo] || MODOS.normal;
+  const regras = regrasDoModo(modo, atual);
   const total = regras.rodadas;
   let buscasFeitas = 0;
   let leiturasFeitas = 0;
@@ -306,7 +356,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   const historico = [
     {
       role: 'user',
-      content: `Pergunta do usuário: ${pergunta}${imagemAnexada ? `\nO usuário anexou uma imagem. O que se vê nela:\n${imagemAnexada.slice(0, 1500)}\nO nome de modelo que não está escrito na imagem é só provável: confirme pela aparência${typeof deps.buscarImagensParaVer === 'function' ? ' com ver_imagens, comparando os candidatos' : ' nas fontes'}.` : ''}${assuntos.length ? `\nDo que ela trata: ${assuntos.join(', ')}` : ''}${anteriores.length ? `\nO que o usuário perguntou antes nesta conversa (para entender a pergunta):\n${anteriores.join('\n')}` : ''}`,
+      content: `Pergunta do usuário: ${pergunta}${sobreOUsuario ? `\nO que o AuGPT sabe sobre o usuário (a pergunta depende disso — use nas buscas o que for pertinente, como o modelo da placa de vídeo):\n${sobreOUsuario.slice(0, 1200)}` : ''}${imagemAnexada ? `\nO usuário anexou uma imagem. O que se vê nela:\n${imagemAnexada.slice(0, 1500)}\nO nome de modelo que não está escrito na imagem é só provável: confirme pela aparência${typeof deps.buscarImagensParaVer === 'function' ? ' com ver_imagens, comparando os candidatos' : ' nas fontes'}.` : ''}${assuntos.length ? `\nDo que ela trata: ${assuntos.join(', ')}` : ''}${anteriores.length ? `\nO que o usuário perguntou antes nesta conversa (para entender a pergunta):\n${anteriores.join('\n')}` : ''}`,
     },
   ];
   let buscou = false;
@@ -331,7 +381,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     const lista = prepararBuscas(buscas, 3, comunidade ? 'comunidade' : 'web');
     if (!lista.length) return 'Essas buscas já foram feitas. Leia as fontes mais promissoras com ler_pagina, busque outro ângulo com o nome do assunto, ou chame pronto.';
     emit('ferramenta', { nome: comunidade ? 'buscar_na_comunidade' : 'buscar_na_web', argumentos: { consulta: lista.join(' · ') }, risco: 'leitura' });
-    const achados = (await Promise.all(lista.map((q) => (comunidade ? buscarNaComunidade(q) : buscar(q)).catch(() => [])))).flat();
+    const achados = (await Promise.all(lista.map((q) => (comunidade ? buscarNaComunidade(q) : buscar(q, { recente: atual })).catch(() => [])))).flat();
     for (const q of lista) emit('fonte', { tipo: 'busca', provedor: 'web', consultas: [q], resultados: Math.round(achados.length / lista.length) });
     buscou = true;
     buscasFeitas += lista.length;
@@ -341,7 +391,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     const mostrados = [];
     for (const r of ordenados) {
       if (porUrl.has(r.url)) continue;
-      const f = { n: fontes.length + 1, url: r.url, titulo: r.titulo || '', resumo: r.resumo || '', trechos: [], comunidade };
+      const f = { n: fontes.length + 1, url: r.url, titulo: r.titulo || '', resumo: r.resumo || '', trechos: [], comunidade, data: /^\d{4}-\d{2}-\d{2}/.test(String(r.data || '')) ? String(r.data).slice(0, 10) : null, recente: r.recente === true };
       fontes.push(f);
       porUrl.set(r.url, f);
       mostrados.push(f);
@@ -435,6 +485,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     if (!pagina?.texto) return `A página [${f.n}] não trouxe texto.`;
     emit('fonte', { tipo: 'leitura', provedor: pagina.via || 'web', url: f.url });
     if (pagina.titulo && !f.titulo) f.titulo = pagina.titulo;
+    if (pagina.data) f.data = String(pagina.data).slice(0, 10);
     // até 4 trechos, e só os que têm alguma relação com o foco (rodapé e menu ficam de fora)
     const melhores = (await ordenar(`${foco || ''} ${pergunta}`, pedacos(pagina.texto).map((texto) => ({ texto })), { embed, maximo: 4 })).filter((m, i) => i === 0 || m.nota >= 0.2);
     f.trechos.push(...melhores.map((m) => m.texto).filter((t) => !f.trechos.includes(t)));
@@ -459,7 +510,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     // o começo da conversa fica IGUAL em toda rodada: o Ollama reaproveita o que já leu (17/10, RX 580:
     // com "rodada N de 6" nas instruções, cada rodada relia o histórico inteiro — 6.337 tokens, 87 s)
     const ultima = rodada === total ? [{ role: 'user', content: 'Esta é a última rodada: se já tem o suficiente, chame pronto.' }] : [];
-    const r = await chamar([{ role: 'system', content: sistemaDoPesquisador({ hoje, rodada, total, produto: comComunidade, modo, youtube: comYoutube, verImagens: comImagens }) }, ...historico, ...ultima], { tools: ferramentas });
+    const r = await chamar([{ role: 'system', content: sistemaDoPesquisador({ hoje, rodada, total, produto: comComunidade, modo, youtube: comYoutube, verImagens: comImagens, atual }) }, ...historico, ...ultima], { tools: ferramentas });
     const chamadas = (r.chamadas || []).map((c) => ({ nome: c.function?.name, args: typeof c.function?.arguments === 'string' ? safeJson(c.function.arguments) : c.function?.arguments || {} }));
     if (r.content?.trim()) {
       emit('raciocinio', { n: rodada, pensamento: r.content.trim().slice(0, 400) });
@@ -569,7 +620,7 @@ const TAMANHO_DA_RESPOSTA = {
   curta: '\n- RESPOSTA CURTA: no máximo 3 parágrafos, só o essencial.',
 };
 
-function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal' }) {
+function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal', atual = false, sobreOUsuario = '' }) {
   return `Você é o AuGPT, um assistente que pesquisa na web e escreve respostas completas, claras e bem explicadas, em português do Brasil. Hoje é ${hoje}.${TAMANHO_DA_RESPOSTA[tamanho] || ''}
 
 ${
@@ -585,9 +636,13 @@ ${
 - Diga o que as fontes não responderam, em vez de inventar.
 - Se a pergunta continua a conversa, responda só ao que foi pedido agora e traga o que é novo; não repita a resposta anterior (o usuário já leu).
 - Preço: use o que as fontes trazem, na moeda delas. Não converta moeda nem estime preço em real que as fontes não dão.
-- As anotações do pesquisador (se houver) mostram o que ele já conferiu, como preço atual. Quando uma anotação e uma fonte discordarem, prefira o dado mais recente e diga a diferença.${produto ? FORMATO_DE_PRODUTO : ''}`
+- As anotações do pesquisador (se houver) mostram o que ele já conferiu, como preço atual. Quando uma anotação e uma fonte discordarem, prefira o dado mais recente e diga a diferença.
+- Cada fonte pode trazer a data em que foi publicada (data="…"). Quando as fontes discordarem, diga que discordam e fique com a mais recente; não conte como situação de hoje o que uma fonte antiga dizia.
+- Todo número, data e nome que você escrever tem de estar nas fontes. O que elas não trazem, você não afirma.${
+        atual ? `\n- Esta pergunta depende de QUANDO: diga a data dos fatos que citar ("em 5 de outubro de ${String(hoje).slice(-4)}…") e deixe claro o que já aconteceu e o que ainda não, olhando a data de hoje.` : ''
+      }${produto ? FORMATO_DE_PRODUTO : ''}`
     : '- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.'
-}`;
+}${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 1500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou), e não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
 }
 
 // 15/10 (pedido do Davi): resposta de produto em cartões — o renderer desenha
@@ -604,7 +659,7 @@ FORMATO (pedido de produto):
   **Para quem:** para quem essa opção faz mais sentido.
 - Se forem 2 ou mais opções, termine com "### Comparação" (uma tabela) e "### Qual escolher".`;
 
-const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="${String(f.titulo || dominio(f.url)).replace(/"/g, "'")}" site="${dominio(f.url)}">\n${f.conteudo}\n</fonte>`).join('\n');
+const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="${String(f.titulo || dominio(f.url)).replace(/"/g, "'")}" site="${dominio(f.url)}"${f.data ? ` data="${dataBr(f.data)}"` : f.recente ? ' data="último mês"' : ''}>\n${f.conteudo}\n</fonte>`).join('\n');
 
 /**
  * Conferência de anos (15/10, medição: Santos Dumont "1873–1933" com a fonte
@@ -688,6 +743,63 @@ function conferirResposta(texto, { numeros = [], material = '', produto = false 
   if (precosSemFonte.size) notas.push(`*⚠ ${precosSemFonte.size === 1 ? 'Este preço não aparece' : 'Estes preços não aparecem'} nas fontes lidas: ${[...precosSemFonte].join(', ')}. Vale conferir.*`);
   return { texto: notas.length ? `${t.trim()}\n\n${notas.join('\n\n')}` : t, precosSemFonte: [...precosSemFonte], removidos };
 }
+
+/**
+ * Conferência de fatos contra as fontes (18/10, conversas reais: a resposta
+ * sobre a eleição trouxe um "AI n.º 16" e uma "vacância do cargo" que nenhuma
+ * página lida dizia). Generaliza a dos anos e preços para QUALQUER resposta
+ * com fontes: números (fora anos, preços, contagens até 10 e links) e nomes
+ * próprios escritos no meio da frase precisam aparecer no material lido, na
+ * pergunta ou na conversa. Número sem fonte ganha ⚠; os dois entram na conta
+ * que decide se a resposta é reescrita.
+ * ponytail: confere a presença da palavra ou dos dígitos, não o sentido —
+ * "16" existe em quase toda página; pega o inventado, não o número trocado.
+ */
+const soDigitos = (t) => String(t).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+const palavrasDoMaterial = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 2);
+
+function conferirFatos(texto, { material = '', extra = '' } = {}) {
+  const base = `${material} ${extra}`;
+  const numerosDoMaterial = new Set((base.match(/\d[\d.,]*\d|\d/g) || []).flatMap((n) => [soDigitos(n), soDigitos(n.replace(/[.,]0+$/, ''))]));
+  const palavras = new Set(palavrasDoMaterial(base));
+  const numeros = new Set();
+  const nomes = new Set();
+  let conferidos = 0;
+  // links, endereços e citações ficam fora
+  const partes = String(texto || '').split(/(\]\([^)]*\)|https?:\/\/\S+|\[\d+\]|`[^`]*`)/);
+  const marcado = partes
+    .map((p, i) => {
+      if (i % 2 === 1) return p;
+      let q = p.replace(/(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)(%?)/g, (m, valor, pct, offset, str) => {
+        const antes = str.slice(Math.max(0, offset - 5), offset);
+        const depois = str.slice(offset + m.length, offset + m.length + 3);
+        if (/[\d\p{L}]$/u.test(antes) || /^\d/.test(depois) || /^\s?⚠/.test(depois)) return m; // pedaço de nome ("RTX5080") ou já marcado
+        if (/(R\$|US\$|U\$|€|£)\s?$/.test(antes)) return m; // preço: conferirResposta cuida
+        const inteiro = !/[.,]/.test(valor) || /^\d{1,3}(\.\d{3})+$/.test(valor);
+        const n = Number(soDigitos(valor));
+        if (!pct && inteiro && (n <= 10 || (n >= 1000 && n <= 2099 && valor.length === 4))) return m; // contagem ou ano
+        conferidos += 1;
+        if (numerosDoMaterial.has(soDigitos(valor)) || numerosDoMaterial.has(soDigitos(valor.replace(/[.,]0+$/, '')))) return m;
+        numeros.add(`${valor}${pct}`);
+        return `${m} ⚠`;
+      });
+      // nome próprio: palavra com maiúscula depois de minúscula, número, vírgula ou parêntese
+      // (títulos e tabelas ficam fora: lá a maiúscula é de enfeite, "Cenário Eleitoral")
+      const prosa = q.split('\n').filter((l) => !/^\s*(#|\||>)/.test(l)).join('\n');
+      for (const mm of prosa.matchAll(/(?<=[\p{Ll}\d,;)]\s+)(\p{Lu}[\p{L}\d.º-]*\p{L}|\p{Lu}{2,})/gu)) {
+        conferidos += 1;
+        const chaves = palavrasDoMaterial(mm[1]);
+        if (!chaves.length || chaves.every((w) => palavras.has(w))) continue;
+        nomes.add(mm[1]);
+      }
+      return q;
+    })
+    .join('');
+  return { texto: marcado, numeros: [...numeros], nomes: [...nomes], conferidos };
+}
+
+/** Muitos fatos sem fonte (3+ e pelo menos 1 em cada 4 conferidos): a resposta é reescrita sem eles. */
+const precisaReescrever = (c) => c.numeros.length + c.nomes.length >= 3 && (c.numeros.length + c.nomes.length) / Math.max(1, c.conferidos) >= 0.25;
 
 /**
  * A resposta inteira. `deps.escrever(messages, onToken) → texto` escreve em
@@ -877,28 +989,57 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   // automático (15/10): produto vai para a pesquisa profunda, o resto para a normal
   const modoUsado = MODOS[modo] ? modo : ent.produto ? 'profundo' : 'normal';
   emit('nucleo-entendimento', { ...ent, modo: modoUsado });
-  const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa, imagemAnexada: vista }) : [];
+  // a pergunta depende do usuário (18/10, "meu computador"): o que o AuGPT já sabe dele vai junto
+  const sobreOUsuario = ent.sobreOUsuario && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '';
+  const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa, imagemAnexada: vista, atual: ent.atual, sobreOUsuario }) : [];
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
   const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed }) : [];
   // 16/10: sem o yt-dlp, "pesquise vídeos no youtube" saiu como "realizei uma pesquisa no YouTube" — não houve
   const semVideos = /\b(youtube|v[ií]deos?)\b/i.test(pergunta) && !(typeof deps.buscarNoYoutube === 'function');
   emit('redigindo', { fontes: usadas.length });
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho, atual: ent.atual, sobreOUsuario })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
     { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.)` : pergunta },
   ];
-  const escrito = semImagens(await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco })))
-    .replace(/\s*\[(imagem_anexada|imagem anexada)\]/gi, '')
-    // título dentro de negrito (17/10, Llama 3.2 3B: "**#### 1. HyperX…**") não vira cartão nem título
-    .replace(/^\s*\*\*\s*(#{2,4} [^*\n]+?)\s*\*\*\s*$/gm, '$1');
+  const limparEscrita = (t) =>
+    semImagens(t)
+      .replace(/\s*\[(imagem_anexada|imagem anexada)\]/gi, '')
+      // título dentro de negrito (17/10, Llama 3.2 3B: "**#### 1. HyperX…**") não vira cartão nem título
+      .replace(/^\s*\*\*\s*(#{2,4} [^*\n]+?)\s*\*\*\s*$/gm, '$1');
+  let escrito = limparEscrita(await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco })));
+  // o que a conferência aceita: o que foi lido, a pergunta, a conversa e o que se sabe do usuário
+  const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')}`).join(' ')} ${notas} ${vista}` : '';
+  const extraDaConferencia = `${pergunta} ${ent.pergunta} ${conversa.map((m) => m.content).join(' ')} ${hoje} ${sobreOUsuario}`;
+  let reescrita = null;
+  // reescreve só pergunta que muda com o tempo: ali o que o modelo "sabe" envelheceu e o inventado
+  // engana (18/10, eleição). No resto (fotossíntese: "ATP", "ciclo de Calvin") o saber do modelo vale,
+  // e o que faltar nas fontes só ganha ⚠ nos números
+  if (fontes.length && ent.atual && !deps.signal?.aborted) {
+    const antes = conferirFatos(escrito, { material, extra: extraDaConferencia });
+    if (precisaReescrever(antes)) {
+      const semFonte = [...antes.nomes, ...antes.numeros];
+      emit('aviso', { texto: `conferência: ${semFonte.length} dado(s) da resposta não aparecem nas fontes (${semFonte.slice(0, 8).join(', ')}) — reescrevendo sem eles` });
+      emit('resposta-reinicia', { motivo: `conferindo os fatos: ${semFonte.length} dados não aparecem nas fontes — reescrevendo sem eles` });
+      const nova = limparEscrita(
+        await escrever(
+          [...mensagens, { role: 'assistant', content: escrito }, { role: 'user', content: `Conferi sua resposta com as fontes: estes dados não aparecem em nenhuma delas: ${semFonte.slice(0, 20).join(', ')}. Reescreva a resposta inteira sem afirmar o que as fontes não trazem (se um deles for essencial, diga que as fontes não confirmam). Mantenha o resto, o formato e as citações [n]. Escreva só a nova resposta.` }],
+          (pedaco) => emit('resposta-token', { pedaco })
+        )
+      );
+      const depois = conferirFatos(nova, { material, extra: extraDaConferencia });
+      const melhorou = nova.trim().length >= escrito.trim().length * 0.4 && depois.numeros.length + depois.nomes.length < semFonte.length;
+      reescrita = { antes: semFonte.length, ficou: melhorou ? 'nova' : 'original' };
+      if (melhorou) escrito = nova;
+      else emit('resposta-reinicia', { motivo: 'a reescrita não ficou melhor — mantendo a primeira versão' });
+    }
+  }
   // só ficam na lista as fontes que a resposta citou (ou todas as usadas, se ela não citou nenhuma)
   const citadas = new Set([...String(escrito).matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
   const lista = usadas.filter((f) => !citadas.size || citadas.has(f.n)).map(({ n, url, titulo, video, trechos }) => ({ n, url, titulo, ...(video ? { video: true, lido: trechos.length > 0 } : {}) }));
   // com pesquisa, os anos citados são conferidos contra tudo que foi lido (trechos, resumos e anotações)
-  const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')}`).join(' ')} ${notas} ${vista}` : '';
   const conferido = fontes.length ? conferirAnos(String(escrito || '').trim(), { material, pergunta, hoje }) : { texto: String(escrito || '').trim(), faltam: [] };
   if (conferido.faltam.length) emit('aviso', { texto: `conferência: ano(s) sem fonte na resposta: ${conferido.faltam.join(', ')}` });
   if (fontes.length) {
@@ -906,6 +1047,11 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     conferido.texto = r.texto;
     if (r.removidos.length) emit('aviso', { texto: `conferência: opções sem fonte: ${r.removidos.join(', ')}` });
     if (r.precosSemFonte.length) emit('aviso', { texto: `conferência: preços sem fonte: ${r.precosSemFonte.join(', ')}` });
+    // os outros números (os anos e preços já foram) — o que sobrou sem fonte ganha ⚠
+    const fatos = conferirFatos(conferido.texto, { material, extra: extraDaConferencia });
+    conferido.texto = fatos.numeros.length ? `${fatos.texto}\n\n*⚠ ${fatos.numeros.length === 1 ? 'Este número não aparece' : 'Estes números não aparecem'} nas fontes lidas: ${fatos.numeros.join(', ')}. Vale conferir.*` : fatos.texto;
+    conferido.fatosSemFonte = [...fatos.nomes, ...fatos.numeros];
+    if (reescrita) conferido.reescrita = { ...reescrita, depois: conferido.fatosSemFonte.length };
   }
   if (semVideos) emit('aviso', { texto: 'Para o AuGPT ver vídeos do YouTube, instale o yt-dlp em Ajustes → Componentes.' });
   // identificação só pela aparência: a resposta avisa, pelo código (16/10: a foto de um EPOS H6PRO
@@ -916,7 +1062,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const ocrConfirma = imagens.some((i) => i.texto && (ent.assuntos || []).some((a) => tituloCita(i.texto, a)));
   const pelaAparencia = imagens.length > 0 && !ocrConfirma && (ent.produto || /prov[áa]vel|provavelmente|n[ãa]o d[áa] para saber|n[ãa]o identificado/i.test(identificacao));
   const texto = pelaAparencia ? `*Pela foto, o modelo foi reconhecido pela aparência — o nome dele não está escrito na imagem, então pode ser outro parecido da mesma linha.*\n\n${conferido.texto}` : conferido.texto;
-  return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam };
+  return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null };
 }
 
-module.exports = { conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

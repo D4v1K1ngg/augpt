@@ -24,6 +24,7 @@ function normalizar(lista, fonte) {
       url: r.url,
       resumo: (r.resumo || '').slice(0, 400),
       fonte,
+      ...(r.data ? { data: String(r.data).slice(0, 10) } : {}),
     }));
 }
 
@@ -58,13 +59,14 @@ function registrarSaude(dados) {
 /** `{ em, respondendo: [nomes], semResposta: [{ nome, motivo }] }` da última busca geral no SearXNG. */
 const saudeDaBusca = () => ({ ...saude });
 
-async function searxng(consulta, { searxngUrl, idioma = 'pt-BR', categoria = '' }) {
+async function searxng(consulta, { searxngUrl, idioma = 'pt-BR', categoria = '', periodo = '' }) {
   if (!searxngUrl) return [];
   const base = searxngUrl.replace(/\/$/, '');
   // idioma por busca (Fase A da pesquisa pela comunidade, 2026-09-26): com
   // pt-BR fixo, tópico do Reddit e do Head-Fi (em inglês) quase não aparecia.
   // 'all' = sem filtro de idioma. `categoria` 'videos' prepara a Fase E.
-  const extras = `&language=${encodeURIComponent(idioma || 'all')}${categoria ? `&categories=${encodeURIComponent(categoria)}` : ''}`;
+  // periodo (18/10): 'day' | 'week' | 'month' | 'year' — o SearXNG filtra por data nos buscadores que sabem
+  const extras = `&language=${encodeURIComponent(idioma || 'all')}${categoria ? `&categories=${encodeURIComponent(categoria)}` : ''}${periodo ? `&time_range=${encodeURIComponent(periodo)}` : ''}`;
   const r = await baixar(`${base}/search?q=${encodeURIComponent(consulta)}&format=json${extras}`, {
     timeout: 15000,
     headers: { Accept: 'application/json' },
@@ -73,7 +75,7 @@ async function searxng(consulta, { searxngUrl, idioma = 'pt-BR', categoria = '' 
   const dados = JSON.parse(r.texto);
   if (!categoria) registrarSaude(dados);
   return normalizar(
-    (dados.results || []).map((x) => ({ titulo: x.title, url: x.url, resumo: x.content })),
+    (dados.results || []).map((x) => ({ titulo: x.title, url: x.url, resumo: x.content, data: x.publishedDate || null })),
     'searxng'
   );
 }

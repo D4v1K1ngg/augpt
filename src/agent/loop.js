@@ -1591,7 +1591,34 @@ class Agent extends EventEmitter {
         this.contabilizar({ promptTokens: r.promptTokens, completionTokens: r.completionTokens }, { tipo: 'redacao', duracaoMs: r.durationMs });
         return r.content;
       },
-      buscar: async (q) => (await search.buscar(q, { searxngUrl: cfg.searxngUrl, marginaliaKey: cfg.marginaliaKey, jinaKey: cfg.jinaKey, idioma: ingles(q) ? 'all' : 'pt-BR' })).resultados,
+      // pergunta que muda com o tempo (18/10): notícias e web do último mês (as notícias na frente,
+      // marcadas como recentes); com menos de 3 resultados, a busca de sempre
+      buscar: async (q, { recente = false } = {}) => {
+        const opcoes = { searxngUrl: cfg.searxngUrl, marginaliaKey: cfg.marginaliaKey, jinaKey: cfg.jinaKey, idioma: ingles(q) ? 'all' : 'pt-BR' };
+        if (recente) {
+          const soSearxng = { ...opcoes, periodo: 'month', pular: search.CADEIA.map((p) => p.nome).filter((n) => n !== 'searxng') };
+          const [noticias, web] = await Promise.all([
+            search.buscar(q, { ...soSearxng, categoria: 'news' }).then((x) => x.resultados.map((r) => ({ ...r, recente: true }))).catch(() => []),
+            search.buscar(q, opcoes).then((x) => x.resultados).catch(() => []),
+          ]);
+          const vistos = new Set();
+          const juntos = [...noticias.slice(0, 6), ...web].filter((r) => !vistos.has(r.url) && vistos.add(r.url));
+          if (juntos.length >= 3) return juntos;
+        }
+        return (await search.buscar(q, opcoes)).resultados;
+      },
+      // "meu computador" (18/10): o que o AuGPT já sabe do usuário — a máquina e a memória central
+      sobreOUsuario: async () => {
+        const partes = [];
+        const pc = await (this._computador ||= require('../verificador-de-hardware').verificarComputador().catch(() => null));
+        // a memória de vídeo escrita por extenso (18/10: "RTX 3060 Ti (8 GB)" virou "8 GB de RAM" na resposta)
+        if (pc) partes.push(`Computador do usuário: ${pc.gpus?.length ? `placa de vídeo ${pc.gpus.map((g) => `${g.nome}${g.vramGB ? ` com ${g.vramGB} GB de memória de vídeo (VRAM)` : ''}`).join(' + ')}; ` : ''}processador ${pc.cpu} (${pc.nucleos} núcleos); memória RAM do sistema: ${pc.ramTotalGB} GB; ${pc.sistema}.`);
+        if (cfg.memoriaCentral !== false && this.userDataPath) {
+          const memoria = new MemoriaCentral(this.userDataPath).paraPrompt().trim();
+          if (memoria) partes.push(memoria);
+        }
+        return partes.join('\n');
+      },
       lerPagina: (url) => lerComCache(url, ctxWeb),
       embed: (textos) => ollama.embed({ host: cfg.host, model: cfg.embedModel || 'nomic-embed-text', input: textos, signal }),
       // Reddit e fóruns cadastrados (dados/fontes-da-comunidade.json): "site:reddit.com …", "site:clubedohardware.com.br …"
@@ -1696,10 +1723,11 @@ class Agent extends EventEmitter {
       let figuras = Promise.resolve([]);
       const emitirOriginal = deps.emit;
       deps.emit = (evento, dados) => {
-        if (evento === 'nucleo-entendimento' && dados?.precisaBuscar) {
-          const lista = dados.assuntos?.length ? dados.assuntos : [auto.assuntoDoPedido(dados.pergunta || objetivo)];
-          // Fase 4: várias por assunto (5 com um assunto só, 3 com vários), mostradas num carrossel
-          const n = lista.length === 1 ? 5 : 3;
+        // 18/10: só os assuntos concretos que o entendimento escolheu (antes, sem assunto, a busca de
+        // imagem ia pelo texto da pergunta e vinham fotos de "presidente" e "login no site"); até 3 no total
+        if (evento === 'nucleo-entendimento' && dados?.precisaBuscar && dados.fotos?.length) {
+          const lista = dados.fotos;
+          const n = Math.max(1, Math.floor(3 / lista.length));
           figuras = imagens.comLimite(Promise.all(lista.map((a) => imagens.imagensDeReferencia(a, { config: cfg, dir: this.dirImagens(), n }).then((imgs) => (imgs.length ? { nome: a, imgs } : null)).catch(() => null))), 25000, []);
         }
         emitirOriginal(evento, dados);
