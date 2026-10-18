@@ -1529,7 +1529,19 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .tempo-investigacao input:focus { outline: none; border-color: var(--amber); }
 
 /* gráficos do chat (renderer/grafico.js): sem isto o canvas ficava com os 300 px padrão */
-.grafico { margin: 14px 0; padding: 10px 12px 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); max-width: 760px; }
+.grafico { position: relative; margin: 14px 0; padding: 10px 12px 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); max-width: 760px; }
+.grafico canvas { cursor: crosshair; touch-action: pan-y; }
+.grafico-titulo { color: var(--text-forte, #fff); font-weight: 600; font-size: 12.5px; margin: 2px 0 6px; }
+.grafico-legenda { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 0 0 4px; }
+.grafico-legenda button { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--text); font-size: 11.5px; cursor: pointer; }
+.grafico-legenda button:hover { border-color: var(--line-forte); }
+.grafico-legenda button.apagado { opacity: 0.4; text-decoration: line-through; }
+.grafico .marca { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+.grafico-legenda .marca { margin-right: 0; }
+.grafico-dica { position: absolute; z-index: 5; pointer-events: none; padding: 7px 10px; border: 1px solid var(--line-forte); border-radius: 8px; background: var(--panel-2); color: var(--text); font-size: 12px; line-height: 1.55; box-shadow: 0 6px 20px rgba(0,0,0,0.35); white-space: nowrap; }
+.grafico-dica i { color: #e9a13b; font-style: normal; font-size: 11px; }
+.grafico-dica .fraco { color: var(--fraco); }
+.grafico-nota { margin: 2px 0 2px; color: var(--fraco); font-size: 11px; }
 .grafico canvas { display: block; width: 100%; }
 .grafico-erro { margin: 10px 0; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 8px; color: var(--fraco); font-size: 12px; }
 

@@ -21,7 +21,7 @@
 
 const { pedacos, ordenar } = require('./ranking');
 const { tituloCita } = require('../../tools/imagens');
-const { separarGraficos, recolocarGraficos, INSTRUCAO_DE_GRAFICO, INSTRUCAO_DE_VISUAL } = require('./graficos');
+const { separarGraficos, recolocarGraficos, graficoDoTexto, pedeGrafico, INSTRUCAO_DE_GRAFICO, INSTRUCAO_DE_VISUAL } = require('./graficos');
 
 /**
  * Profundidade da pesquisa (15/10, a partir do Perplexica — modo qualidade:
@@ -97,7 +97,7 @@ const pedeImagem = (pergunta) => PEDE_IMAGEM.test(String(pergunta || ''));
 
 // criar algo interativo (item 4, 18/10): a resposta é uma página no bloco ```visual, que roda no chat
 const PEDE_VISUAL = /\b(crie|cria|criar|monte|monta|montar|fa[çc]a|faz|gere|gera|desenvolva|programe|construa)\b[^.?!]{0,60}\b(calculadora|simula[çc][ãa]o|simulador|anima[çc][ãa]o|jogo|joguinho|painel|dashboard|p[áa]gina|visualiza[çc][ãa]o|interativ\w*|linha do tempo|quiz|cron[ôo]metro|rel[óo]gio|conversor|planilha interativa)\b/i;
-const pedeVisual = (pergunta) => PEDE_VISUAL.test(String(pergunta || ''));
+const pedeVisual = (pergunta) => PEDE_VISUAL.test(String(pergunta || '')) && !pedeGrafico(pergunta);
 /** Página completa num ```html (18/10: o 2B escreveu a calculadora certa, mas como código): vira ```visual. */
 const comoVisual = (texto) => (/```visual/.test(texto) ? texto : String(texto).replace(/```html\s*\n([\s\S]*?<(?:script|body|canvas|button)[\s\S]*?)```/i, '```visual\n$1```'));
 
@@ -112,7 +112,7 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     return {
       precisaBuscar,
       produto: j.produto === true,
-      criarImagem: j.criar_imagem === true || pedeImagem(pergunta),
+      criarImagem: (j.criar_imagem === true && !pedeVisual(pergunta) && !pedeGrafico(pergunta)) || pedeImagem(pergunta),
       atual: precisaBuscar && (j.muda_com_o_tempo === true || PISTA_DE_ATUAL.test(pergunta)),
       sobreOUsuario: j.sobre_o_usuario === true || PISTA_DO_USUARIO.test(pergunta),
       imagemAjuda: !exatas && j.imagem_ajuda !== false,
@@ -1009,7 +1009,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
-    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pergunta },
+    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pergunta },
   ];
   const limparEscrita = (t) =>
     semImagens(t)
@@ -1049,9 +1049,25 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const lista = usadas.filter((f) => !citadas.size || citadas.has(f.n)).map(({ n, url, titulo, video, trechos }) => ({ n, url, titulo, ...(video ? { video: true, lido: trechos.length > 0 } : {}) }));
   // gráficos (18/10): validados e, com fontes, só com números que estão nelas; saem do texto
   // enquanto as conferências mexem nele (o ⚠ e o corte das citações quebrariam o JSON)
-  const graf = separarGraficos(escrito, { material: fontes.length ? `${material} ${extraDaConferencia}` : '' });
+  const materialDoGrafico = fontes.length ? `${material} ${extraDaConferencia}` : '';
+  let graf = separarGraficos(escrito, { material: materialDoGrafico });
   if (graf.descartados.length) emit('aviso', { texto: `gráfico descartado: ${graf.descartados.join('; ')}` });
-  escrito = graf.texto;
+  // pediu gráfico e não veio nenhum válido: o código monta com a tabela ou a lista da resposta
+  let notaDoGrafico = '';
+  if (pedeGrafico(pergunta) && !graf.validos) {
+    const montado = graficoDoTexto(graf.texto);
+    if (montado) {
+      const linhas = graf.texto.split('\n');
+      linhas.splice(montado.depoisDaLinha + 1, 0, '', montado.bloco, '');
+      const novo = separarGraficos(recolocarGraficos(linhas.join('\n'), graf.graficos), { material: materialDoGrafico });
+      if (novo.validos) {
+        graf = novo;
+        emit('aviso', { texto: 'gráfico montado pelo código com a tabela/lista da resposta' });
+      }
+    }
+    if (!graf.validos) notaDoGrafico = `\n\n*O gráfico pedido não foi montado: ${graf.descartados.some((d) => /fora das fontes/.test(d)) ? 'a maior parte dos números dele não aparece nas fontes lidas' : 'a resposta não trouxe números para ele'}.*`;
+  }
+  escrito = `${graf.texto}${notaDoGrafico}`;
   // com pesquisa, os anos citados são conferidos contra tudo que foi lido (trechos, resumos e anotações)
   const conferido = fontes.length ? conferirAnos(String(escrito || '').trim(), { material, pergunta, hoje }) : { texto: String(escrito || '').trim(), faltam: [] };
   if (conferido.faltam.length) emit('aviso', { texto: `conferência: ano(s) sem fonte na resposta: ${conferido.faltam.join(', ')}` });

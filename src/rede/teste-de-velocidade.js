@@ -235,7 +235,7 @@ function graficosDoResultado(r) {
       bloco({
         type: 'line',
         title: 'Latência durante o teste (ms)',
-        labels: amostra.map((p) => `${Math.round(p.t / 1000)}s`),
+        labels: amostra.map((p) => `${(p.t / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}s`),
         datasets: fases.map((f) => ({ label: f, data: amostra.map((p) => (p.fase === f ? Math.round(p.latencia * 10) / 10 : null)) })),
       })
     );
