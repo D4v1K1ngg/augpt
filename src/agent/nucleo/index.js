@@ -21,6 +21,7 @@
 
 const { pedacos, ordenar } = require('./ranking');
 const { tituloCita } = require('../../tools/imagens');
+const { separarGraficos, recolocarGraficos, INSTRUCAO_DE_GRAFICO } = require('./graficos');
 
 /**
  * Profundidade da pesquisa (15/10, a partir do Perplexica — modo qualidade:
@@ -638,10 +639,10 @@ ${
 - Preço: use o que as fontes trazem, na moeda delas. Não converta moeda nem estime preço em real que as fontes não dão.
 - As anotações do pesquisador (se houver) mostram o que ele já conferiu, como preço atual. Quando uma anotação e uma fonte discordarem, prefira o dado mais recente e diga a diferença.
 - Cada fonte pode trazer a data em que foi publicada (data="…"). Quando as fontes discordarem, diga que discordam e fique com a mais recente; não conte como situação de hoje o que uma fonte antiga dizia.
-- Todo número, data e nome que você escrever tem de estar nas fontes. O que elas não trazem, você não afirma.${
+- Todo número, data e nome que você escrever tem de estar nas fontes. O que elas não trazem, você não afirma.${INSTRUCAO_DE_GRAFICO}${
         atual ? `\n- Esta pergunta depende de QUANDO: diga a data dos fatos que citar ("em 5 de outubro de ${String(hoje).slice(-4)}…") e deixe claro o que já aconteceu e o que ainda não, olhando a data de hoje.` : ''
       }${produto ? FORMATO_DE_PRODUTO : ''}`
-    : '- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.'
+    : `- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.${INSTRUCAO_DE_GRAFICO}`
 }${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 1500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou), e não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
 }
 
@@ -766,7 +767,7 @@ function conferirFatos(texto, { material = '', extra = '' } = {}) {
   const nomes = new Set();
   let conferidos = 0;
   // links, endereços e citações ficam fora
-  const partes = String(texto || '').split(/(\]\([^)]*\)|https?:\/\/\S+|\[\d+\]|`[^`]*`)/);
+  const partes = String(texto || '').split(/(```[\s\S]*?```|\]\([^)]*\)|https?:\/\/\S+|\[\d+\]|`[^`]*`)/);
   const marcado = partes
     .map((p, i) => {
       if (i % 2 === 1) return p;
@@ -1039,6 +1040,11 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   // só ficam na lista as fontes que a resposta citou (ou todas as usadas, se ela não citou nenhuma)
   const citadas = new Set([...String(escrito).matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
   const lista = usadas.filter((f) => !citadas.size || citadas.has(f.n)).map(({ n, url, titulo, video, trechos }) => ({ n, url, titulo, ...(video ? { video: true, lido: trechos.length > 0 } : {}) }));
+  // gráficos (18/10): validados e, com fontes, só com números que estão nelas; saem do texto
+  // enquanto as conferências mexem nele (o ⚠ e o corte das citações quebrariam o JSON)
+  const graf = separarGraficos(escrito, { material: fontes.length ? `${material} ${extraDaConferencia}` : '' });
+  if (graf.descartados.length) emit('aviso', { texto: `gráfico descartado: ${graf.descartados.join('; ')}` });
+  escrito = graf.texto;
   // com pesquisa, os anos citados são conferidos contra tudo que foi lido (trechos, resumos e anotações)
   const conferido = fontes.length ? conferirAnos(String(escrito || '').trim(), { material, pergunta, hoje }) : { texto: String(escrito || '').trim(), faltam: [] };
   if (conferido.faltam.length) emit('aviso', { texto: `conferência: ano(s) sem fonte na resposta: ${conferido.faltam.join(', ')}` });
@@ -1061,7 +1067,8 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const identificacao = (/^.*identifica[çc][ãa]o:.*$/im.exec(vista) || [''])[0];
   const ocrConfirma = imagens.some((i) => i.texto && (ent.assuntos || []).some((a) => tituloCita(i.texto, a)));
   const pelaAparencia = imagens.length > 0 && !ocrConfirma && (ent.produto || /prov[áa]vel|provavelmente|n[ãa]o d[áa] para saber|n[ãa]o identificado/i.test(identificacao));
-  const texto = pelaAparencia ? `*Pela foto, o modelo foi reconhecido pela aparência — o nome dele não está escrito na imagem, então pode ser outro parecido da mesma linha.*\n\n${conferido.texto}` : conferido.texto;
+  const comGraficos = recolocarGraficos(conferido.texto, graf.graficos);
+  const texto = pelaAparencia ? `*Pela foto, o modelo foi reconhecido pela aparência — o nome dele não está escrito na imagem, então pode ser outro parecido da mesma linha.*\n\n${comGraficos}` : comGraficos;
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null };
 }
 

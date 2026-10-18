@@ -38,6 +38,7 @@ const { lerComCache } = require('../tools/web');
 const nucleo = require('./nucleo');
 const { investigar } = require('./nucleo/investigacao');
 const { ondeComprar, linhaOndeComprar } = require('./onde-comprar');
+const { protegerGraficos } = require('./nucleo/graficos');
 const { gerarPdf } = require('../formatos/pdf-escrita');
 const { YtDlp, pareceMudancaDoYouTube, idDoVideo } = require('../ytdlp');
 const { Tesseract, IMAGEM } = require('../tesseract');
@@ -1779,7 +1780,8 @@ class Agent extends EventEmitter {
             return `${linha}${img ? `\n${imagens.marcacao(limparNome(nome), img)}\n` : ''}${lojas ? `\n${lojas}\n` : ''}`;
           })
         : r.texto;
-      const corpo = explicarTermos(comLinks(linhaDoAssunto ? `${linhaDoAssunto}\n\n${comCartoes}` : comCartoes, r.fontes));
+      // gráfico protegido: o link das citações e o glossário não entram no JSON dele
+      const corpo = protegerGraficos(linhaDoAssunto ? `${linhaDoAssunto}\n\n${comCartoes}` : comCartoes, (t) => explicarTermos(comLinks(t, r.fontes)));
       // as imagens de todos os assuntos numa linha só: o renderer monta o carrossel (md.js)
       const marcas = doTopo.flatMap((x) => x.imgs.map((img) => imagens.marcacao(x.nome, img)));
       const comFoto = marcas.length ? `${marcas.join(' ')}\n\n${corpo}` : corpo;

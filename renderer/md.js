@@ -40,7 +40,8 @@
       if (String(lang).toLowerCase() === 'chart') {
         blocos.push(`<div class="grafico-lugar" data-grafico="${blocos.length}"></div>`);
         graficos[blocos.length - 1] = desescapar(codigo);
-        return `\u0000B${blocos.length - 1}\u0000`;
+        // 18/10: o marcador era "\u0000B0" e só "\u0000BLOCO0" é trocado no fim — o gráfico nunca aparecia
+        return `\u0000BLOCO${blocos.length - 1}\u0000`;
       }
       blocos.push(`<pre class="bloco-codigo"${lang ? ` data-lang="${lang}"` : ''}><code>${codigo.replace(/\n$/, '')}</code></pre>`);
       return `\u0000BLOCO${blocos.length - 1}\u0000`;

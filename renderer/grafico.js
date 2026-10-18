@@ -125,7 +125,8 @@
 
     const esquerda = horizontal ? Math.min(140, largura * 0.32) : 54;
     const baixo = 34;
-    const topo = spec.titulo ? 34 : 14;
+    // legenda (2+ séries) numa linha só dela, abaixo do título (18/10: ficava por cima dele)
+    const topo = (spec.titulo ? 34 : 14) + (spec.series.length >= 2 ? 18 : 0);
     const direita = 14;
     const areaL = largura - esquerda - direita;
     const areaA = altura - topo - baixo;
@@ -133,7 +134,7 @@
     if (spec.titulo) {
       ctx.fillStyle = tema.forte;
       ctx.font = '600 12.5px system-ui, sans-serif';
-      ctx.fillText(spec.titulo, esquerda, topo - 18);
+      ctx.fillText(spec.titulo, esquerda, 16);
       ctx.font = '11px system-ui, sans-serif';
     }
 
@@ -166,7 +167,10 @@
     const n = spec.rotulos.length;
     const faixa = (horizontal ? areaA : areaL) / n;
 
-    // rótulos das categorias, pulando quando não couberem
+    const barras = spec.tipo === 'bar' || spec.tipo === 'column' || horizontal;
+    // rótulos das categorias, pulando quando não couberem; na linha, embaixo de cada ponto
+    // (18/10: ficavam no meio de faixas, deslocados dos pontos, que vão de borda a borda)
+    const xDaCategoria = (i) => (barras ? esquerda + faixa * (i + 0.5) : esquerda + (n === 1 ? areaL / 2 : (i / (n - 1)) * areaL));
     ctx.fillStyle = tema.fraco;
     const salto = horizontal ? 1 : Math.ceil((n * 52) / areaL);
     spec.rotulos.forEach((rotulo, i) => {
@@ -176,11 +180,10 @@
         ctx.fillText(rotulo.slice(0, 22), esquerda - 8, topo + faixa * (i + 0.5));
       } else {
         ctx.textAlign = 'center';
-        ctx.fillText(rotulo.slice(0, 14), esquerda + faixa * (i + 0.5), topo + areaA + 14);
+        ctx.fillText(rotulo.slice(0, 14), xDaCategoria(i), topo + areaA + 14);
       }
     });
 
-    const barras = spec.tipo === 'bar' || spec.tipo === 'column' || horizontal;
 
     spec.series.forEach((serie, s) => {
       const c = cor(s, serie);

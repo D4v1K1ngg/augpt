@@ -1527,3 +1527,8 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .tempo-investigacao { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px 0 4px; font-size: 12.5px; color: var(--muted); }
 .tempo-investigacao input { width: 58px; padding: 5px 8px; border: 1px solid var(--line-forte); border-radius: 7px; background: var(--void); color: var(--text-forte); font: inherit; font-size: 12.5px; }
 .tempo-investigacao input:focus { outline: none; border-color: var(--amber); }
+
+/* gráficos do chat (renderer/grafico.js): sem isto o canvas ficava com os 300 px padrão */
+.grafico { margin: 14px 0; padding: 10px 12px 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); max-width: 760px; }
+.grafico canvas { display: block; width: 100%; }
+.grafico-erro { margin: 10px 0; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 8px; color: var(--fraco); font-size: 12px; }
