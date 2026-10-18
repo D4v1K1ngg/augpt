@@ -91,7 +91,7 @@ module.exports = [
         pedidoDeRota('mede meu ping') === null && pedidoDeRede('mede meu ping')?.modo === 'ping' || 'ping sem jogo é o teste de rede',
         /\*\*São Paulo\*\* \(melhor\) \| 18 ms/.test(r.texto) && /Caminho até São Paulo/.test(r.texto) || r.texto.slice(0, 300),
         /Riot não publica/.test(r.texto) && /Riot não publica/.test(escritas[0][0].content) || 'referência da Riot',
-        /São Paulo 18 ms/.test(escritas[0][0].content) && /SÓ os números medidos/.test(escritas[0][0].content) || 'o modelo recebe os números',
+        /São Paulo: 18 ms, ótimo para jogar \(O MELHOR\)/.test(escritas[0][0].content) && /\*\*Recomendado: São Paulo \(18 ms/.test(r.texto) && /SÓ os números medidos/.test(escritas[0][0].content) || 'o modelo recebe os números',
         (r.texto.match(/```chart/g) || []).length === 2 || 'gráficos',
       ];
     },
