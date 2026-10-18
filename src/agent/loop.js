@@ -39,7 +39,7 @@ const nucleo = require('./nucleo');
 const { investigar } = require('./nucleo/investigacao');
 const { ondeComprar, linhaOndeComprar } = require('./onde-comprar');
 const { protegerGraficos } = require('./nucleo/graficos');
-const { pedidoDeRede, responderRede, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego } = require('./rede-no-chat');
+const { pedidoDeRede, responderRede, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego, pedidoDeDiagnostico, responderDiagnostico } = require('./rede-no-chat');
 const catalogo = require('./capacidades'); // "capacidades" já é o nome das capacidades do modelo (visão…) mais abaixo
 const { jogoDoTexto } = require('../rede/rotas');
 const { gerarPdf } = require('../formatos/pdf-escrita');
@@ -1748,19 +1748,23 @@ class Agent extends EventEmitter {
         if (id === 'teste_de_rede') return responderRede({ pergunta, conversa, deps, signal, pedido: pedidoDeRede(pergunta, conversa) || { modo: modoDoTeste || 'completo', confirmado: confirmado || modoDoTeste === 'ping' } });
         if (id === 'rota_de_jogo') return responderRota({ pergunta, deps, jogo: jogoDaConversa() });
         if (id === 'trafego_de_rede') return responderTrafego({ pergunta, deps });
+        if (id === 'diagnostico_da_rede') return responderDiagnostico({ pergunta, conversa, deps });
         return null;
       };
       const aceitou = !investigando && !imagensDoPedido.length && catalogo.aceitouOferta(objetivo, conversa);
       // rota para jogo (18/10, item 3) antes do teste de rede: "meu ping no PUBG" é de servidor do jogo
       const pedeRota = !investigando && !aceitou && !imagensDoPedido.length && pedidoDeRota(objetivo);
-      const pedeTrafego = !investigando && !aceitou && !pedeRota && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
-      const pedeRede = !investigando && !aceitou && !pedeRota && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
+      const pedeRaioX = !investigando && !aceitou && !pedeRota && !imagensDoPedido.length && pedidoDeDiagnostico(objetivo);
+      const pedeTrafego = !investigando && !aceitou && !pedeRota && !pedeRaioX && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
+      const pedeRede = !investigando && !aceitou && !pedeRota && !pedeRaioX && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
       const r = aceitou
         ? await deps.executarAcao(aceitou.id, { pergunta: objetivo, modo: aceitou.modo, confirmado: true })
         : investigando
         ? await investigar({ pergunta: objetivo, conversa, minutos: Number(cfg.minutosDeInvestigacao) || 10, tamanho: cfg.modoResposta || 'normal', deps })
         : pedeRota
           ? await responderRota({ pergunta: objetivo, deps })
+          : pedeRaioX
+          ? await responderDiagnostico({ pergunta: objetivo, conversa, deps })
           : pedeTrafego
             ? await responderTrafego({ pergunta: objetivo, deps })
             : pedeRede
@@ -1785,6 +1789,12 @@ class Agent extends EventEmitter {
         }
       }
       if (!r.texto) throw new Error('a escrita veio vazia');
+      // trava de promessa: o AuGPT não oferece o que não faz (capacidades.js)
+      const promessas = catalogo.conferirPromessas(r.texto);
+      if (promessas.tiradas.length) {
+        r.texto = promessas.texto;
+        this.emit('aviso', { texto: `promessa fora do que o AuGPT faz, tirada da resposta: ${promessas.tiradas.join(' | ').slice(0, 300)}` });
+      }
       // produto: uma foto em cada cartão "#### N. Nome"; o resto: a imagem de cada assunto no topo
       const limparNome = (t) => String(t).replace(/[*_[\]]/g, '').trim();
       const nomes = r.produto ? [...r.texto.matchAll(/^#### \d+\. (.+)$/gm)].map((m) => limparNome(m[1])) : [];

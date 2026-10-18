@@ -101,6 +101,7 @@ const PISTA_DA_ACAO = {
   teste_de_rede: /internet|conex|wi-?fi|\brede\b|ping|lag|lat[eê]ncia|velocidade|download|upload|banda|roteador|operadora|provedor|fibra/i,
   rota_de_jogo: /\b(jogo|jogos|jogar|game|games|ping|lag|servidor|servidores|pubg|fortnite|cs ?2|counter|dota|valorant|lol|league)\b/i,
   trafego_de_rede: /internet|\brede\b|banda|consum|programa|aplicativo|conex|lent/i,
+  diagnostico_da_rede: /roteador|modem|wi-?fi|\brede\b|cabo|aparelho|dispositivo|ipconfig|\bdns\b|gateway|sinal|conex|internet|lag|ping/i,
 };
 const acaoValida = (id, texto) => (capacidades.EXECUTAVEIS.includes(id) && PISTA_DA_ACAO[id]?.test(String(texto || '')) ? id : null);
 // a mensagem pede que o AuGPT FAÇA algo (18/10, 4B: "você consegue ver como está a qualidade da minha

@@ -10,6 +10,7 @@
 const { testarRede, tabelaDoResultado, graficosDoResultado } = require('../rede/teste-de-velocidade');
 const rotas = require('../rede/rotas');
 const trafego = require('../rede/trafego');
+const raioX = require('../rede/raio-x');
 
 const norm = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
@@ -211,4 +212,67 @@ async function responderTrafego({ pergunta, deps, hoje = new Date().toLocaleDate
   return { ...vazio, texto: `${tabela}\n\n${explicacao}${graficos.length ? `\n\n${graficos.join('\n\n')}` : ''}` };
 }
 
-module.exports = { pedidoDeRede, responderRede, PERGUNTA_DE_CONFIRMACAO, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego };
+/* ------------------------------ raio-X da rede local (18/10) ------------------------------ */
+
+// reserva das palavras (o caminho principal é o entendimento, ver capacidades.js)
+const PEDE_RAIO_X = /\b(raio-?x da (minha )?rede|ipconfig|quantos (aparelhos|dispositivos)|quais (aparelhos|dispositivos)|(aparelhos|dispositivos) (conectados|na (minha )?rede|ligados)|qual (e |eh )?o (modelo do |)(meu )?roteador|modelo do (meu )?roteador|meu roteador e qual)\b/;
+
+function pedidoDeDiagnostico(texto) {
+  const t = norm(texto);
+  if (!PEDE_RAIO_X.test(t)) return null;
+  if (COMO_FAZER.test(t) && !DO_USUARIO.test(t)) return null; // "como ver quantos aparelhos…" de outra rede é pergunta
+  return {};
+}
+
+function pedidoDeExplicacaoDoRaioX(pergunta, r, achados, conversa, hoje) {
+  const ap = r.aparelhos.filter((a) => !a.roteador);
+  const porTipo = {};
+  for (const a of ap) {
+    const k = a.aleatorio ? 'celular ou notebook (endereço privado)' : a.tipo || 'não identificado';
+    porTipo[k] = (porTipo[k] || 0) + 1;
+  }
+  // um teste de internet anterior nesta conversa diz se a linha cheia faz o ping subir (bufferbloat)
+  const nota = /Bufferbloat \| \*\*nota ([A-F]\+?)\*\*/.exec(conversa.map((m) => m.content).join('\n'))?.[1] || null;
+  const dados = [
+    r.ligacao ? `ligação do PC: ${r.ligacao.tipo}, ${r.ligacao.velocidade}` : null,
+    r.wifi ? `Wi-Fi: sinal ${r.wifi.sinal}%, ${r.wifi.banda}, canal ${r.wifi.canal}, ${r.wifi.padrao}` : null,
+    r.ping ? `ping até o roteador: ${r.ping.mediana} ms, jitter ${r.ping.jitter} ms, pior ${r.ping.pior} ms, perda ${r.ping.perdaPct}%` : null,
+    r.roteador ? `roteador: ${[r.roteador.fabricante, r.roteador.modelo].filter(Boolean).join(' ') || 'não identificado'}${r.roteador.firmware ? `, firmware de ${r.roteador.firmware.data}` : ''}` : null,
+    `aparelhos na rede além do roteador: ${ap.length} (${Object.entries(porTipo).map(([k, n]) => `${n} ${k}`).join('; ')})`,
+    `DNS: ${r.config.dns.join(', ') || '—'}`,
+    nota ? `teste de internet feito antes nesta conversa: bufferbloat nota ${nota}` : null,
+  ].filter(Boolean).join('\n');
+  return [
+    {
+      role: 'system',
+      content: `Você é o AuGPT. Hoje é ${hoje}. O AuGPT acabou de fazer o raio-X da rede local do usuário (só leitura). Medido:
+${dados}
+Avaliação do código (o que está fora do normal): ${achados.length ? achados.map((a) => `${a.grave ? '[importante] ' : ''}${a.texto}`).join('; ') : 'nada fora do normal'}.
+
+Explique para o usuário, em português do Brasil, em 2 a 4 parágrafos curtos (a tabela já aparece acima: não a repita).
+- Comece respondendo o que ele perguntou, com esses números.
+- O trecho PC → roteador: ping de 1 a 2 ms no cabo (até uns 5 ms no Wi-Fi), sem perda, é ótimo; aí o problema não está na casa.
+- Aparelhos: a quantidade em si não causa lag — o que causa é algum deles usando muita internet ao mesmo tempo (download, vídeo, atualização). ${nota ? `O teste anterior deu bufferbloat ${nota}: ${/^A/.test(nota) ? 'mesmo com a linha cheia o ping não sobe, então os aparelhos não estão atrapalhando' : 'com a linha cheia o ping sobe; aí aparelhos baixando coisas atrapalham, e o QoS/SQM do roteador ajuda'}.` : 'Para saber se eles atrapalham, o teste de internet com bufferbloat mede isso.'}
+- Diga o que cada ponto da avaliação significa e o que fazer, de forma prática.
+- Tudo acima JÁ FOI MEDIDO agora pelo AuGPT (inclusive o ping até o roteador): não mande o usuário rodar ping, ipconfig ou outro teste que repita isso.
+- Use SÓ os dados acima; não invente.`,
+    },
+    { role: 'user', content: pergunta },
+  ];
+}
+
+async function responderDiagnostico({ pergunta, conversa = [], deps, hoje = new Date().toLocaleDateString('pt-BR'), medir = raioX.raioX }) {
+  const emit = deps.emit || (() => {});
+  emit('ferramenta', { nome: 'raio_x_da_rede', argumentos: { consulta: 'placa, Wi-Fi, ping até o roteador, aparelhos e roteador' }, risco: 'leitura' });
+  const r = await medir({ aoProgresso: (p) => emit('ferramenta', { nome: 'raio_x_da_rede', argumentos: { consulta: p }, risco: 'leitura' }) });
+  const achados = raioX.avaliar(r);
+  const tabela = raioX.tabelaDoRaioX(r);
+  const resumo = achados.length ? `**O que chamou atenção:**\n${achados.map((a) => `- ${a.grave ? '⚠ ' : ''}${a.texto}`).join('\n')}` : '**Nada fora do normal na rede local.**';
+  emit('resposta-token', { pedaco: `${tabela}\n\n${resumo}\n\n` });
+  const explicacao = String((await deps.escrever(pedidoDeExplicacaoDoRaioX(pergunta, r, achados, conversa, hoje), (pedaco) => emit('resposta-token', { pedaco }))) || '').trim();
+  const graficos = raioX.graficosDoRaioX(r);
+  const vazio = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] }, modo: 'rede' };
+  return { ...vazio, texto: `${tabela}\n\n${resumo}\n\n${explicacao}${graficos.length ? `\n\n${graficos.join('\n\n')}` : ''}`, raioX: r, achados };
+}
+
+module.exports = { pedidoDeRede, responderRede, PERGUNTA_DE_CONFIRMACAO, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego, pedidoDeDiagnostico, responderDiagnostico };
