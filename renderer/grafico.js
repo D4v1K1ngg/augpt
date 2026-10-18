@@ -282,8 +282,11 @@
         ctx.textAlign = 'right';
         ctx.fillText(rotulo.slice(0, 24), esquerda - 8, yDaCategoria(j));
       } else {
+        // o rótulo não sai da caixa (18/10, no app: "Ago 20…" cortado na borda direita)
+        const texto = rotulo.slice(0, 14);
+        const meia = ctx.measureText(texto).width / 2;
         ctx.textAlign = 'center';
-        ctx.fillText(rotulo.slice(0, 14), xDaCategoria(j), topo + areaA + 14);
+        ctx.fillText(texto, Math.max(meia + 2, Math.min(largura - meia - 2, xDaCategoria(j))), topo + areaA + 14);
       }
     });
 

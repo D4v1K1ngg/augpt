@@ -99,6 +99,32 @@ module.exports = [
     },
   },
   {
+    nome: 'gráficos v2 (no app, 18/10): gráfico PEDIDO com a maioria dos pontos estimada fica, marcado, e a resposta diz quantos são estimativa; "com os dados acima" sem gráfico do modelo usa a tabela da resposta anterior',
+    tipo: 'unidade',
+    async executar() {
+      const deps = (texto) => ({
+        chamar: async (m, o = {}) => (o.json ? { content: '{"precisa_buscar": true}' } : { content: '', chamadas: [{ function: { name: 'pronto', arguments: {} } }] }),
+        escrever: async (messages, onToken) => (onToken(texto), texto),
+        buscar: async () => [{ titulo: 'RTX 5080', url: 'https://radargpu.exemplo/rtx', resumo: 'mínima R$ 9.128,90; média R$ 11.442' }],
+        lerPagina: async () => ({ texto: 'mínima R$ 9.128,90; média R$ 11.442.', titulo: 'RTX 5080' }),
+        emit: () => {},
+      });
+      const interpolado = `Tendência:\n\n\`\`\`chart\n${JSON.stringify({ type: 'line', unit: 'R$', labels: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun'], datasets: [{ label: 'preço', data: [9500, 9800, 10100, 9128.9, 10600, 11442] }] })}\n\`\`\``;
+      const r = await nucleo.responder({ pergunta: 'monte um grafico de tendencia com os dados coletados acima', modo: 'rapido', hoje: '18/10/2026', deps: deps(interpolado) });
+      const conversa = [
+        { role: 'user', content: 'qual a população das maiores cidades?' },
+        { role: 'assistant', content: '| Cidade | População |\n| --- | --- |\n| São Paulo | 11,9 milhões |\n| Rio de Janeiro | 6,7 milhões |\n| Brasília | 3 milhões |' },
+      ];
+      const r2 = await nucleo.responder({ pergunta: 'monte um gráfico de colunas com esses dados', conversa, modo: 'rapido', hoje: '18/10/2026', deps: deps('Claro! Veja os dados acima.') });
+      return [
+        /```chart/.test(r.texto) && /"estimated":\[true,true,true,false,true,false\]/.test(r.texto) || r.texto.slice(0, 400),
+        /No gráfico, 4 de 6 valores são estimativas/.test(r.texto) || 'nota das estimativas',
+        !/não foi montado/.test(r.texto) || 'não pode dizer que não montou',
+        /Gráfico com os dados da resposta anterior:\n\n```chart\n\{"type":"bar"/.test(r2.texto) && /"labels":\["São Paulo","Rio de Janeiro","Brasília"\]/.test(r2.texto) || r2.texto.slice(0, 500),
+      ];
+    },
+  },
+  {
     nome: 'gráficos v2: pedido de gráfico leva o lembrete do bloco; "gráfico interativo" é gráfico (não página HTML); "crie uma calculadora de IMC interativa" não vira imagem do FLUX mesmo com o modelo marcando criar_imagem',
     tipo: 'unidade',
     async executar() {

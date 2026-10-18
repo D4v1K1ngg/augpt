@@ -77,16 +77,20 @@ const chavesDoNumero = (x) => [digitos(x), digitos(Number(x).toFixed(2)), digito
 
 /**
  * Tira os gráficos do texto (ficam marcadores), valida cada um e confere os números.
- * `material`: com fontes, ponto que não aparece nele vira estimativa; menos da metade aparece → sai.
- * @returns {{ texto, graficos: string[], validos, descartados: string[], estimativas }}
+ * `material`: com fontes, ponto que não aparece nele vira estimativa; menos da metade aparece → sai,
+ * A NÃO SER que o usuário tenha pedido o gráfico (`pedido`): aí fica, com os pontos estimados marcados
+ * (18/10, app do Davi: "monte um gráfico de tendência com os dados acima" — o modelo interpolou os
+ * meses que as fontes não têm, o gráfico saía e a resposta ficava só com "não foi montado").
+ * @returns {{ texto, graficos: string[], validos, descartados: string[], estimativas, pontos }}
  */
-function separarGraficos(texto, { material = '' } = {}) {
+function separarGraficos(texto, { material = '', pedido = false } = {}) {
   const doMaterial = material ? new Set((String(material).match(/\d[\d.,]*\d|\d/g) || []).flatMap((n) => [digitos(n), digitos(n.replace(/[.,]0+$/, ''))])) : null;
   const tem = (x) => chavesDoNumero(x).some((k) => doMaterial.has(k));
   const graficos = [];
   const descartados = [];
   let validos = 0;
   let estimativas = 0;
+  let totalDePontos = 0;
   const semGraficos = String(texto || '').replace(BLOCO, (_, json) => {
     const v = validarGrafico(json.trim());
     if (!v.ok) {
@@ -96,7 +100,8 @@ function separarGraficos(texto, { material = '' } = {}) {
     if (doMaterial && v.spec.type !== 'scatter') {
       const pontos = v.spec.datasets.flatMap((s, i) => s.data.map((x, j) => ({ i, j, x }))).filter((p) => p.x !== null);
       const achados = pontos.filter((p) => tem(p.x));
-      if (achados.length / pontos.length < 0.5) {
+      totalDePontos += pontos.length;
+      if (achados.length / pontos.length < 0.5 && !pedido) {
         descartados.push(`números fora das fontes (${pontos.length - achados.length} de ${pontos.length})`);
         return '';
       }
@@ -118,7 +123,7 @@ function separarGraficos(texto, { material = '' } = {}) {
     graficos.push(m);
     return `\u0000GRAFICO${graficos.length - 1}\u0000`;
   });
-  return { texto: semBlocos.replace(/\n{3,}/g, '\n\n'), graficos, validos, descartados, estimativas };
+  return { texto: semBlocos.replace(/\n{3,}/g, '\n\n'), graficos, validos, descartados, estimativas, pontos: totalDePontos };
 }
 
 const recolocarGraficos = (texto, graficos) => String(texto).replace(MARCADOR, (_, i) => graficos[Number(i)] || '');

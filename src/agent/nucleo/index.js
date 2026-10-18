@@ -169,7 +169,8 @@ function conferirEntendimento(ent, { pergunta, conversa = [] }) {
     // as fotos do topo: no máximo 3 assuntos, só os concretos, e só quando ver ajuda
     // (18/10, 2B: "me fale da Torre Eiffel" veio com imagem_ajuda false); nome de uma palavra só
     // ("Brasil", "Lula") segue o que o modelo disse
-    fotos: assuntos
+    // pedido de gráfico não leva foto (18/10, no app: o carrossel da RTX 5080 em cima do gráfico pedido)
+    fotos: (pedeGrafico(pergunta) ? [] : assuntos)
       .filter((a) => produto || assuntoConcreto(a, pedidosDoUsuario))
       .filter((a) => ent.imagemAjuda !== false || produto || /\d/.test(a) || palavrasDe(a).length >= 2)
       .slice(0, 3),
@@ -1049,23 +1050,37 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const lista = usadas.filter((f) => !citadas.size || citadas.has(f.n)).map(({ n, url, titulo, video, trechos }) => ({ n, url, titulo, ...(video ? { video: true, lido: trechos.length > 0 } : {}) }));
   // gráficos (18/10): validados e, com fontes, só com números que estão nelas; saem do texto
   // enquanto as conferências mexem nele (o ⚠ e o corte das citações quebrariam o JSON)
+  // com fontes, o que a conferência aceita no gráfico: o lido, a pergunta e a conversa (os "dados acima")
   const materialDoGrafico = fontes.length ? `${material} ${extraDaConferencia}` : '';
-  let graf = separarGraficos(escrito, { material: materialDoGrafico });
+  const pedido = pedeGrafico(pergunta);
+  let graf = separarGraficos(escrito, { material: materialDoGrafico, pedido });
   if (graf.descartados.length) emit('aviso', { texto: `gráfico descartado: ${graf.descartados.join('; ')}` });
-  // pediu gráfico e não veio nenhum válido: o código monta com a tabela ou a lista da resposta
+  // pediu gráfico e não veio nenhum válido: o código monta com a tabela ou a lista da resposta — ou,
+  // em "monte um gráfico com os dados acima", com a da resposta anterior
   let notaDoGrafico = '';
-  if (pedeGrafico(pergunta) && !graf.validos) {
+  if (pedido && !graf.validos) {
     const montado = graficoDoTexto(graf.texto);
+    const anterior = !montado && [...conversa].reverse().find((m) => m.role === 'assistant' && graficoDoTexto(m.content));
+    let comGrafico = null;
     if (montado) {
       const linhas = graf.texto.split('\n');
       linhas.splice(montado.depoisDaLinha + 1, 0, '', montado.bloco, '');
-      const novo = separarGraficos(recolocarGraficos(linhas.join('\n'), graf.graficos), { material: materialDoGrafico });
+      comGrafico = linhas.join('\n');
+    } else if (anterior) {
+      comGrafico = `${graf.texto.trim()}\n\nGráfico com os dados da resposta anterior:\n\n${graficoDoTexto(anterior.content).bloco}`;
+    }
+    if (comGrafico) {
+      const novo = separarGraficos(recolocarGraficos(comGrafico, graf.graficos), { material: materialDoGrafico, pedido });
       if (novo.validos) {
         graf = novo;
-        emit('aviso', { texto: 'gráfico montado pelo código com a tabela/lista da resposta' });
+        emit('aviso', { texto: `gráfico montado pelo código com a tabela/lista da ${montado ? 'resposta' : 'resposta anterior'}` });
       }
     }
-    if (!graf.validos) notaDoGrafico = `\n\n*O gráfico pedido não foi montado: ${graf.descartados.some((d) => /fora das fontes/.test(d)) ? 'a maior parte dos números dele não aparece nas fontes lidas' : 'a resposta não trouxe números para ele'}.*`;
+    if (!graf.validos) notaDoGrafico = '\n\n*O gráfico pedido não foi montado: a resposta não trouxe números para ele.*';
+  }
+  // pedido com muitos pontos estimados: o gráfico fica, e a resposta diz quanto é estimativa
+  if (pedido && graf.estimativas && graf.estimativas >= graf.pontos / 3) {
+    notaDoGrafico += `\n\n*No gráfico, ${graf.estimativas} de ${graf.pontos} valores são estimativas (não aparecem nas fontes lidas): estão tracejados, vazados ou hachurados — passe o mouse para ver.*`;
   }
   escrito = `${graf.texto}${notaDoGrafico}`;
   // com pesquisa, os anos citados são conferidos contra tudo que foi lido (trechos, resumos e anotações)
