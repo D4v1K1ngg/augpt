@@ -105,10 +105,15 @@ const SIM = /^\s*(sim|s|pode|pode sim|pode testar|pode fazer|pode ver|quero|ok|o
  * "sim" logo depois de uma oferta → a capacidade oferecida (e "só o ping" na oferta do teste de rede).
  * @returns { id, modo? } | null
  */
+/** Oferta de pesquisa (item 3): o "sim" seguinte vira a pergunta "pesquise <assunto>". */
+const ofertaDePesquisa = (assunto) => `Quer que eu pesquise **${assunto}**? É só responder **"sim"**.`;
+
 function aceitouOferta(texto, conversa = []) {
   const ultima = [...conversa].reverse().find((m) => m.role === 'assistant');
   if (!ultima) return null;
   const t = String(texto || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const pesquisa = /Quer que eu pesquise \*\*(.+?)\*\*\? É só responder/.exec(String(ultima.content || ''));
+  if (pesquisa && SIM.test(t) && t.length <= 60) return { id: 'pesquisa', pergunta: `pesquise ${pesquisa[1]}` };
   const oferecida = CAPACIDADES.find((c) => c.executa && String(ultima.content || '').includes(c.oferta.slice(0, 40)));
   if (!oferecida) return null;
   if (oferecida.id === 'teste_de_rede' && /\bso (o )?(ping|latencia)\b/.test(t)) return { id: oferecida.id, modo: 'ping' };
@@ -152,4 +157,4 @@ function conferirPromessas(texto) {
   return { texto: limpo, tiradas };
 }
 
-module.exports = { conferirPromessas, PALAVRAS, CAPACIDADES, EXECUTAVEIS, disponiveis, listaParaEntender, blocoParaEscrever, valida, ofertaDe, aceitouOferta };
+module.exports = { ofertaDePesquisa, conferirPromessas, PALAVRAS, CAPACIDADES, EXECUTAVEIS, disponiveis, listaParaEntender, blocoParaEscrever, valida, ofertaDe, aceitouOferta };

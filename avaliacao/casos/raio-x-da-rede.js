@@ -108,6 +108,34 @@ module.exports = [
     },
   },
   {
+    nome: 'roteador (item 3): só sugere trocar com sinal medido (bufferbloat C ou pior, Wi-Fi antigo, firmware velho); AX73 com A+ "não precisa trocar"; com bufferbloat ruim, oferece a pesquisa com o perfil medido, e o "sim" vira a pergunta de produto',
+    tipo: 'unidade',
+    async executar() {
+      const r = await raioX.raioX({ deps: dubles() });
+      const bom = raioX.avaliarRoteador(r, { nota: 'A+', mbps: 557 });
+      const ruim = raioX.avaliarRoteador(r, { nota: 'D', mbps: 557 });
+      const semTeste = raioX.avaliarRoteador(r, {});
+      const resposta = (nota) =>
+        responderDiagnostico({
+          pergunta: 'meu roteador é bom?',
+          conversa: [{ role: 'assistant', content: `| Download | **557.4 Mbps** |\n| Bufferbloat | **nota ${nota}** |` }],
+          deps: { escrever: async () => 'ok', emit: () => {} },
+          medir: (o) => raioX.raioX({ ...o, deps: dubles() }),
+        });
+      const comA = await resposta('A+');
+      const comD = await resposta('D');
+      const oferta = /Quer que eu pesquise \*\*(.+?)\*\*\?/.exec(comD.texto)?.[1] || '';
+      const aceita = capacidades.aceitouOferta('sim', [{ role: 'assistant', content: comD.texto }]);
+      return [
+        !bom.trocar && ruim.trocar && !semTeste.trocar || JSON.stringify({ bom, ruim, semTeste }),
+        /bufferbloat nota D/.test(ruim.motivos[0]) || JSON.stringify(ruim.motivos),
+        /não precisa trocar/.test(comA.texto) && /TP-Link Archer AX73 v2 está dando conta/.test(comA.texto) && !/Quer que eu pesquise/.test(comA.texto) || comA.texto.slice(-400),
+        /vale considerar trocar/.test(comD.texto) && /Wi-Fi 6 com QoS ou SQM/.test(oferta) && /internet de 600 Mbps/.test(oferta) || oferta || comD.texto.slice(-400),
+        aceita?.id === 'pesquisa' && aceita.pergunta === `pesquise ${oferta}` || JSON.stringify(aceita),
+      ];
+    },
+  },
+  {
     nome: 'trava de promessa: frase em que o AuGPT promete o que não faz sai ("posso abrir o Gerenciador de Tarefas", "o AuGPT pode rodar um teste de transferência local" — conversa real); as que ele cumpre e as que não prometem ação ficam',
     tipo: 'unidade',
     executar() {

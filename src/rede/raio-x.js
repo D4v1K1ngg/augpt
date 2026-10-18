@@ -253,6 +253,33 @@ function avaliar(r) {
   return achados;
 }
 
+/**
+ * Vale trocar o roteador? (item 3, 18/10) Só com sinal medido de que o problema é ele: bufferbloat
+ * ruim (falta controle de fila — QoS/SQM), Wi-Fi do padrão antigo, firmware de mais de 3 anos, muitos
+ * aparelhos com a linha enchendo. Bom resultado (o AX73 do Davi com A+) = não precisa trocar.
+ * @param nota  nota de bufferbloat de um teste de internet (ou null)
+ * @param mbps  download medido (ou null) — entra no perfil da pesquisa
+ * @returns { trocar, motivos, perfil }
+ */
+function avaliarRoteador(r, { nota = null, mbps = null } = {}) {
+  const motivos = [];
+  const ruim = nota && /^[CDF]/.test(nota);
+  if (ruim) motivos.push(`bufferbloat nota ${nota}: com a linha cheia o ping sobe — falta um bom controle de fila (QoS/SQM) no roteador`);
+  if (r.wifi?.padrao === 'Wi-Fi 4') motivos.push('a ligação Wi-Fi está no padrão antigo (Wi-Fi 4 / 802.11n)');
+  const anos = r.roteador?.firmware?.data ? (Date.now() - Date.parse(r.roteador.firmware.data)) / (365 * 864e5) : null;
+  if (anos && anos > 3) motivos.push(`o firmware do roteador é de ${Math.floor(anos)} anos atrás (modelo provavelmente sem atualização)`);
+  const aparelhos = r.aparelhos.filter((a) => !a.roteador).length;
+  if (ruim && aparelhos >= 15) motivos.push(`${aparelhos} aparelhos dividindo a rede com a linha enchendo`);
+  const trocar = Boolean(ruim || (motivos.length >= 2));
+  const perfil = [
+    'roteador Wi-Fi 6 com QoS ou SQM bom para jogos online',
+    aparelhos ? `para uns ${Math.max(10, Math.ceil(aparelhos / 5) * 5)} aparelhos` : null,
+    mbps ? `e internet de ${Math.round(mbps / 100) * 100 || Math.round(mbps)} Mbps` : null,
+    'à venda no Brasil',
+  ].filter(Boolean).join(' ');
+  return { trocar, motivos, perfil };
+}
+
 function tabelaDoRaioX(r) {
   const linha = (a, b) => `| ${a} | ${b} |`;
   const ap = r.aparelhos.filter((a) => !a.roteador);
@@ -274,4 +301,4 @@ function graficosDoRaioX(r) {
   return [`\`\`\`chart\n${JSON.stringify({ type: 'line', title: 'Ping até o roteador (ms)', unit: 'ms', labels: r.ping.amostras.map((_, i) => `${i + 1}`), datasets: [{ label: 'ms', data: r.ping.amostras }] })}\n\`\`\``];
 }
 
-module.exports = { tipoProvavel, raioX, avaliar, tabelaDoRaioX, graficosDoRaioX, lerWifi, fabricante, macAleatorio, modeloDoRoteador, pingAoRoteador, acordarAFaixa };
+module.exports = { avaliarRoteador, tipoProvavel, raioX, avaliar, tabelaDoRaioX, graficosDoRaioX, lerWifi, fabricante, macAleatorio, modeloDoRoteador, pingAoRoteador, acordarAFaixa };

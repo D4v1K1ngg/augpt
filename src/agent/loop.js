@@ -1757,7 +1757,7 @@ class Agent extends EventEmitter {
       const pedeRaioX = !investigando && !aceitou && !pedeRota && !imagensDoPedido.length && pedidoDeDiagnostico(objetivo);
       const pedeTrafego = !investigando && !aceitou && !pedeRota && !pedeRaioX && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
       const pedeRede = !investigando && !aceitou && !pedeRota && !pedeRaioX && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
-      const r = aceitou
+      const r = aceitou && aceitou.id !== 'pesquisa'
         ? await deps.executarAcao(aceitou.id, { pergunta: objetivo, modo: aceitou.modo, confirmado: true })
         : investigando
         ? await investigar({ pergunta: objetivo, conversa, minutos: Number(cfg.minutosDeInvestigacao) || 10, tamanho: cfg.modoResposta || 'normal', deps })
@@ -1769,7 +1769,7 @@ class Agent extends EventEmitter {
             ? await responderTrafego({ pergunta: objetivo, deps })
             : pedeRede
             ? await responderRede({ pergunta: objetivo, conversa, deps, signal })
-            : await nucleo.responder({ pergunta: objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido });
+            : await nucleo.responder({ pergunta: aceitou?.id === 'pesquisa' ? aceitou.pergunta : objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido });
       // o relatório completo vira PDF na pasta de trabalho, anexado à resposta
       let relatorioPdf = null;
       if (r.relatorio) {

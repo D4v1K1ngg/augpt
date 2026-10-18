@@ -90,7 +90,7 @@ module.exports = [
       await responderRede({ pergunta: 'pode testar', conversa: [{ role: 'assistant', content: PERGUNTA_DE_CONFIRMACAO }], deps: { escrever: async (m) => (escritas.push(m), 'ok'), emit: () => {} }, medir: async () => r });
       return [
         r.download.mbps === null && /limitou/.test(r.download.erro) && /10 min/.test(r.download.erro) || JSON.stringify(r.download),
-        /\| Download \| não medido: o servidor de teste limitou/.test(tabela) && !/0 Mbps/.test(tabela) || tabela,
+        /\| Download \| não medido: o servidor de teste limitou/.test(tabela) && !/\| Download \| \*\*0 Mbps/.test(tabela) || tabela, // ("110 Mbps" do upload termina em "0 Mbps": o teste era instável)
         r.upload.mbps > 0 && r.bufferbloat.nota !== null || `upload e nota: ${JSON.stringify(r.bufferbloat)}`,
         !/Latência baixando/.test(tabela) || 'latência da fase não medida não aparece',
         /download: NÃO MEDIDO/.test(escritas[0][0].content) && /não invente causa/.test(escritas[0][0].content) || 'o modelo é avisado',

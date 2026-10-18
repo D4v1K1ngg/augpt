@@ -11,6 +11,7 @@ const { testarRede, tabelaDoResultado, graficosDoResultado } = require('../rede/
 const rotas = require('../rede/rotas');
 const trafego = require('../rede/trafego');
 const raioX = require('../rede/raio-x');
+const catalogo = require('./capacidades');
 
 const norm = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
@@ -97,7 +98,8 @@ async function responderRede({ pergunta, conversa = [], deps, signal, hoje = new
   emit('resposta-token', { pedaco: `${tabela}\n\n` });
   const explicacao = String((await deps.escrever(pedidoDeExplicacao(pergunta, r, hoje), (pedaco) => emit('resposta-token', { pedaco }))) || '').trim();
   const graficos = graficosDoResultado(r);
-  const sugestao = pedido.modo === 'ping' ? '\n\n*Para medir velocidade e bufferbloat, peça "teste completo da minha internet".*' : '';
+  const ruim = r.bufferbloat && /^[CDF]/.test(r.bufferbloat.nota || '');
+  const sugestao = pedido.modo === 'ping' ? '\n\n*Para medir velocidade e bufferbloat, peça "teste completo da minha internet".*' : ruim ? `\n\n${catalogo.ofertaDe('diagnostico_da_rede')}` : '';
   return { ...vazio, texto: `${tabela}\n\n${explicacao}${graficos.length ? `\n\n${graficos.join('\n\n')}` : ''}${sugestao}`, rede: r };
 }
 
@@ -224,7 +226,7 @@ function pedidoDeDiagnostico(texto) {
   return {};
 }
 
-function pedidoDeExplicacaoDoRaioX(pergunta, r, achados, conversa, hoje) {
+function pedidoDeExplicacaoDoRaioX(pergunta, r, achados, conversa, hoje, roteador = { trocar: false, motivos: [] }) {
   const ap = r.aparelhos.filter((a) => !a.roteador);
   const porTipo = {};
   for (const a of ap) {
@@ -248,6 +250,7 @@ function pedidoDeExplicacaoDoRaioX(pergunta, r, achados, conversa, hoje) {
       content: `Você é o AuGPT. Hoje é ${hoje}. O AuGPT acabou de fazer o raio-X da rede local do usuário (só leitura). Medido:
 ${dados}
 Avaliação do código (o que está fora do normal): ${achados.length ? achados.map((a) => `${a.grave ? '[importante] ' : ''}${a.texto}`).join('; ') : 'nada fora do normal'}.
+Roteador: ${roteador.trocar ? `vale considerar trocar (${roteador.motivos.join('; ')}) — explique por quê e diga que o AuGPT pode pesquisar modelos melhores` : 'NÃO há sinal de que precise trocar — se o usuário perguntar, diga que não precisa'}.
 
 Explique para o usuário, em português do Brasil, em 2 a 4 parágrafos curtos (a tabela já aparece acima: não a repita).
 - Comece respondendo o que ele perguntou, com esses números.
@@ -263,16 +266,24 @@ Explique para o usuário, em português do Brasil, em 2 a 4 parágrafos curtos (
 
 async function responderDiagnostico({ pergunta, conversa = [], deps, hoje = new Date().toLocaleDateString('pt-BR'), medir = raioX.raioX }) {
   const emit = deps.emit || (() => {});
+  const anterior = conversa.map((m) => m.content).join('\n');
+  const nota = /Bufferbloat \| \*\*nota ([A-F]\+?)\*\*/.exec(anterior)?.[1] || null;
+  const mbps = Number(/\| Download \| \*\*([\d.]+) Mbps\*\*/.exec(anterior)?.[1]) || null;
   emit('ferramenta', { nome: 'raio_x_da_rede', argumentos: { consulta: 'placa, Wi-Fi, ping até o roteador, aparelhos e roteador' }, risco: 'leitura' });
   const r = await medir({ aoProgresso: (p) => emit('ferramenta', { nome: 'raio_x_da_rede', argumentos: { consulta: p }, risco: 'leitura' }) });
   const achados = raioX.avaliar(r);
+  const roteador = raioX.avaliarRoteador(r, { nota, mbps });
   const tabela = raioX.tabelaDoRaioX(r);
-  const resumo = achados.length ? `**O que chamou atenção:**\n${achados.map((a) => `- ${a.grave ? '⚠ ' : ''}${a.texto}`).join('\n')}` : '**Nada fora do normal na rede local.**';
+  const resumo = `${achados.length ? `**O que chamou atenção:**\n${achados.map((a) => `- ${a.grave ? '⚠ ' : ''}${a.texto}`).join('\n')}` : '**Nada fora do normal na rede local.**'}${
+    roteador.trocar ? `\n\n**Roteador:** vale considerar trocar — ${roteador.motivos.join('; ')}.` : r.roteador?.modelo && nota && /^A/.test(nota) ? `\n\n**Roteador:** o ${[r.roteador.fabricante, r.roteador.modelo].filter(Boolean).join(' ')} está dando conta (bufferbloat ${nota}): não precisa trocar.` : ''
+  }`;
   emit('resposta-token', { pedaco: `${tabela}\n\n${resumo}\n\n` });
-  const explicacao = String((await deps.escrever(pedidoDeExplicacaoDoRaioX(pergunta, r, achados, conversa, hoje), (pedaco) => emit('resposta-token', { pedaco }))) || '').trim();
+  const explicacao = String((await deps.escrever(pedidoDeExplicacaoDoRaioX(pergunta, r, achados, conversa, hoje, roteador), (pedaco) => emit('resposta-token', { pedaco }))) || '').trim();
   const graficos = raioX.graficosDoRaioX(r);
   const vazio = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] }, modo: 'rede' };
-  return { ...vazio, texto: `${tabela}\n\n${resumo}\n\n${explicacao}${graficos.length ? `\n\n${graficos.join('\n\n')}` : ''}`, raioX: r, achados };
+  // sem teste de internet na conversa, o bufferbloat (o que diz se os aparelhos atrapalham) ainda não foi medido
+  const oferta = roteador.trocar ? catalogo.ofertaDePesquisa(roteador.perfil) : !nota ? catalogo.ofertaDe('teste_de_rede') : '';
+  return { ...vazio, texto: `${tabela}\n\n${resumo}\n\n${explicacao}${graficos.length ? `\n\n${graficos.join('\n\n')}` : ''}${oferta ? `\n\n${oferta}` : ''}`, raioX: r, achados, roteador };
 }
 
 module.exports = { pedidoDeRede, responderRede, PERGUNTA_DE_CONFIRMACAO, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego, pedidoDeDiagnostico, responderDiagnostico };
