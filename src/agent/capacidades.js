@@ -39,6 +39,13 @@ const CAPACIDADES = [
     oferta: 'Posso **fazer um raio-X da sua rede agora**: cabo ou Wi-Fi, ping até o roteador, modelo do roteador e quantos aparelhos estão conectados (só leitura, nada é mudado). Quer? É só responder **"sim"**.',
   },
   {
+    id: 'ajustes_de_rede',
+    executa: true,
+    faz: 'muda ajustes da placa de rede com a aprovação do usuário e desfaz quando ele pedir: DNS (Cloudflare, Google ou automático), desligar a economia de energia da placa, limpar o cache de DNS, preferir 5 GHz no Wi-Fi',
+    quando: 'o usuário quer mudar o DNS, otimizar ou configurar a placa de rede, limpar o cache de DNS, desligar a economia de energia da rede',
+    oferta: 'Posso **ajustar a sua placa de rede** (DNS, economia de energia da placa, cache de DNS): mostro antes o que muda, você aprova e dá para desfazer. Quer? É só responder **"sim"**.',
+  },
+  {
     id: 'trafego_de_rede',
     executa: true,
     faz: 'mostra quanto a placa de rede está recebendo e enviando agora e quais programas estão conectados, e a quê',

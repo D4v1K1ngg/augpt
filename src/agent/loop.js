@@ -39,7 +39,7 @@ const nucleo = require('./nucleo');
 const { investigar } = require('./nucleo/investigacao');
 const { ondeComprar, linhaOndeComprar } = require('./onde-comprar');
 const { protegerGraficos } = require('./nucleo/graficos');
-const { pedidoDeRede, responderRede, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego, pedidoDeDiagnostico, responderDiagnostico } = require('./rede-no-chat');
+const { pedidoDeRede, responderRede, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego, pedidoDeDiagnostico, responderDiagnostico, pedidoDeAjuste, responderAjuste } = require('./rede-no-chat');
 const catalogo = require('./capacidades'); // "capacidades" já é o nome das capacidades do modelo (visão…) mais abaixo
 const { jogoDoTexto } = require('../rede/rotas');
 const { gerarPdf } = require('../formatos/pdf-escrita');
@@ -1749,19 +1749,24 @@ class Agent extends EventEmitter {
         if (id === 'rota_de_jogo') return responderRota({ pergunta, deps, jogo: jogoDaConversa() });
         if (id === 'trafego_de_rede') return responderTrafego({ pergunta, deps });
         if (id === 'diagnostico_da_rede') return responderDiagnostico({ pergunta, conversa, deps });
+        if (id === 'ajustes_de_rede') return responderAjuste({ pergunta, conversa, deps, pasta: this.userDataPath });
         return null;
       };
       const aceitou = !investigando && !imagensDoPedido.length && catalogo.aceitouOferta(objetivo, conversa);
       // rota para jogo (18/10, item 3) antes do teste de rede: "meu ping no PUBG" é de servidor do jogo
-      const pedeRota = !investigando && !aceitou && !imagensDoPedido.length && pedidoDeRota(objetivo);
-      const pedeRaioX = !investigando && !aceitou && !pedeRota && !imagensDoPedido.length && pedidoDeDiagnostico(objetivo);
-      const pedeTrafego = !investigando && !aceitou && !pedeRota && !pedeRaioX && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
-      const pedeRede = !investigando && !aceitou && !pedeRota && !pedeRaioX && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
+      const pedeRota = !investigando && !aceitou && !imagensDoPedido.length && !pedidoDeAjuste(objetivo, conversa) && pedidoDeRota(objetivo);
+      // ajuste da placa (item 4) antes de tudo: "aplicar" e "desfazer ajustes" dependem da resposta anterior
+      const pedeAjuste = !investigando && !aceitou && !imagensDoPedido.length && pedidoDeAjuste(objetivo, conversa);
+      const pedeRaioX = !investigando && !aceitou && !pedeAjuste && !pedeRota && !imagensDoPedido.length && pedidoDeDiagnostico(objetivo);
+      const pedeTrafego = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
+      const pedeRede = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
       const r = aceitou && aceitou.id !== 'pesquisa'
         ? await deps.executarAcao(aceitou.id, { pergunta: objetivo, modo: aceitou.modo, confirmado: true })
         : investigando
         ? await investigar({ pergunta: objetivo, conversa, minutos: Number(cfg.minutosDeInvestigacao) || 10, tamanho: cfg.modoResposta || 'normal', deps })
-        : pedeRota
+        : pedeAjuste
+          ? await responderAjuste({ pergunta: objetivo, conversa, deps, pasta: this.userDataPath, pedido: pedeAjuste })
+          : pedeRota
           ? await responderRota({ pergunta: objetivo, deps })
           : pedeRaioX
           ? await responderDiagnostico({ pergunta: objetivo, conversa, deps })

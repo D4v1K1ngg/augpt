@@ -11,6 +11,7 @@ const { testarRede, tabelaDoResultado, graficosDoResultado } = require('../rede/
 const rotas = require('../rede/rotas');
 const trafego = require('../rede/trafego');
 const raioX = require('../rede/raio-x');
+const ajustes = require('../rede/ajustes');
 const catalogo = require('./capacidades');
 
 const norm = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
@@ -286,4 +287,66 @@ async function responderDiagnostico({ pergunta, conversa = [], deps, hoje = new 
   return { ...vazio, texto: `${tabela}\n\n${resumo}\n\n${explicacao}${graficos.length ? `\n\n${graficos.join('\n\n')}` : ''}${oferta ? `\n\n${oferta}` : ''}`, raioX: r, achados, roteador };
 }
 
-module.exports = { pedidoDeRede, responderRede, PERGUNTA_DE_CONFIRMACAO, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego, pedidoDeDiagnostico, responderDiagnostico };
+/* ------------------------------ ajustes da placa de rede (item 4) ------------------------------ */
+
+const MARCA_DO_PLANO = 'Plano de ajustes:';
+const VERBO_DE_AJUSTE = /\b(mud\w*|troc\w*|alter\w*|configur\w*|ajust\w*|otimiz\w*|coloq\w*|use|usar|ponha|defin\w*|limp\w*|deslig\w*|prefir\w*|volt\w*|faca|faz)\b/;
+// por que cada ajuste (sem promessa milagrosa: DNS não muda o ping do jogo)
+const POR_QUE = {
+  dns_cloudflare: 'o DNS só traduz nomes de sites em endereços; o da Cloudflare costuma responder mais rápido que o da operadora — sites abrem um pouco mais rápido, o ping dos jogos não muda',
+  dns_google: 'o DNS só traduz nomes de sites em endereços; o do Google costuma ser estável e rápido — o ping dos jogos não muda',
+  dns_automatico: 'volta a usar o DNS que o roteador entrega',
+  economia_de_energia: 'a economia de energia da placa pode atrasar a rede quando ela "acorda"; desligada, a placa fica sempre pronta',
+  limpar_dns: 'apaga os endereços guardados; resolve site que mudou de endereço e não abre — não acelera nada no dia a dia',
+  wifi_5ghz: 'a banda de 5 GHz é mais rápida e menos disputada que a de 2,4 GHz (alcança menos paredes)',
+};
+
+/** { tipo: 'planejar' | 'aplicar' | 'desfazer', ids } ou null. */
+function pedidoDeAjuste(texto, conversa = []) {
+  const t = norm(texto);
+  const ultima = [...conversa].reverse().find((m) => m.role === 'assistant');
+  if (/^\s*(aplicar|aplique|aplica|pode aplicar|sim,? (pode )?aplicar)\b/.test(t) && ultima && String(ultima.content || '').includes(MARCA_DO_PLANO)) {
+    const ids = (new RegExp(`${MARCA_DO_PLANO} ([a-z0-9_, ]+)`).exec(ultima.content)?.[1] || '').split(/,\s*/).filter(Boolean);
+    return ids.length ? { tipo: 'aplicar', ids } : null;
+  }
+  if (/\b(desfa\w*|desfazer|reverter|revert\w*)\b/.test(t) && /\b(ajuste|ajustes|dns|placa|rede|mudanc|alterac)/.test(t)) return { tipo: 'desfazer', ids: [] };
+  if (COMO_FAZER.test(t) && !DO_USUARIO.test(t)) return null; // "como mudar o DNS?" é pergunta
+  const ids = ajustes.ajustesPedidos(t);
+  return ids.length && VERBO_DE_AJUSTE.test(t) ? { tipo: 'planejar', ids } : null;
+}
+
+async function responderAjuste({ pergunta, conversa = [], deps, pasta, pedido: dado = null, modulo = ajustes }) {
+  const emit = deps.emit || (() => {});
+  const pedido = dado || pedidoDeAjuste(pergunta, conversa) || { tipo: 'planejar', ids: modulo.ajustesPedidos('otimize a placa') };
+  const vazio = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] }, modo: 'rede' };
+  const pronto = (texto) => (emit('resposta-token', { pedaco: texto }), { ...vazio, texto });
+  if (pedido.tipo === 'desfazer') {
+    emit('ferramenta', { nome: 'ajustes_de_rede', argumentos: { consulta: 'desfazendo os ajustes (o Windows pede permissão)' }, risco: 'alto' });
+    const r = await modulo.desfazer({ pasta });
+    return pronto(r.ok ? `**Pronto: os ajustes foram desfeitos.**\n\n${r.desfeitos.map((d) => `- ${d}`).join('\n')}` : `Não desfiz nada: ${r.motivo}.`);
+  }
+  emit('ferramenta', { nome: 'ajustes_de_rede', argumentos: { consulta: 'lendo a placa de rede (sem mudar nada)' }, risco: 'leitura' });
+  const estado = await modulo.lerEstado();
+  // "otimize a placa" no Wi-Fi inclui preferir 5 GHz
+  const ids = pedido.tipo === 'planejar' && estado.adaptador.wifi && pedido.ids.includes('economia_de_energia') && !pedido.ids.includes('wifi_5ghz') && /otimiz|melhor|ajust|configur/.test(norm(pergunta)) ? [...pedido.ids, 'wifi_5ghz'] : pedido.ids;
+  const plano = modulo.planejar(ids, estado);
+  const porQue = [...new Set(plano.passos.map((p) => p.id))].map((id) => `- **${plano.passos.find((p) => p.id === id).titulo.replace(/:.*/, '')}:** ${POR_QUE[id]}`).join('\n');
+  const mudar = plano.passos.filter((p) => p.mudar);
+  if (pedido.tipo === 'aplicar') {
+    if (!mudar.length) return pronto(`${modulo.tabelaDoPlano(plano)}\n\nNada a aplicar: já está tudo assim.`);
+    emit('ferramenta', { nome: 'ajustes_de_rede', argumentos: { consulta: `aplicando ${mudar.length} ajuste(s) — o Windows vai pedir permissão de administrador` }, risco: 'alto' });
+    const r = await modulo.aplicar(plano, { pasta });
+    if (!r.ok) return pronto(`Não apliquei: ${r.motivo}. Nada foi mudado.`);
+    const depois = modulo.planejar(ids, await modulo.lerEstado());
+    return pronto(`**Pronto — aplicado:** ${r.aplicados.join('; ')}.\n\nComo ficou agora:\n\n${modulo.tabelaDoPlano(depois).replace(/\| já está assim \|/g, '| ✔ aplicado |')}\n\nPara voltar ao que era, é só pedir **"desfazer ajustes de rede"**.`);
+  }
+  // planejar: mostra o plano; nada muda sem o "aplicar"
+  const admin = mudar.some((p) => p.admin);
+  const reinicia = mudar.some((p) => p.reinicia);
+  const fim = mudar.length
+    ? `Para aplicar, responda **"aplicar"**.${admin ? ' O Windows vai abrir uma janela pedindo permissão de administrador.' : ''}${reinicia ? ' A placa de rede reinicia sozinha e a internet cai por alguns segundos.' : ''} Dá para voltar depois com **"desfazer ajustes de rede"**.\n\n*${MARCA_DO_PLANO} ${[...new Set(mudar.map((p) => p.id))].join(', ')}*`
+    : '**Nada a mudar:** a sua placa já está assim.';
+  return pronto(`${modulo.tabelaDoPlano(plano)}\n\n${porQue}\n\n${fim}`);
+}
+
+module.exports = { pedidoDeRede, responderRede, PERGUNTA_DE_CONFIRMACAO, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego, pedidoDeDiagnostico, responderDiagnostico, pedidoDeAjuste, responderAjuste, MARCA_DO_PLANO };

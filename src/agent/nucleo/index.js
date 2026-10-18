@@ -101,6 +101,7 @@ const PISTA_DA_ACAO = {
   teste_de_rede: /internet|conex|wi-?fi|\brede\b|ping|lag|lat[eê]ncia|velocidade|download|upload|banda|roteador|operadora|provedor|fibra/i,
   rota_de_jogo: /\b(jogo|jogos|jogar|game|games|ping|lag|servidor|servidores|pubg|fortnite|cs ?2|counter|dota|valorant|lol|league)\b/i,
   trafego_de_rede: /internet|\brede\b|banda|consum|programa|aplicativo|conex|lent/i,
+  ajustes_de_rede: /\bdns\b|placa de rede|economia de energia|5 ?ghz|cache|ajust|otimiz|configur/i,
   diagnostico_da_rede: /roteador|modem|wi-?fi|\brede\b|cabo|aparelho|dispositivo|ipconfig|\bdns\b|gateway|sinal|conex|internet|lag|ping/i,
 };
 const acaoValida = (id, texto) => (capacidades.EXECUTAVEIS.includes(id) && PISTA_DA_ACAO[id]?.test(String(texto || '')) ? id : null);
