@@ -154,11 +154,13 @@ function linhaDeMudanca(ctx, pagina, acao, info = {}, aconteceuAlgo = false) {
   if (!antes || acao === 'ver_pagina') return '';
   if (!mudou) {
     if (ALVO_SEM_MUDANCA_VISIVEL.test(tipoAlvo)) return `MUDANÇA NA PÁGINA: nenhuma visível (normal ao clicar em ${tipoAlvo}).`;
+    if (acao === 'rolar_pagina') return 'ROLAGEM: a página não andou — já está no fim (ou no topo). Não há mais o que rolar nessa direção.';
     return ACOES_QUE_DEVEM_MUDAR.has(acao)
       ? 'MUDANÇA NA PÁGINA: NENHUMA — a página ficou exatamente igual depois desta ação. Não repita a mesma ação: escolha outro elemento pelo TEXTO, volte (voltar_pagina), ou responda com o que conseguiu.'
       : 'MUDANÇA NA PÁGINA: nenhuma visível (o mesmo valor já estava no campo).';
   }
   if (acao === 'preencher_campo' && !urlMudou && antes.impressao === impressao) return 'MUDANÇA NA PÁGINA: valor digitado no campo (senhas não aparecem na leitura).';
+  if (acao === 'rolar_pagina') return '';
   return urlMudou ? `MUDANÇA NA PÁGINA: sim — página nova (${pagina.url}).` : 'MUDANÇA NA PÁGINA: sim — mesma URL, conteúdo ou elementos mudaram.';
 }
 
@@ -170,14 +172,23 @@ function rotuloDoElemento(pagina, numero) {
 
 /** Formata a leitura da página no que o modelo precisa para decidir o passo. */
 function descrever(pagina, prefixo = '', mudanca = '') {
+  const { topo = 0, altura = 0, tela = 0 } = pagina.posicao || {};
+  // "tela 2 de 5": o modelo sabe se ainda há página abaixo para rolar
+  const telas = tela > 0 && altura > tela * 1.2 ? Math.ceil(altura / tela) : 0;
+  const posicao = telas ? `POSIÇÃO: tela ${Math.min(telas, Math.floor(topo / tela) + 1)} de ${telas}${topo + tela >= altura - 5 ? ' (fim da página)' : ' — há mais abaixo (rolar_pagina)'}` : null;
   const partes = [
     mudanca || null,
+    pagina.antiRobo
+      ? 'VERIFICAÇÃO ANTI-ROBÔ NA PÁGINA (CAPTCHA, "não sou um robô"): não tente resolver nem contornar. Peça ao usuário (perguntar_usuario) que resolva na janela do navegador do AuGPT e depois continue com ver_pagina.'
+      : null,
     `${prefixo}${pagina.titulo || '(sem título)'}`,
     pagina.url,
+    posicao,
     '',
     pagina.elementos.length
-      ? `ELEMENTOS INTERAGÍVEIS (use o número):\n${pagina.elementos.join('\n')}`
+      ? `ELEMENTOS INTERAGÍVEIS (use o número):\n${pagina.elementos.join('\n')}${pagina.omitidos > 0 ? `\n(+${pagina.omitidos} longe da tela, fora da lista: role a página para vê-los)` : ''}`
       : 'Nenhum elemento interagível encontrado.',
+    pagina.quadrosExternos > 0 ? `(${pagina.quadrosExternos} quadro(s) embutido(s) de outro site não lido(s) — se o campo que você procura não aparece, pode estar lá: peça ao usuário para preencher na janela do navegador)` : null,
     '',
     'CONTEÚDO DA PÁGINA:',
     pagina.texto || '(sem texto)',
@@ -236,10 +247,10 @@ module.exports = [
   {
     name: 'preencher_campo',
     risk: 'alto',
-    description: 'Escreve um valor num campo da página aberta, pelo número do elemento.',
+    description: 'Escreve um valor num campo da página aberta, pelo número do elemento. Também escolhe numa seleção (valor = texto da opção) e marca ou desmarca uma caixa (valor "sim" ou "não").',
     args: {
       numero: 'número do campo, como aparece entre colchetes na leitura',
-      valor: 'texto a digitar',
+      valor: 'texto a digitar (seleção: o texto da opção; caixa: "sim" ou "não")',
     },
     obrigatorios: ['numero', 'valor'],
     async run({ numero, valor }, ctx) {
@@ -258,6 +269,19 @@ module.exports = [
     async run({ numero }, ctx) {
       const pagina = await sessao(ctx).enviar(numero);
       return descrever(pagina, 'Depois de enviar o formulário: ', registrarPagina(ctx, pagina, 'enviar_formulario', { numero }));
+    },
+  },
+
+  {
+    name: 'rolar_pagina',
+    risk: 'baixo',
+    description:
+      'Rola a página aberta no navegador e devolve a leitura a partir da nova posição (texto e elementos que estavam abaixo, e o que o site carrega ao rolar). Use quando a leitura disser que há mais abaixo ou o que você procura não apareceu.',
+    args: { direcao: '"baixo" (padrão), "cima", "topo" ou "fim"' },
+    obrigatorios: [],
+    async run({ direcao } = {}, ctx) {
+      const pagina = await sessao(ctx).rolar(String(direcao || 'baixo'));
+      return descrever(pagina, 'Depois de rolar: ', registrarPagina(ctx, pagina, 'rolar_pagina'));
     },
   },
 

@@ -93,7 +93,7 @@ function itemDaLeitura(checklist = [], alvo = '') {
   return melhor;
 }
 
-const ACOES_DE_PAGINA = new Set(['clicar', 'preencher_campo', 'enviar_formulario', 'ver_pagina', 'voltar_pagina']);
+const ACOES_DE_PAGINA = new Set(['clicar', 'preencher_campo', 'enviar_formulario', 'ver_pagina', 'voltar_pagina', 'rolar_pagina']);
 
 function assinaturaDaAcao(nome, argumentos = {}) {
   return `${String(nome || '').trim()}|${JSON.stringify(argumentos || {})}`.slice(0, 1000);

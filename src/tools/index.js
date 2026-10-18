@@ -442,7 +442,7 @@ const RISCO_ALTO = { has: (nome) => risco(nome) !== 'baixo' };
 const SOMENTE_LEITURA = new Set([
   'concluir', 'responder', 'perguntar_usuario', 'salvar_memoria',
   'listar_arquivos', 'ler_arquivo', 'buscar_no_projeto', 'listar_backups',
-  'buscar_web', 'abrir_pagina', 'pesquisar_e_ler', 'ver_pagina', 'buscar_produtos', 'historico_precos',
+  'buscar_web', 'abrir_pagina', 'pesquisar_e_ler', 'ver_pagina', 'rolar_pagina', 'buscar_produtos', 'historico_precos',
   // Item 5: por baixo, só dispara pesquisar_e_ler várias vezes — mesmo
   // caráter só-leitura, mesma isenção de aprovação mesmo no modo manual.
   'investigar_subtarefa',

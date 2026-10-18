@@ -139,6 +139,10 @@ module.exports = [
           this.navigationHistory = { canGoBack: () => false };
         }
         setWindowOpenHandler() {}
+        isLoading() {
+          return false;
+        }
+        sendInputEvent() {}
         async loadURL(url) {
           this.janela.url = url;
           setTimeout(() => this.emit('did-finish-load'), 5);
@@ -180,7 +184,7 @@ module.exports = [
       let leituras;
       try {
         const { SessaoNavegador } = require(caminho);
-        const s = new SessaoNavegador({ visivel: false, timeout: 2000, esperaAposAcao: 5, obterConfig: () => ({}) });
+        const s = new SessaoNavegador({ visivel: false, timeout: 2000, obterConfig: () => ({}) });
         await s.navegar('https://portal.exemplo/contracheque');
         const principal = s.janela;
         principal.titulo = 'Contracheque';
@@ -215,7 +219,7 @@ module.exports = [
         // modo "salvar sozinho na pasta de trabalho"
         const os = require('os');
         const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-ws-'));
-        const s2 = new SessaoNavegador({ visivel: false, timeout: 2000, esperaAposAcao: 5, obterConfig: () => ({ downloadsDoNavegador: 'pasta-de-trabalho', workspace: ws }) });
+        const s2 = new SessaoNavegador({ visivel: false, timeout: 2000, obterConfig: () => ({ downloadsDoNavegador: 'pasta-de-trabalho', workspace: ws }) });
         await s2.navegar('https://portal.exemplo/x');
         let salvoEm = '';
         s2.janela.elementos = ['[1] botão "Baixar"'];
@@ -236,7 +240,7 @@ module.exports = [
         const l4 = await s2.clicar(1);
         fs.rmSync(ws, { recursive: true, force: true });
         // janela nova que é só um download (window.open(pdf)): em branco, sem did-finish-load
-        const s3 = new SessaoNavegador({ visivel: false, timeout: 20000, esperaAposAcao: 5, obterConfig: () => ({}) });
+        const s3 = new SessaoNavegador({ visivel: false, timeout: 20000, obterConfig: () => ({}) });
         await s3.navegar('https://portal.exemplo/lista');
         const p3 = s3.janela;
         p3.titulo = 'Lista';

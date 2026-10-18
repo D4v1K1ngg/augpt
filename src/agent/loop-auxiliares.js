@@ -440,7 +440,7 @@ const LEITURAS = [
   'ler_arquivo', 'ler_documento', 'inspecionar_arquivo', 'buscar_no_projeto',
   // navegação também produz conteúdo: a resposta costuma estar justamente na
   // página que apareceu DEPOIS do clique
-  'navegar', 'ver_pagina', 'clicar', 'preencher_campo', 'enviar_formulario', 'voltar_pagina',
+  'navegar', 'ver_pagina', 'clicar', 'preencher_campo', 'enviar_formulario', 'voltar_pagina', 'rolar_pagina',
 ];
 
 // Palavras que aparecem no pedido mas não identificam o ASSUNTO dele.
@@ -472,7 +472,7 @@ const normalizar = (t) =>
  * acontecem — "clicar [3]" na tela de login e "clicar [3]" na tela do
  * contracheque são ações diferentes.
  */
-const ACOES_DE_PAGINA = new Set(['clicar', 'preencher_campo', 'enviar_formulario', 'ver_pagina', 'voltar_pagina']);
+const ACOES_DE_PAGINA = new Set(['clicar', 'preencher_campo', 'enviar_formulario', 'ver_pagina', 'voltar_pagina', 'rolar_pagina']);
 const ehAcaoDeNavegador = (nome) => ACOES_DE_PAGINA.has(nome) || nome === 'navegar';
 
 /** Argumentos em forma estável (chaves ordenadas), sem campos que não mudam a ação. */
