@@ -39,6 +39,7 @@ const nucleo = require('./nucleo');
 const { investigar } = require('./nucleo/investigacao');
 const { ondeComprar, linhaOndeComprar } = require('./onde-comprar');
 const { protegerGraficos } = require('./nucleo/graficos');
+const { pedidoDeRede, responderRede } = require('./rede-no-chat');
 const { gerarPdf } = require('../formatos/pdf-escrita');
 const { YtDlp, pareceMudancaDoYouTube, idDoVideo } = require('../ytdlp');
 const { Tesseract, IMAGEM } = require('../tesseract');
@@ -1735,9 +1736,13 @@ class Agent extends EventEmitter {
       };
       // investigação com tempo (17/10): o usuário dá os minutos; o código pesquisa por partes até o tempo acabar
       const investigando = modo === 'investigacao' && !imagensDoPedido.length;
+      // teste de rede (18/10): "teste minha internet", "mede meu ping" — o código mede, o modelo explica
+      const pedeRede = !investigando && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
       const r = investigando
         ? await investigar({ pergunta: objetivo, conversa, minutos: Number(cfg.minutosDeInvestigacao) || 10, tamanho: cfg.modoResposta || 'normal', deps })
-        : await nucleo.responder({ pergunta: objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido });
+        : pedeRede
+          ? await responderRede({ pergunta: objetivo, conversa, deps, signal })
+          : await nucleo.responder({ pergunta: objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido });
       // o relatório completo vira PDF na pasta de trabalho, anexado à resposta
       let relatorioPdf = null;
       if (r.relatorio) {
