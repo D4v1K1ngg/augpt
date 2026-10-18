@@ -39,7 +39,7 @@ const nucleo = require('./nucleo');
 const { investigar } = require('./nucleo/investigacao');
 const { ondeComprar, linhaOndeComprar } = require('./onde-comprar');
 const { protegerGraficos } = require('./nucleo/graficos');
-const { pedidoDeRede, responderRede, pedidoDeRota, responderRota } = require('./rede-no-chat');
+const { pedidoDeRede, responderRede, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego } = require('./rede-no-chat');
 const { gerarPdf } = require('../formatos/pdf-escrita');
 const { YtDlp, pareceMudancaDoYouTube, idDoVideo } = require('../ytdlp');
 const { Tesseract, IMAGEM } = require('../tesseract');
@@ -1740,12 +1740,15 @@ class Agent extends EventEmitter {
       // teste de rede (18/10): "teste minha internet", "mede meu ping" — o código mede, o modelo explica
       // rota para jogo (18/10, item 3) antes do teste de rede: "meu ping no PUBG" é de servidor do jogo
       const pedeRota = !investigando && !imagensDoPedido.length && pedidoDeRota(objetivo);
-      const pedeRede = !investigando && !pedeRota && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
+      const pedeTrafego = !investigando && !pedeRota && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
+      const pedeRede = !investigando && !pedeRota && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
       const r = investigando
         ? await investigar({ pergunta: objetivo, conversa, minutos: Number(cfg.minutosDeInvestigacao) || 10, tamanho: cfg.modoResposta || 'normal', deps })
         : pedeRota
           ? await responderRota({ pergunta: objetivo, deps })
-          : pedeRede
+          : pedeTrafego
+            ? await responderTrafego({ pergunta: objetivo, deps })
+            : pedeRede
             ? await responderRede({ pergunta: objetivo, conversa, deps, signal })
             : await nucleo.responder({ pergunta: objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido });
       // o relatório completo vira PDF na pasta de trabalho, anexado à resposta

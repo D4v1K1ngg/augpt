@@ -9,6 +9,7 @@
 
 const { testarRede, tabelaDoResultado, graficosDoResultado } = require('../rede/teste-de-velocidade');
 const rotas = require('../rede/rotas');
+const trafego = require('../rede/trafego');
 
 const norm = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
@@ -159,4 +160,50 @@ async function responderRota({ pergunta, deps, hoje = new Date().toLocaleDateStr
   return { ...vazio, texto: `${topo}\n\n${explicacao}${graficos.length ? `\n\n${graficos.join('\n\n')}` : ''}`, rota: r };
 }
 
-module.exports = { pedidoDeRede, responderRede, PERGUNTA_DE_CONFIRMACAO, pedidoDeRota, responderRota };
+/* ------------------------------ tráfego por programa (item 5) ------------------------------ */
+
+// "o que está consumindo minha internet?", "quais programas estão usando a rede?", "analise o tráfego"
+const PEDE_TRAFEGO = /\b(trafego|consumindo|consome|usando|gastando|puxando|conexoes|conectados?)\b[^.?!]{0,40}\b(internet|rede|banda|wi-?fi|dados)\b|\b(programas?|aplicativos?|apps?|processos?)\b[^.?!]{0,40}\b(internet|rede|banda|conect\w*)\b|\btrafego (de|da|na) (minha )?(rede|internet)\b/;
+const COMO_FAZER = /\b(como (analis\w*|ver|vejo|monitor\w*|descobr\w*|saber)|o que e|o que significa)\b/;
+
+function pedidoDeTrafego(texto) {
+  const t = norm(texto);
+  if (!PEDE_TRAFEGO.test(t)) return null;
+  if (COMO_FAZER.test(t) && !DO_USUARIO.test(t)) return null; // "como analisar o tráfego de rede?" é pergunta
+  return { segundos: 6 };
+}
+
+function pedidoDeExplicacaoDoTrafego(pergunta, r, hoje) {
+  const programas = r.programas
+    .slice(0, 10)
+    .map((p) => `${p.nome}: ${p.tcp} conexões ativas, ${p.udp} portas UDP${p.servicos.length ? `, conectado a ${p.servicos.join(', ')}` : p.destinos.length ? `, ${p.destinos.length} servidores sem nome conhecido` : ''}`)
+    .join('; ');
+  return [
+    {
+      role: 'system',
+      content: `Você é o AuGPT. Hoje é ${hoje}. O AuGPT acabou de olhar a rede do computador do usuário por ${r.taxa.length} segundos. Placa de rede: recebendo ${r.media.downMbps} Mbps em média (pico ${r.pico.downMbps}), enviando ${r.media.upMbps} Mbps (pico ${r.pico.upMbps}). Programas com conexão: ${programas || 'nenhum'}.
+
+Explique para quem não é técnico, em português do Brasil, em 2 a 4 parágrafos curtos (a tabela já aparece acima: não a repita).
+- Diga se o tráfego de agora é alto ou baixo (um vídeo em HD usa uns 5 Mbps; um download grande usa o que a linha der).
+- Diga quais programas parecem estar usando a internet e para quê, pelo serviço a que se conectam. Atenção: o Windows não informa a banda de cada programa sem administrador — não diga quanto cada um consome; fale de quem está conectado e a quê.
+- Explique os nomes do sistema que costumam aparecer (svchost: serviços do Windows, como atualização; System: o próprio Windows) e que portas UDP são normais em jogos, chamadas e no próprio Windows.
+- Se perguntarem como saber a banda de cada programa: o Monitor de Recursos do Windows (resmon, aba Rede) mostra, e abre sem instalar nada.
+- Use SÓ os dados acima; não invente programa nem serviço.`,
+    },
+    { role: 'user', content: pergunta },
+  ];
+}
+
+async function responderTrafego({ pergunta, deps, hoje = new Date().toLocaleDateString('pt-BR'), medir = trafego.medirTrafego }) {
+  const emit = deps.emit || (() => {});
+  emit('ferramenta', { nome: 'trafego_de_rede', argumentos: { consulta: 'programas e tráfego da placa de rede' }, risco: 'leitura' });
+  const r = await medir({ segundos: pedidoDeTrafego(pergunta)?.segundos || 6, aoProgresso: (p) => emit('ferramenta', { nome: 'trafego_de_rede', argumentos: { consulta: p }, risco: 'leitura' }) });
+  const vazio = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] }, modo: 'rede' };
+  const tabela = trafego.tabelaDoTrafego(r);
+  emit('resposta-token', { pedaco: `${tabela}\n\n` });
+  const explicacao = String((await deps.escrever(pedidoDeExplicacaoDoTrafego(pergunta, r, hoje), (pedaco) => emit('resposta-token', { pedaco }))) || '').trim();
+  const graficos = trafego.graficosDoTrafego(r);
+  return { ...vazio, texto: `${tabela}\n\n${explicacao}${graficos.length ? `\n\n${graficos.join('\n\n')}` : ''}` };
+}
+
+module.exports = { pedidoDeRede, responderRede, PERGUNTA_DE_CONFIRMACAO, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego };
