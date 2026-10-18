@@ -40,6 +40,8 @@ const { investigar } = require('./nucleo/investigacao');
 const { ondeComprar, linhaOndeComprar } = require('./onde-comprar');
 const { protegerGraficos } = require('./nucleo/graficos');
 const { pedidoDeRede, responderRede, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego } = require('./rede-no-chat');
+const catalogo = require('./capacidades'); // "capacidades" já é o nome das capacidades do modelo (visão…) mais abaixo
+const { jogoDoTexto } = require('../rede/rotas');
 const { gerarPdf } = require('../formatos/pdf-escrita');
 const { YtDlp, pareceMudancaDoYouTube, idDoVideo } = require('../ytdlp');
 const { Tesseract, IMAGEM } = require('../tesseract');
@@ -1738,11 +1740,24 @@ class Agent extends EventEmitter {
       // investigação com tempo (17/10): o usuário dá os minutos; o código pesquisa por partes até o tempo acabar
       const investigando = modo === 'investigacao' && !imagensDoPedido.length;
       // teste de rede (18/10): "teste minha internet", "mede meu ping" — o código mede, o modelo explica
+      // as ações que o AuGPT executa (capacidades.js): pelo entendimento do modelo, pelo "sim" à oferta
+      // da resposta anterior ou, como reserva, pelas palavras do pedido
+      const normalizado = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+      const jogoDaConversa = () => jogoDoTexto(normalizado(`${objetivo} ${conversa.slice(-4).map((m) => m.content).join(' ')}`)) || 'aws';
+      deps.executarAcao = (id, { pergunta, modo: modoDoTeste = null, confirmado = false } = {}) => {
+        if (id === 'teste_de_rede') return responderRede({ pergunta, conversa, deps, signal, pedido: pedidoDeRede(pergunta, conversa) || { modo: modoDoTeste || 'completo', confirmado: confirmado || modoDoTeste === 'ping' } });
+        if (id === 'rota_de_jogo') return responderRota({ pergunta, deps, jogo: jogoDaConversa() });
+        if (id === 'trafego_de_rede') return responderTrafego({ pergunta, deps });
+        return null;
+      };
+      const aceitou = !investigando && !imagensDoPedido.length && catalogo.aceitouOferta(objetivo, conversa);
       // rota para jogo (18/10, item 3) antes do teste de rede: "meu ping no PUBG" é de servidor do jogo
-      const pedeRota = !investigando && !imagensDoPedido.length && pedidoDeRota(objetivo);
-      const pedeTrafego = !investigando && !pedeRota && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
-      const pedeRede = !investigando && !pedeRota && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
-      const r = investigando
+      const pedeRota = !investigando && !aceitou && !imagensDoPedido.length && pedidoDeRota(objetivo);
+      const pedeTrafego = !investigando && !aceitou && !pedeRota && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
+      const pedeRede = !investigando && !aceitou && !pedeRota && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
+      const r = aceitou
+        ? await deps.executarAcao(aceitou.id, { pergunta: objetivo, modo: aceitou.modo, confirmado: true })
+        : investigando
         ? await investigar({ pergunta: objetivo, conversa, minutos: Number(cfg.minutosDeInvestigacao) || 10, tamanho: cfg.modoResposta || 'normal', deps })
         : pedeRota
           ? await responderRota({ pergunta: objetivo, deps })

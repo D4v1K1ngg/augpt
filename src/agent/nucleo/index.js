@@ -22,6 +22,7 @@
 const { pedacos, ordenar } = require('./ranking');
 const { tituloCita } = require('../../tools/imagens');
 const { separarGraficos, recolocarGraficos, graficoDoTexto, pedeGrafico, INSTRUCAO_DE_GRAFICO, INSTRUCAO_DE_VISUAL } = require('./graficos');
+const capacidades = require('../capacidades');
 
 /**
  * Profundidade da pesquisa (15/10, a partir do Perplexica — modo qualidade:
@@ -61,7 +62,12 @@ ${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}
 ÚLTIMA MENSAGEM: ${String(pergunta).slice(0, 1500)}
 
 Responda SÓ com um JSON:
-{"precisa_buscar": true ou false, "produto": true ou false, "criar_imagem": true ou false, "muda_com_o_tempo": true ou false, "sobre_o_usuario": true ou false, "imagem_ajuda": true ou false, "assuntos": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
+{"precisa_buscar": true ou false, "produto": true ou false, "criar_imagem": true ou false, "muda_com_o_tempo": true ou false, "sobre_o_usuario": true ou false, "imagem_ajuda": true ou false, "acao": "", "sugerir": "", "assuntos": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
+
+- O AuGPT roda no computador do usuário e EXECUTA estas ações:
+${capacidades.listaParaEntender()}
+- "acao": o nome de uma dessas ações quando o usuário pede que o AuGPT a faça agora, mesmo como pergunta ("você consegue ver como está a minha internet?", "mede meu ping no PUBG", "o que está usando minha rede?"). Senão, "".
+- "sugerir": quando o usuário NÃO pediu a ação, mas ela ajudaria muito no que ele quer (ex.: "como melhorar minha internet para jogar?" → "teste_de_rede"), o nome dela. Senão, "".
 
 - "muda_com_o_tempo" é true quando a resposta certa hoje pode ser diferente da de alguns meses atrás: notícia, resultado, placar, eleição, cotação, preço, previsão, lançamento, versão mais nova, quem ocupa um cargo, situação atual de algo. Fato histórico, definição, ciência e como algo funciona: false.
 - "sobre_o_usuario" é true quando a resposta depende de algo do próprio usuário: o computador, o celular, o carro, a cidade, o curso, a rotina ou o que ele já tem ("meu PC", "no meu celular", "pra minha cidade").
@@ -90,6 +96,18 @@ const podeFicarSemBusca = (pergunta) => SEM_BUSCA.test(String(pergunta || '').tr
 // dizem "depende de quando" e "é sobre o usuário" valem em qualquer tema
 const PISTA_DE_ATUAL = /\b(hoje|agora|atual|atualmente|atuais|recentes?|recentemente|[uú]ltim[oa]s? (not[ií]cias?|resultados?|vers[aã]o|semana|m[eê]s|dias)|mais (nov[oa]s?|recentes?)|vers[aã]o atual|esta semana|este (m[eê]s|ano)|neste momento|ainda (est[aá]|tem|existe|vale)|novidades?|cota[cç][aã]o|previs[aã]o|placar|resultado|vai (ganhar|vencer|sair|lan[cç]ar)|quem (ganhou|venceu|est[aá] na frente)|j[aá] (saiu|lan[cç]ou|foi lan[cç]ad))\b/i;
 const PISTA_DO_USUARIO = /\b(meu|minha|meus|minhas|comigo|aqui em casa)\b/i;
+// a ação que o modelo escolher precisa ter a ver com a pergunta (trava para o modelo pequeno)
+const PISTA_DA_ACAO = {
+  teste_de_rede: /internet|conex|wi-?fi|\brede\b|ping|lag|lat[eê]ncia|velocidade|download|upload|banda|roteador|operadora|provedor|fibra/i,
+  rota_de_jogo: /\b(jogo|jogos|jogar|game|games|ping|lag|servidor|servidores|pubg|fortnite|cs ?2|counter|dota|valorant|lol|league)\b/i,
+  trafego_de_rede: /internet|\brede\b|banda|consum|programa|aplicativo|conex|lent/i,
+};
+const acaoValida = (id, texto) => (capacidades.EXECUTAVEIS.includes(id) && PISTA_DA_ACAO[id]?.test(String(texto || '')) ? id : null);
+// a mensagem pede que o AuGPT FAÇA algo (18/10, 4B: "você consegue ver como está a qualidade da minha
+// conexão?" veio como "sugerir", não "acao" — e virou pesquisa): aí a capacidade apontada é a ação
+// ("o que você pode me dizer sobre…" é pergunta: "pode/consegue" só vale seguido de um verbo de fazer)
+const VERBO_DE_FAZER = '(ver|medir|testar|verificar|checar|analisar|olhar|mostrar|fazer|rodar|realizar|conferir|descobrir|avaliar|monitorar)';
+const PEDE_QUE_FACA = new RegExp(`\\b(consegue|consegues|pode|poderia|podes|d[áa] (pra|para)|tem como|sabe)\\b(\\s+[\\wà-ú]+){0,2}\\s+${VERBO_DE_FAZER}\\b|^\\s*(fa[çc]a|faz|realiz\\w*|verifi\\w*|test\\w*|me[çc]a|mede|medir|mostr\\w*|veja|analis\\w*|confir\\w*|cheq\\w*)\\b`, 'i');
 
 // criar imagem (Fase 5): a regra do código cobre o que o modelo deixar passar
 const PEDE_IMAGEM = /\b(crie|cria|criar|gere|gera|gerar|fa[çc]a|desenhe|desenha|desenhar|ilustre|pinte|edite|transforme|transformar)\b[^.?!]{0,50}\b(imagem|imagens|foto|desenho|ilustra[çc][ãa]o|arte|logo|logotipo|wallpaper|papel de parede|pintura|figura|capa|banner|mascote|cartaz|ícone)\b/i;
@@ -116,6 +134,8 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
       atual: precisaBuscar && (j.muda_com_o_tempo === true || PISTA_DE_ATUAL.test(pergunta)),
       sobreOUsuario: j.sobre_o_usuario === true || PISTA_DO_USUARIO.test(pergunta),
       imagemAjuda: !exatas && j.imagem_ajuda !== false,
+      acao: acaoValida(j.acao, pergunta) || (PEDE_QUE_FACA.test(String(pergunta || '')) ? acaoValida(j.sugerir, pergunta) : null),
+      sugerir: acaoValida(j.acao, pergunta) || PEDE_QUE_FACA.test(String(pergunta || '')) ? null : acaoValida(j.sugerir, pergunta),
       assuntos,
       pergunta: String(j.pergunta || '').trim() || pergunta,
     };
@@ -628,7 +648,7 @@ const TAMANHO_DA_RESPOSTA = {
   curta: '\n- RESPOSTA CURTA: no máximo 3 parágrafos, só o essencial.',
 };
 
-function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal', atual = false, sobreOUsuario = '' }) {
+function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal', atual = false, sobreOUsuario = '', capacidadesNaEscrita = '' }) {
   return `Você é o AuGPT, um assistente que pesquisa na web e escreve respostas completas, claras e bem explicadas, em português do Brasil. Hoje é ${hoje}.${TAMANHO_DA_RESPOSTA[tamanho] || ''}
 
 ${
@@ -650,7 +670,7 @@ ${
         atual ? `\n- Esta pergunta depende de QUANDO: diga a data dos fatos que citar ("em 5 de outubro de ${String(hoje).slice(-4)}…") e deixe claro o que já aconteceu e o que ainda não, olhando a data de hoje.` : ''
       }${produto ? FORMATO_DE_PRODUTO : ''}`
     : `- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.${INSTRUCAO_DE_GRAFICO}${INSTRUCAO_DE_VISUAL}`
-}${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 1500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou), e não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
+}${capacidadesNaEscrita ? `\n\n${capacidadesNaEscrita}` : ''}${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 1500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou), e não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
 }
 
 // 15/10 (pedido do Davi): resposta de produto em cartões — o renderer desenha
@@ -994,6 +1014,13 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     emit('nucleo-entendimento', { ...ent, modo: 'imagem' });
     return { vista, texto: deps.semGerador, fontes: [], entendimento: ent, buscou: false, produto: false, assuntos: [], modo: 'imagem', anosSemFonte: [] };
   }
+  // o usuário pediu uma ação que o AuGPT executa (18/10: "você consegue ver como está a minha conexão?"
+  // virou pesquisa e a resposta disse "não consigo medir") — quem executa é o app (deps.executarAcao)
+  if (ent.acao && !ent.criarImagem && typeof deps.executarAcao === 'function') {
+    emit('nucleo-entendimento', { ...ent, modo: 'acao' });
+    const feita = await deps.executarAcao(ent.acao, { pergunta, ent });
+    if (feita) return feita;
+  }
   // automático (15/10): produto vai para a pesquisa profunda, o resto para a normal
   const modoUsado = MODOS[modo] ? modo : ent.produto ? 'profundo' : 'normal';
   emit('nucleo-entendimento', { ...ent, modo: modoUsado });
@@ -1006,7 +1033,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const semVideos = /\b(youtube|v[ií]deos?)\b/i.test(pergunta) && !(typeof deps.buscarNoYoutube === 'function');
   emit('redigindo', { fontes: usadas.length });
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho, atual: ent.atual, sobreOUsuario })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho, atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: capacidades.blocoParaEscrever(deps) })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
@@ -1105,6 +1132,10 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const identificacao = (/^.*identifica[çc][ãa]o:.*$/im.exec(vista) || [''])[0];
   const ocrConfirma = imagens.some((i) => i.texto && (ent.assuntos || []).some((a) => tituloCita(i.texto, a)));
   const pelaAparencia = imagens.length > 0 && !ocrConfirma && (ent.produto || /prov[áa]vel|provavelmente|n[ãa]o d[áa] para saber|n[ãa]o identificado/i.test(identificacao));
+  // a oferta da ação que ajudaria (uma só; não repete a que a resposta anterior já fez)
+  const oferta = ent.sugerir && capacidades.ofertaDe(ent.sugerir);
+  const jaOfereceu = oferta && conversa.slice(-4).some((m) => m.role === 'assistant' && String(m.content || '').includes(oferta.slice(0, 40)));
+  if (oferta && !jaOfereceu) conferido.texto = `${conferido.texto.trim()}\n\n${oferta}`;
   const comGraficos = recolocarGraficos(conferido.texto, graf.graficos);
   const texto = pelaAparencia ? `*Pela foto, o modelo foi reconhecido pela aparência — o nome dele não está escrito na imagem, então pode ser outro parecido da mesma linha.*\n\n${comGraficos}` : comGraficos;
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null };

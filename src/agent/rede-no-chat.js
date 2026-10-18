@@ -71,8 +71,9 @@ Explique o resultado para quem não é técnico, em português do Brasil, em 2 a
 }
 
 /** Roda o teste e monta a resposta (mesma forma do núcleo: { texto, fontes, … }). */
-async function responderRede({ pergunta, conversa = [], deps, signal, hoje = new Date().toLocaleDateString('pt-BR'), medir = testarRede }) {
-  const pedido = pedidoDeRede(pergunta, conversa);
+async function responderRede({ pergunta, conversa = [], deps, signal, hoje = new Date().toLocaleDateString('pt-BR'), medir = testarRede, pedido: dado = null }) {
+  // pedido vindo do entendimento ou do "sim" à oferta (capacidades.js); senão, pelas palavras
+  const pedido = dado || pedidoDeRede(pergunta, conversa) || { modo: 'completo', confirmado: false };
   const vazio = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] }, modo: 'rede' };
   if (!pedido.confirmado) {
     deps.emit?.('resposta-token', { pedaco: PERGUNTA_DE_CONFIRMACAO });
@@ -101,13 +102,17 @@ async function responderRede({ pergunta, conversa = [], deps, signal, hoje = new
 
 /* ------------------------------ rotas para jogos (item 3) ------------------------------ */
 
-const PEDE_ROTA = /\b(rota|rotas|tracert|traceroute|ping|latencia|lag|servidor|servidores|server)\b/;
+// "lag" sozinho não pede medição (18/10: "meu pubg está com lag, o que fazer?" mediu direto — é pedido de
+// conselho; o entendimento oferece a medição no fim, ver capacidades.js)
+const PEDE_ROTA = /\b(rota|rotas|tracert|traceroute|ping|latencia|servidor|servidores|server)\b/;
+const PEDE_CONSELHO = /\b(o que (eu )?(fa[cç]o|fazer|posso fazer)|como (resolv\w*|melhor\w*|diminu\w*|reduz\w*|arrum\w*|consert\w*|tir\w*|baix\w*)|dicas?)\b/;
 const ROTA_SEM_JOGO = /\b(tracert|traceroute|rota (ate|para|pro|pra)|rotas? (do|dos|de) (jogo|servidor))\b/;
 
 /** "qual meu ping nos servidores do PUBG?", "rota até o servidor do CS2", "tracert" → { jogo } ou null. */
 function pedidoDeRota(texto) {
   const t = norm(texto);
   const jogo = rotas.jogoDoTexto(t);
+  if (PEDE_CONSELHO.test(t) && !ACAO.test(t)) return null;
   if (jogo && PEDE_ROTA.test(t)) return { jogo };
   if (ROTA_SEM_JOGO.test(t) || (/\b(jogo|jogos|game|games)\b/.test(t) && /\b(ping|rota|latencia|lag)\b/.test(t) && !EXPLICACAO.test(t))) return { jogo: 'aws' };
   return null;
@@ -141,8 +146,8 @@ Explique para o jogador, em português do Brasil, em 2 a 4 parágrafos curtos (a
   ];
 }
 
-async function responderRota({ pergunta, deps, hoje = new Date().toLocaleDateString('pt-BR'), medir = rotas.medirJogo }) {
-  const { jogo } = pedidoDeRota(pergunta);
+async function responderRota({ pergunta, deps, hoje = new Date().toLocaleDateString('pt-BR'), medir = rotas.medirJogo, jogo: dado = null }) {
+  const jogo = dado || pedidoDeRota(pergunta)?.jogo || 'aws';
   const emit = deps.emit || (() => {});
   emit('ferramenta', { nome: 'rota_de_jogo', argumentos: { consulta: `servidores do ${rotas.JOGOS[jogo].nome}` }, risco: 'leitura' });
   const r = await medir(jogo, { aoProgresso: (p) => emit('ferramenta', { nome: 'rota_de_jogo', argumentos: { consulta: p }, risco: 'leitura' }) });
