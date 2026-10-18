@@ -204,8 +204,31 @@ const ENDERECO = /\bhttps?:\/\/[^\s)'"]+|\bwww\.[a-z0-9-]+\.[a-z]{2,}/i;
 // 2ª revisão: só IMPERATIVO dirigido ao agente — "Resuma … notas fiscais
 // emitidas", "o que … diz sobre login com OAuth", "o preço baixa quando?" são leitura
 const ACAO_NO_SITE =
-  /\b(entre com|entra com|fa[cç]a (o )?login|realize o login|logue|loga|cliqu[ei]|preencha|baixe|fa[cç]a (o )?download|emita|selecione|cadastre|envie o formulario)\b|\b(login|senha) (e|eh|:)/;
+  /\b(entre com|entra com|fa[cç]a (o )?login|realiz(e|a|ar) (o )?login|fazer (o )?login|efetu[ea] (o )?login|logue|loga|logar|cliqu[ei]|preencha|baixe|fa[cç]a (o )?download|emita|selecione|cadastre|envie o formulario)\b|\b(login|senha) (e|eh|:)/;
 // ("acesse o site e resuma" é leitura: só "acesse" não basta)
+// 18/10 (conversas reais): "Acesse esse site 'https://www.unip.br/'" sozinho é
+// abrir o site — virava pesquisa e um "Relatório Técnico" inventado sobre a UNIP
+const ABRIR_O_SITE = /\b(acess[ea]r?|abr[ae]|abrir|entr[ae]r?|v[aá] (para|pra|no|na))\b[^.?!]{0,25}\b(site|pagina|portal|link|endereco)\b/;
+const LEITURA_DO_SITE = /\b(resum\w*|explique|explica|o que (diz|fala|tem)|leia|traduz\w*|pesquis\w*|analis\w*|compar\w*|quais|qual|quanto)\b/;
+// login sem endereço ("realize login no site da unip"): o agente abre o site pelo nome
+const LOGIN_NO_SITE = /\b(login|logar|logue|entrar na (minha )?conta)\b[^.?!]{0,30}\b(site|portal|pagina|conta|sistema)\b|\b(site|portal|pagina)\b[^.?!]{0,30}\b(login|logar)\b/;
+
+/** Último endereço citado na conversa (o "esse site" de "realize login nesse site"). */
+function urlDaConversa(conversa = []) {
+  for (let i = conversa.length - 1; i >= 0; i -= 1) {
+    const m = String(conversa[i]?.content || '').match(/\bhttps?:\/\/[^\s)'"\]]+/);
+    if (m) return m[0];
+  }
+  return null;
+}
+
+/** Pedido de agir num site sem o endereço, que está na conversa: o endereço vai junto. */
+function comEnderecoDaConversa(objetivo, conversa = []) {
+  const t = normalizar(objetivo);
+  if (ENDERECO.test(String(objetivo)) || !(ACAO_NO_SITE.test(t) || ABRIR_O_SITE.test(t))) return objetivo;
+  const url = urlDaConversa(conversa);
+  return url ? `${objetivo} (${url})` : objetivo;
+}
 
 function tipoDoPedido(objetivo) {
   let t = normalizar(objetivo);
@@ -228,6 +251,8 @@ function tipoDoPedido(objetivo) {
   // Revisão v4 (contracheque real): endereço + ação na página = agir no site
   // pelo navegador (antes caía em 'livre' e o 7B começava "pesquisando o site")
   if (ENDERECO.test(String(objetivo)) && ACAO_NO_SITE.test(t)) return { tipo: 'site', motivo: 'agir num site (login, clique, formulário, download)' };
+  if (ENDERECO.test(String(objetivo)) && ABRIR_O_SITE.test(t) && !LEITURA_DO_SITE.test(t)) return { tipo: 'site', motivo: 'abrir o site no navegador' };
+  if (LOGIN_NO_SITE.test(t) && ACAO_NO_SITE.test(t)) return { tipo: 'site', motivo: 'fazer login num site (endereço pelo nome)' };
 
   // questão de prova ("Questão 1 (…)", "Pergunta 1 … a. … b. …") é tarefa:
   // a avaliação dos decisores mostrou 12 delas caindo em "produto"
@@ -275,4 +300,4 @@ function tipoDoPedido(objetivo) {
 /** O motor de pesquisa planejada atende este tipo? */
 const tipoDoMotor = (tipo) => tipo === 'produto' || tipo === 'guia';
 
-module.exports = { tipoDoPedido, tipoDoMotor, produtosNomeados, normalizarPedido: normalizar, OBJETO_PRODUTO, OBJETO_DE_CATALOGO };
+module.exports = { tipoDoPedido, tipoDoMotor, produtosNomeados, normalizarPedido: normalizar, OBJETO_PRODUTO, OBJETO_DE_CATALOGO, comEnderecoDaConversa };

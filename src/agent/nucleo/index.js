@@ -75,7 +75,11 @@ Responda SÓ com um JSON:
 
 // o que pode ficar sem pesquisa: saudação, agradecimento, conta, tradução/revisão de texto, texto criativo
 const SEM_BUSCA = /^\s*(oi|ol[aá]|bom dia|boa (tarde|noite)|e a[ií]|obrigad[oa]|valeu|vlw|tchau|ok|beleza|blz|show|legal|perfeito)\b[\s!.?]*$|^[\d\s.,+\-*/x×÷^%()=?]+$|\b(traduz|traduza|tradu[cç][aã]o|revise|revisar|corrija|reescreva|resuma este|resuma o texto|escreva um (poema|texto|conto|e-?mail|mensagem)|crie uma (hist[oó]ria|poesia|piada))\b/i;
-const podeFicarSemBusca = (pergunta) => SEM_BUSCA.test(String(pergunta || '').trim());
+// questão de exatas com a conta inteira no enunciado (18/10: a prova de 10
+// questões pesquisou "Questão 6 matemática vestibular" e listou como fonte um
+// editor de PDF e um app de formulários): resolve, não pesquisa
+const QUESTAO_DE_EXATAS = (t) => /\bquest[aã]o\s*\d/i.test(t) && /\\\(|\\\[|\\frac|\^|\b\d+\s*[=+*/x×]\s*\d|\b[a-z]\s*[=+]\s*\d|\bf\(x\)|\blog_?\d|\bmatriz\b/i.test(t);
+const podeFicarSemBusca = (pergunta) => SEM_BUSCA.test(String(pergunta || '').trim()) || QUESTAO_DE_EXATAS(String(pergunta || ''));
 
 // criar imagem (Fase 5): a regra do código cobre o que o modelo deixar passar
 const PEDE_IMAGEM = /\b(crie|cria|criar|gere|gera|gerar|fa[çc]a|desenhe|desenha|desenhar|ilustre|pinte|edite|transforme|transformar)\b[^.?!]{0,50}\b(imagem|imagens|foto|desenho|ilustra[çc][ãa]o|arte|logo|logotipo|wallpaper|papel de parede|pintura|figura|capa|banner|mascote|cartaz|ícone)\b/i;
@@ -87,7 +91,7 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     // produto sempre busca (15/10: "fone de ouvido dunu titan s" saiu sem busca e o modelo disse que ele "não existe")
     const assuntos = (Array.isArray(j.assuntos) ? j.assuntos : []).map((a) => String(a || '').trim()).filter((a) => a.length >= 2 && a.length <= 80).slice(0, 4);
     // o modelo só decide "sem busca" no que é claramente conversa; um nome solto ("Dragon Ball Super Beerus") pesquisa
-    const precisaBuscar = j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta));
+    const precisaBuscar = !QUESTAO_DE_EXATAS(String(pergunta || '')) && (j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta)));
     return { precisaBuscar, produto: j.produto === true, criarImagem: j.criar_imagem === true || pedeImagem(pergunta), assuntos, pergunta: String(j.pergunta || '').trim() || pergunta };
   } catch {
     return { precisaBuscar: true, produto: false, criarImagem: pedeImagem(pergunta), assuntos: [], pergunta }; // JSON quebrado: busca, com a pergunta como veio

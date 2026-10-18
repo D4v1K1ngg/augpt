@@ -18,7 +18,7 @@ const rotinas = require('./rotinas');
 const { MemoriaOperacional, observar } = require('./memoria-operacional');
 const { MemoriaCentral } = require('./memoria-central');
 const { Tarefa, ESTADOS: ESTADOS_TAREFA, normalizarSubtarefa, itemDaLeitura } = require('./tarefa');
-const { tipoDoPedido } = require('./tipo-de-pedido');
+const { tipoDoPedido, comEnderecoDaConversa } = require('./tipo-de-pedido');
 const { decidirRota } = require('./roteador');
 const { Retomada } = require('./retomada');
 const { classificarErro, anotarErro, comNovaTentativa } = require('../tools/erros');
@@ -1547,6 +1547,10 @@ class Agent extends EventEmitter {
    * resposta final, ou null quando falhou (quem chama segue pelo caminho antigo).
    */
   async responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] }) {
+    // prova com várias questões (18/10): ~700 tokens por questão resolvida; o
+    // padrão de 3.072 cortava a resposta na 4ª de 10
+    const questoes = new Set((String(objetivo).match(/\bquest(?:ão|ao)\s*(\d+)/gi) || []).map((q) => q.replace(/\D/g, ''))).size;
+    const limiteDaEscrita = Math.max(Number(this.config.numPredictResposta) || 3072, Math.min(12000, questoes * 700));
     const inicio = Date.now();
     const cfg = this.config;
     // imagens anexadas: lidas da pasta de trabalho; com o Tesseract instalado, o texto delas vai junto (OCR)
@@ -1583,7 +1587,7 @@ class Agent extends EventEmitter {
         return r;
       },
       escrever: async (messages, onToken) => {
-        const r = await ollama.chatStream({ host: cfg.host, model: modelo, messages, temperature: 0.4, numCtx: 16384, numPredict: Number(cfg.numPredictResposta) || 3072, manterVivo: cfg.manterModeloVivo, signal, onToken: (p) => { escreveu = true; onToken(p); } });
+        const r = await ollama.chatStream({ host: cfg.host, model: modelo, messages, temperature: 0.4, numCtx: 16384, numPredict: limiteDaEscrita, manterVivo: cfg.manterModeloVivo, signal, onToken: (p) => { escreveu = true; onToken(p); } });
         this.contabilizar({ promptTokens: r.promptTokens, completionTokens: r.completionTokens }, { tipo: 'redacao', duracaoMs: r.durationMs });
         return r.content;
       },
@@ -1733,6 +1737,12 @@ class Agent extends EventEmitter {
         : Promise.resolve([]);
       const fotos = nomes.length ? await imagens.comLimite(imagens.imagensDosProdutos(nomes, { config: cfg, dir: this.dirImagens() }), 20000, new Map()) : new Map();
       const precosNasLojas = new Map((await lojasDosProdutos).map((achados, i) => [nomes[i], achados]));
+      // pergunta de preço de UM produto, sem cartões (18/10: "melhor preço para a rtx 5080" saiu com
+      // preços inventados e sem link): o preço de hoje nas lojas vai no topo, pelo assunto entendido
+      const pedePreco = /\b(pre[çc]os?|quanto custa|onde comprar|link de compra|mais barat\w*|comprar)\b/i.test(objetivo);
+      const linhaDoAssunto = !nomes.length && pedePreco && cfg.ondeComprar !== false && r.assuntos?.length
+        ? linhaOndeComprar((await imagens.comLimite(Promise.all(r.assuntos.slice(0, 2).map((a) => ondeComprar(a, { ler: (url) => lerComCache(url, ctxWeb) }).catch(() => []))), 30000, [])).find((x) => x.length) || [])
+        : '';
       const doTopo = r.buscou && !nomes.length ? (await figuras).filter(Boolean) : [];
       const comCartoes = nomes.length
         ? r.texto.replace(/^#### \d+\. (.+)$/gm, (linha, nome) => {
@@ -1741,7 +1751,7 @@ class Agent extends EventEmitter {
             return `${linha}${img ? `\n${imagens.marcacao(limparNome(nome), img)}\n` : ''}${lojas ? `\n${lojas}\n` : ''}`;
           })
         : r.texto;
-      const corpo = explicarTermos(comLinks(comCartoes, r.fontes));
+      const corpo = explicarTermos(comLinks(linhaDoAssunto ? `${linhaDoAssunto}\n\n${comCartoes}` : comCartoes, r.fontes));
       // as imagens de todos os assuntos numa linha só: o renderer monta o carrossel (md.js)
       const marcas = doTopo.flatMap((x) => x.imgs.map((img) => imagens.marcacao(x.nome, img)));
       const comFoto = marcas.length ? `${marcas.join(' ')}\n\n${corpo}` : corpo;
@@ -1882,6 +1892,8 @@ class Agent extends EventEmitter {
       promessa.catch(() => {}); // abandonada ou interrompida: sem "unhandled rejection"
       return { objetivo: texto, promessa };
     };
+    // "realize login nesse site": o endereço está na mensagem anterior (18/10)
+    objetivo = comEnderecoDaConversa(objetivo, conversa);
     let rotaAndando = pedirRota(objetivo);
 
     this.nivelAuto = null;
