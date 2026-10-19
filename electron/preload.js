@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('augpt', {
     definirMaxModelosCarregados: (valor) => ipcRenderer.invoke('ollama:definirMaxModelosCarregados', { valor }),
     confirmarReinicioMaxModelos: () => ipcRenderer.invoke('ollama:confirmarReinicioMaxModelos'),
     reiniciar: () => ipcRenderer.invoke('ollama:reiniciar'),
+    procurarNaRede: () => ipcRenderer.invoke('ollama:procurarNaRede'),
+    testarServidor: (host) => ipcRenderer.invoke('ollama:testarServidor', { host }),
   },
   // tela de boas-vindas (15/10)
   utilitarios: { listar: () => ipcRenderer.invoke('utilitarios:listar') },

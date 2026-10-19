@@ -873,6 +873,14 @@
           <label class="linha"><span>Servidor Ollama</span>
             <input type="text" id="cfgHost" placeholder="http://127.0.0.1:11434" />
           </label>
+          <!-- 19/10: o Ollama de outro computador da rede (um PC com placa de vídeo melhor) -->
+          <div class="linha ollama-rede">
+            <button type="button" class="btn-secundario" id="btnProcurarOllama">Procurar na rede</button>
+            <button type="button" class="btn-secundario" id="btnTestarOllama">Testar este endereço</button>
+            <button type="button" class="btn-secundario" id="btnOllamaLocal">Usar o deste PC</button>
+          </div>
+          <div id="ollamaRedeResultado" class="dica" hidden></div>
+          <p class="dica">Para usar o Ollama de outro computador da casa: naquele PC, crie a variável de ambiente <code>OLLAMA_HOST</code> com o valor <code>0.0.0.0</code>, reinicie o Ollama e permita o Ollama no firewall do Windows (rede privada). Depois clique em <b>Procurar na rede</b> aqui. O modelo roda lá; o que você pergunta passa pela rede da casa, sem sair dela.</p>
           <label class="linha"><span>Modelo de embedding</span>
             <input type="text" id="cfgEmbed" placeholder="nomic-embed-text" />
           </label>

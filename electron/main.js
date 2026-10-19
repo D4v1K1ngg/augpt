@@ -30,6 +30,7 @@ const { RuntimeSearXNG } = require('../src/searxng-runtime');
 const ollamaRuntime = require('../src/ollama-runtime');
 const hardware = require('../src/agent/hardware');
 const primeiroUso = require('../src/primeiro-uso');
+const ollamaRemoto = require('../src/ollama-remoto');
 const verificadorDeHardware = require('../src/verificador-de-hardware');
 const instaladorOllama = require('../src/instalador-ollama');
 const { YtDlp } = require('../src/ytdlp');
@@ -468,6 +469,8 @@ ipcMain.handle('ollama:health', async () => {
     ofertaOllamaJaMostrada = false;
     return saude;
   }
+  // Ollama de outro PC (19/10): ligar o DESTE computador não resolve
+  if (!ollamaRemoto.ehLocal(config.data.host)) return { ...saude, remoto: true };
   if (debounce.atingiuLimiar && !ofertaOllamaJaMostrada) {
     ofertaOllamaJaMostrada = true;
     if (config.data.ollamaIniciarAutomaticamente) {
@@ -499,6 +502,10 @@ ipcMain.handle('ollama:diagnostico', async () => {
     } catch {
       modelos = [];
     }
+  }
+  // Ollama de outro PC fora do ar: o passo é ligar AQUELE (não instalar nem ligar o deste)
+  if (!saude.online && !ollamaRemoto.ehLocal(config.data.host)) {
+    return { ...primeiroUso.diagnosticarPrimeiroUso({ online: false, binarioEncontrado: true, ramTotalGB: hardware.detectarHardware().ramTotalGB, embedModel: config.data.embedModel }), etapa: 'remoto-desligado', host: config.data.host };
   }
   const binarioEncontrado = saude.online ? true : ollamaRuntime.localizarBinario().encontrado;
   return primeiroUso.diagnosticarPrimeiroUso({
@@ -574,8 +581,14 @@ ipcMain.handle('hardware:recomendacao', () => {
  * pedir). `suportado:false` (fora do Windows) faz a UI simplesmente não
  * mostrar a oferta.
  */
+// procurar e testar um Ollama de outro computador da rede (Ajustes → Avançado → Conexão)
+ipcMain.handle('ollama:procurarNaRede', () => ollamaRemoto.procurarNaRede());
+ipcMain.handle('ollama:testarServidor', (_e, { host } = {}) => ollamaRemoto.testar(host));
+
 ipcMain.handle('ollama:maxModelosCarregados', () => ({
   ...ollamaRuntime.lerMaxModelosCarregados(),
+  // a variável do Windows é do Ollama DESTE PC: com o de outro, não se aplica
+  ...(ollamaRemoto.ehLocal(config.data.host) ? {} : { suportado: false }),
   minimo: ollamaRuntime.MIN_MODELOS_CARREGADOS_DOIS_MODELOS,
 }));
 

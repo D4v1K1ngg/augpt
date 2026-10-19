@@ -649,7 +649,7 @@ function pintarPrimeiroUso(d) {
   if (pronto) return;
 
   const passos = ['puInstalar', 'puLigar', 'puModelo'];
-  const atual = ['sem-ollama', 'ollama-desligado', 'sem-modelo'].indexOf(d.etapa);
+  const atual = ['sem-ollama', d.etapa === 'remoto-desligado' ? 'remoto-desligado' : 'ollama-desligado', 'sem-modelo'].indexOf(d.etapa);
   passos.forEach((id, i) => {
     const li = $(id);
     li.classList.toggle('feito', i < atual);
@@ -663,6 +663,12 @@ function pintarPrimeiroUso(d) {
       <button class="btn-primario" data-pu="baixar-ollama">Baixar o Ollama</button>
       <button class="btn-secundario" data-pu="verificar">Já instalei, verificar de novo</button>
       <p class="pu-dica">Abre ollama.com/download no seu navegador. Instale, abra o Ollama e volte aqui.</p>`;
+  } else if (d.etapa === 'remoto-desligado') {
+    acoes.innerHTML = `
+      <button class="btn-secundario" data-pu="verificar">Verificar de novo</button>
+      <button class="btn-secundario" data-pu="usar-local">Usar o Ollama deste PC</button>
+      <p class="pu-dica"></p>`;
+    acoes.querySelector('.pu-dica').textContent = `O AuGPT está usando o Ollama de outro computador (${d.host}), e ele não respondeu. Confira se aquele PC está ligado, com o Ollama aberto e aceitando a rede (veja Ajustes → Avançado → Conexão).`;
   } else if (d.etapa === 'ollama-desligado') {
     acoes.innerHTML = `
       <button class="btn-primario" data-pu="ligar">Ligar o Ollama</button>
@@ -710,6 +716,13 @@ async function acaoPrimeiroUso(acao, botao) {
     trocarAba('config');
     abrirAjuste('ajModelos');
     $('bmNome')?.focus();
+    return;
+  }
+  if (acao === 'usar-local') {
+    config = await api.config.set({ host: 'http://127.0.0.1:11434' });
+    $('cfgHost').value = config.host;
+    await verificarOllama();
+    await atualizarPrimeiroUso();
     return;
   }
   if (acao === 'verificar' || acao === 'ligar') {
@@ -1383,3 +1396,63 @@ el.arvore.addEventListener('click', async (e) => {
   $('dlgSkill').showModal();
 });
 
+
+
+/* ------------------- Ollama de outro computador da rede (19/10) ------------------- */
+
+async function usarServidorOllama(host) {
+  $('cfgHost').value = host;
+  config = await api.config.set({ host });
+  await verificarOllama();
+  await atualizarPrimeiroUso();
+  carregarModelosEComponentes?.();
+}
+
+function mostrarRedeOllama(html) {
+  const caixa = $('ollamaRedeResultado');
+  caixa.hidden = false;
+  caixa.innerHTML = html;
+}
+
+$('btnProcurarOllama').addEventListener('click', async (e) => {
+  const b = e.currentTarget;
+  b.disabled = true;
+  mostrarRedeOllama('Procurando na rede da casa… (alguns segundos)');
+  try {
+    const r = await api.ollama.procurarNaRede();
+    const outros = r.achados.filter((a) => !a.estePC);
+    if (!outros.length) {
+      mostrarRedeOllama(`Nenhum Ollama de outro computador respondeu em ${esc(r.redes.join(', ') || 'nenhuma rede local')}. No outro PC, confira a variável <code>OLLAMA_HOST=0.0.0.0</code>, se o Ollama foi reiniciado e se o firewall permite.`);
+      return;
+    }
+    mostrarRedeOllama(
+      outros
+        .map((a) => `<div class="ollama-achado"><b>${esc(a.ip)}</b> · Ollama ${esc(a.versao)} · ${a.modelos.length} modelo${a.modelos.length === 1 ? '' : 's'}${a.modelos.length ? ` (${esc(a.modelos.slice(0, 4).join(', '))}${a.modelos.length > 4 ? '…' : ''})` : ''} <button type="button" class="btn-secundario" data-host="${esc(a.host)}">Usar este</button></div>`)
+        .join('')
+    );
+    $('ollamaRedeResultado').querySelectorAll('[data-host]').forEach((x) =>
+      x.addEventListener('click', async () => {
+        await usarServidorOllama(x.dataset.host);
+        mostrarRedeOllama(`Pronto: o AuGPT agora usa o Ollama de <b>${esc(x.dataset.host)}</b>. Escolha o modelo no seletor do topo.`);
+      })
+    );
+  } catch (err) {
+    mostrarRedeOllama(`Não consegui procurar: ${esc(err.message || err)}`);
+  } finally {
+    b.disabled = false;
+  }
+});
+
+$('btnTestarOllama').addEventListener('click', async () => {
+  const host = $('cfgHost').value.trim() || 'http://127.0.0.1:11434';
+  mostrarRedeOllama('Testando…');
+  const r = await api.ollama.testarServidor(host);
+  if (!r.ok) return mostrarRedeOllama(`${esc(host)} não respondeu (${esc(r.erro)}).`);
+  await usarServidorOllama(r.host);
+  mostrarRedeOllama(`${esc(r.host)} respondeu: Ollama ${esc(r.versao || '?')}, ${r.modelos.length} modelo${r.modelos.length === 1 ? '' : 's'}. Já está em uso.`);
+});
+
+$('btnOllamaLocal').addEventListener('click', async () => {
+  await usarServidorOllama('http://127.0.0.1:11434');
+  mostrarRedeOllama('O AuGPT voltou a usar o Ollama deste computador.');
+});

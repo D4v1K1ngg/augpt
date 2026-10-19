@@ -28,6 +28,8 @@ const appData = process.env.APPDATA || path.join(os.homedir(), '.config');
 const seu = path.join(appData, 'AuGPT', 'config.json');
 const cfg = fs.existsSync(seu) ? JSON.parse(fs.readFileSync(seu, 'utf8')) : {};
 Object.assign(cfg, { jinaKey: '', boasVindasConcluida: true, workspace: path.join(dados, 'pasta') });
+// FUMACA_HOST=http://ip:11434: testa com o Ollama de outro computador da rede
+if (process.env.FUMACA_HOST) cfg.host = process.env.FUMACA_HOST;
 fs.mkdirSync(cfg.workspace, { recursive: true });
 fs.writeFileSync(path.join(dados, 'config.json'), JSON.stringify(cfg, null, 2));
 
