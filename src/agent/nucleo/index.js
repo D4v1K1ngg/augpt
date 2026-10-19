@@ -464,7 +464,23 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       porUrl.set(r.url, f);
       mostrados.push(f);
     }
+    adiantar(mostrados);
     return mostrados.length ? listaParaOModelo(mostrados) : 'Nenhum resultado novo para essas buscas.';
+  };
+  // 19/10 (revisão da pesquisa): enquanto o modelo decide (1,5 a 4,6 s por rodada), as 2 primeiras
+  // páginas novas de cada busca já vão sendo lidas; quando ele pede, a página está pronta. Vídeo
+  // fica de fora (a legenda pesa), e o total adiantado tem teto, para não baixar o que ninguém lê.
+  let adiantadas = 0;
+  const adiantar = (lista) => {
+    // só página que cita o assunto (a mesma regra da leitura obrigatória: tópico de SSD num pedido de fone não)
+    const doAssunto = (x) => !assuntos.length || assuntos.some((a) => tituloCita(`${x.titulo} ${x.resumo}`, a));
+    for (const f of lista.filter((x) => !x.video && !x.alerta && !/youtube\.com|youtu\.be/.test(x.url) && doAssunto(x)).slice(0, 2)) {
+      if (adiantadas >= regras.leituras + 2 || f.adiantada || signal?.aborted) continue;
+      adiantadas += 1;
+      f.adiantada = Promise.resolve()
+        .then(() => lerPagina(f.url))
+        .catch((err) => ({ erro: err }));
+    }
   };
 
   const executarBuscaNoYoutube = async (buscas) => {
@@ -546,7 +562,9 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     emit('ferramenta', { nome: 'ler_pagina', argumentos: { url: f.url, foco: String(foco || '') }, risco: 'leitura' });
     let pagina;
     try {
-      pagina = await lerPagina(f.url);
+      const pronta = f.adiantada ? await f.adiantada : null;
+      if (pronta?.erro) throw pronta.erro;
+      pagina = pronta || (await lerPagina(f.url));
     } catch (err) {
       return `Não consegui ler [${f.n}]: ${String(err.message || err).slice(0, 120)}`;
     }
@@ -602,17 +620,24 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
       break;
     }
     historico.push({ role: 'assistant', content: r.content || '', tool_calls: r.chamadas });
-    for (const c of chamadas) {
-      let saida;
-      if (c.nome === 'buscar_na_web') saida = await executarBusca(c.args.buscas || c.args.consultas || c.args.query || []);
-      else if (c.nome === 'buscar_na_comunidade' && comComunidade) saida = await executarBusca(c.args.buscas || c.args.consultas || c.args.query || [], { comunidade: true });
-      else if (c.nome === 'ler_pagina' || c.nome === 'ver_video') saida = await executarLeitura(c.args);
-      else if (c.nome === 'ver_imagens' && comImagens) saida = await executarVerImagens(c.args);
-      else if (c.nome === 'buscar_no_youtube' && comYoutube) saida = await executarBuscaNoYoutube(c.args.buscas || c.args.consultas || c.args.query || []);
-      else if (c.nome === 'pronto') saida = 'ok';
-      else saida = `Ferramenta desconhecida: ${c.nome}`;
-      historico.push({ role: 'tool', tool_name: c.nome, content: saida });
-    }
+    // 19/10: as ações da mesma rodada rodam ao mesmo tempo (antes, duas páginas pedidas juntas eram
+    // lidas uma depois da outra); as respostas voltam ao histórico na ordem em que foram pedidas
+    const executar = (c) => {
+      if (c.nome === 'buscar_na_web') return executarBusca(c.args.buscas || c.args.consultas || c.args.query || []);
+      if (c.nome === 'buscar_na_comunidade' && comComunidade) return executarBusca(c.args.buscas || c.args.consultas || c.args.query || [], { comunidade: true });
+      if (c.nome === 'ler_pagina' || c.nome === 'ver_video') return executarLeitura(c.args);
+      if (c.nome === 'ver_imagens' && comImagens) return executarVerImagens(c.args);
+      if (c.nome === 'buscar_no_youtube' && comYoutube) return executarBuscaNoYoutube(c.args.buscas || c.args.consultas || c.args.query || []);
+      if (c.nome === 'pronto') return 'ok';
+      return `Ferramenta desconhecida: ${c.nome}`;
+    };
+    // primeiro as buscas (juntas), depois o resto (junto): a leitura pode ser de fonte que a busca da mesma rodada trouxe
+    const rodar = (c) => Promise.resolve().then(() => executar(c)).catch((err) => `Falhou: ${String(err?.message || err).slice(0, 160)}`);
+    const ehBusca = (c) => /^buscar_/.test(c.nome);
+    const saidas = new Array(chamadas.length);
+    await Promise.all(chamadas.map((c, i) => (ehBusca(c) ? rodar(c).then((x) => (saidas[i] = x)) : null)));
+    await Promise.all(chamadas.map((c, i) => (ehBusca(c) ? null : rodar(c).then((x) => (saidas[i] = x)))));
+    chamadas.forEach((c, i) => historico.push({ role: 'tool', tool_name: c.nome, content: saidas[i] }));
     if (chamadas.some((c) => c.nome === 'pronto')) {
       const falta = aindaECedo(rodada);
       if (falta) {
