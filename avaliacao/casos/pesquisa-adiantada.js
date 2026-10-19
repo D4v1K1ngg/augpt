@@ -75,4 +75,43 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'pesquisa adiantada: página que passa do prazo não segura a rodada — a pesquisa segue sem ela, que não conta como lida',
+    tipo: 'unidade',
+    async executar() {
+      const m = modelo({ pensarMs: 0 });
+      const ferramentas = [];
+      const escrita = [];
+      const t0 = Date.now();
+      const r = await nucleo.responder({
+        pergunta: 'o que é o dunu titan s',
+        modo: 'rapido',
+        deps: {
+          chamar: async (messages, opcoes) => {
+            const tool = messages.filter((x) => x.role === 'tool').map((x) => x.content).join(' ');
+            if (tool) ferramentas.push(tool);
+            return m.chamar(messages, opcoes);
+          },
+          escrever: async (messages, onToken) => (escrita.push(messages.map((x) => x.content).join(' ')), m.escrever(messages, onToken)),
+          prazoDaPaginaMs: 150,
+          buscar: async () => [
+            { titulo: 'Dunu Titan S review', url: 'https://lento.com/titan', resumo: 'Dunu Titan S' },
+            { titulo: 'Dunu Titan S teste', url: 'https://rapido.com/titan', resumo: 'Dunu Titan S' },
+          ],
+          lerPagina: async (url) => {
+            await esperar(/lento/.test(url) ? 2000 : 20);
+            return { texto: `conteúdo sobre o Dunu Titan S ${'texto '.repeat(40)}` };
+          },
+          emit: () => {},
+        },
+      });
+      const levou = Date.now() - t0;
+      return [
+        levou < 1500 || `a página lenta segurou a pesquisa: ${levou} ms`,
+        // a página rápida chegou à escrita; a lenta não (não foi lida a tempo)
+        /conteúdo sobre o Dunu Titan S/.test(escrita.join(' ')) || 'a página rápida não chegou à escrita',
+        r.fontes.length >= 1 || 'sem fontes',
+      ];
+    },
+  },
 ];

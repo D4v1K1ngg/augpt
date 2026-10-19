@@ -32,6 +32,7 @@ const { qualidadeDoDominio } = require('../../tools/search');
  * eles são o que se procura.
  */
 const RISCO_FORA = new Set(['alto', 'bloqueado']);
+const PRAZO_DA_PAGINA_MS = 8000;
 function comCredibilidade(ordenados, { comunidade = false, maximo = 8, porSite = 2, jaVistos = [] } = {}) {
   const contagem = new Map();
   for (const f of jaVistos) contagem.set(dominio(f.url), (contagem.get(dominio(f.url)) || 0) + 1);
@@ -562,9 +563,18 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     emit('ferramenta', { nome: 'ler_pagina', argumentos: { url: f.url, foco: String(foco || '') }, risco: 'leitura' });
     let pagina;
     try {
-      const pronta = f.adiantada ? await f.adiantada : null;
+      // 19/10: prazo de 8 s por página — um site lento (12,7 s, medido) segurava a rodada inteira; a
+      // leitura segue em segundo plano (vai para o cache) e o modelo continua com as outras
+      if (!f.adiantada) f.adiantada = Promise.resolve().then(() => lerPagina(f.url)).catch((err) => ({ erro: err }));
+      let relogio;
+      const pronta = await Promise.race([f.adiantada, new Promise((ok) => (relogio = setTimeout(() => ok({ demorou: true }), deps.prazoDaPaginaMs ?? PRAZO_DA_PAGINA_MS)))]);
+      clearTimeout(relogio);
+      if (pronta?.demorou) {
+        leiturasFeitas -= 1;
+        return `A página [${f.n}] está demorando para abrir: leia outra fonte.`;
+      }
       if (pronta?.erro) throw pronta.erro;
-      pagina = pronta || (await lerPagina(f.url));
+      pagina = pronta;
     } catch (err) {
       return `Não consegui ler [${f.n}]: ${String(err.message || err).slice(0, 120)}`;
     }
@@ -820,12 +830,20 @@ function conferirResposta(texto, { numeros = [], material = '', produto = false 
     }
   }
   const valoresDoMaterial = new Set((material.match(/\d[\d.,]*\d|\d/g) || []).map(inteiroDoPreco));
+  // 19/10 (revisão da pesquisa): preço sem fonte SAI do texto (antes ganhava ⚠ e ficava): era o modelo
+  // estimando de memória ("R$ 600, R$ 800" para SSDs que nenhuma fonte citava), e preço velho engana
+  // quem vai comprar. Faixa ("R$ 600 a R$ 800") vira uma marcação só; o preço das fontes fica.
   const precosSemFonte = new Set();
+  const TIRADO = '\u2062'; // invisível e só daqui (o \u0000 é o marcador dos gráficos)
   t = t.replace(/((?:R\$|US\$|U\$|€|£)\s?)(\d[\d.,]*\d|\d)(?![\d%])/g, (m, moeda, valor) => {
     if (valoresDoMaterial.has(inteiroDoPreco(valor))) return m;
     precosSemFonte.add(`${moeda.trim()} ${valor}`);
-    return `${m} ⚠`;
+    return TIRADO;
   });
+  t = t
+    .replace(/\u2062(\s*(?:a|até|e|ou|-|–|—|\/)\s*\u2062)+/g, TIRADO)
+    .replace(/(entre|de|por|custa|custam|sai por|saem por|cerca de|em torno de|a partir de|até)\s+\u2062/gi, '$1 \u2062')
+    .replace(/\u2062/g, '*(preço não confirmado)*');
 
   const notas = [];
   if (removidos.length) {
@@ -833,7 +851,7 @@ function conferirResposta(texto, { numeros = [], material = '', produto = false 
       ? `*⚠ Nenhuma das opções aparece com esse nome nas fontes lidas — confira antes de comprar.*`
       : `*Tirei ${removidos.length === 1 ? '1 opção que não aparece' : `${removidos.length} opções que não aparecem`} em nenhuma fonte lida: ${removidos.join(', ')}.*`);
   }
-  if (precosSemFonte.size) notas.push(`*⚠ ${precosSemFonte.size === 1 ? 'Este preço não aparece' : 'Estes preços não aparecem'} nas fontes lidas: ${[...precosSemFonte].join(', ')}. Vale conferir.*`);
+  if (precosSemFonte.size) notas.push(`*Tirei ${precosSemFonte.size === 1 ? '1 preço que não aparece' : `${precosSemFonte.size} preços que não aparecem`} nas fontes lidas (${[...precosSemFonte].join(', ')}): preço muda rápido, e um valor de memória engana. Para o preço de hoje, pergunte "onde comprar" ou "qual o preço de hoje".*`);
   return { texto: notas.length ? `${t.trim()}\n\n${notas.join('\n\n')}` : t, precosSemFonte: [...precosSemFonte], removidos };
 }
 
