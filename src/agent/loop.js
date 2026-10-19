@@ -40,7 +40,8 @@ const { investigar } = require('./nucleo/investigacao');
 const { ondeComprar, linhaOndeComprar } = require('./onde-comprar');
 const { protegerGraficos } = require('./nucleo/graficos');
 const { pedidoDeRede, responderRede, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego, pedidoDeDiagnostico, responderDiagnostico, pedidoDeAjuste, responderAjuste } = require('./rede-no-chat');
-const catalogo = require('./capacidades'); // "capacidades" já é o nome das capacidades do modelo (visão…) mais abaixo
+const catalogo = require('./capacidades');
+const { pedidoDeConsultaPC, responderConsultaPC } = require('./pc-no-chat'); // "capacidades" já é o nome das capacidades do modelo (visão…) mais abaixo
 const { jogoDoTexto } = require('../rede/rotas');
 const { gerarPdf } = require('../formatos/pdf-escrita');
 const { YtDlp, pareceMudancaDoYouTube, idDoVideo } = require('../ytdlp');
@@ -1750,6 +1751,7 @@ class Agent extends EventEmitter {
         if (id === 'trafego_de_rede') return responderTrafego({ pergunta, deps });
         if (id === 'diagnostico_da_rede') return responderDiagnostico({ pergunta, conversa, deps });
         if (id === 'ajustes_de_rede') return responderAjuste({ pergunta, conversa, deps, pasta: this.userDataPath });
+        if (id === 'consultar_pc') return responderConsultaPC({ pergunta, deps });
         return null;
       };
       const aceitou = !investigando && !imagensDoPedido.length && catalogo.aceitouOferta(objetivo, conversa);
@@ -1758,8 +1760,10 @@ class Agent extends EventEmitter {
       // ajuste da placa (item 4) antes de tudo: "aplicar" e "desfazer ajustes" dependem da resposta anterior
       const pedeAjuste = !investigando && !aceitou && !imagensDoPedido.length && pedidoDeAjuste(objetivo, conversa);
       const pedeRaioX = !investigando && !aceitou && !pedeAjuste && !pedeRota && !imagensDoPedido.length && pedidoDeDiagnostico(objetivo);
-      const pedeTrafego = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
-      const pedeRede = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
+      // consulta ao PC (19/10): "quanto espaço livre meu pc tem?", "qual a marca do meu mouse?"
+      const pedePC = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !imagensDoPedido.length && pedidoDeConsultaPC(objetivo);
+      const pedeTrafego = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !pedePC && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
+      const pedeRede = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !pedePC && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
       const r = aceitou && aceitou.id !== 'pesquisa'
         ? await deps.executarAcao(aceitou.id, { pergunta: objetivo, modo: aceitou.modo, confirmado: true })
         : investigando
@@ -1770,6 +1774,8 @@ class Agent extends EventEmitter {
           ? await responderRota({ pergunta: objetivo, deps })
           : pedeRaioX
           ? await responderDiagnostico({ pergunta: objetivo, conversa, deps })
+          : pedePC
+          ? await responderConsultaPC({ pergunta: objetivo, deps, ids: pedePC.ids })
           : pedeTrafego
             ? await responderTrafego({ pergunta: objetivo, deps })
             : pedeRede

@@ -39,6 +39,13 @@ const CAPACIDADES = [
     oferta: 'Posso **fazer um raio-X da sua rede agora**: cabo ou Wi-Fi, ping até o roteador, modelo do roteador e quantos aparelhos estão conectados (só leitura, nada é mudado). Quer? É só responder **"sim"**.',
   },
   {
+    id: 'consultar_pc',
+    executa: true,
+    faz: 'consulta o computador do usuário, só lendo: espaço e discos, configuração (processador, RAM, placa-mãe), versão e atualizações do Windows, placa de vídeo e driver, marca do mouse, teclado e monitor, placa de som, quantas fotos/vídeos/músicas e onde estão, programas instalados, o que abre com o Windows, bateria',
+    quando: 'o usuário pergunta algo sobre o próprio computador: espaço livre, quantos discos, configuração, se o Windows ou o driver está atualizado, que mouse/teclado/placa de som tem, quantas fotos ou vídeos e onde, se um programa está instalado',
+    oferta: 'Posso **consultar o seu computador** para ver isso (só leitura: espaço, configuração, drivers, periféricos, arquivos). Quer? É só responder **"sim"**.',
+  },
+  {
     id: 'ajustes_de_rede',
     executa: true,
     faz: 'muda ajustes da placa de rede com a aprovação do usuário e desfaz quando ele pedir: DNS (Cloudflare, Google ou automático), desligar a economia de energia da placa, limpar o cache de DNS, preferir 5 GHz no Wi-Fi',
@@ -70,6 +77,7 @@ const PALAVRAS = {
   diagnostico_da_rede: /roteador|rede (local|de casa)|aparelhos|dispositivos|wi-?fi|ipconfig|\bdns\b|gateway|placa de rede|raio-?x|\bsinal\b|\bcabo\b/i,
   trafego_de_rede: /tr[áa]fego|consum|(programas?|aplicativos?).{0,30}(conect|internet|rede)/i,
   ajustes_de_rede: /\bdns\b|economia de energia|placa de rede|cache/i,
+  consultar_pc: /computador|\bpc\b|disco|espa[çc]o|configura[çc]|driver|windows|mouse|teclado|monitor|placa de (som|v[íi]deo)|fotos|v[íi]deos|m[úu]sicas|programas|arquivos|mem[óo]ria|processador|bateria/i,
   grafico: /gr[áa]fico/i,
   visual: /calculadora|simula|anima|p[áa]gina interativa|painel interativo|quiz|interativ/i,
   criar_imagem: /imagem|ilustra|logo|desenh|\bfoto/i,
