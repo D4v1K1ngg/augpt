@@ -133,6 +133,10 @@ Conversas, memória e registros de execução ficam em arquivos JSON na pasta de
 
 **Muito lento.** Escolha **Rápido** no seletor da caixa de mensagem, use um modelo menor e reduza **Ajustes → Avançado → Janela de contexto — decisão** para 8192.
 
+O AuGPT também calibra a placa de vídeo sozinho: se o Ollama deixar parte do modelo na RAM do sistema (o que derrubava o `qwen3.5:9b` de 80 para 55 tokens/s numa placa de 8 GB), depois de uma resposta ele testa uma vez o modelo inteiro na placa e fica com o que for mais rápido. Se a placa ficar sem memória depois (um jogo aberto, por exemplo), volta ao normal sozinho.
+
+**Tem um PC com placa de vídeo melhor em casa?** Use o Ollama dele: **Ajustes → Avançado → Conexão → Procurar na rede** (o passo a passo do outro PC está ali).
+
 **Mexi em algum ajuste e piorou.** O botão **Restaurar padrões**, no topo de Ajustes, volta todos os ajustes aos valores de fábrica. A pasta de trabalho, o modelo escolhido, as rotinas, os servidores MCP e os domínios marcados continuam como estavam.
 
 **A pesquisa não acha nada.** Os buscadores públicos às vezes limitam o acesso. Ative o **SearXNG embutido** em Ajustes, ou aponte pra um SearXNG que você já tenha.

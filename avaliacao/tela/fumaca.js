@@ -30,6 +30,9 @@ const cfg = fs.existsSync(seu) ? JSON.parse(fs.readFileSync(seu, 'utf8')) : {};
 Object.assign(cfg, { jinaKey: '', boasVindasConcluida: true, workspace: path.join(dados, 'pasta') });
 // FUMACA_HOST=http://ip:11434: testa com o Ollama de outro computador da rede
 if (process.env.FUMACA_HOST) cfg.host = process.env.FUMACA_HOST;
+// FUMACA_MODELO=qwen3.5:9b: testa com outro modelo (e confere a calibração da placa)
+if (process.env.FUMACA_MODELO) cfg.model = process.env.FUMACA_MODELO;
+delete cfg.calibracaoGpu; // a cópia calibra do zero
 fs.mkdirSync(cfg.workspace, { recursive: true });
 fs.writeFileSync(path.join(dados, 'config.json'), JSON.stringify(cfg, null, 2));
 
@@ -138,6 +141,13 @@ const conferir = (ok, msg) => {
   for (const p of PERGUNTAS) {
     const r = registros.find((x) => x.pedido === p.pedido);
     conferir(r?.rota === p.rota, `registro: "${p.pedido}" pela rota ${p.rota} (gravou ${r?.rota})`);
+  }
+  if (process.env.FUMACA_MODELO) {
+    // a calibração roda depois de uma resposta, se o modelo transbordou para a RAM
+    await esperar(20000);
+    const c = JSON.parse(fs.readFileSync(path.join(dados, 'config.json'), 'utf8')).calibracaoGpu || {};
+    const minha = Object.entries(c).find(([k]) => k.endsWith(`|${cfg.model}`));
+    console.log(`  · calibração da placa: ${minha ? JSON.stringify(minha[1]) : 'não precisou (o modelo já cabe inteiro)'}`);
   }
   conferir(!errosDaPagina.length, `sem erro de JavaScript na página${errosDaPagina.length ? `: ${errosDaPagina.slice(0, 3).join(' | ')}` : ''}`);
 

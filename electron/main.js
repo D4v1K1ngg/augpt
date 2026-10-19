@@ -31,6 +31,7 @@ const ollamaRuntime = require('../src/ollama-runtime');
 const hardware = require('../src/agent/hardware');
 const primeiroUso = require('../src/primeiro-uso');
 const ollamaRemoto = require('../src/ollama-remoto');
+const calibracaoGpu = require('../src/calibracao-gpu');
 const verificadorDeHardware = require('../src/verificador-de-hardware');
 const instaladorOllama = require('../src/instalador-ollama');
 const { YtDlp } = require('../src/ytdlp');
@@ -340,6 +341,41 @@ function configParaAgente() {
   return config.data;
 }
 
+/* ------------------------------ calibração da placa (19/10) ------------------------------ */
+// O Ollama deixava parte do qwen3.5:9b na RAM mesmo cabendo inteiro na placa (55 → 80 tokens/s
+// com todas as camadas nela): depois de uma resposta, se o modelo transbordou, mede uma vez e guarda.
+const calibrandoAgora = new Set();
+function camadaFalhou(chave, motivo) {
+  const todas = { ...(config.data.calibracaoGpu || {}) };
+  todas[chave] = { ...(todas[chave] || {}), numGpu: null, falhou: motivo, em: new Date().toISOString() };
+  config.save({ calibracaoGpu: todas });
+}
+function aplicarCalibracoes() {
+  for (const [chave, c] of Object.entries(config.data.calibracaoGpu || {})) {
+    const i = chave.indexOf('|');
+    if (c?.numGpu) ollama.definirCamadasNaPlaca(chave.slice(0, i), chave.slice(i + 1), c.numGpu, { aoFalhar: camadaFalhou });
+  }
+}
+async function calibrarSePreciso() {
+  const { host, model } = config.data;
+  const chave = calibracaoGpu.chave(host, model);
+  if (!model || config.data.calibrarPlaca === false || calibrandoAgora.has(chave) || (config.data.calibracaoGpu || {})[chave]) return;
+  calibrandoAgora.add(chave);
+  try {
+    const r = await calibracaoGpu.calibrar({ host, model, numCtx: 16384 });
+    if (!r.precisa) return;
+    config.save({ calibracaoGpu: { ...(config.data.calibracaoGpu || {}), [chave]: { ...r, em: new Date().toISOString() } } });
+    if (r.numGpu) {
+      ollama.definirCamadasNaPlaca(host, model, r.numGpu, { aoFalhar: camadaFalhou });
+      enviar('aviso', { texto: `Placa de vídeo calibrada para o ${model}: agora ele cabe inteiro nela (${r.antes} → ${r.depois} tokens/s).` });
+    }
+  } catch {
+    // Ollama fora do ar ou ocupado: tenta de novo depois da próxima resposta
+  } finally {
+    calibrandoAgora.delete(chave);
+  }
+}
+
 function criarAgente(idConversa = null) {
   idConversaEmExecucao = idConversa || null;
   // HTML de página que o leitor de tópico não reconheceu (Reddit novo, 11º
@@ -352,6 +388,8 @@ function criarAgente(idConversa = null) {
     navegador: obterNavegador(),
     skills,
   });
+  // depois de cada resposta (o usuário está lendo): calibra a placa, se o modelo transbordou
+  agent.on('concluido', () => setTimeout(() => calibrarSePreciso(), 1500));
   for (const evento of EVENTOS) {
     agent.on(evento, (dados) => {
       if (evento === 'config-alterada') config.save(dados);
@@ -1560,6 +1598,7 @@ app.whenReady().then(() => {
     responder({ requestHeaders: { ...detalhes.requestHeaders, Referer: detalhes.requestHeaders.Referer || 'https://augpt.app/' } });
   });
   config = new Config(app.getPath('userData'));
+  aplicarCalibracoes(); // a placa calibrada (19/10): o num_gpu medido vale desde a primeira chamada
   // Fase 2: instalação nova (config.json ainda não existia) em computador com
   // pouca memória já começa com padrões mais leves — nunca mexe em quem já
   // usa o app (ver padroesPorHardware, src/primeiro-uso.js).

@@ -320,6 +320,34 @@ function semBlocoDePensamento(texto) {
  * `null` = não manda o campo (comportamento antigo, usado fora do agente).
  */
 let pensarPadrao = null;
+
+/*
+ * Camadas na placa por servidor e modelo (calibracao-gpu.js, 19/10): TODA chamada a um modelo
+ * calibrado manda o mesmo num_gpu (outro valor faria o Ollama recarregar o modelo). Se a placa
+ * ficar sem memória (um jogo aberto, outro modelo carregado), o ajuste sai e a chamada é
+ * repetida do jeito padrão; `aoFalhar` avisa quem guardou a calibração.
+ */
+const camadasNaPlaca = new Map();
+let aoFalharCamadas = () => {};
+const chaveDoModelo = (host, model) => `${String(host || DEFAULT_HOST).replace(/\/+$/, '')}|${model}`;
+function definirCamadasNaPlaca(host, model, numGpu, { aoFalhar } = {}) {
+  if (numGpu === null || numGpu === undefined) camadasNaPlaca.delete(chaveDoModelo(host, model));
+  else camadasNaPlaca.set(chaveDoModelo(host, model), numGpu);
+  if (aoFalhar) aoFalharCamadas = aoFalhar;
+}
+const SEM_MEMORIA_NA_PLACA = /out of memory|cudaMalloc|unable to allocate|failed to allocate|insufficient memory|requires more (system )?memory|ErrorOutOfDeviceMemory/i;
+async function comCamadas(opcoes, fn) {
+  const k = chaveDoModelo(opcoes.host, opcoes.model);
+  if (opcoes.numGpu !== undefined || !camadasNaPlaca.has(k)) return fn(opcoes);
+  try {
+    return await fn({ ...opcoes, numGpu: camadasNaPlaca.get(k) });
+  } catch (err) {
+    if (opcoes.signal?.aborted || !SEM_MEMORIA_NA_PLACA.test(String(err?.message || err))) throw err;
+    camadasNaPlaca.delete(k);
+    aoFalharCamadas(k, String(err.message || err).slice(0, 200));
+    return fn(opcoes);
+  }
+}
 function definirPensarPadrao(valor) {
   pensarPadrao = valor === true || valor === false ? valor : null;
 }
@@ -429,6 +457,7 @@ async function chatStreamUmaVez({
   numPredict = 2048,
   manterVivo = '30m',
   pensar,
+  numGpu,
   signal,
   onToken,
 }) {
@@ -443,7 +472,7 @@ async function chatStreamUmaVez({
       // 10/10 (SR-71 com qwen3.5:9b): sem `think: false` o modelo que pensa
       // gastava os 3.072 tokens da redação raciocinando e a resposta saía vazia
       ...(pensar === undefined ? (pensarPadrao === null ? {} : { think: pensarPadrao }) : { think: pensar }),
-      options: { temperature, num_ctx: numCtx, num_predict: numPredict },
+      options: { temperature, num_ctx: numCtx, num_predict: numPredict, ...(numGpu === undefined ? {} : { num_gpu: numGpu }) },
     }),
     signal,
   });
@@ -580,6 +609,9 @@ async function decidir({ host = DEFAULT_HOST, model, state, questions, keepAlive
 }
 
 module.exports = {
-  DEFAULT_HOST, health, listModels, psModels, unloadModel, chat, chatStream, embed, pullModel, suportaEsquema, semBlocoDePensamento, definirPensarPadrao,
+  DEFAULT_HOST, health, listModels, psModels, unloadModel, embed, pullModel, suportaEsquema, semBlocoDePensamento, definirPensarPadrao,
+  chat: (opcoes) => comCamadas(opcoes, chat),
+  chatStream: (opcoes) => comCamadas(opcoes, chatStream),
+  definirCamadasNaPlaca,
   estimarTokens, reduzirParaCaber, erroDoOllama, MARCA_DE_CORTE, capacidades, listModelsComCapacidades, decidir,
 };
