@@ -1693,6 +1693,7 @@ const ROTULOS_ABAS = {
   agente: 'Agente',
   conversa: 'Conversa',
   skills: 'Skills',
+  utilitarios: 'Utilitários',
   execucoes: 'Execuções',
   config: 'Ajustes',
 };
@@ -1705,6 +1706,7 @@ const ABAS = {
   agente: { view: 'viewAgente', aba: 'navAgente' },
   conversa: { view: 'viewConversa', aba: 'navConversa' },
   skills: { view: 'viewSkills', aba: 'navSkills' },
+  utilitarios: { view: 'viewUtilitarios', aba: 'navUtilitarios' },
   execucoes: { view: 'viewExecucoes', aba: 'navExecucoes' },
   config: { view: 'viewConfig', aba: 'navConfig' },
 };
@@ -1747,6 +1749,8 @@ function trocarAba(qual) {
     if (!$('painelFerramentas').hidden) carregarFerramentas();
     else if (!$('painelSugestoes').hidden) carregarSugestoes();
     else carregarSkills();
+  } else if (qual === 'utilitarios') {
+    carregarUtilitarios();
   } else if (qual === 'execucoes') {
     carregarExecucoes();
   } else if (qual === 'config') {
@@ -1767,6 +1771,78 @@ function trocarAba(qual) {
 $('navAgente').addEventListener('click', () => trocarAba('agente'));
 $('navConversa').addEventListener('click', () => trocarAba('conversa'));
 $('navSkills').addEventListener('click', () => trocarAba('skills'));
+$('navUtilitarios').addEventListener('click', () => trocarAba('utilitarios'));
+
+/* ============================ utilitários (19/10) ============================ */
+
+// Ícones dos cartões (traço de 1.6, como os da lateral); a lista vem do catálogo do agente.
+const ICONES_UTIL = {
+  velocidade: '<path d="M3.5 14a6.5 6.5 0 1 1 13 0"/><path d="M10 14l3-4.5"/>',
+  pulso: '<path d="M2 10h4l2-5 4 10 2-5h4"/>',
+  jogo: '<rect x="2" y="6" width="16" height="9" rx="4"/><path d="M6 9v3M4.5 10.5h3"/><circle cx="13.5" cy="9.5" r=".6"/><circle cx="15" cy="11.5" r=".6"/>',
+  raiox: '<path d="M2.5 8a11 11 0 0 1 15 0M5 11a7 7 0 0 1 10 0M7.5 14a3 3 0 0 1 5 0"/><circle cx="10" cy="16.5" r=".7"/>',
+  aparelhos: '<rect x="2" y="4" width="10" height="7" rx="1"/><path d="M5 14h4"/><rect x="13.5" y="7" width="4.5" height="9" rx="1"/>',
+  trafego: '<path d="M6 3v14M6 17l-3-3M6 17l3-3M14 17V3M14 3l-3 3M14 3l3 3"/>',
+  ajustes: '<path d="M2 5h9M15 5h3M2 10h3M7 10h11M2 15h9M15 15h3"/><circle cx="12" cy="5" r="2"/><circle cx="5" cy="10" r="2"/><circle cx="12" cy="15" r="2"/>',
+  disco: '<ellipse cx="10" cy="5" rx="7" ry="2.5"/><path d="M3 5v10c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V5M3 10c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5"/>',
+  cpu: '<rect x="5" y="5" width="10" height="10" rx="1.5"/><rect x="8" y="8" width="4" height="4"/><path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M2 12h3M15 8h3M15 12h3"/>',
+  janela: '<rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><path d="M2.5 7h15M10 7v9.5"/>',
+  placa: '<rect x="2" y="5" width="16" height="9" rx="1"/><circle cx="12.5" cy="9.5" r="2.5"/><path d="M4 14v2M7 14v2M5 8h3"/>',
+  mouse: '<rect x="5.5" y="2.5" width="9" height="15" rx="4.5"/><path d="M10 2.5v5"/>',
+  som: '<path d="M3 8v4h3l4 3.5v-11L6 8H3Z"/><path d="M13 7.5a3.5 3.5 0 0 1 0 5M15.5 5a7 7 0 0 1 0 10"/>',
+  fotos: '<rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><circle cx="7" cy="8" r="1.5"/><path d="M2.5 14l4.5-4 4 3.5 2.5-2 4 3"/>',
+  programas: '<rect x="2.5" y="2.5" width="6" height="6" rx="1"/><rect x="11.5" y="2.5" width="6" height="6" rx="1"/><rect x="2.5" y="11.5" width="6" height="6" rx="1"/><rect x="11.5" y="11.5" width="6" height="6" rx="1"/>',
+  ligar: '<path d="M10 2.5v7"/><path d="M6 5a6.5 6.5 0 1 0 8 0"/>',
+  lupa: '<circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.5 12.5l5 5"/>',
+  carrinho: '<path d="M2 3h2.5l2 10h9l2-7H5.5"/><circle cx="8" cy="16.5" r="1"/><circle cx="14.5" cy="16.5" r="1"/>',
+  relatorio: '<path d="M5 2.5h7l3.5 3.5v11.5h-10.5Z"/><path d="M12 2.5V6h3.5M7.5 10h5M7.5 13h5"/>',
+  video: '<rect x="2" y="4.5" width="16" height="11" rx="3"/><path d="M8.5 7.5v5l4-2.5Z"/>',
+  grafico: '<path d="M3 3v14h14"/><path d="M6 13l3.5-4 3 2.5L17 6"/>',
+  codigo: '<path d="M7 6l-4 4 4 4M13 6l4 4-4 4M11 4l-2 12"/>',
+  pincel: '<path d="M16.5 3.5l-8 8"/><path d="M8.5 11.5c-2 0-3.5 1.5-3.5 3.5 0 1-1 1.5-2 1.5 3 1.5 7.5 1 7.5-3"/>',
+  olho: '<path d="M1.5 10S4.5 4.5 10 4.5 18.5 10 18.5 10 15.5 15.5 10 15.5 1.5 10 1.5 10Z"/><circle cx="10" cy="10" r="2.5"/>',
+  globo: '<circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2 2.2 3 4.7 3 7.5s-1 5.3-3 7.5c-2-2.2-3-4.7-3-7.5s1-5.3 3-7.5Z"/>',
+  arquivo: '<path d="M5 2.5h7l3.5 3.5v11.5h-10.5Z"/><path d="M12 2.5V6h3.5"/>',
+};
+
+async function carregarUtilitarios() {
+  const lista = $('listaUtilitarios');
+  if (lista.childElementCount) return; // a lista não muda com o app aberto
+  const cartoes = await api.utilitarios.listar().catch(() => []);
+  const grupos = new Map();
+  for (const c of cartoes) (grupos.get(c.grupo) || grupos.set(c.grupo, []).get(c.grupo)).push(c);
+  for (const [nome, itens] of grupos) {
+    const h = document.createElement('h2');
+    h.className = 'util-grupo';
+    h.textContent = nome;
+    const grade = document.createElement('div');
+    grade.className = 'util-grade';
+    for (const c of itens) {
+      const card = document.createElement('article');
+      card.className = 'util-card' + (c.disponivel ? '' : ' indisponivel');
+      card.innerHTML = `<svg class="util-icone" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES_UTIL[c.icone] || ICONES_UTIL.lupa}</svg><h3></h3><p class="util-desc"></p><p class="util-como"></p><div class="util-rodape"></div>`;
+      card.querySelector('h3').textContent = c.nome;
+      card.querySelector('.util-desc').textContent = c.descricao;
+      card.querySelector('.util-como').textContent = c.exemplo ? `"${c.exemplo}"` : c.dica || '';
+      const rodape = card.querySelector('.util-rodape');
+      if (!c.disponivel) {
+        rodape.textContent = c.falta;
+      } else if (c.exemplo) {
+        const b = document.createElement('button');
+        b.className = 'btn-secundario';
+        b.textContent = 'Usar';
+        b.addEventListener('click', () => {
+          trocarAba('agente');
+          el.aEntrada.value = c.exemplo;
+          enviarPedido();
+        });
+        rodape.append(b);
+      }
+      grade.append(card);
+    }
+    lista.append(h, grade);
+  }
+}
 $('navExecucoes').addEventListener('click', () => trocarAba('execucoes'));
 // Fase 2: clicar em Ajustes estando em Ajustes não pula mais pro Agente
 // (parecia que o botão "fechava" a página sem motivo).

@@ -197,6 +197,12 @@
         </svg>
         Skills
       </button>
+      <button class="nav-item" id="navUtilitarios" role="tab" aria-selected="false">
+        <svg class="nav-icone" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2.5" y="2.5" width="6" height="6" rx="1.2"/><rect x="11.5" y="2.5" width="6" height="6" rx="1.2"/><rect x="2.5" y="11.5" width="6" height="6" rx="1.2"/><path d="M14.5 11.5v6M11.5 14.5h6"/>
+        </svg>
+        Utilitários
+      </button>
       <button class="nav-item" id="navExecucoes" role="tab" aria-selected="false">
         <svg class="nav-icone" viewBox="0 0 20 20" fill="currentColor" stroke="none" aria-hidden="true">
           <rect x="3" y="10" width="3" height="7" rx="0.6"/><rect x="8.5" y="6" width="3" height="11" rx="0.6"/><rect x="14" y="2.5" width="3" height="14.5" rx="0.6"/>
@@ -325,6 +331,21 @@
         <button class="btn-enviar" id="btnEnviar" title="Enviar (Enter)" aria-label="Enviar">↑</button>
       </div>
       <span id="chatModelo" hidden>—</span>
+    </div>
+  </section>
+
+  <!-- ------------------------------ utilitários (19/10) ------------------------------ -->
+  <section class="pagina" id="viewUtilitarios" hidden>
+    <div class="pagina-rolagem">
+      <div class="pagina-coluna">
+        <header class="pagina-topo">
+          <div>
+            <h1>Utilitários</h1>
+            <p>Tudo o que o AuGPT faz além de conversar. Peça com as suas palavras no chat ou clique em <b>Usar</b>. Também dá para perguntar a ele: <i>"o que você pode fazer?"</i></p>
+          </div>
+        </header>
+        <div id="listaUtilitarios"></div>
+      </div>
     </div>
   </section>
 

@@ -1283,6 +1283,9 @@ ipcMain.handle('boasVindas:concluir', async (_e, { modelo } = {}) => {
 
 /* ------------------------------ componentes (Ajustes, 16/10) ------------------------------ */
 // Versões do que o AuGPT usa por fora; atualizar só quando o usuário clica.
+// aba Utilitários (19/10): os cartões vêm do catálogo do agente, com o que está instalado
+ipcMain.handle('utilitarios:listar', () => require('../src/agent/capacidades').utilitarios({ instalados: { imagem: gerador().instalado(), youtube: ytdlp().instalado() } }));
+
 ipcMain.handle('componentes:estado', async () => {
   const computador = await verificadorDeHardware.verificarComputador();
   const [o, y, t, g] = await Promise.all([instaladorOllama.versoesDoOllama(config.data.host), ytdlp().estado(), tesseract().estado(), gerador().estado(computador)]);

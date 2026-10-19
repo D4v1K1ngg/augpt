@@ -1755,6 +1755,13 @@ class Agent extends EventEmitter {
         return null;
       };
       const aceitou = !investigando && !imagensDoPedido.length && catalogo.aceitouOferta(objetivo, conversa);
+      // "o que você pode fazer?" (19/10): a mesma lista da aba Utilitários, montada pelo código
+      const pedeLista = !investigando && !aceitou && !imagensDoPedido.length && catalogo.pedeOQueFaz(objetivo);
+      const listarUtilitarios = () => {
+        const texto = catalogo.textoDosUtilitarios(catalogo.utilitarios({ instalados: { imagem: !!deps.gerarImagem, youtube: !!deps.buscarNoYoutube } }));
+        deps.emit('resposta-token', { pedaco: texto });
+        return { texto, fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] }, modo: 'utilitarios' };
+      };
       // rota para jogo (18/10, item 3) antes do teste de rede: "meu ping no PUBG" é de servidor do jogo
       const pedeRota = !investigando && !aceitou && !imagensDoPedido.length && !pedidoDeAjuste(objetivo, conversa) && pedidoDeRota(objetivo);
       // ajuste da placa (item 4) antes de tudo: "aplicar" e "desfazer ajustes" dependem da resposta anterior
@@ -1764,7 +1771,9 @@ class Agent extends EventEmitter {
       const pedePC = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !imagensDoPedido.length && pedidoDeConsultaPC(objetivo);
       const pedeTrafego = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !pedePC && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
       const pedeRede = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !pedePC && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
-      const r = aceitou && aceitou.id !== 'pesquisa'
+      const r = pedeLista
+        ? listarUtilitarios()
+        : aceitou && aceitou.id !== 'pesquisa'
         ? await deps.executarAcao(aceitou.id, { pergunta: objetivo, modo: aceitou.modo, confirmado: true })
         : investigando
         ? await investigar({ pergunta: objetivo, conversa, minutos: Number(cfg.minutosDeInvestigacao) || 10, tamanho: cfg.modoResposta || 'normal', deps })

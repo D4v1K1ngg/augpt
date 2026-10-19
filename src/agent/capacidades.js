@@ -172,4 +172,75 @@ function conferirPromessas(texto) {
   return { texto: limpo, tiradas };
 }
 
-module.exports = { ofertaDePesquisa, conferirPromessas, PALAVRAS, CAPACIDADES, EXECUTAVEIS, disponiveis, listaParaEntender, blocoParaEscrever, valida, ofertaDe, aceitouOferta };
+/* ------------------------------ utilitários (a aba e o "o que você pode fazer?") ------------------------------ */
+
+/**
+ * Os cartões da aba Utilitários (19/10, pedido do Davi). A mesma lista responde
+ * "o que você pode fazer?" no chat — o que a tela mostra e o que o AuGPT diz
+ * nunca se desencontram. `exemplo` é o pedido que aciona o recurso (o botão
+ * "Usar" manda ele ao agente); `precisa` é o componente que tem de estar
+ * instalado; `so` = 'win32' para o que só existe no Windows.
+ */
+const UTILITARIOS = [
+  { id: 'teste_de_velocidade', grupo: 'Rede e internet', icone: 'velocidade', nome: 'Teste de velocidade', descricao: 'Download, upload, ping, jitter e bufferbloat da sua internet, com gráfico. Gasta até ~300 MB.', exemplo: 'teste minha internet' },
+  { id: 'ping', grupo: 'Rede e internet', icone: 'pulso', nome: 'Só o ping', descricao: 'Latência, jitter e perda, quase sem gastar dados.', exemplo: 'mede meu ping' },
+  { id: 'rota_de_jogo', grupo: 'Rede e internet', icone: 'jogo', nome: 'Ping e rota para jogos', descricao: 'Ping até os servidores de PUBG, Fortnite, CS2, Dota 2, LoL e Valorant, e o caminho (tracert) até o melhor.', exemplo: 'qual meu ping nos servidores do PUBG?', so: 'win32' },
+  { id: 'raio_x', grupo: 'Rede e internet', icone: 'raiox', nome: 'Raio-X da rede', descricao: 'Cabo ou Wi-Fi, sinal, ping até o roteador, modelo e firmware do roteador e a configuração (ipconfig).', exemplo: 'faça um raio-x da minha rede', so: 'win32' },
+  { id: 'aparelhos', grupo: 'Rede e internet', icone: 'aparelhos', nome: 'Aparelhos na rede', descricao: 'Quantos aparelhos estão conectados e de que fabricante (celular, TV, casa inteligente…).', exemplo: 'quantos aparelhos estão conectados na minha rede?', so: 'win32' },
+  { id: 'trafego', grupo: 'Rede e internet', icone: 'trafego', nome: 'O que usa a internet', descricao: 'Quanto a placa de rede está usando agora e quais programas estão conectados, e a quê.', exemplo: 'o que está consumindo minha internet?', so: 'win32' },
+  { id: 'ajustes_de_rede', grupo: 'Rede e internet', icone: 'ajustes', nome: 'Ajustes da placa de rede', descricao: 'DNS, economia de energia da placa, cache de DNS e 5 GHz. Mostra o plano antes, você aprova e dá para desfazer.', exemplo: 'otimize minha placa de rede', so: 'win32' },
+  { id: 'espaco', grupo: 'Este computador', icone: 'disco', nome: 'Espaço e discos', descricao: 'Espaço livre de cada unidade e os discos físicos (SSD, HD, NVMe) com a saúde de cada um.', exemplo: 'quanto espaço livre meu pc tem?', so: 'win32' },
+  { id: 'configuracao', grupo: 'Este computador', icone: 'cpu', nome: 'Configuração do PC', descricao: 'Processador, memória RAM (pentes e velocidade), placa-mãe, BIOS e placa de vídeo.', exemplo: 'qual a configuração do meu pc?', so: 'win32' },
+  { id: 'windows', grupo: 'Este computador', icone: 'janela', nome: 'Windows atualizado?', descricao: 'Versão do Windows, últimas atualizações e as que estão esperando no Windows Update.', exemplo: 'meu windows está atualizado?', so: 'win32' },
+  { id: 'drivers', grupo: 'Este computador', icone: 'placa', nome: 'Driver da placa de vídeo', descricao: 'Versão e data do driver; se for antigo, oferece pesquisar o mais novo.', exemplo: 'meu driver da placa de vídeo está atualizado?', so: 'win32' },
+  { id: 'perifericos', grupo: 'Este computador', icone: 'mouse', nome: 'Periféricos e USB', descricao: 'Marca e modelo do mouse, teclado e monitor, câmera e aparelhos Bluetooth.', exemplo: 'qual a marca do meu mouse e do teclado?', so: 'win32' },
+  { id: 'audio', grupo: 'Este computador', icone: 'som', nome: 'Placa de som e áudio', descricao: 'Se tem placa de som dedicada e quais saídas de áudio existem.', exemplo: 'eu tenho placa de som?', so: 'win32' },
+  { id: 'arquivos_do_pc', grupo: 'Este computador', icone: 'fotos', nome: 'Fotos, vídeos e músicas', descricao: 'Quantos arquivos de cada tipo, quanto espaço ocupam e em que pastas estão — contados sem abrir nenhum.', exemplo: 'quantas fotos e vídeos eu tenho e onde estão?', so: 'win32' },
+  { id: 'programas', grupo: 'Este computador', icone: 'programas', nome: 'Programas instalados', descricao: 'O que está instalado e em que versão.', exemplo: 'tenho o Discord instalado?', so: 'win32' },
+  { id: 'inicializacao', grupo: 'Este computador', icone: 'ligar', nome: 'O que abre com o Windows', descricao: 'Os programas que iniciam sozinhos com o Windows.', exemplo: 'quais programas abrem junto com o windows no meu pc?', so: 'win32' },
+  { id: 'pesquisa', grupo: 'Pesquisa', icone: 'lupa', nome: 'Pesquisa com fontes', descricao: 'Pesquisa na internet e responde citando as fontes, com a data de cada uma e conferindo os números.', exemplo: 'qual a melhor placa de vídeo até R$ 3.000?' },
+  { id: 'onde_comprar', grupo: 'Pesquisa', icone: 'carrinho', nome: 'Produtos e onde comprar', descricao: 'Recomenda produtos em cartões, com o que a comunidade diz e o preço de hoje nas lojas.', exemplo: 'quais os melhores fones intra-auriculares para PUBG?' },
+  { id: 'investigacao', grupo: 'Pesquisa', icone: 'relatorio', nome: 'Investigação com relatório', descricao: 'Pesquisa longa pelo tempo que você escolher, com um relatório completo em PDF.', dica: 'Escolha "Investigação" no seletor de raciocínio, ao lado do campo de mensagem, e faça a pergunta.' },
+  { id: 'youtube', grupo: 'Pesquisa', icone: 'video', nome: 'Vídeos do YouTube', descricao: 'Assiste vídeos pela legenda e lê os comentários mais curtidos.', exemplo: 'veja vídeos de review do mouse Logitech G Pro X Superlight 2', precisa: 'youtube' },
+  { id: 'grafico', grupo: 'Criar', icone: 'grafico', nome: 'Gráficos interativos', descricao: 'Colunas, linhas, área, pizza e projeção com estimativas, montados com os dados da pesquisa.', exemplo: 'monte um gráfico com o preço da RTX 5080 desde o lançamento' },
+  { id: 'visual', grupo: 'Criar', icone: 'codigo', nome: 'Páginas interativas', descricao: 'Calculadoras, simulações, animações e quizzes que rodam dentro da resposta.', exemplo: 'crie uma calculadora de IMC interativa' },
+  { id: 'criar_imagem', grupo: 'Criar', icone: 'pincel', nome: 'Criar imagens', descricao: 'Cria e edita imagens no seu computador, com o FLUX.2 Klein.', exemplo: 'crie uma imagem de um gato astronauta', precisa: 'imagem' },
+  { id: 'ver_imagem', grupo: 'Criar', icone: 'olho', nome: 'Ler fotos e prints', descricao: 'Olha a foto ou o print que você anexar e lê o texto dele.', dica: 'Anexe a imagem pelo + da caixa de mensagem e faça a pergunta.' },
+  { id: 'navegador', grupo: 'Sites e arquivos', icone: 'globo', nome: 'Navegar em sites', descricao: 'Abre sites no navegador do AuGPT, faz login, clica, preenche formulários e baixa arquivos.', exemplo: 'acesse https://www.kabum.com.br e procure monitores de 144 Hz' },
+  { id: 'arquivos', grupo: 'Sites e arquivos', icone: 'arquivo', nome: 'Ler e criar arquivos', descricao: 'Lê e cria planilhas, documentos, PDFs e código na sua pasta de trabalho.', exemplo: 'crie uma planilha para eu anotar meus gastos do mês' },
+];
+
+/** Os cartões com a disponibilidade neste PC: { ...cartão, disponivel, falta }. */
+function utilitarios({ instalados = {}, plataforma = process.platform } = {}) {
+  return UTILITARIOS.map((u) => {
+    const falta = u.so && u.so !== plataforma ? 'só no Windows, por enquanto' : u.precisa && !instalados[u.precisa] ? `instale o ${u.precisa === 'imagem' ? 'Criar imagens' : 'YouTube'} em Ajustes → Componentes` : null;
+    return { ...u, disponivel: !falta, falta };
+  });
+}
+
+// "o que você pode fazer?", "quais utilitários você tem?", "me mostra seus recursos"
+const PEDE_O_QUE_FAZ = /\b(o que (voce|vc|o augpt|tu) (pode|consegue|sabe|e capaz de) fazer|o que (voce|vc|o augpt) faz|quais (sao )?(os |as )?(seus|teus|suas|tuas) (utilitarios|recursos|ferramentas|capacidades|funcoes|funcionalidades|habilidades)|quais (utilitarios|recursos|ferramentas|capacidades|funcoes|funcionalidades|habilidades) (voce|vc|o augpt) (tem|possui|oferece)|me (mostre|mostra|diga|fala|liste|lista) (o que voce (pode|faz|sabe)|(os )?(seus )?(utilitarios|recursos|ferramentas))|lista de (utilitarios|recursos|ferramentas)|como (voce|vc) pode me ajudar)\b/;
+const pedeOQueFaz = (texto) => PEDE_O_QUE_FAZ.test(String(texto || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase());
+
+/** A resposta de "o que você pode fazer?", montada pelo código com a mesma lista da aba. */
+function textoDosUtilitarios(cartoes) {
+  const grupos = [];
+  for (const c of cartoes) {
+    let g = grupos.find((x) => x.nome === c.grupo);
+    if (!g) grupos.push((g = { nome: c.grupo, itens: [] }));
+    g.itens.push(c);
+  }
+  const linhas = ['Rodo no seu computador e, além de pesquisar na internet, faço isto — é só pedir com as suas palavras (os exemplos abaixo funcionam):', ''];
+  for (const g of grupos) {
+    linhas.push(`**${g.nome}**`);
+    for (const c of g.itens) {
+      const como = c.exemplo ? ` — ex.: *"${c.exemplo}"*` : c.dica ? ` — ${c.dica}` : '';
+      linhas.push(`- **${c.nome}**: ${c.descricao}${como}${c.disponivel ? '' : ` *(${c.falta})*`}`);
+    }
+    linhas.push('');
+  }
+  linhas.push('Tudo isso também está na aba **Utilitários**, na barra da esquerda, com um botão para usar cada um.', '', '*O que é do seu computador eu só leio — nada é mudado sem você aprovar (como nos ajustes da placa de rede), e nada sai dele.*');
+  return linhas.join('\n');
+}
+
+module.exports = { UTILITARIOS, utilitarios, pedeOQueFaz, textoDosUtilitarios, ofertaDePesquisa, conferirPromessas, PALAVRAS, CAPACIDADES, EXECUTAVEIS, disponiveis, listaParaEntender, blocoParaEscrever, valida, ofertaDe, aceitouOferta };

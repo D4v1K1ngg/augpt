@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('augpt', {
     reiniciar: () => ipcRenderer.invoke('ollama:reiniciar'),
   },
   // tela de boas-vindas (15/10)
+  utilitarios: { listar: () => ipcRenderer.invoke('utilitarios:listar') },
   componentes: {
     estado: () => ipcRenderer.invoke('componentes:estado'),
     atualizarOllama: () => ipcRenderer.invoke('componentes:atualizarOllama'),
