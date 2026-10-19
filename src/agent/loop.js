@@ -41,7 +41,7 @@ const { ondeComprar, linhaOndeComprar } = require('./onde-comprar');
 const { protegerGraficos } = require('./nucleo/graficos');
 const { pedidoDeRede, responderRede, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego, pedidoDeDiagnostico, responderDiagnostico, pedidoDeAjuste, responderAjuste } = require('./rede-no-chat');
 const catalogo = require('./capacidades');
-const { pedidoDeConsultaPC, responderConsultaPC } = require('./pc-no-chat'); // "capacidades" já é o nome das capacidades do modelo (visão…) mais abaixo
+const { pedidoDeConsultaPC, responderConsultaPC, pedidoDeLeituraLivre, responderLeituraLivre } = require('./pc-no-chat'); // "capacidades" já é o nome das capacidades do modelo (visão…) mais abaixo
 const { jogoDoTexto } = require('../rede/rotas');
 const { gerarPdf } = require('../formatos/pdf-escrita');
 const { YtDlp, pareceMudancaDoYouTube, idDoVideo } = require('../ytdlp');
@@ -1771,6 +1771,9 @@ class Agent extends EventEmitter {
       const pedePC = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !imagensDoPedido.length && pedidoDeConsultaPC(objetivo);
       const pedeTrafego = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !pedePC && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
       const pedeRede = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !pedePC && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
+      // leitura livre do PC (19/10): chipset, drivers, registro, políticas, adaptador… o que as consultas fixas não cobrem
+      const pedeLeitura = !investigando && !aceitou && !pedeLista && !pedeAjuste && !pedeRota && !pedeRaioX && !pedePC && !pedeTrafego && !pedeRede && !imagensDoPedido.length && pedidoDeLeituraLivre(objetivo);
+      const pelaPesquisa = () => nucleo.responder({ pergunta: aceitou?.id === 'pesquisa' ? aceitou.pergunta : objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido });
       const r = pedeLista
         ? listarUtilitarios()
         : aceitou && aceitou.id !== 'pesquisa'
@@ -1789,7 +1792,9 @@ class Agent extends EventEmitter {
             ? await responderTrafego({ pergunta: objetivo, deps })
             : pedeRede
             ? await responderRede({ pergunta: objetivo, conversa, deps, signal })
-            : await nucleo.responder({ pergunta: aceitou?.id === 'pesquisa' ? aceitou.pergunta : objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido });
+            : pedeLeitura
+            ? (await responderLeituraLivre({ pergunta: objetivo, conversa, deps })) || (await pelaPesquisa())
+            : await pelaPesquisa();
       // o relatório completo vira PDF na pasta de trabalho, anexado à resposta
       let relatorioPdf = null;
       if (r.relatorio) {

@@ -41,7 +41,7 @@ const CAPACIDADES = [
   {
     id: 'consultar_pc',
     executa: true,
-    faz: 'consulta o computador do usuário, só lendo: espaço e discos, configuração (processador, RAM, placa-mãe), versão e atualizações do Windows, placa de vídeo e driver, marca do mouse, teclado e monitor, placa de som, quantas fotos/vídeos/músicas e onde estão, programas instalados, o que abre com o Windows, bateria',
+    faz: 'consulta o computador do usuário, só lendo: espaço e discos, configuração (processador, RAM, placa-mãe), versão e atualizações do Windows, placa de vídeo e driver, marca do mouse, teclado e monitor, placa de som, quantas fotos/vídeos/músicas e onde estão, programas instalados, o que abre com o Windows, bateria; e o resto do que é só leitura (chipset e outros drivers, registro, políticas de grupo, serviços, ajustes da placa de rede), com um comando que o AuGPT escreve e o código confere',
     quando: 'o usuário pergunta algo sobre o próprio computador: espaço livre, quantos discos, configuração, se o Windows ou o driver está atualizado, que mouse/teclado/placa de som tem, quantas fotos ou vídeos e onde, se um programa está instalado',
     oferta: 'Posso **consultar o seu computador** para ver isso (só leitura: espaço, configuração, drivers, periféricos, arquivos). Quer? É só responder **"sim"**.',
   },
@@ -198,6 +198,7 @@ const UTILITARIOS = [
   { id: 'arquivos_do_pc', grupo: 'Este computador', icone: 'fotos', nome: 'Fotos, vídeos e músicas', descricao: 'Quantos arquivos de cada tipo, quanto espaço ocupam e em que pastas estão — contados sem abrir nenhum.', exemplo: 'quantas fotos e vídeos eu tenho e onde estão?', so: 'win32' },
   { id: 'programas', grupo: 'Este computador', icone: 'programas', nome: 'Programas instalados', descricao: 'O que está instalado e em que versão.', exemplo: 'tenho o Discord instalado?', so: 'win32' },
   { id: 'inicializacao', grupo: 'Este computador', icone: 'ligar', nome: 'O que abre com o Windows', descricao: 'Os programas que iniciam sozinhos com o Windows.', exemplo: 'quais programas abrem junto com o windows no meu pc?', so: 'win32' },
+  { id: 'leitura_livre', grupo: 'Este computador', icone: 'olho', nome: 'Ler outros dados do PC', descricao: 'Chipset e outros drivers, registro, políticas de grupo, serviços, ajustes da placa de rede… Pesquisa como ler e só lê: nada é mudado, e conteúdo de arquivos, senhas e área de transferência ficam de fora.', exemplo: 'meu driver do chipset está atualizado?', so: 'win32' },
   { id: 'pesquisa', grupo: 'Pesquisa', icone: 'lupa', nome: 'Pesquisa com fontes', descricao: 'Pesquisa na internet e responde citando as fontes, com a data de cada uma e conferindo os números.', exemplo: 'qual a melhor placa de vídeo até R$ 3.000?' },
   { id: 'onde_comprar', grupo: 'Pesquisa', icone: 'carrinho', nome: 'Produtos e onde comprar', descricao: 'Recomenda produtos em cartões, com o que a comunidade diz e o preço de hoje nas lojas.', exemplo: 'quais os melhores fones intra-auriculares para PUBG?' },
   { id: 'investigacao', grupo: 'Pesquisa', icone: 'relatorio', nome: 'Investigação com relatório', descricao: 'Pesquisa longa pelo tempo que você escolher, com um relatório completo em PDF.', dica: 'Escolha "Investigação" no seletor de raciocínio, ao lado do campo de mensagem, e faça a pergunta.' },

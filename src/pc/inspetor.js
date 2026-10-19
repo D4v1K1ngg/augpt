@@ -162,7 +162,8 @@ const QUAIS = [
   ['discos', /espaco|\bdiscos?\b|\bhd\b|\bssd\b|\bnvme\b|armazenamento|particao|particoes|unidade [a-z]:?|\b[cd]:/],
   ['sistema', /configurac|especificac|hardware|processador|\bcpu\b|memoria( ram)?|\bram\b|placa[- ]mae|bios|pecas|\bqual (e )?o meu (pc|computador|notebook)\b|ligado (ha|desde)/],
   ['windows', /windows.{0,30}(atualizad|versao|build|update|atualizac)|atualizac\w* do windows|versao do windows|windows update/],
-  ['video', /placa de video|\bgpu\b|driver (da|de|do) (placa|video|nvidia|amd|radeon|geforce)|\bnvidia\b|geforce|radeon|\bdriver\b/],
+  // (19/10: o "\bdriver\b" sozinho puxava a placa de vídeo para "driver do chipset" e "driver do processador")
+  ['video', /placa de video|\bgpu\b|driver (da|de|do) (placa|video|nvidia|radeon|geforce)|\bnvidia\b|geforce|radeon/],
   ['perifericos', /mouse|teclado|headset|perifer|monitor|webcam|camera|bluetooth|controle|joystick|\busb\b/],
   ['audio', /placa de som|\baudio\b|\bsom\b|alto-?falante|caixa de som|microfone|dac\b|interface de audio/],
   ['arquivos', /\bfotos?\b|\bimagens\b|\bvideos\b|\bmusicas?\b|\bdocumentos\b|\barquivos\b|onde (estao|ficam)/],
@@ -176,14 +177,30 @@ const ACAO = /^\s*(veja|ve|mostre|mostra|liste|lista|verifique|verifica|confira|
 // avaliação e conselho ficam com a pesquisa ("meu mouse é bom para PUBG?" pede opinião, não leitura)
 const OPINIAO = /\b(e bom|e boa|vale a pena|melhor|recomend\w*|compar\w*|devo|deveria|como (melhorar|aumentar|liberar|limpar|resolver|atualizar))\b/;
 
+const ESPECIFICO = /adaptador|placa de rede|realtek|chipset|politica|gpedit|registro|regedit|servico|tarefas? agendada|firewall|defender|antivirus|bitlocker|\btpm\b|secure boot|uefi|plano de energia|\beventos?\b|tela azul|bsod|variave(l|is) de ambiente|certificado|\bdrivers?\b(?! (da|de|do) (placa|video))/;
+
 /** As consultas que a pergunta pede (vazio = não é pergunta sobre este PC). */
 function consultasDoPedido(texto) {
   const t = norm(texto);
   if (!DO_USUARIO.test(t) || !ACAO.test(t) || OPINIAO.test(t)) return [];
-  const ids = QUAIS.filter(([, re]) => re.test(t)).map(([id]) => id);
+  let ids = QUAIS.filter(([, re]) => re.test(t)).map(([id]) => id);
+  // assunto específico (19/10: "driver do meu processador", "configurações do meu adaptador de rede"):
+  // a ficha geral não responde — sem ela, a pergunta vai para a leitura livre
+  if (ESPECIFICO.test(t)) ids = ids.filter((id) => id !== 'sistema');
   // "qual a configuração do meu pc?" pede a ficha completa
   if (ids.includes('sistema') && /configurac|especificac|ficha|pecas|hardware/.test(t)) ids.push('discos', 'video');
   return [...new Set(ids)];
+}
+
+// leitura livre (19/10): o resto do que é do PC — chipset, drivers, registro, políticas, serviços, adaptador…
+const SOBRE_O_PC = /\b(pc|computador|notebook|windows|drivers?|chipset|registro|regedit|politicas?|gpedit|servicos?|processos?|tarefas? agendadas?|firewall|defender|antivirus|bitlocker|tpm|secure boot|uefi|bios|plano de energia|eventos?|tela azul|bsod|adaptador|placa de rede|realtek|intel|amd|ryzen|dispositivos?|usb|bluetooth|variave(l|is) de ambiente|certificados?|conta|usuarios?|versao|instalad[oa]s?|atualizad[oa]s?|configurac\w*|ajustes?|propriedades)\b/;
+const LER = /\b(analis\w*|examin\w*|leia|ler|veja|ve|verifi\w*|confir\w*|confer\w*|mostr\w*|list\w*|consult\w*|descobr\w*)\b/;
+
+/** A pergunta é sobre este PC, mas nenhuma consulta fixa responde? (o chat decide se a rede vem antes) */
+function pedidoDeLeituraLivre(texto) {
+  const t = norm(texto);
+  if (!DO_USUARIO.test(t) || OPINIAO.test(t) || !(ACAO.test(t) || LER.test(t))) return false;
+  return SOBRE_O_PC.test(t) && !consultasDoPedido(texto).length;
 }
 
 /* ------------------------------ rodar ------------------------------ */
@@ -348,4 +365,4 @@ function programasDaPergunta(texto, programas = []) {
   return programas.filter((p) => palavras.some((w) => norm(p.nome).includes(w)));
 }
 
-module.exports = { consultar, consultasDoPedido, blocosDaResposta, contarArquivos, versaoNvidia, programasDaPergunta, PS };
+module.exports = { pedidoDeLeituraLivre, consultar, consultasDoPedido, blocosDaResposta, contarArquivos, versaoNvidia, programasDaPergunta, PS };
