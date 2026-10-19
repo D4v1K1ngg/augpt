@@ -338,7 +338,7 @@ module.exports = [
         !/NENHUMA/.test(obtido.promptDecisao.slice(obtido.promptDecisao.indexOf('DOWNLOAD CONCLU'), obtido.promptDecisao.indexOf('DOWNLOAD CONCLU') + 400)) || 'download contado como "nada mudou"',
         (() => {
           const main = fs.readFileSync(path.join(__dirname, '../../electron/main.js'), 'utf8');
-          const app = fs.readFileSync(path.join(__dirname, '../../renderer/app.js'), 'utf8');
+          const app = require('../texto-da-tela')();
           return (main.includes("'download-concluido'") && app.includes("'download-concluido'(")) || 'evento download-concluido não chega à tela';
         })(),
         (obtido.registro.downloads || [])[0]?.nome === 'contracheque.pdf' || 'download no registro',

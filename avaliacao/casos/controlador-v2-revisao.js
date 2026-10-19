@@ -307,7 +307,7 @@ module.exports = [
     tipo: 'unidade',
     executar() {
       const main = fs.readFileSync(path.join(__dirname, '../../electron/main.js'), 'utf8');
-      const app = fs.readFileSync(path.join(__dirname, '../../renderer/app.js'), 'utf8');
+      const app = require('../texto-da-tela')();
       return ['limite-atingido', 'contexto-ajustado', 'contexto-saturado', 'critica-por-evento'].flatMap((e) => [
         main.includes(`'${e}'`) || `${e} fora de EVENTOS`,
         app.includes(`'${e}'(`) || `${e} sem manipulador`,

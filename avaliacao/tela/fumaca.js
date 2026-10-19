@@ -87,6 +87,10 @@ const conferir = (ok, msg) => {
   });
   const js = async (expr) => (await cdp('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true })).result?.result?.value;
   await cdp('Runtime.enable');
+  // recarrega com a escuta já ligada: erro no carregamento dos scripts da tela também conta
+  await cdp('Page.enable');
+  await cdp('Page.reload', { ignoreCache: true });
+  await esperar(3000);
   // pronto = o seletor de modelo preenchido (antes disso o app recusa o pedido)
   for (let i = 0; i < 120 && !(await js("!!document.getElementById('modelo').value")); i += 1) await esperar(500);
   if (!(await js("!!document.getElementById('modelo').value"))) throw new Error('nenhum modelo do Ollama apareceu no seletor (o Ollama está aberto?)');
@@ -97,6 +101,13 @@ const conferir = (ok, msg) => {
   await js("document.getElementById('navUtilitarios').click(); true");
   await esperar(1500);
   conferir((await js("document.querySelectorAll('.util-card').length")) >= 20, 'os cartões aparecem');
+  // cada aba carrega o seu código ao abrir (Ajustes lê o Ollama, Execuções lê o histórico…)
+  for (const [aba, nome] of [['navConfig', 'Ajustes'], ['navExecucoes', 'Execuções'], ['navSkills', 'Skills'], ['navConversa', 'Conversa']]) {
+    const antes = errosDaPagina.length;
+    await js(`document.getElementById('${aba}').click(); true`);
+    await esperar(2500);
+    conferir(errosDaPagina.length === antes, `a aba ${nome} abre sem erro`);
+  }
   await js("trocarAba('agente'); true");
 
   for (const p of PERGUNTAS) {

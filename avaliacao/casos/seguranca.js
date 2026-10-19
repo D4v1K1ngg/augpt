@@ -491,7 +491,7 @@ module.exports = [
     nome: 'segurança: prévia de HTML usa iframe com sandbox (sem script, origem opaca)',
     tipo: 'unidade',
     executar() {
-      const app = fs.readFileSync(path.join(__dirname, '..', '..', 'renderer', 'app.js'), 'utf8');
+      const app = require('../texto-da-tela')();
       return [
         /<iframe sandbox="">/.test(app) || 'iframe da prévia de HTML perdeu o atributo sandbox',
         !/<iframe><\/iframe>/.test(app) || 'voltou a existir um iframe sem sandbox pra srcdoc',

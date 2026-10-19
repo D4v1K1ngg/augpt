@@ -25,7 +25,7 @@ module.exports = [
       const main = ler('electron/main.js');
       const lista = main.slice(main.indexOf('const EVENTOS = ['), main.indexOf('];', main.indexOf('const EVENTOS = [')));
       const repassados = new Set([...lista.matchAll(/'([a-z][a-z-]*)'/g)].map((m) => m[1]));
-      const app = ler('renderer/app.js');
+      const app = require('../texto-da-tela')();
       const tratados = new Set([...app.matchAll(/^\s{2}'?([a-z][a-z-]*)'?\s*\(\{?[^)]*\)?\s*\{/gm)].map((m) => m[1]));
       const emitidos = new Set();
       for (const arq of arquivosJs('src/agent')) {
