@@ -12,14 +12,19 @@ const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
 // modelo falso: rodada 1 busca; rodada 2 (depois de "pensar" 250 ms) pede as fontes 1 e 2 juntas
 function modelo({ pensarMs = 250 } = {}) {
   let passo = 0;
+  const marcas = {};
   const roteiro = [
     { ferramentas: [['buscar_na_web', { buscas: ['fone dunu titan s review'] }]] },
     { ferramentas: [['ler_pagina', { fonte: 1, foco: 'x' }], ['ler_pagina', { fonte: 2, foco: 'x' }]] },
   ];
   return {
+    marcas,
     chamar: async (messages, opcoes = {}) => {
       if (opcoes.json) return { content: JSON.stringify({ precisa_buscar: true, produto: false, assuntos: ['Dunu Titan S'], pergunta: 'o que é o dunu titan s' }), chamadas: [] };
-      if (passo === 1) await esperar(pensarMs);
+      if (passo === 1) {
+        await esperar(pensarMs);
+        marcas.decidiu = Date.now();
+      }
       const r = roteiro[passo++];
       if (!r) return { content: '', chamadas: [{ function: { name: 'pronto', arguments: {} } }] };
       return { content: '', chamadas: r.ferramentas.map(([name, args]) => ({ function: { name, arguments: args } })) };
@@ -62,11 +67,11 @@ module.exports = [
       const unicas = new Set(baixadas);
       return [
         // a leitura começou ANTES de o modelo terminar de decidir (ele "pensou" 250 ms)
-        quando['https://a.com/titan'] < 200 && quando['https://b.com/titan'] < 200 || `começaram em ${JSON.stringify(quando)}`,
+        t0 + quando['https://a.com/titan'] < m.marcas.decidiu && t0 + quando['https://b.com/titan'] < m.marcas.decidiu || `começaram em ${JSON.stringify(quando)}, a decisão terminou em ${m.marcas.decidiu - t0}`,
         unicas.size === baixadas.length || `baixou de novo: ${baixadas.join(', ')}`,
         !baixadas.includes('https://c.com/ssd') || 'adiantou o tópico fora do assunto',
-        // decidir (250 ms) + ler já adiantado: bem menos que 250 + 300 + 300 (em fila, sem adiantar)
-        fimDaPesquisa < 700 || `pesquisa levou ${fimDaPesquisa} ms`,
+        // a escrita começa logo depois da decisão (a página já estava pronta), e não 300 + 300 ms depois (em fila)
+        fimDaPesquisa - (m.marcas.decidiu - t0) < 450 || `depois de decidir, levou ${fimDaPesquisa - (m.marcas.decidiu - t0)} ms`,
       ];
     },
   },
