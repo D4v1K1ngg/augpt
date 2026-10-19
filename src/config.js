@@ -247,6 +247,9 @@ const DEFAULTS = {
   minutosDeInvestigacao: 10,
   // pedido de produto: preço de hoje no KaBuM, Zoom e Buscapé em cada cartão (17/10)
   ondeComprar: true,
+  // abertura do app (19/10): a caixa pequena que cresce até virar a janela, com som
+  animacaoDeAbertura: true,
+  somDaAbertura: true,
   // Início automático do Ollama sem perguntar — só fica true depois que o
   // usuário marcou "sempre iniciar automaticamente" na oferta ("Detectei que
   // o Ollama está desligado. Deseja que eu ative ele?"). Padrão false:

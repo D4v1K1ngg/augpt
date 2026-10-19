@@ -513,6 +513,16 @@
           <p class="dica">Depois de criar uma imagem, o modelo olha o resultado e, se faltar algo do pedido, corrige o prompt e gera de novo — no máximo 2 vezes. Cada revisão soma uns 15 segundos.</p>
         </section>
         <section class="grupo">
+          <h2>Abertura</h2>
+          <label class="linha"><span>Animação ao abrir o AuGPT</span>
+            <input type="checkbox" id="cfgAnimacaoDeAbertura" class="caixa" />
+          </label>
+          <label class="linha"><span>Som da abertura</span>
+            <input type="checkbox" id="cfgSomDaAbertura" class="caixa" />
+          </label>
+          <p class="dica">A caixa pequena que cresce até virar a janela do app. Dura uns 6 segundos; um clique ou Esc pula. Vale na próxima vez que o AuGPT abrir.</p>
+        </section>
+        <section class="grupo">
           <h2>Pasta de trabalho</h2>
           <p class="dica">O agente só lê e escreve aqui dentro. Arquivos anexados são copiados para cá.</p>
           <div class="caminho" id="caminhoWorkspace" title="">—</div>

@@ -1956,6 +1956,8 @@ function preencherConfig() {
   $('cfgNavegacao').checked = config.navegacaoInterativa !== false;
   $('cfgImagensNasRespostas').checked = config.imagensNasRespostas !== false;
   $('cfgRevisarImagens').checked = config.revisarImagensCriadas !== false;
+  $('cfgAnimacaoDeAbertura').checked = config.animacaoDeAbertura !== false;
+  $('cfgSomDaAbertura').checked = config.somDaAbertura !== false;
   $('cfgOndeComprar').checked = config.ondeComprar !== false;
   $('cfgFontesComunidade').value = (config.fontesComunidade || []).join('\n');
   $('cfgNavegadorVisivel').checked = config.navegadorVisivel !== false;
@@ -2011,6 +2013,8 @@ async function salvarAjustes() {
     navegacaoInterativa: $('cfgNavegacao').checked,
     imagensNasRespostas: $('cfgImagensNasRespostas').checked,
     revisarImagensCriadas: $('cfgRevisarImagens').checked,
+    animacaoDeAbertura: $('cfgAnimacaoDeAbertura').checked,
+    somDaAbertura: $('cfgSomDaAbertura').checked,
     ondeComprar: $('cfgOndeComprar').checked,
     // um endereço por linha; vazio = lista padrão (dados/comunidades.json)
     fontesComunidade: $('cfgFontesComunidade')

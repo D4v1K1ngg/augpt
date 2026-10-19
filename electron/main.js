@@ -120,6 +120,8 @@ function enviar(canal, dados) {
   if (win && !win.isDestroyed()) win.webContents.send('agent:event', { canal, dados });
 }
 
+let aberturaJaRodou = false;
+
 function criarJanela() {
   win = new BrowserWindow({
     width: 1380,
@@ -139,7 +141,12 @@ function criarJanela() {
   });
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
-  win.once('ready-to-show', () => win.show());
+  // abertura (19/10): a caixa pequena que cresce até virar a janela; desligável em Ajustes → Geral.
+  // Só na primeira janela do app (reabrir pelo Dock/atalho não repete a animação)
+  if (config?.data?.animacaoDeAbertura !== false && !aberturaJaRodou && !process.argv.includes('--sem-abertura')) {
+    aberturaJaRodou = true;
+    require('./abertura').abrirComAbertura(win, { mudo: config.data.somDaAbertura === false });
+  } else win.once('ready-to-show', () => win.show());
   if (process.argv.includes('--dev')) win.webContents.openDevTools({ mode: 'detach' });
 
   // A janela nunca navega para fora do app.
