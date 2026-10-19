@@ -308,6 +308,14 @@
       <div class="composer-caixa">
         <button class="btn-anexo" id="btnAnexoAgente" title="Anexar arquivos" aria-label="Anexar arquivos">+</button>
         <textarea id="entradaAgente" rows="1" placeholder="Peça alguma coisa ao agente…"></textarea>
+        <!-- 19/10: o raciocínio troca no meio da conversa (o seletor da abertura some quando ela começa) -->
+        <select class="modo-caixa" id="modoNaCaixa" aria-label="Raciocínio da próxima resposta" title="Raciocínio da próxima resposta">
+          <option value="automatico">Automático</option>
+          <option value="rapido">Rápido</option>
+          <option value="normal">Normal</option>
+          <option value="profundo">Profundo</option>
+          <option value="investigacao">Investigação</option>
+        </select>
         <button class="btn-enviar" id="btnEnviarAgente" title="Enviar (Enter)" aria-label="Enviar">↑</button>
       </div>
     </div>

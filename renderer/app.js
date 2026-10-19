@@ -284,8 +284,8 @@ function no(n) {
   // evento sem número de passo (as ferramentas do núcleo): vai para o passo atual
   // (16/10: Math.max(5, undefined) mostrava "raciocínio · NaN passo")
   if (!Number.isFinite(Number(n)) || n === null || n === '') {
-    if (t.noAtual) return t.noAtual;
-    n = 1;
+    if (t.noAtual && Number(t.noAtual.dataset.n) === (t.passoAtual || Number(t.noAtual.dataset.n))) return t.noAtual;
+    n = t.passoAtual || 1;
   }
   const existente = t.trilha.querySelector(`.no[data-n="${n}"]`);
   if (existente) return existente;
@@ -636,7 +636,9 @@ const manipuladores = {
   iteracao({ n, de }) {
     el.iteracao.textContent = n;
     el.max.textContent = de;
-    no(n);
+    // 19/10: o nó nasce com o primeiro conteúdo do passo (pensamento, ação…); só com o
+    // número, a trilha virava uma pilha de bolinhas e o "raciocínio" parecia não abrir
+    if (agente.turno) agente.turno.passoAtual = n;
     situacao(`passo ${n} de ${de}`);
   },
 
@@ -1473,7 +1475,7 @@ function etapaDaAtividade(chave, titulo, descricao = '') {
 function resumoDaAtividade() {
   const t = agente.turno;
   if (!t) return;
-  const a = (t.atividade = t.atividade || { buscas: 0, sites: new Map() });
+  const a = (t.contagem = t.contagem || { buscas: 0, sites: new Map() });
   const paginas = [...a.sites.values()].reduce((s, x) => s + x.paginas, 0);
   const partes = [];
   if (a.buscas) partes.push(`${a.buscas} busca${a.buscas === 1 ? '' : 's'}`);
@@ -1491,7 +1493,7 @@ function siteConsultado(url) {
     return; // documento local, não é site
   }
   if (!t || !host) return;
-  const a = (t.atividade = t.atividade || { buscas: 0, sites: new Map() });
+  const a = (t.contagem = t.contagem || { buscas: 0, sites: new Map() });
   let site = a.sites.get(host);
   if (!site) {
     const linha = document.createElement('a');
@@ -1535,10 +1537,10 @@ function atividade(canal, d) {
       if (!FERRAMENTAS_DE_PESQUISA.test(d.nome)) return etapaDaAtividade('agir', 'Executando ações', d.nome);
       return etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.argumentos?.consulta ? `Busca: ${d.argumentos.consulta}` : d.argumentos?.url || '');
     case 'fonte':
-      t.atividade = t.atividade || { buscas: 0, sites: new Map() };
+      t.contagem = t.contagem || { buscas: 0, sites: new Map() };
       if (d.tipo === 'busca') {
-        t.atividade.buscas += 1;
-        t.atividade.resultados = (t.atividade.resultados || 0) + (Number(d.resultados) || 0);
+        t.contagem.buscas += 1;
+        t.contagem.resultados = (t.contagem.resultados || 0) + (Number(d.resultados) || 0);
         etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.consultas?.length ? `Busca: ${d.consultas[d.consultas.length - 1]}` : '');
       } else if (d.url) {
         siteConsultado(d.url);
@@ -1567,7 +1569,13 @@ function atividade(canal, d) {
 }
 
 api.onEvent(({ canal, dados }) => {
-  atividade(canal, dados || {}); // antes do manipulador: 'concluido' encerra o turno
+  // antes do manipulador: 'concluido' encerra o turno. 19/10: um erro aqui (t.atividade virou o
+  // cartão e a contagem de buscas quebrava) não pode mais calar o manipulador do evento
+  try {
+    atividade(canal, dados || {});
+  } catch (err) {
+    console.error('atividade', canal, err);
+  }
   window.boasVindasEvento?.(canal, dados || {}); // progresso das instalações na tela de boas-vindas
   manipuladores[canal]?.(dados || {});
 });
@@ -3294,6 +3302,7 @@ const modoAtual = () => (config.respostaDireta === true ? 'rapido' : config.modo
 function pintarModoDoAgente() {
   for (const b of $('modoDoAgente').querySelectorAll('button')) b.classList.toggle('ativo', b.dataset.modo === modoAtual());
   $('modoDePesquisa').value = modoAtual();
+  $('modoNaCaixa').value = modoAtual();
   // investigação: o tempo aparece ao lado dos modos
   $('tempoInvestigacao').hidden = modoAtual() !== 'investigacao';
   $('minutosInvestigacao').value = config.minutosDeInvestigacao || 10;
@@ -3307,6 +3316,7 @@ $('modoDoAgente').addEventListener('click', (e) => {
   if (b) escolherModo(b.dataset.modo);
 });
 $('modoDePesquisa').addEventListener('change', (e) => escolherModo(e.target.value));
+$('modoNaCaixa').addEventListener('change', (e) => escolherModo(e.target.value));
 $('minutosInvestigacao').addEventListener('change', async (e) => {
   const minutos = Math.max(2, Math.min(180, Math.round(Number(e.target.value) || 10)));
   e.target.value = minutos;
