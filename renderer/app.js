@@ -234,11 +234,13 @@ function criarTurno(pedido) {
         <div class="atividade-rotulo">Sites consultados</div>
         <div class="atividade-lista"></div>
       </div>
+      <!-- 19/10 (pedido do Davi): o raciocínio é um botão dentro do cartão, não uma bandeja solta -->
+      <details class="detalhe">
+        <summary><span class="resumo-passos">raciocínio</span></summary>
+        <div class="trilha"></div>
+      </details>
     </details>
-    <details class="detalhe">
-      <summary><span class="resumo-passos">raciocínio</span></summary>
-      <div class="trilha"></div>
-    </details>
+    <div class="turno-ancora"></div>
     <div class="msg-corpo resposta" hidden></div>`;
   el.aMensagens.appendChild(dele);
 
@@ -247,6 +249,9 @@ function criarTurno(pedido) {
     andamento: dele.querySelector('.andamento'),
     texto: dele.querySelector('.andamento-txt'),
     detalhe: dele.querySelector('.detalhe'),
+    atividade: dele.querySelector('.atividade'),
+    // plano, skills e afins entram aqui (fora do cartão: nunca escondidos num cartão fechado)
+    ancora: dele.querySelector('.turno-ancora'),
     resumoPassos: dele.querySelector('.resumo-passos'),
     trilha: dele.querySelector('.trilha'),
     resposta: dele.querySelector('.resposta'),
@@ -290,6 +295,7 @@ function no(n) {
   node.dataset.n = n;
   node.innerHTML = `<div class="marcador">${n}</div>`;
   t.trilha.appendChild(node);
+  t.atividade.hidden = false; // o raciocínio mora no cartão: com passo, o cartão aparece
   t.noAtual = node;
   t.passos = Math.max(t.passos, n);
   t.resumoPassos.textContent = `raciocínio · ${t.passos} passo${t.passos > 1 ? 's' : ''}`;
@@ -317,7 +323,11 @@ function cartao(pai, classe, rotulo, html, tempo = '') {
 
 /** Abre o detalhe quando algo exige atenção do usuário. */
 function abrirDetalhe() {
-  if (agente.turno) agente.turno.detalhe.open = true;
+  if (agente.turno) {
+    agente.turno.atividade.hidden = false;
+    agente.turno.atividade.open = true;
+    agente.turno.detalhe.open = true;
+  }
 }
 
 function encerrarTurno() {
@@ -617,6 +627,12 @@ const manipuladores = {
     situacao(`pensando · ${modelo}`);
   },
 
+  // 19/10: o caminho novo começa por aqui, e sem isto o "decorrido" ficava em 0s e passos/tokens
+  // mostravam os números da execução anterior
+  'inicio-rapido'({ objetivo }) {
+    manipuladores.inicio({ objetivo, modelo: config?.model || '' });
+  },
+
   iteracao({ n, de }) {
     el.iteracao.textContent = n;
     el.max.textContent = de;
@@ -653,7 +669,7 @@ const manipuladores = {
         if (!caixa) {
           caixa = document.createElement('ol');
           caixa.className = 'plano-turno';
-          t.detalhe.before(caixa);
+          t.ancora.before(caixa);
         }
         caixa.innerHTML = plano.slice(0, 6).map((p) => `<li>${esc(p)}</li>`).join('');
       }
@@ -808,7 +824,7 @@ const manipuladores = {
       faixa = document.createElement('div');
       faixa.className = 'skills-ativas';
       faixa.innerHTML = '<span class="rotulo-skill">skills</span>';
-      t.detalhe.before(faixa);
+      t.ancora.before(faixa);
     }
     for (const nome of novas) {
       const selo = document.createElement('span');

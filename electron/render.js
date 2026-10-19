@@ -1,7 +1,14 @@
 'use strict';
 
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { BrowserWindow } = require('electron');
 const { protegerSessaoWeb } = require('./sessao-segura');
+const { pdf: extrairPdf } = require('../src/formatos/pdf');
+
+const LIMITE_DO_PDF = 40e6;
+const escapar = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
 
 /**
  * Renderiza uma página num BrowserWindow invisível e devolve o HTML já montado.
@@ -48,6 +55,39 @@ function renderizar(url, { timeout = 25000, esperaExtra = 1200, obterConfig = ()
     // permissões e sem requisição pra rede local (ver electron/sessao-segura.js).
     protegerSessaoWeb(janela.webContents.session, { obterConfig });
 
+    // link que vira download (19/10, print do Davi: "Estatistica-Notas-de-Aula.pdf/at_download/file"
+    // abria a janela "Salvar como" do Windows no meio da pesquisa). PDF: baixa calado numa pasta
+    // temporária, extrai o texto e APAGA o arquivo; o texto volta como página. Outro tipo: cancela.
+    let baixando = false;
+    janela.webContents.session.on('will-download', (_evento, item) => {
+      baixando = true;
+      const nome = `${item.getFilename()} ${item.getURL()}`;
+      const ehPdf = /pdf/i.test(item.getMimeType()) || /\.pdf\b/i.test(nome);
+      if (!ehPdf || item.getTotalBytes() > LIMITE_DO_PDF) {
+        item.cancel();
+        encerrar(new Error(ehPdf ? 'PDF grande demais para ler' : `a página é um download (${item.getMimeType() || 'arquivo'}), não um texto`));
+        return;
+      }
+      const pasta = fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-leitura-'));
+      const arquivo = path.join(pasta, 'documento.pdf');
+      item.setSavePath(arquivo); // com o caminho definido, o Electron não abre a janela "Salvar como"
+      item.on('updated', () => {
+        if (item.getReceivedBytes() > LIMITE_DO_PDF) item.cancel();
+      });
+      item.once('done', (_e, estado) => {
+        try {
+          if (estado !== 'completed') throw new Error('o download do PDF não terminou');
+          const extraido = extrairPdf(fs.readFileSync(arquivo), { limite: 60000 });
+          if (!extraido.texto || extraido.texto.trim().length < 40 || extraido.meta?.aviso) throw new Error(`pdf: ${extraido.meta?.aviso || 'sem texto extraível'}`);
+          encerrar(null, `<html><head><title>${escapar(item.getFilename())}</title></head><body><pre>${escapar(extraido.texto)}</pre></body></html>`);
+        } catch (err) {
+          encerrar(err);
+        } finally {
+          fs.rmSync(pasta, { recursive: true, force: true });
+        }
+      });
+    });
+
     janela.webContents.on('did-finish-load', () => {
       // dá um respiro para conteúdo que chega por XHR depois do load
       setTimeout(async () => {
@@ -70,7 +110,13 @@ function renderizar(url, { timeout = 25000, esperaExtra = 1200, obterConfig = ()
 
     janela.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
-    janela.loadURL(url, { userAgent: janela.webContents.getUserAgent() }).catch((err) => encerrar(err));
+    // a navegação que vira download "falha" (ERR_ABORTED): aí quem encerra é o fim do download
+    // ... e o loadURL rejeita ANTES do aviso de download (medido: 69 ms x 71 ms): espera um instante
+    janela.loadURL(url, { userAgent: janela.webContents.getUserAgent() }).catch((err) => {
+      setTimeout(() => {
+        if (!baixando) encerrar(err);
+      }, 1500);
+    });
   });
 }
 

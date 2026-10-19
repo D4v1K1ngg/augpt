@@ -1551,3 +1551,12 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .caixa-visual details { border-top: 1px solid var(--line); padding: 6px 12px; font-size: 12px; color: var(--fraco); }
 .caixa-visual summary { cursor: pointer; }
 .caixa-visual pre { max-height: 360px; overflow: auto; }
+
+/* 19/10 (pedido do Davi): sem o título da conversa nem o "executando…" na barra de cima */
+.barra .titulo-conversa, .barra .estado-barra { display: none; }
+/* o raciocínio dentro do cartão "Atividade do agente" */
+.atividade .detalhe { margin: 0; padding: 8px 14px 10px; border-top: 1px solid var(--line); }
+.atividade .detalhe .trilha { padding-top: 12px; }
+
+/* sem passo de raciocínio (ações diretas, como o teste de rede), o botão não aparece vazio */
+.atividade .detalhe:has(.trilha:empty) { display: none; }

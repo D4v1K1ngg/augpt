@@ -73,7 +73,7 @@ let fechandoComLimpeza = false;
 let limpezaDeModelosEmAndamento = false;
 
 const EVENTOS = [
-  'inicio', 'iteracao', 'pensando', 'raciocinio', 'ferramenta', 'resultado',
+  'inicio', 'inicio-rapido', 'iteracao', 'pensando', 'raciocinio', 'ferramenta', 'resultado',
   'negado', 'concluido', 'interrompido', 'limite', 'erro', 'uso', 'aviso',
   'aprovacao', 'pergunta', 'protocolo-invalido', 'compactado', 'workspace-changed',
   'config-alterada', 'fonte', 'contrato-incompleto', 'serie-de-precos', 'redigindo', 'resposta-token', 'resposta-reinicia', 'skills', 'cobertura',
