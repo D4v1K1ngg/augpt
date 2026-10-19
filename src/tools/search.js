@@ -222,8 +222,11 @@ const PESOS = [
   [/arxiv\.org$|semanticscholar\.org$|doi\.org$|dl\.acm\.org$|ieeexplore\.ieee\.org$|link\.springer\.com$|sciencedirect\.com$|researchgate\.net$|doaj\.org$|jstor\.org$|scholar\.google\./, 7, 'periódico/repositório acadêmico'],
   // o buscador não é fonte: se ele mesmo aparece nos resultados, é ruído
   [/(duckduckgo|google|bing|yahoo)\./, -5, 'buscador'],
-  [/\.gov(\.[a-z]{2})?$|\.gov\./, 10, 'órgão oficial'],
-  [/\.(edu|ac)(\.[a-z]{2})?$|\.edu\./, 9, 'universidade'],
+  // (19/10: "gov.br" sozinho — o portal do governo, depois de tirar o "www." — não casava)
+  [/(^|\.)gov(\.[a-z]{2})?$|(^|\.)gov\./, 10, 'órgão oficial'],
+  [/(^|\.)(edu|ac)(\.[a-z]{2})?$|(^|\.)edu\./, 9, 'universidade'],
+  // universidade brasileira não usa .edu: as estaduais e federais (uf*, if*) e as conhecidas
+  [/(^|\.)(usp|unicamp|unesp|unifesp|unb|fgv|ita|uf[a-z]{1,5}|unir|unirio|utfpr|cefet[a-z]{0,4}|if[a-z]{1,5}|puc[a-z]{0,6})\.br$/, 9, 'universidade'],
   [/\.(int|mil)$/, 8, 'organismo oficial'],
   [/wikipedia\.org$|\.who\.int$|nature\.com$|science\.org$|scielo\./, 7, 'referência'],
   [/\.org(\.[a-z]{2})?$/, 5, 'organização'],

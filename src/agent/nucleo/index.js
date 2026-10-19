@@ -20,6 +20,38 @@
  */
 
 const { pedacos, ordenar } = require('./ranking');
+const { qualidadeDoDominio } = require('../../tools/search');
+
+/*
+ * Credibilidade no núcleo (19/10, revisão da pesquisa): a tabela de 742 domínios (portais de
+ * notícia falsa do corpus Fake.br/USP, sátira, bloqueados) e o peso por tipo de site (órgão
+ * oficial > universidade > imprensa > blog, rede social) só valiam no caminho antigo; o núcleo
+ * escolhia o que ler só pela semelhança com a pergunta. Agora a relevância continua mandando, a
+ * qualidade do site desempata e soma, notícia falsa e domínio bloqueado não entram, e um site só
+ * ocupa 2 lugares da lista. Na busca da comunidade, fórum e rede social não perdem ponto: ali
+ * eles são o que se procura.
+ */
+const RISCO_FORA = new Set(['alto', 'bloqueado']);
+function comCredibilidade(ordenados, { comunidade = false, maximo = 8, porSite = 2, jaVistos = [] } = {}) {
+  const contagem = new Map();
+  for (const f of jaVistos) contagem.set(dominio(f.url), (contagem.get(dominio(f.url)) || 0) + 1);
+  return ordenados
+    .map((r) => {
+      const q = qualidadeDoDominio(r.url);
+      const peso = comunidade && /fórum|rede social|blog/.test(q.tipo) ? 3 : q.peso;
+      return { ...r, qualidade: q.tipo, alerta: q.alerta || null, notaFinal: (r.nota || 0) + (peso - 3) * 0.03 };
+    })
+    .filter((r) => !RISCO_FORA.has(r.alerta?.risco))
+    .sort((a, b) => b.notaFinal - a.notaFinal)
+    .filter((r) => {
+      const d = dominio(r.url);
+      const n = contagem.get(d) || 0;
+      if (n >= porSite) return false;
+      contagem.set(d, n + 1);
+      return true;
+    })
+    .slice(0, maximo);
+}
 const { tituloCita } = require('../../tools/imagens');
 const { separarGraficos, recolocarGraficos, graficoDoTexto, pedeGrafico, INSTRUCAO_DE_GRAFICO, INSTRUCAO_DE_VISUAL } = require('./graficos');
 const capacidades = require('../capacidades');
@@ -360,7 +392,11 @@ const palavrasDe = (t) =>
 /** Os resultados como o pesquisador vê: "[n] título (domínio)\nresumo". */
 const dataBr = (d) => (/^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
 const quando = (f) => (f.data ? `publicado em ${dataBr(f.data)}` : f.recente ? 'notícia do último mês' : '');
-const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || dominio(f.url)} (${dominio(f.url)}${quando(f) ? `, ${quando(f)}` : ''}${f.comunidade ? ', comunidade' : ''}${f.video ? ', vídeo' : ''})\n${String(f.resumo || '').slice(0, 300)}`).join('\n\n');
+// o tipo do site (órgão oficial, universidade, imprensa…) e o alerta (sátira, histórico de notícia
+// falsa) vão junto: o modelo escolhe o que ler sabendo de onde vem
+const tipoParaOModelo = (f) => (f.qualidade && !/^(site|desconhecido)$/.test(f.qualidade) ? `, ${f.qualidade}` : '');
+const alertaParaOModelo = (f) => (f.alerta ? ` ⚠ ${f.alerta.risco === 'satira' ? 'site de sátira (humor, não é notícia)' : `cuidado: ${f.alerta.motivo || 'site com histórico de informação falsa'}`}` : '');
+const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || dominio(f.url)} (${dominio(f.url)}${quando(f) ? `, ${quando(f)}` : ''}${f.comunidade ? ', comunidade' : ''}${f.video ? ', vídeo' : ''}${tipoParaOModelo(f)})${alertaParaOModelo(f)}\n${String(f.resumo || '').slice(0, 300)}`).join('\n\n');
 
 /**
  * O laço do pesquisador. Devolve as fontes juntadas (numeradas, com resumo e,
@@ -418,11 +454,12 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     buscasFeitas += lista.length;
     // ordena pelo que a pergunta + as buscas pedem; o pesquisador vê os 8 melhores novos
     const novos = achados.filter((r) => r?.url && !porUrl.has(r.url)).map((r) => ({ ...r, texto: `${r.titulo || ''} ${r.resumo || ''}` }));
-    const ordenados = await ordenar(`${pergunta} ${lista.join(' ')}`, novos, { embed, maximo: 8 });
+    const relevantes = await ordenar(`${pergunta} ${lista.join(' ')}`, novos, { embed, maximo: 16 });
+    const ordenados = comCredibilidade(relevantes, { comunidade, maximo: 8, jaVistos: fontes });
     const mostrados = [];
     for (const r of ordenados) {
       if (porUrl.has(r.url)) continue;
-      const f = { n: fontes.length + 1, url: r.url, titulo: r.titulo || '', resumo: r.resumo || '', trechos: [], comunidade, data: /^\d{4}-\d{2}-\d{2}/.test(String(r.data || '')) ? String(r.data).slice(0, 10) : null, recente: r.recente === true };
+      const f = { n: fontes.length + 1, url: r.url, titulo: r.titulo || '', resumo: r.resumo || '', trechos: [], comunidade, qualidade: r.qualidade || null, alerta: r.alerta || null, data: /^\d{4}-\d{2}-\d{2}/.test(String(r.data || '')) ? String(r.data).slice(0, 10) : null, recente: r.recente === true };
       fontes.push(f);
       porUrl.set(r.url, f);
       mostrados.push(f);
@@ -600,8 +637,8 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
   // (página que não abre não conta; no máximo o dobro das que faltam, para não travar em site fora do ar)
   if (lidas() < regras.minLeituras && !signal?.aborted) {
     const faltam = regras.minLeituras - lidas();
-    const naoLidas = fontes.filter((f) => !f.trechos.length).map((f) => ({ f, texto: `${f.titulo} ${f.resumo}` }));
-    const ordenadas = (await ordenar(pergunta, naoLidas, { embed })).map((x) => x.f);
+    const naoLidas = fontes.filter((f) => !f.trechos.length && !f.alerta).map((f) => ({ f, url: f.url, texto: `${f.titulo} ${f.resumo}` }));
+    const ordenadas = comCredibilidade(await ordenar(pergunta, naoLidas, { embed }), { comunidade: false, maximo: Infinity, porSite: Infinity }).map((x) => x.f);
     // só página que cita o assunto: faltando, lê menos — completar a conta com página fora do assunto
     // (17/10, um tópico de SSD num pedido de fone) piora a resposta em vez de melhorar
     const ordem = ordenadas.filter(citaAssunto);
@@ -1166,4 +1203,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null };
 }
 
-module.exports = { pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
