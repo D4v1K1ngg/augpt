@@ -789,9 +789,18 @@ function conferirResposta(texto, { numeros = [], material = '', produto = false 
 const soDigitos = (t) => String(t).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
 const palavrasDoMaterial = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 2);
 
-function conferirFatos(texto, { material = '', extra = '' } = {}) {
+function conferirFatos(texto, { material = '', extra = '', semNumeros = false } = {}) {
   const base = `${material} ${extra}`;
-  const numerosDoMaterial = new Set((base.match(/\d[\d.,]*\d|\d/g) || []).flatMap((n) => [soDigitos(n), soDigitos(n.replace(/[.,]0+$/, ''))]));
+  // 19/10 (revisão): o número do material vale inteiro E por partes seguidas — o build "26200.6584"
+  // cobre o "26200", o IP "192.168.0.1" cobre o "192.168"; antes, 12 de 14 avisos eram assim
+  const numerosDoMaterial = new Set(
+    (base.match(/\d[\d.,]*\d|\d/g) || []).flatMap((n) => {
+      const partes = n.split(/[.,]/);
+      const pedacos = [];
+      for (let i = 0; i < partes.length && partes.length <= 6; i += 1) for (let j = i + 1; j <= partes.length; j += 1) pedacos.push(soDigitos(partes.slice(i, j).join('')));
+      return [soDigitos(n), soDigitos(n.replace(/[.,]0+$/, '')), ...pedacos];
+    })
+  );
   const palavras = new Set(palavrasDoMaterial(base));
   const numeros = new Set();
   const nomes = new Set();
@@ -801,11 +810,23 @@ function conferirFatos(texto, { material = '', extra = '' } = {}) {
   const marcado = partes
     .map((p, i) => {
       if (i % 2 === 1) return p;
-      let q = p.replace(/(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)(%?)/g, (m, valor, pct, offset, str) => {
+      // versão e IP (8.08.12.551, 192.168.0.1) são conferidos inteiros, antes do resto
+      let q = p.replace(/\b\d+(?:\.\d+){2,}\b/g, (m, offset, str) => {
+        if (semNumeros || /^\s?⚠/.test(str.slice(offset + m.length, offset + m.length + 3))) return m;
+        conferidos += 1;
+        if (base.includes(m)) return `${m}\u2063`; // marca invisível: o passo seguinte não o repica
+        numeros.add(m);
+        return `${m} ⚠`;
+      });
+      q = q.replace(/(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)(%?)/g, (m, valor, pct, offset, str) => {
         const antes = str.slice(Math.max(0, offset - 5), offset);
         const depois = str.slice(offset + m.length, offset + m.length + 3);
-        if (/[\d\p{L}]$/u.test(antes) || /^\d/.test(depois) || /^\s?⚠/.test(depois)) return m; // pedaço de nome ("RTX5080") ou já marcado
+        if (semNumeros) return m; // prova de exatas: os números são as contas, não fatos com fonte
+        if (/[\d\p{L}.\u2063]$/u.test(antes) || /^[\d.\u2063]/.test(depois) || /^\s?⚠/.test(depois)) return m; // pedaço de nome ("RTX5080"), de versão ou já marcado
         if (/(R\$|US\$|U\$|€|£)\s?$/.test(antes)) return m; // preço: conferirResposta cuida
+        if (pct && /^(0|100)$/.test(valor)) return m;
+        // número de modelo logo depois do nome ("Ryzen 5000", "RTX 4090", "Windows 11")
+        if (!pct && /^\d{2,5}$/.test(valor) && /(^|[\s(])\p{Lu}[\p{L}\d-]*\s$/u.test(str.slice(Math.max(0, offset - 16), offset))) return m;
         const inteiro = !/[.,]/.test(valor) || /^\d{1,3}(\.\d{3})+$/.test(valor);
         const n = Number(soDigitos(valor));
         if (!pct && inteiro && (n <= 10 || (n >= 1000 && n <= 2099 && valor.length === 4))) return m; // contagem ou ano
@@ -814,6 +835,7 @@ function conferirFatos(texto, { material = '', extra = '' } = {}) {
         numeros.add(`${valor}${pct}`);
         return `${m} ⚠`;
       });
+      q = q.replace(/\u2063/g, '');
       // nome próprio: palavra com maiúscula depois de minúscula, número, vírgula ou parêntese
       // (títulos e tabelas ficam fora: lá a maiúscula é de enfeite, "Cenário Eleitoral")
       const prosa = q.split('\n').filter((l) => !/^\s*(#|\||>)/.test(l)).join('\n');
@@ -1122,7 +1144,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     if (r.removidos.length) emit('aviso', { texto: `conferência: opções sem fonte: ${r.removidos.join(', ')}` });
     if (r.precosSemFonte.length) emit('aviso', { texto: `conferência: preços sem fonte: ${r.precosSemFonte.join(', ')}` });
     // os outros números (os anos e preços já foram) — o que sobrou sem fonte ganha ⚠
-    const fatos = conferirFatos(conferido.texto, { material, extra: extraDaConferencia });
+    const fatos = conferirFatos(conferido.texto, { material, extra: extraDaConferencia, semNumeros: QUESTAO_DE_EXATAS(String(pergunta || '')) });
     conferido.texto = fatos.numeros.length ? `${fatos.texto}\n\n*⚠ ${fatos.numeros.length === 1 ? 'Este número não aparece' : 'Estes números não aparecem'} nas fontes lidas: ${fatos.numeros.join(', ')}. Vale conferir.*` : fatos.texto;
     conferido.fatosSemFonte = [...fatos.nomes, ...fatos.numeros];
     if (reescrita) conferido.reescrita = { ...reescrita, depois: conferido.fatosSemFonte.length };
