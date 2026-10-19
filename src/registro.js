@@ -367,6 +367,11 @@ class Registro {
     });
     // revisão v2: qual caminho do motor rodou (recomendação, desempenho, uso)
     // núcleo de pesquisa (13/10): profundidade usada e se o pedido era de produto
+    // 19/10: a rota que respondeu (pesquisa, consultar_pc, teste_de_rede…) — as do código não
+    // passam pelo entendimento e ficavam no registro como se fossem do caminho antigo
+    agente.on('nucleo-fim', (e) => {
+      if (e?.rota) d.rota = e.rota;
+    });
     agente.on('nucleo-entendimento', (e) => {
       d.nucleo = { modo: e.modo || null, produto: e.produto === true };
     });

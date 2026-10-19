@@ -7,8 +7,7 @@
  */
 
 const capacidades = require('../../src/agent/capacidades');
-const { pedidoDeConsultaPC } = require('../../src/agent/pc-no-chat');
-const rede = require('../../src/agent/rede-no-chat');
+const rotas = require('../../src/agent/rotas-do-codigo');
 
 module.exports = [
   {
@@ -21,16 +20,17 @@ module.exports = [
     },
   },
   {
-    nome: 'utilitários: cada exemplo dos cartões de rede e do PC cai na rota certa; ids únicos; falta de componente e de Windows aparece no cartão e no texto do chat',
+    nome: 'utilitários: o exemplo de cada cartão cai na rota que o cartão declara (o mesmo roteador do app); ids únicos; falta de componente e de Windows aparece no cartão e no texto do chat',
     tipo: 'unidade',
     executar() {
       const cartoes = capacidades.utilitarios({ instalados: { youtube: true, imagem: false }, plataforma: 'win32' });
-      const rota = (t) => pedidoDeConsultaPC(t) ? 'pc' : rede.pedidoDeDiagnostico(t) ? 'raiox' : rede.pedidoDeTrafego(t) ? 'trafego' : rede.pedidoDeRota(t) ? 'rota' : rede.pedidoDeAjuste(t, []) ? 'ajuste' : rede.pedidoDeRede(t, []) ? 'rede' : 'nucleo';
-      const esperado = { teste_de_velocidade: 'rede', ping: 'rede', rota_de_jogo: 'rota', raio_x: 'raiox', aparelhos: 'raiox', trafego: 'trafego', ajustes_de_rede: 'ajuste', espaco: 'pc', configuracao: 'pc', windows: 'pc', drivers: 'pc', perifericos: 'pc', audio: 'pc', arquivos_do_pc: 'pc', programas: 'pc', inicializacao: 'pc' };
+      const rota = (t) => rotas.escolherRota({ objetivo: t, conversa: [], deps: {} })?.rota.id || 'pesquisa';
       const texto = capacidades.textoDosUtilitarios(cartoes);
       const linux = capacidades.utilitarios({ plataforma: 'linux' });
       return [
-        ...Object.entries(esperado).map(([id, r]) => rota(cartoes.find((c) => c.id === id).exemplo) === r || `${id} → ${rota(cartoes.find((c) => c.id === id).exemplo)}`),
+        // cada exemplo cai na rota que o cartão declara (sem `rota`: na pesquisa)
+        ...cartoes.filter((c) => c.exemplo).map((c) => rota(c.exemplo) === (c.rota || 'pesquisa') || `${c.id} → ${rota(c.exemplo)} (esperava ${c.rota || 'pesquisa'})`),
+        cartoes.filter((c) => c.rota).length >= 17 || 'cartões com rota',
         new Set(cartoes.map((c) => c.id)).size === cartoes.length || 'ids repetidos',
         cartoes.every((c) => c.exemplo || c.dica) || 'cartão sem como usar',
         cartoes.find((c) => c.id === 'criar_imagem').disponivel === false && cartoes.find((c) => c.id === 'youtube').disponivel === true || 'componentes',

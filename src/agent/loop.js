@@ -39,9 +39,8 @@ const nucleo = require('./nucleo');
 const { investigar } = require('./nucleo/investigacao');
 const { ondeComprar, linhaOndeComprar } = require('./onde-comprar');
 const { protegerGraficos } = require('./nucleo/graficos');
-const { pedidoDeRede, responderRede, pedidoDeRota, responderRota, pedidoDeTrafego, responderTrafego, pedidoDeDiagnostico, responderDiagnostico, pedidoDeAjuste, responderAjuste } = require('./rede-no-chat');
 const catalogo = require('./capacidades');
-const { pedidoDeConsultaPC, responderConsultaPC, pedidoDeLeituraLivre, responderLeituraLivre } = require('./pc-no-chat'); // "capacidades" já é o nome das capacidades do modelo (visão…) mais abaixo
+const rotas = require('./rotas-do-codigo'); // "capacidades" já é o nome das capacidades do modelo (visão…) mais abaixo; "roteador" é o do Tev1
 const { jogoDoTexto } = require('../rede/rotas');
 const { gerarPdf } = require('../formatos/pdf-escrita');
 const { YtDlp, pareceMudancaDoYouTube, idDoVideo } = require('../ytdlp');
@@ -1745,56 +1744,19 @@ class Agent extends EventEmitter {
       // da resposta anterior ou, como reserva, pelas palavras do pedido
       const normalizado = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
       const jogoDaConversa = () => jogoDoTexto(normalizado(`${objetivo} ${conversa.slice(-4).map((m) => m.content).join(' ')}`)) || 'aws';
-      deps.executarAcao = (id, { pergunta, modo: modoDoTeste = null, confirmado = false } = {}) => {
-        if (id === 'teste_de_rede') return responderRede({ pergunta, conversa, deps, signal, pedido: pedidoDeRede(pergunta, conversa) || { modo: modoDoTeste || 'completo', confirmado: confirmado || modoDoTeste === 'ping' } });
-        if (id === 'rota_de_jogo') return responderRota({ pergunta, deps, jogo: jogoDaConversa() });
-        if (id === 'trafego_de_rede') return responderTrafego({ pergunta, deps });
-        if (id === 'diagnostico_da_rede') return responderDiagnostico({ pergunta, conversa, deps });
-        if (id === 'ajustes_de_rede') return responderAjuste({ pergunta, conversa, deps, pasta: this.userDataPath });
-        if (id === 'consultar_pc') return responderConsultaPC({ pergunta, deps });
-        return null;
-      };
+      // as rotas que o código responde (rotas-do-codigo.js): a ordem da lista é a prioridade
+      const contexto = (extra = {}) => ({ objetivo, conversa, deps, signal, pasta: this.userDataPath, jogo: jogoDaConversa(), ...extra });
+      deps.executarAcao = (id, { pergunta, modo: modoDoTeste = null, confirmado = false } = {}) => rotas.executar(id, contexto({ objetivo: pergunta, modo: modoDoTeste, confirmado }));
       const aceitou = !investigando && !imagensDoPedido.length && catalogo.aceitouOferta(objetivo, conversa);
-      // "o que você pode fazer?" (19/10): a mesma lista da aba Utilitários, montada pelo código
-      const pedeLista = !investigando && !aceitou && !imagensDoPedido.length && catalogo.pedeOQueFaz(objetivo);
-      const listarUtilitarios = () => {
-        const texto = catalogo.textoDosUtilitarios(catalogo.utilitarios({ instalados: { imagem: !!deps.gerarImagem, youtube: !!deps.buscarNoYoutube } }));
-        deps.emit('resposta-token', { pedaco: texto });
-        return { texto, fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] }, modo: 'utilitarios' };
-      };
-      // rota para jogo (18/10, item 3) antes do teste de rede: "meu ping no PUBG" é de servidor do jogo
-      const pedeRota = !investigando && !aceitou && !imagensDoPedido.length && !pedidoDeAjuste(objetivo, conversa) && pedidoDeRota(objetivo);
-      // ajuste da placa (item 4) antes de tudo: "aplicar" e "desfazer ajustes" dependem da resposta anterior
-      const pedeAjuste = !investigando && !aceitou && !imagensDoPedido.length && pedidoDeAjuste(objetivo, conversa);
-      const pedeRaioX = !investigando && !aceitou && !pedeAjuste && !pedeRota && !imagensDoPedido.length && pedidoDeDiagnostico(objetivo);
-      // consulta ao PC (19/10): "quanto espaço livre meu pc tem?", "qual a marca do meu mouse?"
-      const pedePC = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !imagensDoPedido.length && pedidoDeConsultaPC(objetivo);
-      const pedeTrafego = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !pedePC && !imagensDoPedido.length && pedidoDeTrafego(objetivo);
-      const pedeRede = !investigando && !aceitou && !pedeAjuste && !pedeRota && !pedeRaioX && !pedePC && !pedeTrafego && !imagensDoPedido.length && pedidoDeRede(objetivo, conversa);
-      // leitura livre do PC (19/10): chipset, drivers, registro, políticas, adaptador… o que as consultas fixas não cobrem
-      const pedeLeitura = !investigando && !aceitou && !pedeLista && !pedeAjuste && !pedeRota && !pedeRaioX && !pedePC && !pedeTrafego && !pedeRede && !imagensDoPedido.length && pedidoDeLeituraLivre(objetivo);
-      const pelaPesquisa = () => nucleo.responder({ pergunta: aceitou?.id === 'pesquisa' ? aceitou.pergunta : objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido });
-      const r = pedeLista
-        ? listarUtilitarios()
-        : aceitou && aceitou.id !== 'pesquisa'
-        ? await deps.executarAcao(aceitou.id, { pergunta: objetivo, modo: aceitou.modo, confirmado: true })
+      const escolha = !investigando && !aceitou && !imagensDoPedido.length ? rotas.escolherRota(contexto()) : null;
+      const pelaPesquisa = async () => ({ ...(await nucleo.responder({ pergunta: aceitou?.id === 'pesquisa' ? aceitou.pergunta : objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido })), rota: 'pesquisa' });
+      const r = aceitou && aceitou.id !== 'pesquisa'
+        ? (await deps.executarAcao(aceitou.id, { pergunta: objetivo, modo: aceitou.modo, confirmado: true })) || (await pelaPesquisa())
         : investigando
-        ? await investigar({ pergunta: objetivo, conversa, minutos: Number(cfg.minutosDeInvestigacao) || 10, tamanho: cfg.modoResposta || 'normal', deps })
-        : pedeAjuste
-          ? await responderAjuste({ pergunta: objetivo, conversa, deps, pasta: this.userDataPath, pedido: pedeAjuste })
-          : pedeRota
-          ? await responderRota({ pergunta: objetivo, deps })
-          : pedeRaioX
-          ? await responderDiagnostico({ pergunta: objetivo, conversa, deps })
-          : pedePC
-          ? await responderConsultaPC({ pergunta: objetivo, deps, ids: pedePC.ids })
-          : pedeTrafego
-            ? await responderTrafego({ pergunta: objetivo, deps })
-            : pedeRede
-            ? await responderRede({ pergunta: objetivo, conversa, deps, signal })
-            : pedeLeitura
-            ? (await responderLeituraLivre({ pergunta: objetivo, conversa, deps })) || (await pelaPesquisa())
-            : await pelaPesquisa();
+        ? { ...(await investigar({ pergunta: objetivo, conversa, minutos: Number(cfg.minutosDeInvestigacao) || 10, tamanho: cfg.modoResposta || 'normal', deps })), rota: 'investigacao' }
+        : escolha
+        ? (await rotas.responderPelaRota(contexto(), escolha)) || (await pelaPesquisa())
+        : await pelaPesquisa();
       // o relatório completo vira PDF na pasta de trabalho, anexado à resposta
       let relatorioPdf = null;
       if (r.relatorio) {
@@ -1865,7 +1827,7 @@ class Agent extends EventEmitter {
         ? `${comVideos}\n\n${relatorioPdf ? `**Relatório completo em PDF:** \`${relatorioPdf}\` — ${r.secoes.length} partes, ${r.fontes.length} fontes, ${Math.max(1, Math.round(r.gastoS / 60))} min de pesquisa${r.interrompida ? ' (interrompida antes do fim)' : ''}.` : ''}`
         : comVideos;
       const final = r.fontes.length ? `${comRelatorio}\n\n---\n**Fontes**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comRelatorio;
-      this.emit('nucleo-fim', { modo, ms: Date.now() - inicio, fontes: r.fontes.length, entendimento: r.entendimento });
+      this.emit('nucleo-fim', { modo, rota: r.rota || 'pesquisa', ms: Date.now() - inicio, fontes: r.fontes.length, entendimento: r.entendimento });
       await this.fotografarModelos();
       this.emit('concluido', { resumo: final, resposta: true, iteracoes: 0, uso: this.uso, verificacao: null, confianca: null });
       this.rodando = false;
