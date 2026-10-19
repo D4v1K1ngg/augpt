@@ -141,12 +141,14 @@ function criarJanela() {
   });
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  // abre maximizada (19/10, pedido do Davi) — ou como estava quando foi fechada da última vez
+  const maximizada = config?.data?.janelaMaximizada !== false;
   // abertura (19/10): a caixa pequena que cresce até virar a janela; desligável em Ajustes → Geral.
   // Só na primeira janela do app (reabrir pelo Dock/atalho não repete a animação)
   if (config?.data?.animacaoDeAbertura !== false && !aberturaJaRodou && !process.argv.includes('--sem-abertura')) {
     aberturaJaRodou = true;
-    require('./abertura').abrirComAbertura(win, { mudo: config.data.somDaAbertura === false });
-  } else win.once('ready-to-show', () => win.show());
+    require('./abertura').abrirComAbertura(win, { mudo: config.data.somDaAbertura === false, maximizada });
+  } else win.once('ready-to-show', () => (maximizada ? win.maximize() : win.show()));
   if (process.argv.includes('--dev')) win.webContents.openDevTools({ mode: 'detach' });
 
   // A janela nunca navega para fora do app.
@@ -161,6 +163,12 @@ function criarJanela() {
   // este handler roda (fechandoComLimpeza já true, disparado pela própria
   // função de limpeza no final), deixa fechar de verdade.
   win.on('close', (event) => {
+    // lembra se estava maximizada, para abrir do mesmo jeito da próxima vez
+    try {
+      if (!fechandoComLimpeza && config) config.save({ janelaMaximizada: win.isMaximized() });
+    } catch {
+      /* sem gravar: abre maximizada, que é o padrão */
+    }
     if (fechandoComLimpeza) return;
     event.preventDefault();
     encerrarModelosEFechar();

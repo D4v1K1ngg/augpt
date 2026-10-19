@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('path');
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, screen } = require('electron');
 
 /**
  * Abertura do AuGPT (19/10, pedido do Davi: "iniciar igual o Opera GX — abrir
@@ -18,8 +18,9 @@ const { BrowserWindow } = require('electron');
  * Travas: clique ou Esc pulam (renderer/intro.js); se a página travar ou cair,
  * a principal aparece em 12 s de qualquer jeito.
  */
-function abrirComAbertura(win, { mudo = false } = {}) {
-  const { x, y, width, height } = win.getBounds();
+function abrirComAbertura(win, { mudo = false, maximizada = false } = {}) {
+  // maximizada (19/10): a caixa cresce até a área da tela (sem a barra de tarefas), onde a janela vai abrir
+  const { x, y, width, height } = maximizada ? screen.getDisplayMatching(win.getBounds()).workArea : win.getBounds();
   const abertura = new BrowserWindow({
     x,
     y,
@@ -47,7 +48,8 @@ function abrirComAbertura(win, { mudo = false } = {}) {
   const mostrarPrincipal = () => {
     if (mostrada || !principalPronta || !revelar || win.isDestroyed()) return;
     mostrada = true;
-    win.show();
+    if (maximizada) win.maximize(); // maximize() também mostra a janela
+    else win.show();
     if (!abertura.isDestroyed()) abertura.moveTop(); // a abertura continua por cima enquanto some
   };
   const fechar = () => {
