@@ -229,6 +229,8 @@ function criarTurno(pedido) {
     </div>
     <details class="atividade" open hidden>
       <summary>Atividade do agente <span class="atividade-resumo"></span></summary>
+      <!-- 20/10: a esfera neural (renderer/esfera.js), enquanto o agente trabalha -->
+      <div class="live"><div class="live-sw" role="group" aria-label="Esfera neural"></div><canvas aria-hidden="true"></canvas><p class="live-cap"></p></div>
       <ol class="atividade-etapas"></ol>
       <div class="atividade-sites" hidden>
         <div class="atividade-rotulo">Sites consultados</div>
@@ -267,6 +269,15 @@ function criarTurno(pedido) {
   // passos, tokens, tempo e contexto acompanham a resposta em andamento (são
   // os mesmos elementos de sempre, só mudam de lugar a cada pedido)
   dele.querySelector('.turno-medidores').appendChild(blocoDeMedidores);
+  // a esfera neural: o estado que ela desenha (etapas, sites, raciocínio) é alimentado pelos
+  // eventos do cartão de atividade (app-eventos.js: etapaDaAtividade, siteConsultado, atividade)
+  turno.esferaT = { steps: [], sites: [], sa: [], sat: [], think: [], lastThought: '', total: 4, t0: Date.now(), ended: false, kind: null, ms: 0 };
+  try {
+    turno.esfera = window.Esfera?.criar(turno.esferaT, dele, { act: turno.atividade }) || null;
+  } catch (err) {
+    console.error('esfera', err);
+    turno.esfera = null;
+  }
   agente.turno = turno;
   rolar(el.aRolagem, true);
   return turno;

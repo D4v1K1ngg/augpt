@@ -22,6 +22,8 @@ async function carregarConfig() {
   el.caminho.title = config.workspace || '';
   aplicarLateral(config.lateralAberta !== false);
   aplicarPainelDireito(config.painelDireitoAberto === true);
+  window.Esfera?.padrao(config.esferaModoPadrao || 'alto');
+  if ($('cfgEsferaModo') && window.Esfera) $('cfgEsferaModo').value = window.Esfera.modo();
   atualizarAvisoNivelExtremo();
 }
 
@@ -1456,4 +1458,12 @@ $('btnTestarOllama').addEventListener('click', async () => {
 $('btnOllamaLocal').addEventListener('click', async () => {
   await usarServidorOllama('http://127.0.0.1:11434');
   mostrarRedeOllama('O AuGPT voltou a usar o Ollama deste computador.');
+});
+
+
+/* ------------------- esfera neural (20/10): o modo e a janela de ajustes ------------------- */
+$('cfgEsferaModo').addEventListener('change', (e) => window.Esfera?.definirModo(e.target.value));
+$('btnAjustarEsfera').addEventListener('click', (e) => window.Esfera?.abrirAjustes(e.currentTarget));
+window.addEventListener('esfera-ajustada', () => {
+  if (window.Esfera) $('cfgEsferaModo').value = window.Esfera.modo();
 });

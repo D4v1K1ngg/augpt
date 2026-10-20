@@ -69,6 +69,7 @@ function pintar() {
           h('li', {}, h('span', {}, 'Espaço livre'), c.discoLivreGB != null ? `${gb(c.discoLivreGB)} (disco dos modelos)` : '—')
         ),
         ...rec.avisos.map((a) => h('p', { class: 'bv-aviso' }, `⚠ ${a}`)),
+        ...(e.esfera?.modo === 'off' ? [h('p', { class: 'bv-aviso' }, `⚠ A esfera neural (a animação enquanto o agente trabalha) vem desligada: ${e.esfera.motivo}. Dá para ligar em Ajustes → Geral, por sua conta.`)] : []),
       ],
     })
   );

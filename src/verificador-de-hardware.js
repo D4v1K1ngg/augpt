@@ -168,4 +168,18 @@ async function testarAceleracao({ host, modelo, buscar = (...a) => fetch(...a), 
   return { modelo, naPlaca, tokensPorSegundo, carregouEmS: r.load_duration ? Math.round(r.load_duration / 1e8) / 10 : null, veredito };
 }
 
-module.exports = { testarAceleracao, placaAntiga, PLACA_AMD_ANTIGA, verificarComputador, detectarGpus, lerGpusNvidiaSmi, lerGpusDoRegistro, recomendarModelos, espacoLivreGB, pastaDosModelos, MODELOS, EMBEDDING };
+/**
+ * Esfera neural (20/10): o modo Alto desenha em WebGL com bloom a 45 quadros por segundo, na mesma
+ * placa que o Ollama usa para gerar a resposta. Em hardware fraco ela vem DESLIGADA (o usuário liga
+ * em Ajustes → Geral, se quiser): sem placa de vídeo com pelo menos 4 GB, ou uma AMD antiga
+ * (RX 580 e afins, que rodam o modelo pelo Vulkan e já estão no limite).
+ */
+function esferaRecomendada(computador = {}) {
+  const vram = Number(computador.vramGB) || 0;
+  const gpus = computador.gpus || [];
+  if (!gpus.length || vram < 4) return { modo: 'off', motivo: 'sem placa de vídeo com pelo menos 4 GB, a esfera neural disputaria a placa com o modelo de IA' };
+  if (placaAntiga(gpus, vram)) return { modo: 'off', motivo: 'a placa de vídeo é de uma geração antiga e já fica no limite com o modelo de IA' };
+  return { modo: 'alto', motivo: '' };
+}
+
+module.exports = { esferaRecomendada, testarAceleracao, placaAntiga, PLACA_AMD_ANTIGA, verificarComputador, detectarGpus, lerGpusNvidiaSmi, lerGpusDoRegistro, recomendarModelos, espacoLivreGB, pastaDosModelos, MODELOS, EMBEDDING };

@@ -285,6 +285,57 @@ html[data-theme="light"] .btn-tema .lua, html:not([data-theme="light"]) .btn-tem
   .slide, .slide .a { transition: none !important; animation: none !important; opacity: 1; transform: none; }
 }
 
+/* ------------------------------ esfera neural (fase 3) ------------------------------ */
+.live { position: relative; border-top: 1px solid var(--line); background: radial-gradient(70% 120% at 50% 0%, color-mix(in srgb, var(--gold) 8%, transparent), transparent 72%); }
+.live-sw { display: flex; align-items: center; gap: 2px; padding: 8px 12px 8px; }
+.live-t { color: var(--muted); font-size: 11.5px; padding-left: 2px; }
+.live-sp { flex: 1; }
+.live-sw button { flex: none; display: inline-flex; align-items: center; border: 1px solid var(--line) !important; background: none; padding: 3px 9px; border-radius: 8px; color: var(--muted); font: inherit; font-size: 11.5px; white-space: nowrap; cursor: pointer; }
+.live-sw button:hover { color: var(--text-forte); }
+.live-cfg .ic { width: 14px; height: 14px; margin-right: 6px; }
+.live canvas { display: block; width: calc(100% - 24px); margin: 0 12px; height: 330px; border-radius: 14px; background: #04050a; cursor: grab; touch-action: pan-y; }
+.live canvas:active { cursor: grabbing; }
+.live-cap { margin: 0; padding: 8px 14px 10px; min-height: 32px; color: var(--muted); font-size: 12.5px; line-height: 1.5; text-wrap: pretty; }
+.msg.turno:has(.btn-linha.parar:not([hidden])) .live-cap::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: var(--gold); vertical-align: 1px; animation: au-pulso 1.2s ease-in-out infinite; }
+@media (max-width: 860px) { .live canvas { height: 280px; width: calc(100% - 20px); margin: 0 10px; } .live-sw { padding: 8px 10px; } }
+/* janela "Configurações do nó" */
+.orbcfg { width: min(920px, 94vw); max-height: min(740px, 92vh); padding: 0; border: 1px solid var(--line-forte); border-radius: 20px; background: var(--panel); color: var(--text); box-shadow: 0 40px 100px -30px rgba(0, 0, 0, .8); overflow: hidden; }
+.orbcfg[open] { display: flex; flex-direction: column; }
+.orbcfg::backdrop { background: rgba(4, 6, 5, .62); backdrop-filter: blur(3px); }
+.orbcfg .ic { width: 18px; height: 18px; flex: none; }
+.orbcfg .ibtn { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; }
+.orbcfg .ibtn:hover { color: var(--text-forte); background: var(--panel-2); }
+.oc-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 12px 20px; border-bottom: 1px solid var(--line); }
+.oc-head h2 { margin: 0; font: 500 18px/1.2 var(--serif); color: var(--text-forte); letter-spacing: -.01em; }
+.oc-body { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); min-height: 0; overflow: auto; }
+.oc-prev { padding: 16px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; align-self: start; }
+.oc-prev .live { border: 1px solid var(--line); border-radius: 16px; padding: 10px 0 0; }
+.oc-prev .live canvas { height: 300px; }
+.oc-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.oc-acts button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line-forte); background: var(--panel-2); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; }
+.oc-acts button:hover { border-color: var(--gold); color: var(--text-forte); }
+.oc-form { padding: 12px 20px 20px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.oc-tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+.oc-tabs button { flex: none; padding: 8px 12px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; }
+.oc-tabs button:hover { color: var(--text-forte); }
+.oc-tabs button[aria-selected="true"] { color: var(--text-forte); border-bottom-color: var(--gold); }
+.oc-panel { display: flex; flex-direction: column; gap: 14px; min-height: 300px; }
+.oc-r { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 13px; color: var(--text); }
+.oc-r output { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+.oc-r input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--gold); margin: 0; }
+.oc-sel select { grid-column: 1 / -1; padding: 6px 8px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line-forte); color: var(--text); font: inherit; }
+.oc-c { display: flex; gap: 10px; align-items: center; font-size: 13px; cursor: pointer; }
+.oc-c input { accent-color: var(--gold); width: 16px; height: 16px; margin: 0; }
+.oc-sw { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.oc-swb { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.oc-swb i { width: 38px; height: 20px; border-radius: 6px; }
+.oc-swb[aria-checked="true"], .oc-modes button[aria-checked="true"] { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); color: var(--text-forte); }
+.oc-modes { display: grid; gap: 8px; }
+.oc-modes button { text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--muted); display: grid; gap: 2px; font: inherit; font-size: 12.5px; line-height: 1.4; cursor: pointer; }
+.oc-modes b { color: var(--text-forte); font-size: 13.5px; font-weight: 600; }
+.oc-note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; text-wrap: pretty; }
+@media (max-width: 760px) { .oc-body { grid-template-columns: 1fr; } .oc-prev { border-right: 0; border-bottom: 1px solid var(--line); } .oc-prev .live canvas { height: 230px; } .oc-panel { min-height: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   .composer-caixa::before { display: none; }
   .composer-caixa:focus-within { border-color: var(--gold); }
