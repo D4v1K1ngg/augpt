@@ -260,17 +260,34 @@
   <section class="conversa" id="viewAgente">
     <div class="conversa-rolagem" id="agenteRolagem">
       <div class="conversa-abertura" id="agenteAbertura">
-        <h1>O que você precisa?</h1>
-        <p>Peça e o agente decide os passos sozinho: pesquisa, lê páginas e documentos, cria arquivos, roda comandos. Cada decisão fica registrada e você pode abrir o raciocínio a qualquer momento.</p>
-        <div class="modo-do-agente" id="modoDoAgente" role="group" aria-label="Como o agente responde">
-          <button type="button" data-modo="automatico" title="O agente escolhe: produto pesquisa a fundo, o resto pesquisa normal">Automático</button>
-          <button type="button" data-modo="rapido" title="Uma ou duas buscas e a resposta em segundos">Rápido</button>
-          <button type="button" data-modo="normal" title="Várias buscas e leituras (pelo menos 2 buscas)">Normal</button>
-          <button type="button" data-modo="profundo" title="Pesquisa de vários ângulos: pelo menos 5 buscas e até 10 páginas lidas. Mais lento">Profundo</button>
-          <button type="button" data-modo="investigacao" title="Você dá o tempo e o AuGPT pesquisa o tema por partes até ele acabar; entrega um resumo aqui e o relatório completo em PDF">Investigação</button>
-          <label class="tempo-investigacao" id="tempoInvestigacao" hidden title="Quanto tempo o AuGPT pode pesquisar">
-            <input type="number" id="minutosInvestigacao" min="2" max="180" step="1" aria-label="Minutos de investigação" /> min
-          </label>
+        <!-- 20/10 (fase 2 da identidade "Au"): o cartão com o carrossel dos recursos (renderer/abertura-deck.js) -->
+        <div class="deck" id="deckAbertura" role="region" aria-roledescription="carrossel" aria-label="Recursos do AuGPT">
+          <header class="deck-head">
+            <h1>O que você precisa?</h1>
+            <p class="lede">Descreva a tarefa. O agente decide os passos e roda no seu computador.</p>
+          </header>
+          <div class="deck-corpo">
+            <div class="deck-stage" id="deckPalco"><div class="slides" id="deckSlides" aria-live="off"></div></div>
+            <div class="deck-ctl">
+              <button type="button" class="cbtn" id="deckAnterior" aria-label="Recurso anterior"><svg viewBox="0 0 24 24" class="ic" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg></button>
+              <div class="tabs" id="deckTabs" role="tablist" aria-label="Recursos"></div>
+              <button type="button" class="cbtn" id="deckProximo" aria-label="Próximo recurso"><svg viewBox="0 0 24 24" class="ic" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
+              <button type="button" class="cbtn" id="deckPlay" aria-label="Pausar a rotação"></button>
+            </div>
+          </div>
+          <div class="deck-foot">
+            <span class="foot-l">Pesquisa</span>
+          <div class="modo-do-agente" id="modoDoAgente" role="group" aria-label="Como o agente responde">
+            <button type="button" data-modo="automatico" title="O agente escolhe: produto pesquisa a fundo, o resto pesquisa normal">Automático</button>
+            <button type="button" data-modo="rapido" title="Uma ou duas buscas e a resposta em segundos">Rápido</button>
+            <button type="button" data-modo="normal" title="Várias buscas e leituras (pelo menos 2 buscas)">Normal</button>
+            <button type="button" data-modo="profundo" title="Pesquisa de vários ângulos: pelo menos 5 buscas e até 10 páginas lidas. Mais lento">Profundo</button>
+            <button type="button" data-modo="investigacao" title="Você dá o tempo e o AuGPT pesquisa o tema por partes até ele acabar; entrega um resumo aqui e o relatório completo em PDF">Investigação</button>
+            <label class="tempo-investigacao" id="tempoInvestigacao" hidden title="Quanto tempo o AuGPT pode pesquisar">
+              <input type="number" id="minutosInvestigacao" min="2" max="180" step="1" aria-label="Minutos de investigação" /> min
+            </label>
+          </div>
+          </div>
         </div>
         <!-- Fase 2 (facilidade de uso, 2026-09-23): guia de primeira execução.
              Só aparece enquanto falta algo (Ollama, ou um modelo de conversa) —
@@ -305,11 +322,6 @@
             </li>
           </ol>
         </section>
-        <ul class="exemplos">
-          <li>Qual a previsão do tempo para Vitória-ES nesta semana?</li>
-          <li>Analise o boleto que anexei e me diga o que muda se eu atrasar</li>
-          <li>Compare 3 IEMs para FPS e gere uma planilha com o comparativo</li>
-        </ul>
       </div>
       <div id="agenteMensagens"></div>
     </div>
@@ -1077,6 +1089,7 @@
 <script src="app-abas.js"></script>
 <script src="app-ajustes.js"></script>
 <script src="app-historico.js"></script>
+<script src="abertura-deck.js"></script>
 <script src="boas-vindas.js"></script>
 </body>
 </html>

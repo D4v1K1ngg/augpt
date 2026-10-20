@@ -645,7 +645,7 @@ function pintarPrimeiroUso(d) {
   if (!painel) return;
   const pronto = d.etapa === 'pronto';
   painel.hidden = pronto;
-  const exemplos = el.aAbertura.querySelector('.exemplos');
+  const exemplos = el.aAbertura.querySelector('.deck-corpo');
   if (exemplos) exemplos.hidden = !pronto;
   if (pronto) return;
 
