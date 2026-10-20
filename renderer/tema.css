@@ -1,0 +1,193 @@
+/* =========================================================================
+   AuGPT — identidade visual "Au" (20/10, a partir da referência do Davi:
+   augpt-chat-esfera.html). Au é o símbolo do ouro: a marca é uma casa da
+   tabela periódica em metal dourado, o único elemento chamativo; o resto fica
+   quieto — grafite esverdeado, filetes finos e títulos com serifa.
+
+   Carregado DEPOIS do styles.css: troca os tokens (todo o app já usa as
+   variáveis) e restiliza os componentes principais. Tema claro em
+   html[data-theme="light"] (renderer/tema.js escolhe e guarda).
+   ========================================================================= */
+
+@property --ang { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+
+:root {
+  --void: #101311;
+  --rail: #0c0f0d;
+  --panel: #161a17;
+  --panel-2: #1d221e;
+  --line: #262d28;
+  --line-forte: #35403a;
+  --line-viva: #4a564f;
+  --text: #d6dad2;
+  --text-forte: #f4f5ef;
+  --muted: #8c9489;
+  --fraco: #78827b;
+
+  --amber: #e0b04f; /* o "âmbar" de sempre agora é o ouro */
+  --gold: #e0b04f;
+  --gold-hi: #f6d98a;
+  --gold-lo: #8f5f12;
+  --on-gold: #2a1c04;
+  --ingot: linear-gradient(135deg, #f6d98a 0%, #d9a43c 46%, #8f5f12 100%);
+  --cyan: #5cc4d6;
+  --green: #5fbf8b;
+  --red: #ea6b5e;
+  --violet: #a493ec;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --r: 9px;
+  --r-g: 14px;
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  --void: #f6f5ef;
+  --rail: #eeece4;
+  --panel: #fffdf8;
+  --panel-2: #efede5;
+  --line: #dfdcd0;
+  --line-forte: #c9c5b6;
+  --line-viva: #ada897;
+  --text: #2d322d;
+  --text-forte: #121512;
+  --muted: #626a60;
+  --fraco: #747c72;
+  --amber: #8f5b05;
+  --gold: #8f5b05;
+  --gold-hi: #c58a1f;
+  --cyan: #12788a;
+  --green: #1b7f4e;
+  --red: #c4372a;
+  --violet: #5b45c2;
+  color-scheme: light;
+}
+
+html, body { font-size: 14px; line-height: 1.6; }
+::selection { background: color-mix(in srgb, var(--gold) 30%, transparent); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-thumb { background: var(--line-forte); border-radius: 10px; border: 3px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ------------------------------ a marca: a casa "Au" da tabela periódica ------------------------------ */
+.tile {
+  position: relative; flex: none; display: grid; place-items: center; overflow: hidden;
+  width: 32px; height: 32px; border-radius: 9px; background: var(--ingot); color: var(--on-gold);
+  font-family: var(--serif); box-shadow: 0 1px 0 rgba(255, 255, 255, .4) inset, 0 2px 6px rgba(0, 0, 0, .35);
+}
+.tile .sym { font-size: 15px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
+.marca { align-items: center; gap: 10px; padding: 2px 4px 4px; letter-spacing: 0; }
+.marca b { font: 600 17px/1 var(--serif); color: var(--text-forte); letter-spacing: -.01em; }
+.marca-sub { margin-left: auto; padding: 0; border: 0; font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--muted); }
+.msg.ia.turno .msg-quem::before {
+  content: "Au"; display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 9px; vertical-align: middle;
+  border-radius: 6px; background: var(--ingot); color: var(--on-gold); font: 600 11px/1 var(--serif); letter-spacing: 0; text-transform: none;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .35) inset;
+}
+.msg.turno:has(.btn-linha.parar:not([hidden])) .msg-quem::before { animation: au-pulso 1.7s ease-in-out infinite; }
+@keyframes au-pulso { 0%, 100% { box-shadow: 0 0 0 0 rgba(224, 176, 79, 0); } 50% { box-shadow: 0 0 0 5px rgba(224, 176, 79, .22); } }
+
+/* ------------------------------ barra de cima e lateral ------------------------------ */
+.barra { background: var(--void); border-bottom: 1px solid transparent; }
+.lateral { background: var(--rail); }
+.lateral-direita { background: var(--rail); }
+.secao-atual { color: var(--muted); font-weight: 500; }
+.btn-execucao { background: var(--panel); border-color: var(--line-forte); font-size: 12.5px; }
+.btn-execucao:hover, .btn-execucao[aria-expanded="true"] { border-color: var(--gold); background: var(--panel); }
+.btn-execucao .ponto.ok, .ponto.ok { box-shadow: 0 0 0 3px rgba(95, 191, 139, .16); }
+.painel-execucao { border-radius: 14px; box-shadow: 0 22px 60px rgba(0, 0, 0, .45); }
+.nav-item { border-radius: 9px; font-size: 13px; }
+.nav-item.ativo { background: var(--panel-2); border-color: transparent; border-left: 0; padding-left: 10px; box-shadow: inset 2px 0 0 var(--gold); }
+.nav-item.ativo .nav-icone { color: var(--gold); }
+
+/* ------------------------------ abertura e páginas ------------------------------ */
+.conversa-abertura h1, .pagina-topo h1 { font: 500 clamp(24px, 2.7vw, 30px)/1.15 var(--serif); letter-spacing: -.025em; color: var(--text-forte); }
+.modo-do-agente { border-radius: 12px; }
+.modo-do-agente button.ativo { color: var(--gold); }
+.exemplos li:hover { border-color: var(--gold); }
+.util-grupo { font: 500 12px/1 var(--sans); }
+.util-card { border-radius: 16px; transition: transform .25s var(--ease), border-color .2s, box-shadow .25s; }
+.util-card:hover { transform: translateY(-2px); box-shadow: 0 16px 36px -22px rgba(0, 0, 0, .7); }
+.util-card h3 { font: 500 16px/1.25 var(--serif); }
+.util-icone { color: var(--gold); }
+
+/* ------------------------------ mensagens ------------------------------ */
+.msg-quem { font-size: 10px; letter-spacing: .16em; }
+.msg.ia .msg-quem { color: var(--gold); }
+.msg.eu { display: flex; flex-direction: column; align-items: flex-end; }
+.msg.eu .msg-quem { display: none; }
+.msg.eu .msg-corpo {
+  max-width: min(86%, 600px); background: var(--panel-2); border: 1px solid var(--line); border-left: 1px solid var(--line);
+  border-radius: 18px 18px 5px 18px; padding: 10px 15px; white-space: pre-wrap;
+}
+.msg-corpo { font-size: 14.5px; line-height: 1.75; }
+.msg-corpo h2 { font: 500 23px/1.25 var(--serif); letter-spacing: -.015em; margin: 26px 0 12px; }
+.msg-corpo h3 { font: 500 19px/1.3 var(--serif); margin: 24px 0 10px; }
+.msg-corpo h4, .msg-corpo h5 { color: var(--text-forte); font-size: 14px; }
+.msg-corpo a { color: var(--cyan); border-bottom-color: color-mix(in srgb, var(--cyan) 35%, transparent); }
+.msg-corpo code { color: var(--gold); background: var(--panel-2); border-color: var(--line); border-radius: 5px; }
+.msg-corpo pre.bloco-codigo { border-radius: 12px; background: var(--panel); border-color: var(--line); }
+.msg-corpo table { border-collapse: separate; border-spacing: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 13px; }
+.msg-corpo th, .msg-corpo td { border: 0; border-bottom: 1px solid var(--line); padding: 8px 12px; }
+.msg-corpo tr:last-child td { border-bottom: 0; }
+.msg-corpo th { background: var(--panel-2); color: var(--muted); }
+.msg-corpo h4 + .md-figura, .msg-corpo .md-figura img { border-radius: 12px; }
+
+/* cartão "Atividade do agente" */
+.atividade { border-radius: 14px; background: var(--panel); }
+.atividade > summary { font-size: 13px; }
+.atividade-etapas .atual .marca { border-color: var(--gold); border-top-color: transparent; }
+.atividade-site { border-radius: 999px; border: 1px solid var(--line-forte); background: var(--panel-2); padding: 3px 10px 3px 4px; }
+.atividade-site i { border-radius: 50%; background: var(--line-forte); border: 0; }
+.atividade .detalhe > summary { border-radius: 999px; }
+.atividade .detalhe[open] > summary { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 35%, transparent); }
+
+/* ------------------------------ caixa de mensagem: a borda dourada que gira ------------------------------ */
+.composer { padding: 6px 24px 18px; }
+.composer-caixa {
+  position: relative; background: var(--panel); border: 1px solid var(--line-forte); border-radius: 20px;
+  padding: 10px 10px 10px 14px; box-shadow: 0 10px 34px rgba(0, 0, 0, .28);
+}
+.composer-caixa::before {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1.5px; pointer-events: none; opacity: 0; transition: opacity .3s;
+  background: conic-gradient(from var(--ang), transparent 0 52%, var(--gold) 74%, var(--gold-hi) 86%, transparent 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.composer-caixa:focus-within { border-color: transparent; box-shadow: 0 10px 34px rgba(0, 0, 0, .32); }
+.composer-caixa:focus-within::before, .composer-caixa:has(.btn-enviar.parando)::before { opacity: 1; animation: au-orbita 5s linear infinite; }
+@keyframes au-orbita { to { --ang: 360deg; } }
+.composer-caixa textarea { font-size: 15px; }
+.btn-enviar { width: 36px; height: 36px; border-radius: 11px; background: var(--ingot); color: var(--on-gold); transition: transform .15s var(--ease), filter .15s; }
+.btn-enviar:hover { background: var(--ingot); filter: brightness(1.08); transform: translateY(-1px); }
+.btn-enviar.parando { background: var(--red); color: #1b0c0a; }
+.btn-anexo { border-radius: 9px; }
+.modo-caixa { border-radius: 9px; height: 32px; }
+
+/* ------------------------------ botões e diálogos ------------------------------ */
+.btn-primario { background: var(--ingot); border-color: transparent; color: var(--on-gold); }
+.btn-primario:hover { background: var(--ingot); filter: brightness(1.08); }
+.btn-secundario:hover, .btn-icone:hover, .bm-sugestao:hover { background: var(--panel-2); border-color: var(--line-viva); }
+
+#btnPainelDireito { margin-left: auto; }
+/* ------------------------------ coluna da direita recolhida (padrão) ------------------------------ */
+body.sem-direita .lateral-direita { display: none !important; }
+.btn-tema.ativo { color: var(--gold); }
+
+/* ------------------------------ botão de tema ------------------------------ */
+.btn-tema {
+  margin-left: 0; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px;
+  border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer;
+}
+.btn-tema:hover { color: var(--text-forte); background: var(--panel-2); }
+.btn-tema svg { width: 18px; height: 18px; }
+html[data-theme="light"] .btn-tema .lua, html:not([data-theme="light"]) .btn-tema .sol { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-caixa::before { display: none; }
+  .composer-caixa:focus-within { border-color: var(--gold); }
+  .msg.turno .msg-quem::before { animation: none !important; }
+}

@@ -374,6 +374,19 @@ async function alternarLateral() {
 
 $('btnLateral').addEventListener('click', alternarLateral);
 
+// coluna da direita (Progresso, Arquivos, Parágrafos), 20/10: recolhida por padrão — o cartão de
+// atividade já mostra o progresso; o botão do topo abre, e a escolha fica guardada
+function aplicarPainelDireito(aberto) {
+  document.body.classList.toggle('sem-direita', !aberto);
+  $('btnPainelDireito').setAttribute('aria-expanded', String(aberto));
+  $('btnPainelDireito').classList.toggle('ativo', aberto);
+}
+$('btnPainelDireito').addEventListener('click', async () => {
+  const aberto = document.body.classList.contains('sem-direita');
+  aplicarPainelDireito(aberto);
+  config = await api.config.set({ painelDireitoAberto: aberto });
+});
+
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
     e.preventDefault();

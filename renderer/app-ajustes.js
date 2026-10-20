@@ -21,6 +21,7 @@ async function carregarConfig() {
   el.caminho.textContent = config.workspace || '—';
   el.caminho.title = config.workspace || '';
   aplicarLateral(config.lateralAberta !== false);
+  aplicarPainelDireito(config.painelDireitoAberto === true);
   atualizarAvisoNivelExtremo();
 }
 
