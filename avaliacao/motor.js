@@ -670,11 +670,15 @@ async function executarCasoAgente(caso, opcoes = {}) {
     obtido.aprovacoesPedidas.push(d.nome);
     if (d.critica) obtido.criticasRecebidas.push({ nome: d.nome, critica: d.critica });
     aprovacoesPendentes.set(d.id, d.nome);
-    setTimeout(() => agente.responder(d.id, caso.aprovar === false ? 'negar' : 'aprovar'), 20);
+    const responder = () => aprovacoesPendentes.has(d.id) && agente.responder(d.id, caso.aprovar === false ? 'negar' : 'aprovar');
+    // caso que espera a segunda opinião: aprova quando ela chega (até 3 s) — os 20 ms não bastavam
+    // na máquina do GitHub Actions (21/10: a crítica chegou depois e o caso falhou de vez em quando)
+    setTimeout(responder, caso.espera?.criticaPedida && !d.critica ? 3000 : 20);
   });
   agente.on('aprovacao-critica', (d) => {
     const nome = aprovacoesPendentes.get(d.id);
     if (nome) obtido.criticasRecebidas.push({ nome, critica: d.critica });
+    if (nome && caso.espera?.criticaPedida) setTimeout(() => aprovacoesPendentes.has(d.id) && agente.responder(d.id, caso.aprovar === false ? 'negar' : 'aprovar'), 0);
   });
 
   const inicio = Date.now();
