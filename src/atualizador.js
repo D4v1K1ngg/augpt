@@ -13,7 +13,9 @@ const fs = require('fs');
 const path = require('path');
 
 const REPO = 'D4v1K1ngg/augpt';
-const RELEASES = `https://api.github.com/repos/${REPO}/releases/latest`;
+// o latest.yml da Release mais nova é um download comum do GitHub: sem o limite de 60 consultas
+// por hora da API (que vale por endereço de internet e acabava em provedores que dividem o IP)
+const BASE = `https://github.com/${REPO}/releases`;
 
 /** "v0.28.0" é mais nova que "0.27.0"? (só números; "-beta" e afins são ignorados) */
 function maisNova(nova, atual) {
@@ -23,41 +25,40 @@ function maisNova(nova, atual) {
   return false;
 }
 
-/** O que o latest.yml diz do instalador: nome, SHA-512 (base64) e tamanho. */
+/** O que o latest.yml diz: versão e o instalador (nome, SHA-512 em base64, tamanho). */
 function lerLatestYml(texto) {
   const t = String(texto || '');
+  const versao = /^version:\s*['"]?([^\s'"]+)/m.exec(t)?.[1];
   const caminho = /^path:\s*(\S+)\s*$/m.exec(t)?.[1];
   const sha512 = /^sha512:\s*(\S+)\s*$/m.exec(t)?.[1];
   const tamanho = Number(/^\s+size:\s*(\d+)\s*$/m.exec(t)?.[1]) || null;
-  return caminho && sha512 ? { caminho, sha512, tamanho } : null;
+  return versao && caminho && sha512 ? { versao, caminho, sha512, tamanho } : null;
 }
 
-const pedir = (buscar, url, ms) => buscar(url, { signal: AbortSignal.timeout(ms), headers: { 'User-Agent': 'AuGPT', Accept: 'application/vnd.github+json' } });
+const pedir = (buscar, url, ms) => buscar(url, { signal: AbortSignal.timeout(ms), headers: { 'User-Agent': 'AuGPT' }, redirect: 'follow' });
 
 /** A versão publicada mais nova e se ela é mais nova que a instalada. */
 async function verificar({ atual, buscar = (...a) => fetch(...a) } = {}) {
-  const r = await pedir(buscar, RELEASES, 10000);
+  const r = await pedir(buscar, `${BASE}/latest/download/latest.yml`, 15000);
   if (r.status === 404) return { disponivel: false, atual, versao: null, motivo: 'nenhuma versão publicada ainda' };
   if (!r.ok) throw new Error(`o GitHub respondeu HTTP ${r.status}`);
-  const j = await r.json();
-  const url = (teste) => j.assets?.find((a) => teste(a.name))?.browser_download_url || null;
-  const versao = String(j.tag_name || '').replace(/^v/, '');
+  const yml = lerLatestYml(await r.text());
+  if (!yml) throw new Error('não consegui ler o latest.yml da versão mais nova');
+  const tag = `v${yml.versao}`;
   return {
     atual,
-    versao,
-    disponivel: maisNova(versao, atual),
-    notas: String(j.body || '').slice(0, 4000),
-    pagina: j.html_url || `https://github.com/${REPO}/releases`,
-    instalador: url((n) => /\.exe$/i.test(n)),
-    latestYml: url((n) => n === 'latest.yml'),
+    versao: yml.versao,
+    disponivel: maisNova(yml.versao, atual),
+    pagina: `${BASE}/tag/${tag}`,
+    instalador: `${BASE}/download/${tag}/${yml.caminho}`,
+    yml,
   };
 }
 
 /** Baixa o instalador da versão, confere SHA-512 e tamanho e devolve o caminho do .exe. */
 async function baixar(info, { dir, buscar = (...a) => fetch(...a), emitir = () => {} } = {}) {
-  if (!info?.instalador || !info?.latestYml) throw new Error('esta versão não tem o instalador do Windows publicado');
-  const yml = lerLatestYml(await (await pedir(buscar, info.latestYml, 15000)).text());
-  if (!yml) throw new Error('não consegui ler o latest.yml da versão');
+  const yml = info?.yml;
+  if (!info?.instalador || !yml) throw new Error('esta versão não tem o instalador do Windows publicado');
   emitir({ texto: `Baixando o AuGPT ${info.versao}…`, porcento: 0 });
   const r = await pedir(buscar, info.instalador, 15 * 60 * 1000);
   if (!r.ok) throw new Error(`download falhou (HTTP ${r.status})`);
