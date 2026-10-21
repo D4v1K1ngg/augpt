@@ -178,6 +178,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .btn-primario { background: var(--amber); border-color: var(--amber); color: var(--on-gold, #17120a); font-weight: 600; }
 .btn-primario:hover { background: var(--gold-hi, #f2b054); }
+a.btn-secundario { text-decoration: none; display: inline-flex; align-items: center; }
 .btn-secundario:hover, .btn-icone:hover { border-color: var(--line-viva); background: var(--panel-2); color: var(--text-forte); }
 .btn-icone { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); flex: none; }
 .btn-linha { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 11px; padding: 0; }

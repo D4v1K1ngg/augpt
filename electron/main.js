@@ -1332,6 +1332,43 @@ ipcMain.handle('boasVindas:concluir', async (_e, { modelo } = {}) => {
   return config.data;
 });
 
+/* ------------------------------ atualizar o AuGPT (21/10) ------------------------------ */
+// Confere as Releases do GitHub; baixar e instalar só no clique (src/atualizador.js).
+const atualizador = require('../src/atualizador');
+ipcMain.handle('atualizacao:verificar', async () => {
+  try {
+    return { ok: true, empacotado: app.isPackaged, ...(await atualizador.verificar({ atual: app.getVersion() })) };
+  } catch (err) {
+    return { ok: false, error: err.message, atual: app.getVersion() };
+  }
+});
+ipcMain.handle('atualizacao:instalar', async () => {
+  // rodando do código (npm start): quem atualiza é o git pull
+  if (!app.isPackaged) return { ok: false, error: 'o AuGPT está rodando do código-fonte — atualize com "git pull" na pasta do projeto' };
+  try {
+    const info = await atualizador.verificar({ atual: app.getVersion() });
+    if (!info.disponivel) return { ok: false, error: 'você já está na versão mais nova' };
+    const exe = await atualizador.baixar(info, { dir: path.join(app.getPath('temp'), 'augpt-atualizacao'), emitir: (p) => enviar('atualizacao-progresso', p) });
+    // o instalador (NSIS) troca os arquivos com o app fechado e abre a versão nova no fim
+    require('child_process').spawn(exe, [], { detached: true, stdio: 'ignore' }).unref();
+    setTimeout(() => app.quit(), 800);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+function procurarAtualizacaoAoAbrir() {
+  if (!app.isPackaged || config.data.procurarAtualizacoes === false) return;
+  setTimeout(async () => {
+    try {
+      const info = await atualizador.verificar({ atual: app.getVersion() });
+      if (info.disponivel && info.versao !== config.data.atualizacaoIgnorada) enviar('atualizacao-disponivel', info);
+    } catch {
+      // sem internet ou GitHub fora: tenta de novo na próxima abertura
+    }
+  }, 15000);
+}
+
 /* ------------------------------ componentes (Ajustes, 16/10) ------------------------------ */
 // Versões do que o AuGPT usa por fora; atualizar só quando o usuário clica.
 // aba Utilitários (19/10): os cartões vêm do catálogo do agente, com o que está instalado
@@ -1629,6 +1666,7 @@ app.whenReady().then(() => {
   }
   criarJanela();
   iniciarAgendador();
+  procurarAtualizacaoAoAbrir();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) criarJanela();

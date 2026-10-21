@@ -599,6 +599,16 @@ const manipuladores = {
     if (texto) $('compOcrStatus').textContent = texto;
   },
 
+  'atualizacao-disponivel'(info) {
+    mostrarFaixaAtualizacao(info);
+  },
+
+  'atualizacao-progresso'({ texto }) {
+    if (!texto) return;
+    $('compAuStatus').textContent = texto;
+    if (!$('faixaAtualizacao').hidden) $('faixaAtualizacaoTexto').textContent = texto;
+  },
+
   'ytdlp-progresso'({ texto }) {
     if (texto) $('compYtStatus').textContent = texto;
   },

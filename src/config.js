@@ -136,6 +136,9 @@ const DEFAULTS = {
   // Imagens nas respostas (src/tools/imagens.js, 11/10): foto de cada produto
   // nos cartões da recomendação e imagem de referência nas explicações.
   imagensNasRespostas: true,
+  // Atualizações do AuGPT (21/10): conferir as Releases do GitHub ao abrir e avisar; instalar só no clique.
+  procurarAtualizacoes: true,
+  atualizacaoIgnorada: '',
   preBuscaConcorrencia: 2,
   // Modo AUTO (auto.js, 2026-10-10): cada pedido ganha um nível —
   // 0 direto (conversa), 1 conversa com pesquisa rápida, 2 pesquisa padrão,

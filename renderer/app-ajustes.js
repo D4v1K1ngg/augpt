@@ -990,7 +990,49 @@ $('btnFaixaReiniciarOllamaPraMim')?.addEventListener('click', () => clicarReinic
 let verificacao = null;
 let componentes = null;
 
+/* ---------- atualizar o AuGPT (21/10): faixa no topo + seção em Componentes; instala só no clique ---------- */
+let atualizacao = null;
+
+function pintarAtualizacao() {
+  const a = atualizacao || {};
+  $('compAuInstalada').textContent = a.atual || '—';
+  $('compAuDisponivel').textContent = !a.ok ? (a.error ? `não consegui consultar (${a.error})` : '—') : !a.versao ? a.motivo || '—' : a.disponivel ? `${a.versao} — atualização disponível` : `${a.versao} · em dia ✓`;
+  $('btnCompAuAtualizar').hidden = !a.disponivel;
+  $('btnCompAuAtualizar').textContent = `Atualizar para a ${a.versao || ''}`;
+  $('lnkCompAuNovidades').hidden = !a.disponivel;
+  $('lnkCompAuNovidades').href = a.pagina || '#';
+  $('cfgProcurarAtualizacoes').checked = config.procurarAtualizacoes !== false;
+}
+
+function mostrarFaixaAtualizacao(info) {
+  atualizacao = { ok: true, ...info };
+  $('faixaAtualizacaoTexto').textContent = `AuGPT ${info.versao} disponível (você está na ${info.atual}).`;
+  $('lnkFaixaNovidades').href = info.pagina || '#';
+  $('faixaAtualizacao').hidden = false;
+}
+
+async function instalarAtualizacao(botao, status) {
+  if (!confirm(`Baixar e instalar o AuGPT ${atualizacao?.versao || ''}? O AuGPT fecha, o instalador troca os arquivos e abre a versão nova. Suas conversas e ajustes continuam.`)) return;
+  botao.disabled = true;
+  status.textContent = 'começando…';
+  const r = await api.atualizacao.instalar();
+  botao.disabled = false;
+  status.textContent = r.ok ? 'abrindo o instalador…' : `erro: ${r.error}`;
+}
+
+$('btnCompAuAtualizar').addEventListener('click', () => instalarAtualizacao($('btnCompAuAtualizar'), $('compAuStatus')));
+$('btnFaixaAtualizar').addEventListener('click', () => instalarAtualizacao($('btnFaixaAtualizar'), $('faixaAtualizacaoTexto')));
+$('btnFaixaAtualizarDepois').addEventListener('click', () => ($('faixaAtualizacao').hidden = true));
+$('btnFaixaPularVersao').addEventListener('click', async () => {
+  $('faixaAtualizacao').hidden = true;
+  config = await api.config.set({ atualizacaoIgnorada: atualizacao?.versao || '' });
+});
+$('cfgProcurarAtualizacoes').addEventListener('change', async (e) => {
+  config = await api.config.set({ procurarAtualizacoes: e.target.checked });
+});
+
 async function carregarModelosEComponentes() {
+  api.atualizacao.verificar().then((r) => ((atualizacao = r), pintarAtualizacao()));
   const [v, c] = await Promise.all([api.boasVindas.verificar().catch(() => null), api.componentes.estado().catch(() => null)]);
   verificacao = v;
   componentes = c;

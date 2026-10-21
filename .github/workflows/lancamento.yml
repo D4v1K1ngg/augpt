@@ -1,0 +1,26 @@
+name: lancamento
+
+# Uma versão nova do AuGPT: suba a versão no package.json, faça o commit e
+#   git tag v0.28.0 && git push origin v0.28.0
+# Este workflow roda a bancada, gera o instalador do Windows e publica a Release
+# (o .exe e o latest.yml que o atualizador do app confere).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node avaliacao/executar.js
+      - run: npm ci
+      - run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

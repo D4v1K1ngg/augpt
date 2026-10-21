@@ -147,6 +147,17 @@
      estadoMaxModelosCarregados em app.js) e fica visível em qualquer aba.
      Nunca ajusta nem reinicia nada sozinho — mesmo princípio da faixa do
      Ollama acima. -->
+<!-- Atualização do AuGPT (21/10): aparece quando o GitHub tem versão nova; instala só no clique. -->
+<div class="faixa-ollama" id="faixaAtualizacao" hidden>
+  <span class="faixa-ollama-texto" id="faixaAtualizacaoTexto"></span>
+  <div class="faixa-ollama-botoes">
+    <button class="btn-primario" id="btnFaixaAtualizar" type="button">Atualizar agora</button>
+    <a class="btn-secundario" id="lnkFaixaNovidades" target="_blank" rel="noopener">Novidades</a>
+    <button class="btn-secundario" id="btnFaixaAtualizarDepois" type="button">Depois</button>
+    <button class="btn-secundario" id="btnFaixaPularVersao" type="button">Pular esta versão</button>
+  </div>
+</div>
+
 <div class="faixa-ollama" id="faixaMaxModelos" hidden>
   <span class="faixa-ollama-texto" id="faixaMaxModelosTexto"></span>
   <div class="faixa-ollama-botoes">
@@ -825,6 +836,20 @@
       <!-- ---------------- Componentes ---------------- -->
       <div class="ajustes-painel" id="ajComponentes" hidden>
         <header class="pagina-topo"><div><h1>Componentes</h1><p>Os programas que o AuGPT usa por fora. As versões são conferidas quando você abre esta aba; nada é atualizado sem você clicar.</p></div></header>
+        <section class="grupo">
+          <h2>AuGPT</h2>
+          <p class="dica">As versões novas saem no GitHub (github.com/D4v1K1ngg/augpt). O instalador baixado tem o SHA-512 conferido antes de abrir, e as suas conversas, ajustes e modelos continuam onde estão.</p>
+          <div class="linha"><span>Instalado</span><span class="situacao" id="compAuInstalada">—</span></div>
+          <div class="linha"><span>Mais recente</span><span class="situacao" id="compAuDisponivel">—</span></div>
+          <div class="linha-botoes">
+            <button class="btn-primario" id="btnCompAuAtualizar" hidden>Atualizar o AuGPT</button>
+            <a class="btn-secundario" id="lnkCompAuNovidades" target="_blank" rel="noopener" hidden>Novidades</a>
+          </div>
+          <label class="linha"><span>Procurar atualizações ao abrir o AuGPT</span>
+            <input type="checkbox" id="cfgProcurarAtualizacoes" class="caixa" />
+          </label>
+          <div class="teste-resultado" id="compAuStatus"></div>
+        </section>
         <section class="grupo">
           <h2>Ollama</h2>
           <p class="dica">Roda os modelos de IA no seu computador.</p>

@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('augpt', {
   },
   // tela de boas-vindas (15/10)
   utilitarios: { listar: () => ipcRenderer.invoke('utilitarios:listar') },
+  atualizacao: { verificar: () => ipcRenderer.invoke('atualizacao:verificar'), instalar: () => ipcRenderer.invoke('atualizacao:instalar') },
   componentes: {
     estado: () => ipcRenderer.invoke('componentes:estado'),
     atualizarOllama: () => ipcRenderer.invoke('componentes:atualizarOllama'),
