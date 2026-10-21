@@ -575,20 +575,6 @@
           <p class="dica">A caixa pequena que cresce até virar a janela do app. Dura uns 6 segundos; um clique ou Esc pula. Vale na próxima vez que o AuGPT abrir.</p>
         </section>
         <section class="grupo">
-          <h2>Esfera neural</h2>
-          <label class="linha"><span>Enquanto o agente trabalha</span>
-            <select id="cfgEsferaModo">
-              <option value="alto">Alto · 3D com brilho (usa a placa de vídeo)</option>
-              <option value="leve">Leve · 2D, bem mais barata</option>
-              <option value="off">Desligada</option>
-            </select>
-          </label>
-          <label class="linha"><span>Cores, forma, luz e desempenho</span>
-            <button type="button" class="btn-secundario" id="btnAjustarEsfera">Ajustar a esfera</button>
-          </label>
-          <p class="dica">A esfera se monta enquanto o agente pesquisa: cada site lido vira um nó, cada etapa dispara um pulso. Em computador com placa de vídeo fraca ela vem desligada, porque disputaria a placa com o modelo de IA — ligar fica por sua conta.</p>
-        </section>
-        <section class="grupo">
           <h2>Pasta de trabalho</h2>
           <p class="dica">O agente só lê e escreve aqui dentro. Arquivos anexados são copiados para cá.</p>
           <div class="caminho" id="caminhoWorkspace" title="">—</div>
@@ -1098,8 +1084,6 @@
 
 <script src="grafico.js"></script>
 <script src="md.js"></script>
-<script src="vendor/three-r128.js"></script>
-<script src="esfera.js"></script>
 <script src="app.js"></script>
 <script src="app-eventos.js"></script>
 <script src="app-abas.js"></script>

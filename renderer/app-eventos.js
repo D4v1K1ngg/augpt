@@ -885,19 +885,6 @@ function etapaDaAtividade(chave, titulo, descricao = '') {
   }
   if (descricao) atual.querySelector('p').textContent = String(descricao).slice(0, 160);
   resumoDaAtividade();
-  // a esfera: a etapa nova acende, a anterior conta como concluída (dispara um pulso)
-  const T = t.esferaT;
-  if (T) {
-    const ult = T.steps[T.steps.length - 1];
-    if (!ult || ult.id !== chave) {
-      if (ult && ult.s === 'act') ult.s = 'ok';
-      T.steps.push({ id: chave, t: titulo, d: String(descricao || '').slice(0, 160), s: 'act' });
-      T.total = Math.max(T.total, T.steps.length + 1);
-    } else if (descricao) ult.d = String(descricao).slice(0, 160);
-    // a legenda: o que o agente pensou ou, sem isso (o modelo pequeno quase não escreve), o que ele está fazendo
-    if (!T.pensou) T.lastThought = descricao ? `${titulo}: ${String(descricao).slice(0, 150)}` : titulo;
-    t.esfera?.kick();
-  }
 }
 
 function resumoDaAtividade() {
@@ -939,36 +926,11 @@ function siteConsultado(url) {
   site.linha.href = url; // abre a última página lida daquele site
   site.linha.title = url;
   site.linha.querySelector('.qtd').textContent = `${site.paginas} página${site.paginas === 1 ? '' : 's'} ✓`;
-  // a esfera: cada site lido vira um nó com anel e etiqueta
-  const T = t?.esferaT;
-  if (T && host && !T.sites.includes(host)) {
-    T.sites.push(host);
-    T.sa.push(Math.max(0, T.steps.length - 1));
-    T.sat.push(Date.now() - T.t0);
-    t.esfera?.kick();
-  }
-}
-
-// o padrão da esfera pelo hardware, calculado na primeira abertura (main.js)
-function esferaPadraoCalculado(d) {
-  if (!d?.modo) return;
-  config.esferaModoPadrao = d.modo;
-  window.Esfera?.padrao(d.modo);
-  if ($('cfgEsferaModo') && window.Esfera) $('cfgEsferaModo').value = window.Esfera.modo();
 }
 
 function atividade(canal, d) {
-  if (canal === 'config-alterada-esfera') return esferaPadraoCalculado(d);
   const t = agente.turno;
   if (!t) return;
-  // a esfera: o que o agente está pensando vira a frase embaixo dela
-  if (canal === 'raciocinio' && d.pensamento && t.esferaT) {
-    const frase = String(d.pensamento).replace(/\s+/g, ' ').trim().slice(0, 180);
-    t.esferaT.lastThought = frase;
-    t.esferaT.pensou = true;
-    t.esferaT.think.push(frase);
-    t.esfera?.kick();
-  }
   const nomes = (lista) => lista.map((x) => x.nome || x).filter(Boolean).slice(0, 4).join(', ');
   switch (canal) {
     case 'inicio':
@@ -1012,14 +974,6 @@ function atividade(canal, d) {
     case 'limite':
     case 'interrompido':
     case 'erro': {
-      // a esfera: fecha com o brilho final (ok) ou para onde estava
-      const T = t.esferaT;
-      if (T && !T.ended) {
-        const kind = canal === 'concluido' ? 'ok' : canal === 'interrompido' ? 'stop' : 'err';
-        T.steps.forEach((x) => { if (x.s === 'act') x.s = kind === 'ok' ? 'ok' : 'err'; });
-        Object.assign(T, { ended: true, kind, ms: Date.now() - T.t0 });
-        t.esfera?.end();
-      }
       const painel = t.caixa.querySelector('.atividade');
       painel.querySelector('.atual')?.classList.replace('atual', canal === 'concluido' ? 'feita' : 'parada');
       painel.open = false;

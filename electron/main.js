@@ -104,7 +104,7 @@ const EVENTOS = [
   'nivel-auto', 'resposta-rapida', 'auto-correcao', 'auto-pesquisa', 'resposta-vazia',
   // núcleo, imagens e investigação (15–17/10): sem estar aqui, o evento não chega na tela
   // (17/10: o PDF da investigação não virava anexo na resposta)
-  'nucleo-entendimento', 'nucleo-fim', 'config-alterada-esfera', 'imagem-vista', 'imagem-revisada', 'referencia-escolhida',
+  'nucleo-entendimento', 'nucleo-fim', 'imagem-vista', 'imagem-revisada', 'referencia-escolhida',
   'arquivo-criado', 'investigacao-plano', 'investigacao-progresso', 'investigacao-secao',
 ];
 
@@ -1297,7 +1297,6 @@ ipcMain.handle('boasVindas:verificar', async () => {
     youtube: { instalado: ytdlp().instalado() },
     ocr: { instalado: tesseract().instalado(), manual: process.platform !== 'win32' },
     imagem: { ...recomendarGerador(computador), instalado: gerador().instalado() },
-    esfera: verificadorDeHardware.esferaRecomendada(computador),
     concluida: config.data.boasVindasConcluida === true,
     plataforma: process.platform,
   };
@@ -1600,16 +1599,6 @@ app.whenReady().then(() => {
   });
   config = new Config(app.getPath('userData'));
   aplicarCalibracoes(); // a placa calibrada (19/10): o num_gpu medido vale desde a primeira chamada
-  // a esfera neural (20/10): o padrão pelo hardware, calculado uma vez (fraco: desligada)
-  if (!config.data.esferaModoPadrao) {
-    verificadorDeHardware
-      .verificarComputador()
-      .then((c) => {
-        config.save({ esferaModoPadrao: verificadorDeHardware.esferaRecomendada(c).modo });
-        enviar('config-alterada-esfera', { modo: config.data.esferaModoPadrao });
-      })
-      .catch(() => {});
-  }
   // Fase 2: instalação nova (config.json ainda não existia) em computador com
   // pouca memória já começa com padrões mais leves — nunca mexe em quem já
   // usa o app (ver padroesPorHardware, src/primeiro-uso.js).
