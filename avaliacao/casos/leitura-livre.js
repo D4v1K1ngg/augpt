@@ -14,7 +14,7 @@ module.exports = [
     tipo: 'unidade',
     async executar() {
       if (process.platform !== 'win32') return [true];
-      const pode = ['Get-CimInstance Win32_BIOS | Select-Object SMBIOSBIOSVersion', 'gpresult /r /scope user', String.raw`reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, '$x = Get-Service | ? Status -eq Running; $x.Count'];
+      const pode = ['Get-CimInstance Win32_BIOS | Select-Object SMBIOSBIOSVersion', 'gpresult /r /scope user', String.raw`reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v ProductName`, '$x = Get-Service | ? Status -eq Running; $x.Count'];
       const nao = ['Get-Process notepad | Stop-Process', 'Get-Process | % Kill', '(Get-Process notepad).Kill()', String.raw`Get-Date > C:\x.txt`, String.raw`reg add HKCU\x /v a /d b`, "iex 'Remove-Item x'", "$c='Remove-Item'; & $c x", "[Diagnostics.Process]::Start('calc')", 'Get-WmiObject Win32_BIOS -ComputerName outro', 'ipconfig /release', String.raw`Get-Content C:\senhas.txt`, '${C:\\senhas.txt}', 'Get-Clipboard', String.raw`Get-Item HKCU:\Software | % { $_.DeleteSubKey('x') }`];
       const r = await Promise.all([...pode, ...nao].map((s) => lerComComando(s)));
       return [...pode.map((s, i) => (r[i].ok && r[i].saida.trim() !== '') || `${s} → ${r[i].motivo}`), ...nao.map((s, i) => (!r[pode.length + i].ok && r[pode.length + i].recusado) || `${s} passou`)];
