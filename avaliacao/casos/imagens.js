@@ -167,7 +167,7 @@ module.exports = [
       return [
         texto.includes(`#### 1. Simgot EM6L\n![Simgot EM6L](${foto})\n`) || `a foto vem logo depois do nome: ${texto.slice(texto.indexOf('#### 1.'), texto.indexOf('#### 1.') + 160)}`,
         !/#### 2\. Truthear Hexa\n!\[/.test(texto) || 'produto sem foto não ganha marcação',
-        html.includes(`<section class="cartao-produto">\n<figure class="md-figura"><img src="${foto}" alt="Simgot EM6L" loading="lazy" /></figure>\n<h5>1. Simgot EM6L</h5>`) || `no cartão a foto vai antes do título: ${html.slice(html.indexOf('<section'), html.indexOf('<section') + 260)}`,
+        html.includes(`<section class="cartao-produto">\n<figure class="md-figura md-destaque" style="--fundo: url('${foto}')"><img src="${foto}" alt="Simgot EM6L" loading="lazy" /></figure>\n<h5>1. Simgot EM6L</h5>`) || `no cartão a foto vai antes do título: ${html.slice(html.indexOf('<section'), html.indexOf('<section') + 260)}`,
         /^<figure class="md-figura"><img src="augpt-img:/.test(solta) || `fora de cartão a imagem fica onde está: ${solta.slice(0, 120)}`,
         !/<img/.test(recusadas) || `endereço que não é do app virou imagem: ${recusadas}`,
       ];

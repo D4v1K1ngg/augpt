@@ -15,6 +15,17 @@
       .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
       .replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>')
       .replace(/~~([^~\n]+)~~/g, '<del>$1</del>')
+      // a citação "[(17)](url)" vira uma etiqueta com o nome do site (21/10: os "(17)" no meio do texto incomodavam)
+      .replace(/\[\((\d{1,3})\)\]\((https?:\/\/[^\s)]+)\)/g, (m, n, url) => {
+        let site = '';
+        try {
+          site = new URL(url.replace(/&amp;/g, '&')).hostname.replace(/^(www|m|pt|br|old)\./, '');
+        } catch {
+          return '';
+        }
+        const curto = site.split('.').filter((p) => !/^(com|org|net|gov|edu|br|co|io|info|uk|us|pt|ar|blog)$/.test(p)).pop() || site;
+        return `<a class="cita" href="${url}" data-externo="1" title="Fonte ${n} · ${site}">${curto}</a>`;
+      })
       .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" data-externo="1">$1</a>')
       .replace(/(^|[\s])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" data-externo="1">$2</a>');
   }
@@ -184,7 +195,8 @@
         fecharCitacao();
         const figura = `<figure class="md-figura"><img src="${imagem[2]}" alt="${imagem[1]}" loading="lazy" /></figure>`;
         const anterior = saida[saida.length - 1] || '';
-        if (cartao && /^<h5>/.test(anterior)) saida.splice(saida.length - 1, 0, figura);
+        // no cartão, a foto em destaque no topo (21/10), com ela mesma desfocada atrás
+        if (cartao && /^<h5>/.test(anterior)) saida.splice(saida.length - 1, 0, `<figure class="md-figura md-destaque" style="--fundo: url('${imagem[2]}')"><img src="${imagem[2]}" alt="${imagem[1]}" loading="lazy" /></figure>`);
         // imagens seguidas fora de cartão (uma por assunto: "Tesla e Edison") viram uma galeria
         else if (!cartao && anterior.startsWith('<figure class="md-figura">')) saida[saida.length - 1] = `<div class="md-galeria">${anterior}${figura}</div>`;
         else if (!cartao && anterior.startsWith('<div class="md-galeria">')) saida[saida.length - 1] = anterior.replace(/<\/div>$/, `${figura}</div>`);

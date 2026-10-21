@@ -285,6 +285,22 @@ html[data-theme="light"] .btn-tema .lua, html:not([data-theme="light"]) .btn-tem
   .slide, .slide .a { transition: none !important; animation: none !important; opacity: 1; transform: none; }
 }
 
+/* ------------------------------ cartão: a foto em destaque no topo (21/10) ------------------------------ */
+.cartao-produto:has(> .md-figura) { padding-left: 18px; min-height: 0; }
+.cartao-produto { border-radius: 16px; overflow: hidden; padding: 0 20px 6px; }
+.cartao-produto > h5 { margin-top: 16px; font: 500 18px/1.3 var(--serif); }
+.cartao-produto > .md-destaque { position: relative; left: auto; top: auto; margin: 0 -20px 0; height: 230px; overflow: hidden; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+.cartao-produto > .md-destaque::before { content: ""; position: absolute; inset: -24px; background: var(--fundo) center / cover no-repeat; filter: blur(22px) brightness(.55) saturate(1.1); }
+.cartao-produto > .md-destaque img { position: relative; display: block; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: contain; border: 0; border-radius: 0; background: transparent; }
+
+/* ------------------------------ citação: a etiqueta do site no lugar do "(17)" ------------------------------ */
+.msg-corpo a.cita {
+  display: inline-block; margin: 0 1px 0 3px; padding: 0 7px; border: 1px solid var(--line-forte); border-radius: 999px;
+  background: var(--panel-2); color: var(--muted); font-size: 11px; line-height: 17px; vertical-align: 1px; text-decoration: none; white-space: nowrap;
+  max-width: 20ch; overflow: hidden; text-overflow: ellipsis;
+}
+.msg-corpo a.cita:hover { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, var(--line-forte)); }
+
 @media (prefers-reduced-motion: reduce) {
   .composer-caixa::before { display: none; }
   .composer-caixa:focus-within { border-color: var(--gold); }

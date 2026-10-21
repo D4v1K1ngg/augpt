@@ -281,6 +281,8 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
     }
     if (!r.texto) throw new Error('a escrita veio vazia');
     // trava de promessa: o AuGPT não oferece o que não faz (capacidades.js)
+    // 21/10: o modelo pequeno escreveu "### #### 1. Setup Híbrido" — o título duplo não virava cartão (sem cartão, sem foto)
+    if (r.produto) r.texto = r.texto.replace(/^#{1,3}\s+(?=#### \d+\.\s)/gm, '');
     const promessas = catalogo.conferirPromessas(r.texto);
     if (promessas.tiradas.length) {
       r.texto = promessas.texto;
@@ -293,7 +295,9 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
     const lojasDosProdutos = nomes.length && cfg.ondeComprar !== false
       ? imagens.comLimite(Promise.all(nomes.slice(0, 6).map((n) => ondeComprar(n, { ler: (url) => lerComCache(url, ctxWeb) }).catch(() => []))), 35000, [])
       : Promise.resolve([]);
-    const fotos = nomes.length ? await imagens.comLimite(imagens.imagensDosProdutos(nomes, { config: cfg, dir: this.dirImagens() }), 20000, new Map()) : new Map();
+    // o assunto vai junto na busca da foto ("Clean Minimalist White Build" sozinho trazia um prédio)
+    const contextoDasFotos = (r.assuntos || []).slice(0, 2).join(' ') || r.entendimento?.pergunta || objetivo;
+    const fotos = nomes.length ? await imagens.comLimite(imagens.imagensDosProdutos(nomes, { config: cfg, dir: this.dirImagens(), contexto: String(contextoDasFotos).slice(0, 60) }), 20000, new Map()) : new Map();
     const precosNasLojas = new Map((await lojasDosProdutos).map((achados, i) => [nomes[i], achados]));
     // pergunta de preço de UM produto, sem cartões (18/10: "melhor preço para a rtx 5080" saiu com
     // preços inventados e sem link): o preço de hoje nas lojas vai no topo, pelo assunto entendido

@@ -128,11 +128,40 @@ async function imagemDe(nome, { consulta = nome, config = {}, dir, deps = {}, te
   return null;
 }
 
+/**
+ * A foto de um cartão (21/10, conversa do Davi: "5 melhores setups gamers"). O nome do cartão nem
+ * sempre é um modelo: "Clean Minimalist White Build" buscado sozinho trouxe um prédio branco, e
+ * "Purple Loft" um loft. A busca leva o assunto da pergunta junto ("… setup gamer"); nome sem número
+ * de modelo (um conceito, não um produto) só aceita imagem cujo título também cite o assunto, e não
+ * tenta o nome sozinho — sem foto é melhor que a foto errada. Modelo ("KZ ZS10 Pro X") ainda tenta
+ * o nome sozinho se o assunto atrapalhar.
+ */
+const prefixos = (t) => termosDoNome(t).filter((x) => !/\d/.test(x)).map((x) => x.slice(0, 3));
+function citaOAssunto(titulo, contexto) {
+  const t = semAcento(titulo).split(/[^a-z0-9]+/).filter(Boolean);
+  const ps = prefixos(contexto);
+  return !ps.length || ps.some((p) => t.some((w) => w.startsWith(p)));
+}
+async function imagemDoCartao(nome, { contexto = '', config = {}, dir, deps = {}, tentativas = 3 } = {}) {
+  const modelo = /\d/.test(nome);
+  const consultas = contexto ? [`${nome} ${contexto}`, ...(modelo ? [nome] : [])] : [nome];
+  for (const consulta of consultas) {
+    const candidatas = (await (deps.buscarImagens || buscarImagens)(consulta, { config, deps }))
+      .filter((c) => tituloCita(c.titulo, nome) && (modelo || !contexto || citaOAssunto(c.titulo, contexto)))
+      .slice(0, tentativas);
+    for (const c of candidatas) {
+      const uri = await guardarImagem(c.url, { dir, config, deps });
+      if (uri) return uri;
+    }
+  }
+  return null;
+}
+
 /** Foto de cada produto, todas ao mesmo tempo. Devolve `Map nome → augpt-img://…` (só as que achou). */
-async function imagensDosProdutos(nomes, { config = {}, dir, deps = {} } = {}) {
+async function imagensDosProdutos(nomes, { config = {}, dir, deps = {}, contexto = '' } = {}) {
   const achadas = new Map();
   if (config.imagensNasRespostas === false || !dir) return achadas;
-  const resultados = await Promise.allSettled((nomes || []).slice(0, 8).map((nome) => imagemDe(nome, { config, dir, deps })));
+  const resultados = await Promise.allSettled((nomes || []).slice(0, 8).map((nome) => imagemDoCartao(nome, { contexto, config, dir, deps })));
   resultados.forEach((r, i) => {
     if (r.status === 'fulfilled' && r.value) achadas.set(nomes[i], r.value);
   });
@@ -180,6 +209,8 @@ const comLimite = (promessa, ms, padrao = null) =>
   Promise.race([Promise.resolve(promessa).catch(() => padrao), new Promise((ok) => setTimeout(ok, ms, padrao))]);
 
 module.exports = {
+  imagemDoCartao,
+  citaOAssunto,
   ESQUEMA, NOME_VALIDO, MAX_BYTES,
   guardarImagem, buscarImagens, imagemDe, imagensDe, imagensDosProdutos, imagemDeReferencia, imagensDeReferencia,
   tituloCita, extensaoPelosBytes, nomeDoArquivo, marcacao, comLimite,
