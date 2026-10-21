@@ -16,6 +16,7 @@
 const catalogo = require('./capacidades');
 const rede = require('./rede-no-chat');
 const pc = require('./pc-no-chat');
+const imagensNoChat = require('./imagens-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -29,6 +30,12 @@ const ROTAS = [
       deps.emit('resposta-token', { pedaco: texto });
       return { ...SEM_PESQUISA, texto, modo: 'utilitarios' };
     },
+  },
+  {
+    // "busque uma imagem de um carro", "mostre fotos da Torre Eiffel", "imagens desses setups" (21/10)
+    id: 'buscar_imagens',
+    detecta: ({ objetivo }) => imagensNoChat.pedidoDeImagens(objetivo),
+    responde: ({ objetivo, conversa, deps, dirImagens, config }) => imagensNoChat.responderImagens({ pergunta: objetivo, conversa, deps, dir: dirImagens, config }),
   },
   {
     // antes de tudo: "aplicar" e "desfazer ajustes" dependem da resposta anterior

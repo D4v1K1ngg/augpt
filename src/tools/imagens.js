@@ -157,6 +157,36 @@ async function imagemDoCartao(nome, { contexto = '', config = {}, dir, deps = {}
   return null;
 }
 
+/**
+ * Fotos dos itens de uma resposta visual que não é de produto (21/10: "### 1. O Setup de Imersão
+ * Visual Extrema (Triplã Ultrawide)"). O nome é uma descrição — exigir que o título da foto cite
+ * metade dele não acha nada. Aqui a busca é o nome (sem parênteses) com o assunto; vale a foto cujo
+ * título cita o ASSUNTO, preferindo a que cita mais palavras do nome; uma foto não se repete entre itens.
+ */
+async function imagensDosItens(nomes, { contexto = '', config = {}, dir, deps = {} } = {}) {
+  const achadas = new Map();
+  if (config.imagensNasRespostas === false || !dir || !contexto) return achadas;
+  const usadas = new Set();
+  const busca = (deps.buscarImagens || buscarImagens);
+  const listas = await Promise.all(
+    (nomes || []).slice(0, 6).map((nome) => busca(`${String(nome).replace(/\([^)]*\)/g, '').replace(/^(o|a|os|as)\s+/i, '').trim()} ${contexto}`, { config, deps, maximo: 16 }).catch(() => []))
+  );
+  for (let i = 0; i < listas.length; i += 1) {
+    const termos = termosDoNome(nomes[i]);
+    const nota = (titulo) => termos.filter((x) => semAcento(titulo).includes(x)).length;
+    const candidatas = listas[i].filter((c) => citaOAssunto(c.titulo, contexto) && !usadas.has(c.url)).sort((a, b) => nota(b.titulo) - nota(a.titulo)).slice(0, 4);
+    for (const c of candidatas) {
+      const uri = await guardarImagem(c.url, { dir, config, deps }).catch(() => null);
+      if (uri && ![...achadas.values()].includes(uri)) {
+        usadas.add(c.url);
+        achadas.set(nomes[i], uri);
+        break;
+      }
+    }
+  }
+  return achadas;
+}
+
 /** Foto de cada produto, todas ao mesmo tempo. Devolve `Map nome → augpt-img://…` (só as que achou). */
 async function imagensDosProdutos(nomes, { config = {}, dir, deps = {}, contexto = '' } = {}) {
   const achadas = new Map();
@@ -210,6 +240,7 @@ const comLimite = (promessa, ms, padrao = null) =>
 
 module.exports = {
   imagemDoCartao,
+  imagensDosItens,
   citaOAssunto,
   ESQUEMA, NOME_VALIDO, MAX_BYTES,
   guardarImagem, buscarImagens, imagemDe, imagensDe, imagensDosProdutos, imagemDeReferencia, imagensDeReferencia,

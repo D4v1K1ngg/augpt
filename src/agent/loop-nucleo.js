@@ -249,7 +249,7 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
     const normalizado = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
     const jogoDaConversa = () => jogoDoTexto(normalizado(`${objetivo} ${conversa.slice(-4).map((m) => m.content).join(' ')}`)) || 'aws';
     // as rotas que o código responde (rotas-do-codigo.js): a ordem da lista é a prioridade
-    const contexto = (extra = {}) => ({ objetivo, conversa, deps, signal, pasta: this.userDataPath, jogo: jogoDaConversa(), ...extra });
+    const contexto = (extra = {}) => ({ objetivo, conversa, deps, signal, pasta: this.userDataPath, jogo: jogoDaConversa(), dirImagens: this.dirImagens(), config: cfg, ...extra });
     deps.executarAcao = (id, { pergunta, modo: modoDoTeste = null, confirmado = false } = {}) => rotas.executar(id, contexto({ objetivo: pergunta, modo: modoDoTeste, confirmado }));
     const aceitou = !investigando && !imagensDoPedido.length && catalogo.aceitouOferta(objetivo, conversa);
     const escolha = !investigando && !aceitou && !imagensDoPedido.length ? rotas.escolherRota(contexto()) : null;
@@ -305,14 +305,28 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
     const linhaDoAssunto = !nomes.length && pedePreco && cfg.ondeComprar !== false && r.assuntos?.length
       ? linhaOndeComprar((await imagens.comLimite(Promise.all(r.assuntos.slice(0, 2).map((a) => ondeComprar(a, { ler: (url) => lerComCache(url, ctxWeb) }).catch(() => []))), 30000, [])).find((x) => x.length) || [])
       : '';
-    const doTopo = r.buscou && !nomes.length ? (await figuras).filter(Boolean) : [];
+    // 21/10: resposta visual que não é de produto ("os 5 setups mais bonitos", "lugares para visitar"):
+    // com itens numerados e o entendimento dizendo que imagem ajuda, cada item ganha a sua foto
+    const RE_ITEM = /^(#{2,4})\s+(\d+)\.\s+(.+)$/gm;
+    const pedidoVisual = r.entendimento?.imagemAjuda || /\b(bonit\w*|lind\w*|inspira\w*|refer[eê]ncias?|decora\w*|apar[eê]ncia|estilos?|design|visual|lugares|paisage\w*|destinos?|setups?)\b/i.test(objetivo);
+    const itensVisuais = !nomes.length && pedidoVisual && cfg.imagensNasRespostas !== false ? [...r.texto.matchAll(RE_ITEM)].map((m) => limparNome(m[3]).replace(/\s*[—–:].*$/, '')) : [];
+    const fotosDosItens = itensVisuais.length >= 2
+      ? await imagens.comLimite(imagens.imagensDosItens(itensVisuais.slice(0, 6), { config: cfg, dir: this.dirImagens(), contexto: String(contextoDasFotos).slice(0, 60) }), 25000, new Map())
+      : new Map();
+    const comItens = fotosDosItens.size
+      ? r.texto.replace(RE_ITEM, (linha, h, n, nome) => {
+          const img = fotosDosItens.get(limparNome(nome).replace(/\s*[—–:].*$/, ''));
+          return img ? `${linha}\n${imagens.marcacao(limparNome(nome), img)}\n` : linha;
+        })
+      : r.texto;
+    const doTopo = r.buscou && !nomes.length && !fotosDosItens.size ? (await figuras).filter(Boolean) : [];
     const comCartoes = nomes.length
       ? r.texto.replace(/^#### \d+\. (.+)$/gm, (linha, nome) => {
           const img = fotos.get(limparNome(nome));
           const lojas = linhaOndeComprar(precosNasLojas.get(limparNome(nome)) || []);
           return `${linha}${img ? `\n${imagens.marcacao(limparNome(nome), img)}\n` : ''}${lojas ? `\n${lojas}\n` : ''}`;
         })
-      : r.texto;
+      : comItens;
     // gráfico protegido: o link das citações e o glossário não entram no JSON dele
     const corpo = protegerGraficos(linhaDoAssunto ? `${linhaDoAssunto}\n\n${comCartoes}` : comCartoes, (t) => explicarTermos(comLinks(t, r.fontes)));
     // as imagens de todos os assuntos numa linha só: o renderer monta o carrossel (md.js)

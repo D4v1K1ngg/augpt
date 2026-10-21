@@ -135,6 +135,7 @@ const PISTA_DA_ACAO = {
   rota_de_jogo: /\b(jogo|jogos|jogar|game|games|ping|lag|servidor|servidores|pubg|fortnite|cs ?2|counter|dota|valorant|lol|league)\b/i,
   trafego_de_rede: /internet|\brede\b|banda|consum|programa|aplicativo|conex|lent/i,
   consultar_pc: /computador|\bpc\b|notebook|disco|\bhd\b|ssd|espa[çc]o|configura[çc]|driver|windows|mouse|teclado|monitor|placa|som|[áa]udio|fotos|v[íi]deos|m[úu]sicas|programa|instalad|arquivos|mem[óo]ria|\bram\b|processador|cpu|bateria|inicializa/i,
+  buscar_imagens: /fotos?|imagens?|ver como|aparencia|aparência/i,
   ajustes_de_rede: /\bdns\b|placa de rede|economia de energia|5 ?ghz|cache|ajust|otimiz|configur/i,
   diagnostico_da_rede: /roteador|modem|wi-?fi|\brede\b|cabo|aparelho|dispositivo|ipconfig|\bdns\b|gateway|sinal|conex|internet|lag|ping/i,
 };
