@@ -186,6 +186,8 @@ async function executarAgente(caso) {
     if (r.qualidade && !r.qualidade.tamanhoOk) console.log(amarelo('        resposta menor que o tamanho pedido'));
     if (r.qualidade && !r.qualidade.arquivosOk) console.log(amarelo('        arquivo esperado não foi criado'));
     if (!passou) r.falhas.forEach((f) => console.log(`        ${vermelho('→')} ${f}`));
+    // no GitHub Actions, cada falha vira uma anotação (dá para ler sem login, pela API do check-run)
+    if (!passou && process.env.GITHUB_ACTIONS) r.falhas.forEach((f) => console.log(`::error title=${caso.nome.slice(0, 120).replace(/[\r\n:,]/g, ' ')}::${String(f).slice(0, 400).replace(/\r?\n/g, ' ')}`));
 
     if (argumentos.verboso && r.medidas) {
       console.log(
