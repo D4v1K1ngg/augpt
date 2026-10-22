@@ -764,7 +764,7 @@ $('btnAbrirExternoArquivo').addEventListener('click', async () => {
 
 /* ============================ execuções ============================ */
 
-const execucoes = { origem: '', itens: [] };
+const execucoes = { origem: '', itens: [], mostrar: 60 };
 
 const RESULTADO_ROTULO = {
   concluido: { texto: 'concluído', classe: 'ok' },
@@ -800,6 +800,7 @@ function execucoesFiltradas() {
 }
 
 function pintarExecucoesFiltradas() {
+  execucoes.mostrar = 60;
   const lista = execucoesFiltradas();
   $('execContagem').textContent = `${lista.length} execuç${lista.length === 1 ? 'ão' : 'ões'}`;
   pintarExecucoes(lista);
@@ -867,7 +868,7 @@ function pintarExecucoes(lista) {
     return;
   }
 
-  for (const r of lista.slice(0, 60)) {
+  for (const r of lista.slice(0, execucoes.mostrar)) {
     const rotulo = RESULTADO_ROTULO[r.resultado] || { texto: r.resultado || '—', classe: '' };
     const div = document.createElement('article');
     div.className = 'execucao';
@@ -918,6 +919,17 @@ function pintarExecucoes(lista) {
     );
     div.querySelector('.ver-relatorio').addEventListener('click', () => abrirRelatorio(r.id));
     alvo.appendChild(div);
+  }
+  // a grade mostra 60 por vez (22/10: antes parava nas 60 sem avisar)
+  if (lista.length > execucoes.mostrar) {
+    const mais = document.createElement('button');
+    mais.className = 'btn-secundario exec-mais';
+    mais.textContent = `Mostrar mais (${lista.length - execucoes.mostrar} restantes)`;
+    mais.addEventListener('click', () => {
+      execucoes.mostrar += 60;
+      pintarExecucoes(lista);
+    });
+    alvo.appendChild(mais);
   }
 }
 

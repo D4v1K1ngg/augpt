@@ -1234,7 +1234,7 @@ async function carregarCentral() {
   const alvo = $('listaCentral');
   alvo.innerHTML = '';
   if (!itens.length) {
-    alvo.innerHTML = '<li class="vazio">Nada guardado ainda. O agente grava aqui o que você contar sobre si.</li>';
+    alvo.innerHTML = '<li class="vazio">Nada guardado ainda. Diga no chat, por exemplo, "lembre que eu prefiro respostas curtas".</li>';
     return;
   }
   for (const i of itens) {

@@ -242,6 +242,12 @@ function abrirAjuste(painel) {
   document.querySelector('#viewConfig .pagina-rolagem').scrollTop = 0;
 }
 document.querySelectorAll('.ajustes-aba').forEach((b) => b.addEventListener('click', () => abrirAjuste(b.dataset.painel)));
+// cada aba de Ajustes com o ícone dela, no traço da lateral (22/10)
+const ICONE_DA_ABA = { ajGeral: 'ajustes', ajModelos: 'cpu', ajPesquisa: 'lupa', ajMemoria: 'relatorio', ajTarefas: 'programas', ajComponentes: 'disco', ajAvancado: 'codigo' };
+document.querySelectorAll('.ajustes-aba').forEach((b) => {
+  const desenho = ICONES_UTIL[ICONE_DA_ABA[b.dataset.painel]];
+  if (desenho) b.insertAdjacentHTML('afterbegin', `<svg class="aba-icone" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${desenho}</svg>`);
+});
 
 // Modelo, profundidade e tipo de resposta na aba Geral são cópias dos
 // seletores do topo: mudar um muda o outro (o "change" do topo grava).

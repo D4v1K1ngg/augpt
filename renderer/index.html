@@ -556,6 +556,7 @@
         <header class="pagina-topo"><div><h1>Geral</h1><p>O que muda o jeito do AuGPT responder no dia a dia. Tudo é gravado no seu computador assim que você muda.</p></div></header>
         <section class="grupo">
           <h2>Respostas</h2>
+          <p class="dica grupo-sub">Os mesmos seletores do topo da tela — mudar aqui ou lá dá no mesmo.</p>
           <label class="linha"><span>Modelo principal</span>
             <select id="gModelo" data-espelho="modelo"></select>
           </label>
@@ -565,25 +566,22 @@
           <label class="linha"><span>Tipo de resposta</span>
             <select id="gModoResposta" data-espelho="modoResposta"></select>
           </label>
-          <p class="dica">Os mesmos seletores do topo da tela — mudar aqui ou lá dá no mesmo.</p>
-          <label class="linha"><span>Mostrar imagens nas respostas</span>
+          <label class="linha"><span class="linha-texto"><span>Mostrar imagens nas respostas</span><small>Foto de cada produto nos cartões de uma recomendação e uma imagem de referência de pessoas, lugares e objetos. As imagens são baixadas pelo app e guardadas na pasta de dados dele.</small></span>
             <input type="checkbox" id="cfgImagensNasRespostas" class="caixa" />
           </label>
-          <p class="dica">Foto de cada produto nos cartões de uma recomendação e uma imagem de referência de pessoas, lugares e objetos. As imagens são baixadas pelo app e guardadas na pasta de dados dele.</p>
-          <label class="linha"><span>Revisar as imagens criadas</span>
+          <label class="linha"><span class="linha-texto"><span>Revisar as imagens criadas</span><small>Depois de criar uma imagem, o modelo olha o resultado e, se faltar algo do pedido, corrige o prompt e gera de novo — no máximo 2 vezes. Cada revisão soma uns 15 segundos.</small></span>
             <input type="checkbox" id="cfgRevisarImagens" class="caixa" />
           </label>
-          <p class="dica">Depois de criar uma imagem, o modelo olha o resultado e, se faltar algo do pedido, corrige o prompt e gera de novo — no máximo 2 vezes. Cada revisão soma uns 15 segundos.</p>
         </section>
         <section class="grupo">
           <h2>Abertura</h2>
+          <p class="dica grupo-sub">A caixa pequena que cresce até virar a janela do app. Dura uns 6 segundos; um clique ou Esc pula. Vale na próxima vez que o AuGPT abrir.</p>
           <label class="linha"><span>Animação ao abrir o AuGPT</span>
             <input type="checkbox" id="cfgAnimacaoDeAbertura" class="caixa" />
           </label>
           <label class="linha"><span>Som da abertura</span>
             <input type="checkbox" id="cfgSomDaAbertura" class="caixa" />
           </label>
-          <p class="dica">A caixa pequena que cresce até virar a janela do app. Dura uns 6 segundos; um clique ou Esc pula. Vale na próxima vez que o AuGPT abrir.</p>
         </section>
         <section class="grupo">
           <h2>Pasta de trabalho</h2>
@@ -606,10 +604,9 @@
         </section>
         <section class="grupo">
           <h2>Tela</h2>
-          <label class="linha"><span>Mostrar detalhes técnicos da execução</span>
+          <label class="linha"><span class="linha-texto"><span>Mostrar detalhes técnicos da execução</span><small>Cartões como "JSON inválido", "fora do protocolo" e "contexto compactado" mostram como o agente se recuperou de um tropeço. Úteis pra depurar; pra uso normal, ficam escondidos.</small></span>
             <input type="checkbox" id="cfgDetalhesTecnicos" class="caixa" />
           </label>
-          <p class="dica">Cartões como "JSON inválido", "fora do protocolo" e "contexto compactado" mostram como o agente se recuperou de um tropeço. Úteis pra depurar; pra uso normal, ficam escondidos.</p>
           <div class="linha-botoes"><button class="btn-secundario" id="btnAbrirBoasVindas">Verificar o computador (boas-vindas)</button></div>
         </section>
       </div>
@@ -642,6 +639,7 @@
         <header class="pagina-topo"><div><h1>Pesquisa na web</h1><p>De onde vêm as buscas, quais fóruns contam como opinião de quem usa e em quais sites confiar.</p></div></header>
         <section class="grupo">
           <h2>Buscadores</h2>
+          <p class="dica grupo-sub">A busca tenta vários provedores em cadeia até um responder (busca embutida ou SearXNG → DuckDuckGo → Marginalia → Wikipédia → Jina). A busca embutida se instala na aba Componentes. A chave pública da Marginalia costuma esgotar — pegue a sua de graça em marginalia-search.com/api. A Jina exige chave própria; sem ela, essa reserva fica de fora.</p>
           <label class="linha"><span>SearXNG próprio (opcional)</span>
             <input type="text" id="cfgSearx" placeholder="http://localhost:8888" />
           </label>
@@ -651,29 +649,25 @@
           <label class="linha"><span>Chave da Jina AI (opcional)</span>
             <input type="text" id="cfgJinaKey" placeholder="jina_..." />
           </label>
-          <p class="dica">A busca tenta vários provedores em cadeia até um responder (busca embutida ou SearXNG → DuckDuckGo → Marginalia → Wikipédia → Jina). A busca embutida se instala na aba Componentes. A chave pública da Marginalia costuma esgotar — pegue a sua de graça em marginalia-search.com/api. A Jina exige chave própria; sem ela, essa reserva fica de fora.</p>
           <label class="linha linha-bloco"><span>Fontes da comunidade</span>
             <textarea id="cfgFontesComunidade" rows="4" spellcheck="false" placeholder="reddit.com&#10;clubedohardware.com.br&#10;forum.adrenaline.com.br&#10;head-fi.org"></textarea>
           </label>
           <p class="dica">Fóruns e comunidades onde o agente procura opinião de quem usa, um endereço por linha. Vazio usa a lista padrão (Reddit, Clube do Hardware, Fórum Adrenaline e Head-Fi).</p>
-          <label class="linha"><span>Mostrar onde comprar</span>
+          <label class="linha"><span class="linha-texto"><span>Mostrar onde comprar</span><small>Nos pedidos de produto, cada cartão ganha o preço de hoje no KaBuM e nos comparadores Zoom e Buscapé (que cobrem várias lojas), com link. O preço vem da página da loja, não do modelo. Lojas que bloqueiam leitura automática ou não publicam os preços em dados (Magalu, Terabyte, Pichau, eBay) aparecem só pelos comparadores.</small></span>
             <input type="checkbox" id="cfgOndeComprar" class="caixa" />
           </label>
-          <p class="dica">Nos pedidos de produto, cada cartão ganha o preço de hoje no KaBuM e nos comparadores Zoom e Buscapé (que cobrem várias lojas), com link. O preço vem da página da loja, não do modelo. Lojas que bloqueiam leitura automática ou não publicam os preços em dados (Magalu, Terabyte, Pichau, eBay) aparecem só pelos comparadores.</p>
         </section>
         <section class="grupo">
           <h2>Leitura das páginas</h2>
           <label class="linha"><span>Renderizar páginas com JavaScript</span>
             <input type="checkbox" id="cfgRenderJs" class="caixa" />
           </label>
-          <label class="linha"><span>Usar leitor externo (r.jina.ai)</span>
+          <label class="linha"><span class="linha-texto"><span>Usar leitor externo (r.jina.ai)</span><small>Quando uma página não abre direto, o endereço dela é enviado ao serviço r.jina.ai pra leitura. Desligado por padrão.</small></span>
             <input type="checkbox" id="cfgLeitorExterno" class="caixa" />
           </label>
-          <p class="dica">Quando uma página não abre direto, o endereço dela é enviado ao serviço r.jina.ai pra leitura. Desligado por padrão.</p>
-          <label class="linha"><span>Permitir endereços da rede local</span>
+          <label class="linha"><span class="linha-texto"><span>Permitir endereços da rede local</span><small>Por segurança, o agente não abre endereços do seu computador nem da sua rede (localhost, 192.168.x.x, o roteador). Ligue só se quiser que ele leia, por exemplo, um servidor de desenvolvimento local.</small></span>
             <input type="checkbox" id="cfgRedeLocal" class="caixa" />
           </label>
-          <p class="dica">Por segurança, o agente não abre endereços do seu computador nem da sua rede (localhost, 192.168.x.x, o roteador). Ligue só se quiser que ele leia, por exemplo, um servidor de desenvolvimento local.</p>
         </section>
         <section class="grupo">
           <h2>Domínios e credibilidade <span class="contador" id="domTotal">0</span></h2>
@@ -707,7 +701,7 @@
         <header class="pagina-topo"><div><h1>Memória</h1><p>O que o agente guarda entre as conversas — e o botão para esquecer.</p></div></header>
         <section class="grupo">
           <h2>Memória <span class="contador" id="memTotal">0</span></h2>
-          <p class="dica">Fatos e resultados guardados entre os passos e entre execuções, aprendidos em paralelo enquanto o agente trabalha.</p>
+          <p class="dica"><b>Só nas tarefas</b> (pedidos com arquivo, pasta, site ou comando). Fatos e resultados guardados entre os passos e entre execuções, aprendidos em paralelo enquanto o agente trabalha.</p>
           <div class="linha-botoes">
             <button class="btn-secundario" id="btnLimparMemoria">Esquecer tudo</button>
           </div>
@@ -722,7 +716,7 @@
         </section>
         <section class="grupo">
           <h2>Memória operacional <span class="contador" id="opTotal">0</span></h2>
-          <p class="dica">O que o agente aprendeu sobre <em>como</em> as coisas funcionam: site que exige JavaScript, provedor de busca instável, ferramenta certa para cada formato. Uma observação só não vira lição — é preciso repetir.</p>
+          <p class="dica"><b>Só nas tarefas.</b> O que o agente aprendeu sobre <em>como</em> as coisas funcionam: site que exige JavaScript, provedor de busca instável, ferramenta certa para cada formato. Uma observação só não vira lição — é preciso repetir.</p>
           <ul class="operacional" id="listaOperacional"></ul>
           <div class="linha-botoes">
             <button class="btn-secundario" id="btnLimparOperacional">Esquecer aprendizado</button>
@@ -738,10 +732,9 @@
           <label class="linha"><span>Máximo de passos</span>
             <input type="number" id="cfgMax" min="1" max="200" />
           </label>
-          <label class="linha"><span>Verificar ambiguidade antes de agir</span>
+          <label class="linha"><span class="linha-texto"><span>Verificar ambiguidade antes de agir</span><small>Antes do primeiro passo, uma checagem rápida decide se o pedido já tem informação suficiente ou se falta algo que só você sabe. Só nesse segundo caso a primeira ação é uma pergunta.</small></span>
             <input type="checkbox" id="cfgVerificarAmbiguidade" class="caixa" />
           </label>
-          <p class="dica">Antes do primeiro passo, uma checagem rápida decide se o pedido já tem informação suficiente ou se falta algo que só você sabe. Só nesse segundo caso a primeira ação é uma pergunta.</p>
           <div class="linha">
             <span>Sempre permitidas</span>
             <div class="permitidas" id="cfgPermitidas"></div>
@@ -749,21 +742,19 @@
           <label class="linha"><span>Limite do terminal e do código (s)</span>
             <input type="number" id="cfgShell" min="5" max="900" />
           </label>
-          <label class="linha"><span>Propor skills automaticamente</span>
+          <label class="linha"><span class="linha-texto"><span>Propor skills automaticamente</span><small>Quando o mesmo tipo de pedido se repete sem nenhuma skill cobrindo, o agente testa um rascunho sozinho antes de sugerir — veja em Skills → Sugestões. Nunca ativa nada sem sua aprovação.</small></span>
             <input type="checkbox" id="cfgCriacaoAutomaticaDeSkills" class="caixa" />
           </label>
-          <p class="dica">Quando o mesmo tipo de pedido se repete sem nenhuma skill cobrindo, o agente testa um rascunho sozinho antes de sugerir — veja em Skills → Sugestões. Nunca ativa nada sem sua aprovação.</p>
         </section>
         <section class="grupo">
           <h2>Copiloto e crítico</h2>
-          <label class="linha"><span>Copiloto (segunda opinião)</span>
+          <label class="linha"><span class="linha-texto"><span>Copiloto (segunda opinião)</span><small>De vez em quando um subagente para e questiona se o plano ainda faz sentido. <b>Modelo atual</b>: reaproveita o modelo que já está rodando. <b>2 IAs</b>: um segundo modelo dedicado — mais independente, mas usa mais memória e é mais lento.</small></span>
             <select id="cfgCopiloto2Modo">
               <option value="desligado">Desligado</option>
               <option value="mesmoModelo">Modelo atual (leve)</option>
               <option value="doisModelos">2 IAs (crítico dedicado)</option>
             </select>
           </label>
-          <p class="dica">De vez em quando um subagente para e questiona se o plano ainda faz sentido. <b>Modelo atual</b>: reaproveita o modelo que já está rodando. <b>2 IAs</b>: um segundo modelo dedicado — mais independente, mas usa mais memória e é mais lento.</p>
           <p class="dica" id="cfgCopilotoRecomendacao"></p>
           <label class="linha"><span>Quando o crítico revisa o plano</span>
             <select id="cfgCriticaPeriodicaModo">
@@ -792,10 +783,9 @@
           <label class="linha"><span>Navegação interativa (login e formulários)</span>
             <input type="checkbox" id="cfgNavegacao" class="caixa" />
           </label>
-          <label class="linha"><span>Mostrar a janela do navegador</span>
+          <label class="linha"><span class="linha-texto"><span>Mostrar a janela do navegador</span><small>Com a janela visível você faz login uma vez e o agente continua dali — a sessão fica salva. Toda ação no navegador pede confirmação.</small></span>
             <input type="checkbox" id="cfgNavegadorVisivel" class="caixa" />
           </label>
-          <p class="dica">Com a janela visível você faz login uma vez e o agente continua dali — a sessão fica salva. Toda ação no navegador pede confirmação.</p>
           <label class="linha"><span>Arquivos baixados pelo navegador</span>
             <select id="cfgDownloadsDoNavegador">
               <option value="perguntar">Perguntar onde salvar (janela "Salvar como")</option>
@@ -924,23 +914,22 @@
           </div>
           <div id="ollamaRedeResultado" class="dica" hidden></div>
           <p class="dica">Para usar o Ollama de outro computador da casa: naquele PC, crie a variável de ambiente <code>OLLAMA_HOST</code> com o valor <code>0.0.0.0</code>, reinicie o Ollama e permita o Ollama no firewall do Windows (rede privada). Depois clique em <b>Procurar na rede</b> aqui. O modelo roda lá; o que você pergunta passa pela rede da casa, sem sair dela.</p>
-          <label class="linha"><span>Modelo de embedding</span>
+          <label class="linha"><span class="linha-texto"><span>Modelo de embedding</span><small>O embedding escolhe os trechos das páginas mais ligados à pergunta e alimenta a memória.</small></span>
             <input type="text" id="cfgEmbed" placeholder="nomic-embed-text" />
           </label>
-          <p class="dica">O embedding escolhe os trechos das páginas mais ligados à pergunta e alimenta a memória.</p>
           <label class="linha"><span>Lembranças por consulta</span>
             <input type="number" id="cfgTopK" min="0" max="12" />
           </label>
         </section>
         <section class="grupo">
           <h2>Modelos e contexto das tarefas</h2>
+          <p class="dica grupo-sub">Valem nas tarefas (arquivo, site, comando). As perguntas pesquisadas na web usam o modelo principal.</p>
           <label class="linha"><span>Modelo das decisões</span>
             <select id="cfgModeloDecisao"><option value="">o mesmo do topo</option></select>
           </label>
           <label class="linha"><span>Modelo da redação</span>
             <select id="cfgModeloRedacao"><option value="">o mesmo do topo</option></select>
           </label>
-          <p class="dica">Valem nas tarefas (arquivo, site, comando). As perguntas pesquisadas na web usam o modelo principal.</p>
           <label class="linha"><span>Janela de contexto — decisão</span>
             <input type="number" id="cfgCtx" min="2048" max="131072" step="1024" />
           </label>

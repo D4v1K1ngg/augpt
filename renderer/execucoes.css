@@ -1,120 +1,133 @@
 /* =========================================================================
-   AuGPT — janela "Visualizar Execuções"
-   Pedido de Davi 2026-09-23: janela própria (não mais uma aba dentro da
-   janela principal), lista em 3 colunas com buscador, e um gráfico de
-   linhas sombreado pra tempo máximo de execução / uso de tokens / qual fase
-   do raciocínio custou mais. Reaproveita os tokens de cor e classes (.chip,
-   .execucao/.exec-medidas etc.) de styles.css — aqui só o layout novo.
+   AuGPT — janela "Visualizar execuções" (refeita em 22/10 no padrão da tela do
+   agente: cartões com título em serifa, tema claro e escuro do tema.css).
+   Coluna 1 escolhe, coluna 2 mostra a execução, coluna 3 a tendência da lista.
    ========================================================================= */
 
-html, body.exec-corpo {
-  height: 100%;
-  margin: 0;
-  background: var(--void);
-  overflow: hidden;
-}
+html, body.exec-corpo { height: 100%; margin: 0; background: var(--void); overflow: hidden; }
 
-.exec-3col {
-  display: grid;
-  /* colunas laterais encolhem em janela estreita pra coluna do detalhe não ficar espremida (Fase 2) */
-  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr) minmax(270px, 340px);
-  height: 100vh;
-}
+.exec-3col { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(280px, 340px); height: 100vh; }
+.exec-col { min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.exec-col-lista, .exec-col-tendencia { background: var(--rail); }
+.exec-col-lista { border-right: 1px solid var(--line); }
+.exec-col-tendencia { border-left: 1px solid var(--line); }
+.exec-col-rolagem { flex: 1; overflow-y: auto; padding: 12px; }
 
-.exec-col {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--line);
-  overflow: hidden;
-}
-.exec-col:last-child { border-right: 0; }
-
-.exec-col-topo {
-  flex: none;
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.exec-col-topo h1 { font-size: 16px; font-weight: 500; margin: 0; color: var(--text-forte); }
-.exec-col-topo h2 { font-size: 12px; font-weight: 500; margin: 0; color: var(--text-forte);
-  text-transform: uppercase; letter-spacing: 0.1em; }
-
-.exec-busca {
-  width: 100%;
-  background: var(--void);
-  border: 1px solid var(--line-forte);
-  border-radius: var(--r);
-  padding: 7px 10px;
-  font-size: 12.5px;
-  color: var(--text);
-}
-.exec-busca:focus { outline: none; border-color: var(--amber); }
+.exec-col-topo { flex: none; padding: 20px 16px 14px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--line); }
+.exec-titulo { display: flex; align-items: center; gap: 10px; min-height: 32px; }
+.exec-titulo .tile { width: 28px; height: 28px; border-radius: 8px; }
+.exec-titulo .tile .sym { font-size: 13px; }
+.exec-titulo h1, .exec-titulo h2 { margin: 0; font: 500 19px/1.1 var(--serif); letter-spacing: -.02em; color: var(--text-forte); text-transform: none; }
+.exec-total { margin-left: auto; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.exec-busca { width: 100%; height: 36px; background: var(--void); border: 1px solid var(--line-forte); border-radius: 10px; padding: 0 12px; font-size: 12.5px; color: var(--text); }
+.exec-busca:focus { outline: none; border-color: var(--gold); }
 .exec-busca::placeholder { color: var(--fraco); }
+.exec-col-topo .filtro-origem, .exec-toggle { margin: 0; display: flex; gap: 6px; }
 
-.exec-col-rolagem { flex: 1; overflow-y: auto; padding: 10px; }
-
-.exec-toggle { display: flex; gap: 6px; }
-
-/* --------------------------- coluna 1: linhas compactas --------------------------- */
-
+/* --------------------------- coluna 1: a lista --------------------------- */
 .exec-linha {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 9px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  margin-bottom: 6px;
-  cursor: pointer;
-  background: var(--panel);
-  transition: border-color 0.12s, background 0.12s;
+  display: flex; flex-direction: column; gap: 6px; padding: 11px 12px; margin-bottom: 8px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--panel); transition: border-color .15s, background .15s;
 }
 .exec-linha:hover { border-color: var(--line-forte); }
-.exec-linha.selecionada { border-color: var(--amber); background: rgba(217, 130, 46, 0.07); }
+.exec-linha.selecionada { border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); background: color-mix(in srgb, var(--gold) 7%, var(--panel)); box-shadow: inset 2px 0 0 var(--gold); }
 .exec-linha-topo { display: flex; align-items: center; gap: 8px; }
 .exec-linha-topo .exec-modelo { font-size: 11px; }
-.exec-linha-topo .exec-quando { margin-left: auto; font-size: 10px; }
-.exec-linha-pedido {
-  font-size: 11.5px; color: var(--text); line-height: 1.4;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
-.exec-linha-medidas { font-size: 10px; color: var(--fraco); display: flex; gap: 10px; }
+.exec-linha-topo .exec-quando { margin-left: auto; font-size: 10.5px; }
+.exec-linha-pedido { margin: 0; font-size: 12.5px; color: var(--text-forte); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.exec-linha-medidas { font-size: 10.5px; color: var(--fraco); display: flex; gap: 10px; }
 .exec-linha-medidas b { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 600; }
+.exec-vazio-lista { color: var(--fraco); font-size: 12px; padding: 10px; }
 
-.exec-vazio-lista { color: var(--fraco); font-style: italic; font-size: 12px; padding: 10px; }
+/* --------------------------- coluna 2: a execução --------------------------- */
+.exec-col-detalhe .exec-col-rolagem { padding: 28px 32px 60px; }
+.exec-detalhe { max-width: 900px; margin: 0 auto; }
+.exec-vazio { margin: 12vh auto 0; max-width: 380px; text-align: center; color: var(--muted); }
+.exec-vazio .tile { margin: 0 auto 14px; width: 40px; height: 40px; border-radius: 11px; }
+.exec-vazio .tile .sym { font-size: 18px; }
+.exec-vazio h2 { margin: 0 0 6px; font: 500 20px/1.2 var(--serif); color: var(--text-forte); }
+.exec-vazio p { margin: 0; font-size: 13px; line-height: 1.6; }
 
-/* --------------------------- coluna 2: detalhe --------------------------- */
+.exec-cabeca { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.exec-cabeca .exec-quando { margin-left: auto; font-size: 11.5px; }
+.exec-pill { font-size: 10.5px; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--line-forte); color: var(--muted); }
+.exec-detalhe-pedido { margin: 14px 0 20px; font: 500 clamp(19px, 2vw, 24px)/1.3 var(--serif); letter-spacing: -.015em; color: var(--text-forte); }
 
-.exec-col-detalhe .exec-col-rolagem { padding: 20px 22px; }
-.exec-dica { color: var(--fraco); font-style: italic; font-size: 12.5px; }
+.exec-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.exec-tiles div { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); display: flex; flex-direction: column; gap: 3px; }
+.exec-tiles b { font: 500 21px/1.1 var(--serif); color: var(--text-forte); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.exec-tiles span { font-size: 11.5px; color: var(--muted); }
 
-.exec-detalhe-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
-.exec-detalhe-pedido { font-size: 14px; color: var(--text-forte); line-height: 1.5; margin: 8px 0 16px; }
-
-.exec-secao { margin-top: 20px; }
-.exec-secao > h3 {
-  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted);
-  margin: 0 0 10px; font-weight: 500;
+.exec-cartao {
+  position: relative; margin-bottom: 14px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel);
+  box-shadow: 0 22px 50px -42px rgba(0, 0, 0, .6);
 }
+.exec-cartao > h3 { margin: 0 0 12px; font: 500 16px/1.3 var(--serif); color: var(--text-forte); display: flex; align-items: baseline; gap: 8px; }
+.exec-cartao > h3 small { font: 400 11.5px/1 var(--sans); color: var(--muted); }
+.exec-cartao.erro { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); }
+.exec-cartao.erro p { margin: 0; color: var(--red); font-size: 12.5px; }
+.exec-nada { margin: 0; font-size: 12px; color: var(--fraco); }
 
-/* --------------------------- gráfico (linhas sombreado, type:'area') --------------------------- */
-/* O desenho em si vem de renderer/grafico.js (Canvas, mesmo módulo que o
-   chat usa pros blocos ```chart) — aqui só o encaixe no layout de 3 colunas.
-   Reaproveitado em dois lugares: coluna 2 (custo por FASE do raciocínio de
-   uma execução) e coluna 3 (tendência de tempo/tokens entre execuções). */
-.exec-grafico-slot { width: 100%; }
-.exec-grafico-slot .grafico { width: 100%; }
-.exec-grafico-resumo { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
-.exec-grafico-resumo b { color: var(--text-forte); font-variant-numeric: tabular-nums; }
-.exec-grafico-vazio { color: var(--fraco); font-style: italic; font-size: 11.5px; }
+/* onde o tempo foi: barras por fase */
+.exec-fases { display: grid; grid-template-columns: minmax(110px, auto) 1fr auto; gap: 8px 12px; align-items: center; font-size: 12px; }
+.exec-fases .fase { color: var(--text); }
+.exec-fases .barra-fase { height: 8px; border-radius: 99px; background: var(--panel-2); overflow: hidden; }
+.exec-fases .barra-fase i { display: block; height: 100%; border-radius: inherit; background: var(--ingot); }
+.exec-fases .valor { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.exec-fases .valor b { color: var(--text-forte); font-weight: 600; }
+
+/* fontes */
+.exec-buscas { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.exec-buscas span { font-size: 11.5px; padding: 3px 10px; border-radius: 999px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); }
+.exec-paginas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.exec-paginas li { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 12px; }
+.exec-paginas .site { flex: none; color: var(--gold); font-weight: 600; }
+.exec-paginas a { min-width: 0; color: var(--muted); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exec-paginas a:hover { color: var(--text-forte); text-decoration: underline; }
+.exec-sub { margin: 0 0 8px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--fraco); }
+
+/* raciocínio passo a passo */
+.exec-passos { list-style: none; margin: 0; padding: 0; position: relative; }
+.exec-passos li { position: relative; padding: 0 0 14px 22px; font-size: 12.5px; line-height: 1.6; color: var(--text); }
+.exec-passos li::before { content: ""; position: absolute; left: 4px; top: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
+.exec-passos li:not(:last-child)::after { content: ""; position: absolute; left: 7px; top: 18px; bottom: 2px; width: 1px; background: var(--line-forte); }
+.exec-passos b { display: block; font-size: 11px; color: var(--muted); font-weight: 500; letter-spacing: .04em; }
+
+/* a resposta */
+.exec-resposta { position: relative; max-height: 360px; overflow: hidden; font-size: 13px; line-height: 1.65; color: var(--text); }
+.exec-resposta.aberta { max-height: none; }
+.exec-resposta:not(.aberta)::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 90px; background: linear-gradient(transparent, var(--panel)); }
+.exec-resposta img { max-width: 220px; max-height: 160px; border-radius: 10px; margin: 4px 6px 4px 0; vertical-align: top; }
+.exec-resposta h1, .exec-resposta h2, .exec-resposta h3, .exec-resposta h4 { font-family: var(--serif); font-weight: 500; color: var(--text-forte); margin: 14px 0 6px; font-size: 15px; }
+.exec-resposta a { color: var(--gold); }
+.exec-resposta table { border-collapse: collapse; font-size: 12px; }
+.exec-resposta td, .exec-resposta th { border: 1px solid var(--line); padding: 4px 8px; }
+.exec-resposta .grafico, .exec-resposta iframe, .exec-resposta .md-seta { display: none; }
+.exec-resposta .md-galeria { overflow-x: auto; }
+.exec-ver-tudo { margin-top: 10px; }
+
+/* modelos e IAs auxiliares */
+.exec-lista { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.7; color: var(--text); }
+.exec-lista li.ruim { color: var(--gold); }
+.exec-dica-inline { color: var(--muted); font-size: 11px; }
 
 /* --------------------------- coluna 3: tendência --------------------------- */
 .exec-col-tendencia .exec-col-rolagem { padding: 16px; }
+.exec-tend-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.exec-tend-tiles div { padding: 10px 11px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); display: flex; flex-direction: column; gap: 2px; }
+.exec-tend-tiles b { font: 500 17px/1.1 var(--serif); color: var(--text-forte); font-variant-numeric: tabular-nums; }
+.exec-tend-tiles span { font-size: 10.5px; color: var(--muted); }
+.exec-grafico-slot { width: 100%; padding: 10px 8px 4px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); margin-bottom: 16px; }
+.exec-grafico-slot .grafico { width: 100%; margin: 0; border: 0; background: transparent; }
+.exec-grafico-vazio { color: var(--fraco); font-size: 11.5px; }
+.exec-lentas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.exec-lentas li { display: flex; gap: 10px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); cursor: pointer; font-size: 12px; }
+.exec-lentas li:hover { border-color: var(--line-forte); }
+.exec-lentas b { flex: none; color: var(--gold); font-variant-numeric: tabular-nums; font-weight: 600; min-width: 52px; }
+.exec-lentas span { min-width: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* IAs auxiliares e modelos (2026-10-10) */
-.exec-lista { margin: 6px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.6; }
-.exec-lista li.ruim { color: var(--amber, #d9822e); }
-.exec-dica-inline { color: var(--muted, #86868c); font-size: 11px; }
+@media (max-width: 1250px) {
+  .exec-3col { grid-template-columns: minmax(260px, 300px) minmax(0, 1fr); }
+  .exec-col-tendencia { display: none; }
+  .exec-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

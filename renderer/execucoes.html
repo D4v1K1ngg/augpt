@@ -4,24 +4,20 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: augpt-img:; frame-src 'self' data:" />
   <title>AuGPT — Execuções</title>
-  <!-- Reaproveita a folha de estilo principal (tokens de cor, reset, .chip,
-       .execucao/.exec-*, scrollbar) — só o que é específico do layout de 3
-       colunas desta janela vive em execucoes.css. Pedido de Davi 2026-09-23:
-       "implementar uma sessao propria e contida... abriria uma nova janela
-       contendo a lista dividida em 3 colunas com um buscador... um grafico
-       de linhas sombreado". -->
+  <!-- styles.css (tokens, .chip, .exec-*) + tema.css (identidade "Au", tema claro) + o
+       layout desta janela em execucoes.css. Refeita em 22/10 no padrão da tela do agente. -->
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="tema.css" />
   <link rel="stylesheet" href="execucoes.css" />
+  <script src="tema.js"></script>
 </head>
 <body class="exec-corpo">
   <div class="exec-3col">
-    <!-- Coluna 1 — buscador + lista (decisão de design: a coluna que se
-         relaciona a um mailbox/arquivo, o ponto de entrada pra escolher QUAL
-         execução olhar). -->
+    <!-- 1: buscar e escolher -->
     <section class="exec-col exec-col-lista">
       <header class="exec-col-topo">
-        <h1>Execuções</h1>
-        <input type="search" id="execBusca" class="exec-busca" placeholder="Buscar por pedido, modelo ou caso..." />
+        <div class="exec-titulo"><span class="tile"><span class="sym">Au</span></span><h1>Execuções</h1><span class="exec-total" id="execTotal"></span></div>
+        <input type="search" id="execBusca" class="exec-busca" placeholder="Buscar por pedido, modelo ou caso…" />
         <div class="filtro-origem" id="execFiltroOrigem">
           <button class="chip ativo" data-origem="">tudo</button>
           <button class="chip" data-origem="app">uso real</button>
@@ -31,20 +27,23 @@
       <div class="exec-col-rolagem" id="execLista"></div>
     </section>
 
-    <!-- Coluna 2 — detalhe da execução selecionada, incluindo o gráfico de
-         "qual parte do raciocínio levou mais tempo/custou mais tokens"
-         (decisão de design: por FASE da chamada — decisão/redação/crítica/
-         planejamento/etc. — não por número de passo; ver comentário em
-         AuGPT-plano-de-implementacao.md). -->
-    <section class="exec-col exec-col-detalhe" id="execDetalhe">
-      <p class="exec-dica">Selecione uma execução na lista à esquerda para ver os detalhes.</p>
+    <!-- 2: a execução escolhida -->
+    <section class="exec-col exec-col-detalhe">
+      <div class="exec-col-rolagem">
+        <div class="exec-detalhe" id="execDetalhe">
+          <div class="exec-vazio">
+            <span class="tile"><span class="sym">Au</span></span>
+            <h2>Escolha uma execução</h2>
+            <p>À esquerda, cada pergunta ou tarefa. Aqui aparece o que o agente fez: onde o tempo foi, o que buscou, o que leu e o que respondeu.</p>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- Coluna 3 — tendência agregada da lista filtrada/buscada: tempo máximo
-         de execução e uso de tokens ao longo do tempo. -->
+    <!-- 3: tendência da lista filtrada -->
     <section class="exec-col exec-col-tendencia">
       <header class="exec-col-topo">
-        <h2>Tendência</h2>
+        <div class="exec-titulo"><h2>Tendência</h2></div>
         <div class="exec-toggle" id="execToggleMetrica">
           <button class="chip ativo" data-metrica="tempo">tempo</button>
           <button class="chip" data-metrica="tokens">tokens</button>
@@ -54,12 +53,8 @@
     </section>
   </div>
 
-  <!-- Reaproveita o mesmo módulo de gráfico que o chat já usa pros blocos
-       ```chart (renderer/grafico.js, Canvas puro, sem lib externa) — tipo
-       'area' já É o "gráfico de linhas sombreado" que Davi pediu, com eixos,
-       rótulos, legenda e tema escuro prontos. Escrever um novo do zero seria
-       duplicar isso. -->
   <script src="grafico.js"></script>
+  <script src="md.js"></script>
   <script src="execucoes.js"></script>
 </body>
 </html>
