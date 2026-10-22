@@ -35,9 +35,6 @@
         <div class="status" id="statusOllama" title="Estado do servidor Ollama">
           <i class="ponto"></i><span>verificando…</span>
         </div>
-        <div class="status" id="statusCopiloto" title="Estado do Copiloto (2ª IA)" hidden>
-          <i class="ponto"></i><span>copiloto</span>
-        </div>
         <button type="button" class="status status-botao" id="btnModelos" title="Ver onde cada modelo está rodando (GPU ou CPU)">
           <i class="ponto"></i><span>modelos</span>
         </button>
@@ -137,16 +134,7 @@
   </div>
 </div>
 
-<!-- "2 IAs" precisa que o Ollama mantenha o modelo principal, o crítico e o
-     modelo de embeddings carregados ao mesmo tempo (ver
-     ollamaRuntime.MIN_MODELOS_CARREGADOS_DOIS_MODELOS). Esse aviso já
-     existia só dentro da tela de Ajustes (#cfgMaxModelosAviso, mais abaixo)
-     — pedido do Davi (2026-09-18): "o aviso... poderia avisar direto na
-     tela inicial do chat", já que o normal é configurar uma vez e nunca
-     mais abrir Ajustes. Esta faixa espelha o MESMO estado (ver
-     estadoMaxModelosCarregados em app.js) e fica visível em qualquer aba.
-     Nunca ajusta nem reinicia nada sozinho — mesmo princípio da faixa do
-     Ollama acima. -->
+
 <!-- Atualização do AuGPT (21/10): aparece quando o GitHub tem versão nova; instala só no clique. -->
 <div class="faixa-ollama" id="faixaAtualizacao" hidden>
   <span class="faixa-ollama-texto" id="faixaAtualizacaoTexto"></span>
@@ -156,25 +144,6 @@
     <button class="btn-secundario" id="btnFaixaAtualizarDepois" type="button">Depois</button>
     <button class="btn-secundario" id="btnFaixaPularVersao" type="button">Pular esta versão</button>
   </div>
-</div>
-
-<div class="faixa-ollama" id="faixaMaxModelos" hidden>
-  <span class="faixa-ollama-texto" id="faixaMaxModelosTexto"></span>
-  <div class="faixa-ollama-botoes">
-    <button class="btn-secundario" id="btnFaixaAjustarMaxModelos" type="button" hidden>Ajustar agora</button>
-    <button class="btn-secundario" id="btnFaixaReiniciarOllamaPraMim" type="button" hidden>Reiniciar o Ollama pra mim</button>
-    <button class="btn-secundario" id="btnFaixaConfirmarReinicioMaxModelos" type="button" hidden>Já reiniciei o Ollama</button>
-  </div>
-</div>
-
-<!-- Nível "extremo" reaproveita o crítico dedicado (Copiloto "2 IAs") pra
-     deliberar skill por subtarefa (chega numa rodada futura) — este aviso
-     só avisa que o hardware/modo atual pode não aguentar bem, reaproveitando
-     a MESMA recomendação que já existe (hardware.recomendarModoCopiloto,
-     api.hardware.recomendacao() já exposto). Nunca impede a escolha — mesmo
-     princípio de recomendarModoCopiloto ("NUNCA bloqueia, só orienta"). -->
-<div class="faixa-ollama" id="faixaNivelExtremo" hidden>
-  <span class="faixa-ollama-texto" id="faixaNivelExtremoTexto"></span>
 </div>
 
 <main class="corpo">
@@ -744,38 +713,6 @@
           </label>
           <label class="linha"><span class="linha-texto"><span>Propor skills automaticamente</span><small>Quando o mesmo tipo de pedido se repete sem nenhuma skill cobrindo, o agente testa um rascunho sozinho antes de sugerir — veja em Skills → Sugestões. Nunca ativa nada sem sua aprovação.</small></span>
             <input type="checkbox" id="cfgCriacaoAutomaticaDeSkills" class="caixa" />
-          </label>
-        </section>
-        <section class="grupo">
-          <h2>Copiloto e crítico</h2>
-          <label class="linha"><span class="linha-texto"><span>Copiloto (segunda opinião)</span><small>De vez em quando um subagente para e questiona se o plano ainda faz sentido. <b>Modelo atual</b>: reaproveita o modelo que já está rodando. <b>2 IAs</b>: um segundo modelo dedicado — mais independente, mas usa mais memória e é mais lento.</small></span>
-            <select id="cfgCopiloto2Modo">
-              <option value="desligado">Desligado</option>
-              <option value="mesmoModelo">Modelo atual (leve)</option>
-              <option value="doisModelos">2 IAs (crítico dedicado)</option>
-            </select>
-          </label>
-          <p class="dica" id="cfgCopilotoRecomendacao"></p>
-          <label class="linha"><span>Quando o crítico revisa o plano</span>
-            <select id="cfgCriticaPeriodicaModo">
-              <option value="frequencia">A cada poucos passos (como sempre)</option>
-              <option value="evento">Só quando algo dá errado (mais rápido)</option>
-            </select>
-          </label>
-          <!-- Oferta pra ajustar OLLAMA_MAX_LOADED_MODELS — aparece só quando "2 IAs"
-               está escolhido e o Ollama mantém só 1 modelo carregado por vez (ver
-               ollamaRuntime.lerMaxModelosCarregados). Nunca ajusta sem o clique. -->
-          <div class="teste-resultado" id="cfgMaxModelosAviso" hidden>
-            <span id="cfgMaxModelosTexto"></span>
-            <button class="btn-secundario" id="btnAjustarMaxModelos" type="button">Ajustar agora</button>
-            <button class="btn-secundario" id="btnReiniciarOllamaPraMim" type="button" hidden>Reiniciar o Ollama pra mim</button>
-            <button class="btn-secundario" id="btnConfirmarReinicioMaxModelos" type="button" hidden>Já reiniciei o Ollama</button>
-          </div>
-          <label class="linha" id="cfgCopiloto2ModeloLinha" hidden><span>Modelo dedicado do Copiloto</span>
-            <select id="cfgModeloCopiloto2"><option value="">selecione…</option></select>
-          </label>
-          <label class="linha" id="cfgCopiloto2CtxLinha" hidden><span>Janela de contexto — copiloto</span>
-            <input type="number" id="cfgCtxCopiloto" min="2048" max="131072" step="1024" placeholder="igual à decisão" />
           </label>
         </section>
         <section class="grupo">

@@ -223,9 +223,6 @@ const manipuladores = {
     }
 
     carregarMemoria();
-    // consultar_critico pode ter acabado de carregar o modelo dedicado do
-    // Copiloto — atualiza o indicador na hora, sem esperar o polling de 20s.
-    if (nome === 'consultar_critico') carregarStatusCopiloto();
   },
 
   skills({ etapa, nomes }) {
@@ -548,10 +545,6 @@ const manipuladores = {
     const rotulo = ROTULO_FASE_CRITICA[fase] || 'crítica ao plano';
     const pai = fase === 'entendimento' || fase === 'plano-inicial' ? noSolto() : no(n);
     cartao(pai, 'critica-plano', rotulo, `<p>${esc(texto)}</p>`);
-    // `fase` só vem preenchida nos checkpoints automáticos (criticaAutomatica
-    // em loop.js) — atualiza o contador do badge na hora, mesmo padrão já
-    // usado pra 'consultar_critico' em manipuladores.resultado, acima.
-    if (fase) carregarStatusCopiloto();
   },
 
   // Criação automática de skills (item 5) — dispara em segundo plano, pode

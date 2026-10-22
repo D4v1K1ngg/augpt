@@ -6,7 +6,7 @@ on:
 
 jobs:
   avaliar:
-    # Windows: os casos do ollama-runtime usam tasklist/setx
+    # Windows: alguns casos rodam o PowerShell (leitura livre do PC)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5

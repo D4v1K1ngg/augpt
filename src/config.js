@@ -259,18 +259,6 @@ const DEFAULTS = {
   // mesmo princípio já usado pro SearXNG embutido — nunca liga nada sozinho
   // sem o usuário ter pedido explicitamente uma vez.
   ollamaIniciarAutomaticamente: false,
-  // Pedido de Davi 2026-09-18: depois de "Ajustar agora" (ver
-  // ollama:definirMaxModelosCarregados, electron/main.js) gravar
-  // OLLAMA_MAX_LOADED_MODELS no registro do Windows, o valor só passa a
-  // valer de verdade depois que o Ollama for FECHADO e ABERTO de novo — mas
-  // o aviso na tela de configurações (renderer/app.js,
-  // atualizarAvisoMaxModelosCarregados) já sumia sozinho assim que o
-  // registro batesse, mesmo que o Ollama que está rodando agora nunca tenha
-  // sido reiniciado (caso real: aconteceu com ele). `true` enquanto o
-  // reinício ainda não foi confirmado — mantém um lembrete visível em vez de
-  // deixar o aviso desaparecer silenciosamente; vira `false` só quando o
-  // próprio usuário confirma ("Já reiniciei o Ollama").
-  ollamaMaxModelosReinicioPendente: false,
   // Fase 1 de segurança (2026-09-23): desligado por padrão. Ligado, o
   // endereço de cada página que não abre direto vai pro serviço r.jina.ai —
   // contradizia a promessa de privacidade sem o usuário ter escolhido isso.
@@ -359,7 +347,7 @@ function sanearSemprePermitidas(lista) {
 const CAMPOS_QUE_NAO_SAO_AJUSTES = new Set([
   'workspace', 'model', 'mcpServidores', 'dominiosPersonalizados', 'agendamentos',
   'skillsDesativadas', 'ferramentasDesativadas', 'lateralAberta',
-  'ollamaIniciarAutomaticamente', 'ollamaMaxModelosReinicioPendente', 'boasVindasConcluida',
+  'ollamaIniciarAutomaticamente', 'boasVindasConcluida',
 ]);
 
 class Config {
@@ -381,6 +369,10 @@ class Config {
     // config.json antigo, patch vindo da interface — consegue deixar uma
     // ação de ACOES_SEM_SEMPRE_PERMITIR autorizada pra sempre.
     this.data.alwaysAllow = sanearSemprePermitidas(this.data.alwaysAllow);
+    // Copiloto e crítico fixos (22/10): o grupo saiu de Ajustes (só as tarefas usavam, e o crítico
+    // não rodava desde 16/10); quem tinha "2 IAs" ou "só quando algo dá errado" volta ao padrão.
+    this.data.copiloto2Modo = 'mesmoModelo';
+    this.data.criticaPeriodicaModo = 'frequencia';
   }
 
   load() {

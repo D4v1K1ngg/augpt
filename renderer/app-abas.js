@@ -147,7 +147,6 @@ function trocarAba(qual) {
     carregarDominios();
     carregarAgendamentos();
     carregarEstadoSearxngRuntime();
-    carregarRecomendacaoHardware();
     carregarModelosEComponentes();
     pintarEspelhos();
   } else {

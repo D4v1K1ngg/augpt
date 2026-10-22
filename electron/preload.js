@@ -19,13 +19,8 @@ contextBridge.exposeInMainWorld('augpt', {
     models: () => ipcRenderer.invoke('ollama:models'),
     iniciar: (lembrar) => ipcRenderer.invoke('ollama:iniciar', { lembrar }),
     pull: (nome) => ipcRenderer.invoke('ollama:pull', { nome }),
-    copilotoStatus: () => ipcRenderer.invoke('ollama:copilotoStatus'),
     modelosCarregados: () => ipcRenderer.invoke('ollama:modelosCarregados'),
     saudeDaBusca: () => ipcRenderer.invoke('busca:saude'),
-    maxModelosCarregados: () => ipcRenderer.invoke('ollama:maxModelosCarregados'),
-    definirMaxModelosCarregados: (valor) => ipcRenderer.invoke('ollama:definirMaxModelosCarregados', { valor }),
-    confirmarReinicioMaxModelos: () => ipcRenderer.invoke('ollama:confirmarReinicioMaxModelos'),
-    reiniciar: () => ipcRenderer.invoke('ollama:reiniciar'),
     procurarNaRede: () => ipcRenderer.invoke('ollama:procurarNaRede'),
     testarServidor: (host) => ipcRenderer.invoke('ollama:testarServidor', { host }),
   },
@@ -49,7 +44,6 @@ contextBridge.exposeInMainWorld('augpt', {
     concluir: (dados) => ipcRenderer.invoke('boasVindas:concluir', dados),
   },
   hardware: {
-    recomendacao: () => ipcRenderer.invoke('hardware:recomendacao'),
   },
   workspace: {
     choose: () => ipcRenderer.invoke('workspace:choose'),

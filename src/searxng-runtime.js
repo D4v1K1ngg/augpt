@@ -131,8 +131,7 @@ function caminhoStubPwd(dirSitePackages) {
  * correção, como a do Davi, sem exigir reinstalar ~50MB de SearXNG+deps de
  * novo). Windows-only: Linux/Mac já têm `pwd` de verdade.
  *
- * `plataforma` é injetável (mesmo padrão de `lerMaxModelosCarregados`/
- * `matarTodosProcessosOllama` em src/ollama-runtime.js) pra a bancada poder
+ * `plataforma` é injetável (mesmo padrão de `caminhosConhecidosDoOllama` em src/ollama-runtime.js) pra a bancada poder
  * testar o ramo Windows rodando em qualquer SO, sem mexer em `process.platform`
  * de verdade.
  */

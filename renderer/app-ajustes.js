@@ -22,7 +22,6 @@ async function carregarConfig() {
   el.caminho.title = config.workspace || '';
   aplicarLateral(config.lateralAberta !== false);
   aplicarPainelDireito(config.painelDireitoAberto === true);
-  atualizarAvisoNivelExtremo();
 }
 
 function preencherConfig() {
@@ -30,16 +29,11 @@ function preencherConfig() {
   $('cfgEmbed').value = config.embedModel;
   $('cfgTopK').value = config.memoryTopK;
   $('cfgMax').value = config.maxIterations;
-  $('cfgCopiloto2Modo').value = config.copiloto2Modo || 'mesmoModelo';
-  $('cfgCriticaPeriodicaModo').value = config.criticaPeriodicaModo === 'evento' ? 'evento' : 'frequencia';
-  atualizarVisibilidadeModeloCopiloto2();
-  atualizarAvisoMaxModelosCarregados();
   $('cfgVerificarAmbiguidade').checked = config.verificarAmbiguidade !== false;
   $('cfgCriacaoAutomaticaDeSkills').checked = config.criacaoAutomaticaDeSkills !== false;
   $('cfgTemp').value = config.temperature;
   $('cfgCtx').value = config.numCtx;
   $('cfgCtxRedacao').value = config.numCtxRedacao || '';
-  $('cfgCtxCopiloto').value = config.numCtxCopiloto || '';
   $('cfgShell').value = Math.round(config.shellTimeoutMs / 1000);
   pintarModelosDeEtapa();
   $('cfgSearx').value = config.searxngUrl || '';
@@ -86,9 +80,6 @@ async function salvarAjustes() {
     embedModel: $('cfgEmbed').value.trim() || 'nomic-embed-text',
     memoryTopK: Number($('cfgTopK').value) || 4,
     maxIterations: Number($('cfgMax').value) || 25,
-    copiloto2Modo: $('cfgCopiloto2Modo').value,
-    criticaPeriodicaModo: $('cfgCriticaPeriodicaModo').value,
-    modelCopiloto2: $('cfgModeloCopiloto2').value,
     verificarAmbiguidade: $('cfgVerificarAmbiguidade').checked,
     criacaoAutomaticaDeSkills: $('cfgCriacaoAutomaticaDeSkills').checked,
     // Campo vazio mantém o valor atual — antes, temperatura em branco virava 0
@@ -96,7 +87,6 @@ async function salvarAjustes() {
     temperature: $('cfgTemp').value === '' ? config.temperature : Number($('cfgTemp').value),
     numCtx: Number($('cfgCtx').value) || config.numCtx,
     numCtxRedacao: Number($('cfgCtxRedacao').value) || null,
-    numCtxCopiloto: Number($('cfgCtxCopiloto').value) || null,
     shellTimeoutMs: segundos,
     codeTimeoutMs: segundos,
     modelDecisao: $('cfgModeloDecisao').value,
@@ -151,29 +141,8 @@ function pintarModelosDeEtapa() {
     $(id).innerHTML = '<option value="">o mesmo do topo</option>' + opcoes.map(opcaoHtml).join('');
     $(id).value = valor || '';
   }
-  // Modelo dedicado do Copiloto nível 2 (modo "2 IAs") — sem valor default
-  // "o mesmo do topo": em branco aqui significa que o modo "2 IAs" ainda cai
-  // de volta pro modelo de decisão de sempre (ver Agent.consultarCritico,
-  // usaModeloDedicado), não que existe um "modelo do topo" implícito pra
-  // esse papel específico.
-  // modelo que pensa como copiloto não serve: a crítica tem limite de 90–150
-  // tokens e ele gastaria tudo raciocinando — fica fora desta lista
-  $('cfgModeloCopiloto2').innerHTML =
-    '<option value="">selecione…</option>' + opcoes.filter((m) => !m.pensa).map(opcaoHtml).join('');
-  // valor salvo que não está mais na lista (tev1, R1) fica em branco = cai no modelo de decisão de sempre
-  $('cfgModeloCopiloto2').value = opcoes.some((m) => !m.pensa && m.nome === config.modelCopiloto2) ? config.modelCopiloto2 : '';
 }
 
-/** Mostra o seletor de modelo dedicado (e a janela de contexto dele) só quando o modo "2 IAs" está ativo. */
-function atualizarVisibilidadeModeloCopiloto2() {
-  const doisModelos = $('cfgCopiloto2Modo').value === 'doisModelos';
-  $('cfgCopiloto2ModeloLinha').hidden = !doisModelos;
-  $('cfgCopiloto2CtxLinha').hidden = !doisModelos;
-}
-$('cfgCopiloto2Modo').addEventListener('change', () => {
-  atualizarVisibilidadeModeloCopiloto2();
-  atualizarAvisoMaxModelosCarregados();
-});
 
 function pintarPermitidas() {
   const alvo = $('cfgPermitidas');
@@ -386,7 +355,6 @@ async function verificarOllama() {
   el.status.title = saude.online ? 'Servidor respondendo' : `Sem resposta em ${config.host}`;
   if (saude.online) {
     await carregarModelos();
-    await carregarStatusCopiloto();
     await carregarBadgeModelos();
   }
   // Fase 2: o guia de primeira execução se atualiza sozinho quando o Ollama
@@ -395,54 +363,6 @@ async function verificarOllama() {
   if (saude.online !== primeiroUso.ultimoOnline) {
     primeiroUso.ultimoOnline = saude.online;
     await atualizarPrimeiroUso();
-  }
-  // Independente da saúde estar online ou não — é uma leitura de registro,
-  // não depende do Ollama estar respondendo — e reaproveita o MESMO
-  // polling de 20s de sempre pra faixa do topo não ficar desatualizada se
-  // o usuário mexer no Ollama por fora do AuGPT.
-  await atualizarFaixaMaxModelos();
-}
-
-/**
- * Indicador "2ª IA" na barra superior (#statusCopiloto) — caso real: Davi
- * configurou o modo "2 IAs" certinho, mas numa conversa simples o agente
- * nunca chamou `consultar_critico`, então não tinha como saber, só olhando
- * a conversa, se o modelo dedicado chegou a ser usado. Consultado junto com
- * a saúde do Ollama (início + polling de 20s) e também logo depois de um
- * `consultar_critico` responder (ver manipuladores.resultado abaixo) — pra
- * não esperar até 20s pra refletir o que acabou de acontecer.
- */
-async function carregarStatusCopiloto() {
-  const badge = $('statusCopiloto');
-  if (!badge) return;
-  const st = await api.ollama.copilotoStatus();
-  if (!st.ativo) {
-    badge.hidden = true;
-    return;
-  }
-  badge.hidden = false;
-  badge.classList.remove('copiloto-cpu', 'copiloto-gpu');
-  const rotulo = badge.querySelector('span');
-  // Pedido de Davi 2026-09-14 ("apertar as rédeas"): com o Copiloto chamado
-  // automaticamente em 4 pontos fixos do pipeline, além da consulta sob
-  // demanda de sempre, o custo real por execução deixou de ser óbvio só
-  // olhando a conversa — `st.consultas` soma os dois contadores da execução
-  // mais recente (ver ollama:copilotoStatus em electron/main.js).
-  const sufixoConsultas = Number.isFinite(st.consultas) && st.consultas > 0 ? ` · ${st.consultas} consulta${st.consultas > 1 ? 's' : ''}` : '';
-  if (!st.carregado) {
-    rotulo.textContent = `copiloto: ${st.modelo} (ocioso)${sufixoConsultas}`;
-    badge.title = 'Modelo dedicado do Copiloto configurado, mas ainda não foi chamado nesta sessão do Ollama.';
-  } else if (st.cpu) {
-    badge.classList.add('copiloto-cpu');
-    rotulo.textContent = `copiloto: ${st.modelo} · CPU${sufixoConsultas}`;
-    badge.title = 'Rodando na CPU, como esperado — não disputa VRAM com o modelo principal.';
-  } else {
-    badge.classList.add('copiloto-gpu');
-    rotulo.textContent = `copiloto: ${st.modelo} · GPU${st.parcial ? ' (parcial)' : ''}${sufixoConsultas}`;
-    badge.title = 'Rodando na GPU, não na CPU como o esperado — pode disputar VRAM com o modelo principal.';
-  }
-  if (sufixoConsultas) {
-    badge.title += ` Consultas ao crítico na execução mais recente: ${st.consultas} (sob demanda + checkpoints automáticos do pipeline).`;
   }
 }
 
@@ -742,207 +662,6 @@ async function acaoPrimeiroUso(acao, botao) {
 // Copiloto nível 2 (ver src/agent/hardware.js): mesma detecção usada tanto
 // pra recomendar o modo do Copiloto quanto pra anotar qual modelo sugerido
 // cabe no computador do usuário — nunca bloqueia a escolha, só avisa.
-
-let recomendacaoHardware = null;
-
-async function carregarRecomendacaoHardware() {
-  try {
-    recomendacaoHardware = await api.hardware.recomendacao();
-  } catch {
-    recomendacaoHardware = null;
-  }
-  pintarRecomendacaoCopiloto();
-}
-
-function pintarRecomendacaoCopiloto() {
-  const alvo = $('cfgCopilotoRecomendacao');
-  if (!alvo) return;
-  if (!recomendacaoHardware) {
-    alvo.textContent = '';
-    return;
-  }
-  const { modo, motivo } = recomendacaoHardware.recomendacao;
-  const rotuloModo = modo === 'doisModelos' ? '"2 IAs"' : '"Modelo atual"';
-  alvo.textContent = `Recomendado neste computador: ${rotuloModo} — ${motivo}`;
-}
-
-/* ------------------- Ollama: oferta de ajustar OLLAMA_MAX_LOADED_MODELS ------------------- */
-// Investigação com o Davi (2026-09-18): "2 IAs" só faz sentido de verdade se
-// o Ollama mantiver o modelo principal e o crítico dedicado carregados ao
-// mesmo tempo — por padrão (Windows), ele mantém só 1, e o segundo pedido
-// derruba o primeiro. Confere sempre que a tela de configurações abre ou que
-// o modo do Copiloto muda — nunca ajusta nada sozinho, só oferece (mesmo
-// princípio da faixa "Detectei que o Ollama está desligado").
-
-/**
- * Estado compartilhado por trás de DOIS lugares que mostram o mesmo aviso:
- * o bloco na tela de Ajustes (só visível se o usuário abrir Ajustes) e a
- * faixa no topo (`#faixaMaxModelos`, visível em qualquer aba — pedido do
- * Davi 2026-09-18: "o aviso... poderia avisar direto na tela inicial do
- * chat", já que o normal é configurar uma vez e nunca mais abrir Ajustes).
- * Um único ponto de verdade evita as duas telas divergirem. `modo` vem de
- * fontes diferentes em cada chamador (ver os dois `atualizar*` abaixo).
- */
-async function estadoMaxModelosCarregados(modo) {
-  if (modo !== 'doisModelos') return { mostrar: false };
-  let r;
-  try {
-    r = await api.ollama.maxModelosCarregados();
-  } catch {
-    return { mostrar: false };
-  }
-  if (!r.suportado) return { mostrar: false };
-  // Caso real (Davi, 2026-09-18): o registro já batia, mas o Ollama que
-  // estava rodando nunca tinha sido reiniciado pra valer o novo limite — e o
-  // aviso sumia sozinho assim que `r.valor >= r.minimo`, dando a entender
-  // (errado) que já estava tudo certo. Enquanto o próprio usuário não
-  // confirmar o reinício (ollamaMaxModelosReinicioPendente, src/config.js),
-  // este lembrete continua aparecendo, mesmo que o registro já bata.
-  if (config.ollamaMaxModelosReinicioPendente) return { mostrar: true, fase: 'confirmarReinicio' };
-  if (r.valor != null && r.valor >= r.minimo) return { mostrar: false };
-  return { mostrar: true, fase: 'ajustar' };
-}
-
-const TEXTO_MAX_MODELOS_AJUSTAR =
-  'Detectei que o Ollama deste computador mantém poucos modelos carregados por vez — com "2 IAs", ' +
-  'o modelo principal, o crítico e o modelo de memória/busca ficam se descarregando um ao outro a ' +
-  'cada troca. Quer que eu ajuste esse limite?';
-// Caso real (Davi, 2026-09-18): fechar o Ollama manualmente pela bandeja
-// pode deixar um processo órfão rodando com a variável de ambiente antiga
-// (ver ollamaRuntime.listarProcessosOllama) — daí o botão extra oferecendo
-// fazer o reinício de verdade em vez de só perguntar se já foi feito.
-const TEXTO_MAX_MODELOS_CONFIRMAR =
-  'Ajustei o limite, mas isso só vale de verdade depois que o Ollama for fechado (ícone da bandeja) ' +
-  'e aberto de novo. Já fez isso? Se preferir, eu mesmo posso tentar fechar e abrir ele pra você.';
-
-/** Pinta um dos dois blocos (Ajustes OU a faixa no topo) a partir do MESMO estado — mantém os dois em sincronia. */
-function pintarBlocoMaxModelos(estado, { bloco, texto, btnAjustar, btnReiniciar, btnConfirmar }) {
-  if (!estado.mostrar) {
-    bloco.hidden = true;
-    return;
-  }
-  if (estado.fase === 'confirmarReinicio') {
-    texto.textContent = TEXTO_MAX_MODELOS_CONFIRMAR;
-    btnAjustar.hidden = true;
-    btnReiniciar.hidden = false;
-    btnReiniciar.disabled = false;
-    btnReiniciar.textContent = 'Reiniciar o Ollama pra mim';
-    btnConfirmar.hidden = false;
-    btnConfirmar.disabled = false;
-    btnConfirmar.textContent = 'Já reiniciei o Ollama';
-  } else {
-    texto.textContent = TEXTO_MAX_MODELOS_AJUSTAR;
-    btnReiniciar.hidden = true;
-    btnConfirmar.hidden = true;
-    btnAjustar.hidden = false;
-    btnAjustar.disabled = false;
-    btnAjustar.textContent = 'Ajustar agora';
-  }
-  bloco.hidden = false;
-}
-
-async function atualizarAvisoMaxModelosCarregados() {
-  const bloco = $('cfgMaxModelosAviso');
-  if (!bloco) return;
-  // Lê da SELECT ao vivo (não de config.copiloto2Modo) de propósito: dentro
-  // da tela de Ajustes o aviso precisa reagir na hora o usuário troca o modo
-  // no combo, mesmo antes de clicar "Salvar" (ver o listener 'change' logo
-  // abaixo) — comportamento que já existia, preservado aqui.
-  const estado = await estadoMaxModelosCarregados($('cfgCopiloto2Modo').value);
-  pintarBlocoMaxModelos(estado, {
-    bloco,
-    texto: $('cfgMaxModelosTexto'),
-    btnAjustar: $('btnAjustarMaxModelos'),
-    btnReiniciar: $('btnReiniciarOllamaPraMim'),
-    btnConfirmar: $('btnConfirmarReinicioMaxModelos'),
-  });
-}
-
-/** Mesmo aviso que atualizarAvisoMaxModelosCarregados, mas na faixa do topo — visível fora da tela de Ajustes. */
-async function atualizarFaixaMaxModelos() {
-  const faixa = $('faixaMaxModelos');
-  if (!faixa) return;
-  const estado = await estadoMaxModelosCarregados(config.copiloto2Modo);
-  pintarBlocoMaxModelos(estado, {
-    bloco: faixa,
-    texto: $('faixaMaxModelosTexto'),
-    btnAjustar: $('btnFaixaAjustarMaxModelos'),
-    btnReiniciar: $('btnFaixaReiniciarOllamaPraMim'),
-    btnConfirmar: $('btnFaixaConfirmarReinicioMaxModelos'),
-  });
-}
-
-/** Atualiza os dois blocos de uma vez — usado depois de qualquer ação que possa ter mudado o estado. */
-async function atualizarAvisosMaxModelos() {
-  await Promise.all([atualizarAvisoMaxModelosCarregados(), atualizarFaixaMaxModelos()]);
-}
-
-async function clicarAjustarMaxModelos(btn) {
-  btn.disabled = true;
-  btn.textContent = 'Ajustando…';
-  // Padrão de segurança se a consulta abaixo falhar — mantido em sincronia
-  // com ollamaRuntime.MIN_MODELOS_CARREGADOS_DOIS_MODELOS (src/ollama-runtime.js).
-  let minimo = 3;
-  try {
-    minimo = (await api.ollama.maxModelosCarregados()).minimo ?? 3;
-  } catch {
-    /* usa o padrão acima */
-  }
-  const r = await api.ollama.definirMaxModelosCarregados(minimo);
-  if (r.ok) {
-    // O handler em electron/main.js já marcou ollamaMaxModelosReinicioPendente
-    // na config salva em disco — espelha aqui pra atualizarAvisosMaxModelos
-    // trocar pro aviso de "confirme o reinício" sem precisar recarregar a
-    // config inteira do processo principal.
-    config.ollamaMaxModelosReinicioPendente = true;
-    await atualizarAvisosMaxModelos();
-  } else {
-    btn.disabled = false;
-    btn.textContent = 'Ajustar agora';
-    const alvoTexto = btn === $('btnFaixaAjustarMaxModelos') ? $('faixaMaxModelosTexto') : $('cfgMaxModelosTexto');
-    alvoTexto.textContent = `Não consegui ajustar: ${r.error || 'motivo desconhecido'}`;
-  }
-}
-$('btnAjustarMaxModelos')?.addEventListener('click', () => clicarAjustarMaxModelos($('btnAjustarMaxModelos')));
-$('btnFaixaAjustarMaxModelos')?.addEventListener('click', () => clicarAjustarMaxModelos($('btnFaixaAjustarMaxModelos')));
-
-async function clicarConfirmarReinicioMaxModelos(btn) {
-  btn.disabled = true;
-  btn.textContent = 'Confirmando…';
-  await api.ollama.confirmarReinicioMaxModelos();
-  config.ollamaMaxModelosReinicioPendente = false;
-  await atualizarAvisosMaxModelos();
-}
-$('btnConfirmarReinicioMaxModelos')?.addEventListener('click', () => clicarConfirmarReinicioMaxModelos($('btnConfirmarReinicioMaxModelos')));
-$('btnFaixaConfirmarReinicioMaxModelos')?.addEventListener('click', () => clicarConfirmarReinicioMaxModelos($('btnFaixaConfirmarReinicioMaxModelos')));
-
-/**
- * Botão "Reiniciar o Ollama pra mim" — pedido do Davi (2026-09-18), depois
- * de descobrir no Gerenciador de Tarefas que fechar o Ollama manualmente
- * pela bandeja pode deixar um `ollama.exe` órfão rodando com a variável de
- * ambiente antiga (ver ollamaRuntime.reiniciarOllama). Sucesso aqui já É a
- * prova de que o reinício aconteceu de verdade — confirma sozinho
- * (equivalente a clicar "Já reiniciei o Ollama" logo depois) em vez de
- * exigir mais um clique manual do usuário.
- */
-async function clicarReiniciarOllama(btn) {
-  btn.disabled = true;
-  btn.textContent = 'Reiniciando…';
-  const r = await api.ollama.reiniciar();
-  if (r.ok) {
-    config.ollamaMaxModelosReinicioPendente = false;
-    await api.ollama.confirmarReinicioMaxModelos();
-    await atualizarAvisosMaxModelos();
-    await verificarOllama(); // status "ollama online" na barra + modelos podem ter mudado
-  } else {
-    btn.disabled = false;
-    btn.textContent = 'Reiniciar o Ollama pra mim';
-    const alvoTexto = btn === $('btnFaixaReiniciarOllamaPraMim') ? $('faixaMaxModelosTexto') : $('cfgMaxModelosTexto');
-    alvoTexto.textContent = `Não consegui reiniciar sozinho: ${r.error || 'motivo desconhecido'}. Tente fechar e abrir manualmente.`;
-  }
-}
-$('btnReiniciarOllamaPraMim')?.addEventListener('click', () => clicarReiniciarOllama($('btnReiniciarOllamaPraMim')));
-$('btnFaixaReiniciarOllamaPraMim')?.addEventListener('click', () => clicarReiniciarOllama($('btnFaixaReiniciarOllamaPraMim')));
 
 /* ------------------- Ajustes → Modelos e Componentes (Fase 1, 16/10) ------------------- */
 // Leem o mesmo verificador da tela de boas-vindas (hardware, modelos do
@@ -1342,35 +1061,7 @@ $('modoResposta').addEventListener('change', async (e) => {
 
 $('nivelRaciocinio').addEventListener('change', async (e) => {
   config = await api.config.set({ nivelRaciocinio: e.target.value });
-  atualizarAvisoNivelExtremo();
 });
-
-/**
- * Aviso não-bloqueante quando "extremo" está selecionado e o hardware não é
- * confortável pra manter dois modelos ao mesmo tempo (a mesma recomendação
- * que já existe pro Copiloto nível 2 — api.hardware.recomendacao(), ver
- * hardware.recomendarModoCopiloto em src/agent/hardware.js). Mesmo padrão
- * das faixas de Ollama/max-modelos: nunca impede a escolha, só avisa.
- */
-async function atualizarAvisoNivelExtremo() {
-  const bloco = $('faixaNivelExtremo');
-  const texto = $('faixaNivelExtremoTexto');
-  if ($('nivelRaciocinio').value !== 'extremo') {
-    bloco.hidden = true;
-    return;
-  }
-  try {
-    const { recomendacao } = await api.hardware.recomendacao();
-    if (recomendacao.modo === 'doisModelos') {
-      bloco.hidden = true;
-      return;
-    }
-    texto.textContent = `Nível "extremo" funciona melhor com o Copiloto em "2 IAs". ${recomendacao.motivo}`;
-    bloco.hidden = false;
-  } catch {
-    bloco.hidden = true;
-  }
-}
 
 $('btnEscolherPasta').addEventListener('click', async () => {
   config = await api.workspace.choose();
