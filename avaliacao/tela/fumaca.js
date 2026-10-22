@@ -39,6 +39,9 @@ fs.writeFileSync(path.join(dados, 'config.json'), JSON.stringify(cfg, null, 2));
 const PERGUNTAS = [
   { pedido: 'o que você pode fazer?', rota: 'utilitarios', confere: (t) => /Utilitários/.test(t) },
   { pedido: 'quanto espaço livre meu pc tem?', rota: 'consultar_pc', confere: (t) => /Espaço nas unidades/.test(t) },
+  // memória pelo chat (22/10): guarda, e uma conversa NOVA (sem o histórico) já sabe
+  { pedido: 'lembre que meu nome é Zé Teste', rota: 'memoria', confere: (t) => /Anotado ✓/.test(t) },
+  { pedido: 'qual é o meu nome?', rota: 'pesquisa', confere: (t) => /Zé Teste/.test(t), novaConversa: true },
   ...(comPesquisa ? [{ pedido: 'qual a população atual de Vitória-ES?', rota: 'pesquisa', confere: (t) => /habitantes/i.test(t), raciocinio: true }] : []),
 ];
 
@@ -117,6 +120,10 @@ const conferir = (ok, msg) => {
 
   for (const p of PERGUNTAS) {
     console.log(`Pergunta: ${p.pedido}`);
+    if (p.novaConversa) {
+      await js("novaConversa('agente'); true");
+      await esperar(800);
+    }
     await js(`(() => { const e = document.getElementById('entradaAgente'); e.value = ${JSON.stringify(p.pedido)}; e.dispatchEvent(new Event('input')); document.getElementById('btnEnviarAgente').click(); return true; })()`);
     const t0 = Date.now();
     await esperar(2000);

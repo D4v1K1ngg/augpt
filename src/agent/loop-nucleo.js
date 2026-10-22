@@ -12,7 +12,7 @@ const fs = require('fs');
 const ollama = require('../llm/ollama');
 const { Sandbox } = require('../tools/sandbox');
 const { consultasNaComunidade } = require('../tools/comunidade');
-const { MemoriaCentral } = require('./memoria-central');
+const { preferenciasParaEscrever } = require('./memoria-no-chat');
 const imagens = require('../tools/imagens');
 const search = require('../tools/search');
 const { lerComCache } = require('../tools/web');
@@ -116,18 +116,16 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
       }
       return (await search.buscar(q, opcoes)).resultados;
     },
-    // "meu computador" (18/10): o que o AuGPT já sabe do usuário — a máquina e a memória central
+    // "meu computador" (18/10): a máquina do usuário (a memória central vai em toda resposta, por `preferencias`)
     sobreOUsuario: async () => {
       const partes = [];
       const pc = await (this._computador ||= require('../verificador-de-hardware').verificarComputador().catch(() => null));
       // a memória de vídeo escrita por extenso (18/10: "RTX 3060 Ti (8 GB)" virou "8 GB de RAM" na resposta)
       if (pc) partes.push(`Computador do usuário: ${pc.gpus?.length ? `placa de vídeo ${pc.gpus.map((g) => `${g.nome}${g.vramGB ? ` com ${g.vramGB} GB de memória de vídeo (VRAM)` : ''}`).join(' + ')}; ` : ''}processador ${pc.cpu} (${pc.nucleos} núcleos); memória RAM do sistema: ${pc.ramTotalGB} GB; ${pc.sistema}.`);
-      if (cfg.memoriaCentral !== false && this.userDataPath) {
-        const memoria = new MemoriaCentral(this.userDataPath).paraPrompt().trim();
-        if (memoria) partes.push(memoria);
-      }
       return partes.join('\n');
     },
+    // o que o usuário pediu para guardar ("lembre que…", 22/10): vai para o escritor em toda resposta
+    preferencias: () => preferenciasParaEscrever(this.userDataPath, cfg),
     lerPagina: (url) => lerComCache(url, ctxWeb),
     embed: (textos) => ollama.embed({ host: cfg.host, model: cfg.embedModel || 'nomic-embed-text', input: textos, signal }),
     // Reddit e fóruns cadastrados (dados/fontes-da-comunidade.json): "site:reddit.com …", "site:clubedohardware.com.br …"

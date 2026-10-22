@@ -64,6 +64,7 @@ const CAPACIDADES = [
   { id: 'criar_imagem', precisa: 'gerarImagem', faz: 'cria e edita imagens no computador do usuário (FLUX.2 Klein)', quando: 'o usuário quer uma imagem, ilustração, logo ou edição de foto', comoUsar: 'peça "crie uma imagem de…" ou anexe a foto e peça a edição' },
   { id: 'buscar_imagens', executa: true, faz: 'busca fotos na internet de qualquer coisa e mostra numa galeria (com o site de cada foto)', quando: 'o usuário quer ver como algo é: um carro, um lugar, um setup, um produto, uma pessoa conhecida', oferta: 'Posso **buscar fotos** disso para você ver. Quer? É só responder **"sim"**.' },
   { id: 'ver_imagem', faz: 'olha fotos e prints anexados e lê o texto deles', quando: 'o usuário fala de algo que está numa foto ou print', comoUsar: 'anexe a imagem pelo + da caixa de mensagem' },
+  { id: 'memoria', faz: 'guarda o que o usuário pede sobre ele (nome, cidade, preferências de resposta) e usa em todas as conversas', quando: 'o usuário quer que o AuGPT lembre algo dele ou se adapte de vez', comoUsar: 'diga "lembre que…"; para ver, "o que você sabe sobre mim?"; para apagar, "esqueça que…"' },
   { id: 'youtube', precisa: 'buscarNoYoutube', faz: 'assiste vídeos do YouTube pela legenda e lê os comentários', quando: 'review, tutorial ou opinião de quem testou em vídeo', comoUsar: 'peça "veja vídeos do YouTube sobre…"' },
   { id: 'navegador', faz: 'abre sites no navegador do AuGPT, faz login, clica, preenche formulários e baixa arquivos', quando: 'tarefa num site (portal, conta, formulário, download)', comoUsar: 'peça "acesse o site … e …" com o endereço' },
   { id: 'investigacao', faz: 'pesquisa longa por um tempo escolhido, com relatório completo em PDF', quando: 'assunto amplo que pede estudo aprofundado', comoUsar: 'escolha o modo Investigação no seletor de raciocínio, ao lado do campo de mensagem' },
@@ -213,6 +214,7 @@ const UTILITARIOS = [
   { id: 'ver_imagem', grupo: 'Criar', icone: 'olho', nome: 'Ler fotos e prints', descricao: 'Olha a foto ou o print que você anexar e lê o texto dele.', dica: 'Anexe a imagem pelo + da caixa de mensagem e faça a pergunta.' },
   { id: 'navegador', grupo: 'Sites e arquivos', icone: 'globo', nome: 'Navegar em sites', descricao: 'Abre sites no navegador do AuGPT, faz login, clica, preenche formulários e baixa arquivos.', exemplo: 'acesse https://www.kabum.com.br e procure monitores de 144 Hz' },
   { id: 'arquivos', grupo: 'Sites e arquivos', icone: 'arquivo', nome: 'Ler e criar arquivos', descricao: 'Lê e cria planilhas, documentos, PDFs e código na sua pasta de trabalho.', exemplo: 'crie uma planilha para eu anotar meus gastos do mês' },
+  { id: 'memoria', rota: 'memoria', grupo: 'Você', icone: 'relatorio', nome: 'Memória sobre você', descricao: 'Guarda o que você pedir (nome, cidade, como prefere as respostas) e usa em todas as conversas. "Esqueça que…" apaga.', exemplo: 'lembre que eu prefiro respostas curtas e diretas' },
 ];
 
 /** Os cartões com a disponibilidade neste PC: { ...cartão, disponivel, falta }. */

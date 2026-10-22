@@ -17,10 +17,17 @@ const catalogo = require('./capacidades');
 const rede = require('./rede-no-chat');
 const pc = require('./pc-no-chat');
 const imagensNoChat = require('./imagens-no-chat');
+const memoria = require('./memoria-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
 const ROTAS = [
+  {
+    // "lembre que eu prefiro respostas curtas", "esqueça que…", "o que você sabe sobre mim?" (22/10)
+    id: 'memoria',
+    detecta: ({ objetivo }) => memoria.pedidoDeMemoria(objetivo),
+    responde: ({ objetivo, deps, pasta, config }, pedido) => memoria.responderMemoria({ pergunta: objetivo, deps, pasta, config, ...(pedido ? { acao: pedido } : {}) }),
+  },
   {
     // "o que você pode fazer?": a mesma lista da aba Utilitários, montada pelo código
     id: 'utilitarios',
