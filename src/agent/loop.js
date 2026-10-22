@@ -32,7 +32,6 @@ const { resolverReferencia } = require('./assunto-da-conversa');
 const protocolo = require('./protocolo');
 const motorPesquisa = require('./motor-pesquisa');
 const { escopoDoPedido, foraDoEscopo } = require('./escopo');
-const search = require('../tools/search');
 const nucleo = require('./nucleo');
 const { investigar } = require('./nucleo/investigacao');
 const catalogo = require('./capacidades');
@@ -1888,14 +1887,9 @@ class Agent extends EventEmitter {
     const operacional = new MemoriaOperacional(path.join(sandbox.root, '.augpt'));
     if (this.config.memoriaOperacional !== false) {
       // aprende observando os próprios eventos, sem custo de chamada ao modelo
-      for (const evento of ['fonte', 'resultado', 'confronto']) {
+      for (const evento of ['fonte', 'resultado']) {
         this.on(evento, (dados) => observar(operacional, evento, dados));
       }
-      // credibilidade aprendida NESTA pasta de trabalho entra na ordenação de
-      // busca desta execução — search.js guarda isso num mapa global separado
-      // do que o usuário marcou manualmente (definirPersonalizados), então um
-      // nunca sobrescreve o outro.
-      search.definirAprendidos(operacional.credibilidadeAprendida());
     }
 
     // Diferente da operacional e da vetorial, vive em userData — não na pasta

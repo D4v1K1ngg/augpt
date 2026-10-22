@@ -235,46 +235,6 @@ async function carregarDominios() {
     alvo.appendChild(div);
   }
 
-  await carregarDominiosAprendidos();
-}
-
-async function carregarDominiosAprendidos() {
-  const itens = (await api.memory.operacional()).filter((i) => i.tipo === 'credibilidade');
-  $('domAprendidosTotal').textContent = itens.length.toLocaleString('pt-BR');
-  const alvo = $('domAprendidosLista');
-  alvo.innerHTML = itens.length ? '' : '<p class="dica">Nada aprendido ainda nesta pasta — aparece aqui depois que o agente cruzar a mesma fonte com outras algumas vezes.</p>';
-  for (const item of itens) {
-    const rotulo = item.confiavel
-      ? item.saldo > 0
-        ? { texto: 'confiável', classe: 'ok' }
-        : { texto: 'apuração fraca', classe: 'alerta' }
-      : { texto: 'em observação', classe: '' };
-    const div = document.createElement('div');
-    div.className = 'dom-item';
-    div.innerHTML = `
-      <span class="dom-nome"></span>
-      <span class="exec-resultado ${rotulo.classe}">${rotulo.texto} (${item.acertos}✓ / ${item.erros}✗)</span>
-      <span class="dom-motivo"></span>
-      <button class="btn-secundario btn-mini" title="Tornar uma marcação sua, fixa">fixar</button>
-      <button class="btn-linha" title="Esquecer">✕</button>`;
-    div.querySelector('.dom-nome').textContent = item.chave;
-    div.querySelector('.dom-motivo').textContent = item.motivo || '';
-    div.querySelectorAll('button')[0].addEventListener('click', async () => {
-      dominiosSeus = dominiosSeus.filter((d) => d.dominio !== item.chave);
-      dominiosSeus.push({
-        dominio: item.chave,
-        risco: item.saldo > 0 ? 'confiavel' : 'medio',
-        motivo: item.motivo || 'fixado a partir do aprendizado automático',
-      });
-      await api.domains.save(dominiosSeus);
-      carregarDominios();
-    });
-    div.querySelectorAll('button')[1].addEventListener('click', async () => {
-      await api.memory.esquecer(item.chave, 'credibilidade');
-      carregarDominiosAprendidos();
-    });
-    alvo.appendChild(div);
-  }
 }
 
 $('domConsulta').addEventListener('input', async (e) => {

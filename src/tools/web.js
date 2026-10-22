@@ -1,6 +1,6 @@
 'use strict';
 
-const { buscar, ordenarPorQualidade, subconsultas, buscarVarias, definirAprendido } = require('./search');
+const { buscar, ordenarPorQualidade, subconsultas, buscarVarias } = require('./search');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -130,35 +130,6 @@ const dominioDe = (url) => {
   }
 };
 
-/**
- * Peça 4 (agrupamento de domínios por clustering, pedido do Davi
- * 2026-09-19): antes de ordenar os resultados por qualidade, dá uma chance
- * pros domínios SEM sinal próprio nenhum (nem tabela estática, nem
- * aprendizado individual) herdarem sinal de um domínio parecido que o
- * agente já aprendeu a confiar ou desconfiar — ver `MemoriaOperacional.
- * credibilidadePorClustering()`. `search.definirAprendido()` só entra no
- * mapa que `qualidadeDoDominio()` já consulta (nunca sobrescreve sinal
- * individual de verdade), então `ordenarPorQualidade()` logo depois
- * continua 100% síncrono e sem saber que isto aconteceu.
- *
- * Fica de fora sozinho, sem gastar nenhuma chamada de embedding, quando não
- * há `embedModel` configurado ou a memória operacional está desligada —
- * mesma degradação graciosa do resto do projeto.
- */
-async function aplicarClusteringDeCredibilidade(ctx, resultados) {
-  if (!ctx.operacional || !ctx.config?.embedModel || ctx.config.memoriaOperacional === false) return;
-  const dominios = [...new Set(resultados.map((r) => dominioDe(r.url)).filter(Boolean))];
-  for (const dominio of dominios) {
-    // eslint-disable-next-line no-await-in-loop -- poucos domínios por página de resultados, e o cache por execução (MemoriaOperacional.clusterTentados) evita reembedar o mesmo domínio de novo
-    const cluster = await ctx.operacional.credibilidadePorClustering({
-      dominio,
-      assunto: ctx.objetivo,
-      host: ctx.config.host,
-      embedModel: ctx.config.embedModel,
-    });
-    if (cluster) definirAprendido(dominio, cluster);
-  }
-}
 
 /**
  * Provedor que já falhou de verdade nesta execução (erro de transporte, limite
@@ -469,89 +440,6 @@ function adiantarBuscas(lista, ctx) {
   return agendadas;
 }
 
-/**
- * Item 2 do pedido do Davi (2026-09-23 — depois do item 1, cross-validation
- * de opinião, nesta mesma rodada): "descoberta de autoridade em duas fases".
- * Ele aceitou explicitamente que isso pesa mais no modelo (mais material no
- * contexto) e aumenta o teto de busca (ver TETO_DE_BUSCAS em loop.js) — "na
- * minha opinião era a peça que faltava pro AuGPT conseguir realizar
- * pesquisas mais cirúrgicas".
- *
- * A lacuna real: `qualidadeDoDominio()` (search.js) só sabe classificar por
- * TIPO de domínio (.gov, .edu, tabela estática de veículo conhecido) — não
- * tem como saber que, para "melhor fone pra PUBG" especificamente, um site
- * de review técnico pouco conhecido É a autoridade do assunto, enquanto pra
- * uma dúvida jurídica a autoridade é outro site completamente diferente,
- * nenhum dos dois coberto pela tabela genérica. Antes de ler conteúdo de
- * verdade (fase 2 — a leitura que `pesquisar_e_ler` já fazia), fase 1 faz UMA
- * busca extra com uma consulta voltada especificamente a achar QUEM é
- * referência no assunto — e os domínios que essa busca elege entram no MESMO
- * mapa de credibilidade aprendida que `aplicarClusteringDeCredibilidade`
- * (acima) já usa (`search.definirAprendido`), sem precisar mudar
- * `ordenarPorQualidade` nem nada que já lê aquele mapa: a fase 2 (as buscas
- * de conteúdo de verdade, que já rodam por padrão) automaticamente passa a
- * priorizar esses domínios no resto da execução.
- *
- * Roda no máximo 1 vez por execução (`ctx.estado.autoridadeDescoberta`) e só
- * no nível de raciocínio alto/extremo — mesmo gate já usado em outro ponto
- * do laço (`cauteloso`, loop.js) para mecanismo de custo extra opcional.
- * Falha aqui NUNCA pode travar a pesquisa de verdade: é bônus, não requisito.
- */
-function deveDescobrirAutoridade(ctx) {
-  return (
-    (ctx.config?.nivelRaciocinio === 'alto' || ctx.config?.nivelRaciocinio === 'extremo') &&
-    !ctx.estado.autoridadeDescoberta
-  );
-}
-
-/**
- * Consulta voltada a achar QUEM é referência, não o conteúdo em si —
- * deliberadamente simples (só acrescenta os termos que sinalizam busca por
- * autoridade): o valor do mecanismo está em SER uma busca separada com
- * propósito diferente da busca de conteúdo, não na sofisticação da consulta.
- */
-function construirConsultaDeAutoridade(consulta) {
-  return `${String(consulta).trim()} site oficial especialista fonte confiável`;
-}
-
-async function descobrirAutoridade(consultaOriginal, ctx) {
-  // marcado ANTES de tentar — uma falha de rede aqui não deve tentar de novo
-  // a cada busca da mesma execução, mesmo espírito de buscaDeReforcoFeita
-  ctx.estado.autoridadeDescoberta = true;
-  try {
-    const consultaAutoridade = construirConsultaDeAutoridade(consultaOriginal);
-    const { resultados } = await buscarVarias([consultaAutoridade], {
-      searxngUrl: ctx.config.searxngUrl,
-      marginaliaKey: ctx.config.marginaliaKey,
-      jinaKey: ctx.config.jinaKey,
-      pular: provedoresParaPular(ctx),
-    });
-    if (!resultados.length) return;
-
-    // só os 3 primeiros, e nunca um domínio que já tem QUALQUER marca
-    // negativa/de risco conhecida (tabela estática ou aprendida antes desta
-    // execução) — a descoberta de autoridade promove domínio DESCONHECIDO ou
-    // já confiável, nunca sobrescreve um alerta existente em silêncio.
-    const candidatos = ordenarPorQualidade(resultados).slice(0, 3).filter((r) => !r.alerta);
-
-    const dominiosPromovidos = [];
-    for (const r of candidatos) {
-      const dominio = dominioDe(r.url);
-      const promovido = definirAprendido(dominio, {
-        risco: 'confiavel',
-        motivo: 'descoberta de autoridade em duas fases (nível alto/extremo)',
-      });
-      if (promovido) dominiosPromovidos.push(dominio);
-    }
-
-    if (dominiosPromovidos.length) {
-      ctx.emit('autoridade-descoberta', { consulta: consultaAutoridade, dominios: dominiosPromovidos });
-    }
-  } catch {
-    // fase 1 é bônus opcional — a fase 2 (pesquisar_e_ler de verdade) segue normalmente mesmo se isto falhar
-  }
-}
-
 /** A URL é do site pedido com "site:dominio" na consulta? Sem "site:" na consulta, qualquer URL serve. */
 function doSitePedido(consulta, url) {
   const sites = [...String(consulta || '').matchAll(/\bsite:([a-z0-9.-]+)/gi)].map((m) => m[1].toLowerCase().replace(/^www\./, ''));
@@ -674,15 +562,6 @@ module.exports = [
       // menciona PUBG, mas esta consulta, formulada com o histórico, tem)
       ctx.estado.ultimaConsultaBusca = String(consulta);
 
-      // Item 2 (descoberta de autoridade em duas fases, nível alto/extremo,
-      // ver comentário completo acima de `descobrirAutoridade`): roda ANTES
-      // da busca de conteúdo de verdade, no máximo uma vez por execução —
-      // os domínios que ela promove já valem pra esta MESMA chamada, porque
-      // `ordenarPorQualidade` logo abaixo lê o mapa que ela acabou de atualizar.
-      if (deveDescobrirAutoridade(ctx)) {
-        await descobrirAutoridade(String(consulta), ctx);
-      }
-
       // A política manda; o argumento do modelo só pode reduzir dentro dela.
       const regra = politica(ctx.config);
       const quantas = Math.max(regra.minimo, Math.min(Number(paginas) || regra.maximo, regra.maximo));
@@ -713,7 +592,6 @@ module.exports = [
       // mais que quantidade de links.
       // pedido que fala em "atual", "hoje" ou cita um ano prefere página recente
       const preferirRecente = /\b(atual|atualizad|hoje|agora|recente|últim|ultim|20\d\d)\b/i.test(consulta);
-      await aplicarClusteringDeCredibilidade(ctx, resultados);
       const ordenados = ordenarPorQualidade(resultados, { preferirRecente });
 
       // a contagem vive na execução, não na chamada
@@ -873,8 +751,4 @@ module.exports.lerComCache = lerComCache;
 module.exports.planoDaBusca = planoDaBusca;
 module.exports.decidirWikipedia = decidirWikipedia;
 module.exports.recortarRelevante = recortarRelevante;
-module.exports.aplicarClusteringDeCredibilidade = aplicarClusteringDeCredibilidade;
-module.exports.deveDescobrirAutoridade = deveDescobrirAutoridade;
-module.exports.construirConsultaDeAutoridade = construirConsultaDeAutoridade;
-module.exports.descobrirAutoridade = descobrirAutoridade;
 module.exports.chaveDaPagina = chaveDaPagina;

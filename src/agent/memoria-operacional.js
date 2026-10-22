@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { cosine, vetorDe } = require('./embeddings');
+const { cosine } = require('./embeddings');
 
 /**
  * Memória operacional.
@@ -21,7 +21,6 @@ const TIPOS = {
   ferramenta: 'Ferramentas',
   preferencia: 'Preferências do usuário',
   estrategia: 'Estratégias de tarefa',
-  credibilidade: 'Credibilidade de domínio (aprendida)',
 };
 
 const LIMITE = 120;
@@ -101,14 +100,6 @@ class MemoriaOperacional {
     this.arquivoCandidatas = path.join(dir, 'candidatas-skill.json');
     this.itens = [];
     this.candidatas = [];
-    // Peça 4 (agrupamento de domínios por clustering, pedido do Davi
-    // 2026-09-19): cache só-desta-instância (= só desta execução, já que
-    // `new MemoriaOperacional()` é criado uma vez por `run()`) dos domínios
-    // já testados contra os clusters — nunca escrito em disco, de propósito.
-    // Evita pagar embedding de novo pro MESMO domínio "sem sinal" que aparece
-    // em várias buscas dentro da mesma execução (decisão do Davi: "reativo,
-    // com cache").
-    this.clusterTentados = new Map();
     this.carregar();
     this.carregarCandidatas();
   }
@@ -211,145 +202,6 @@ class MemoriaOperacional {
     return item?.estrategia || (item ? /javascript/i.test(item.licao) ? 'render-js' : null : null);
   }
 
-  /**
-   * Credibilidade de domínio é um SALDO (acertos - erros), não uma última
-   * palavra que se sobrescreve — um domínio pode divergir uma vez e corroborar
-   * outras três depois, e isso deve pesar mais que "a última coisa que
-   * aconteceu". Método próprio em vez de `aprender()` porque o formato do
-   * item é diferente do resto (licao/vezes único): aqui são dois contadores.
-   */
-  aprenderCredibilidade({ dominio, positivo, motivo }) {
-    if (!dominio) return null;
-    let item = this.itens.find((i) => i.tipo === 'credibilidade' && i.chave === dominio);
-    if (!item) {
-      item = { tipo: 'credibilidade', chave: dominio, acertos: 0, erros: 0, em: null };
-      this.itens.push(item);
-    }
-    if (positivo) item.acertos += 1;
-    else item.erros += 1;
-    item.ultimoMotivo = motivo;
-    item.em = new Date().toISOString();
-
-    if (this.itens.length > LIMITE) {
-      const pontuarLimite = (i) => (i.tipo === 'credibilidade' ? i.acertos + i.erros : i.vezes);
-      this.itens.sort((a, b) => pontuarLimite(b) - pontuarLimite(a) || String(b.em).localeCompare(String(a.em)));
-      this.itens = this.itens.slice(0, LIMITE);
-    }
-    this.gravar();
-    return item;
-  }
-
-  /**
-   * Domínios com sinal suficiente (acertos + erros >= mínimo) para influenciar
-   * a fila de leitura da próxima pesquisa, no formato que
-   * search.definirAprendidos() espera. Nunca na primeira ocorrência isolada —
-   * um evento só pode ser a fonte única estando CERTA (ou errada) por acaso,
-   * não o padrão. Saldo positivo reforça (risco 'confiavel', que
-   * qualidadeDoDominio() em search.js já sabe premiar); saldo negativo
-   * rebaixa ('medio'); saldo no meio (empate ou quase) ainda não diz nada
-   * com confiança e fica de fora.
-   */
-  credibilidadeAprendida() {
-    return this.itens
-      .filter((i) => i.tipo === 'credibilidade' && i.acertos + i.erros >= minimoPara('credibilidade'))
-      .map((i) => {
-        const saldo = i.acertos - i.erros;
-        const risco = saldo <= -2 ? 'medio' : saldo >= 2 ? 'confiavel' : null;
-        return risco ? { dominio: i.chave, risco, motivo: i.ultimoMotivo } : null;
-      })
-      .filter(Boolean);
-  }
-
-  /**
-   * Peça 4 do plano de nível de raciocínio (pedido do Davi 2026-09-19):
-   * `credibilidadeAprendida()` acima só cobre domínio que JÁ tem sinal
-   * próprio — um domínio nunca visto começa sempre do zero (cold start),
-   * mesmo sendo parecido (mesma categoria, mesmo tipo de site) com outro que
-   * o agente já aprendeu a desconfiar ou confiar. Isto reaproveita o MESMO
-   * padrão de `formarCluster()` (cosseno + `LIMIAR_CLUSTER`) só que aplicado
-   * a domínio: embedding do domínio + assunto atual comparado contra os
-   * domínios que JÁ têm sinal próprio, e — se cair dentro do limiar de um
-   * deles — herda METADE do saldo dele (nunca o saldo inteiro: é uma
-   * suposição por semelhança, não uma observação direta deste domínio).
-   *
-   * Reativo por natureza (só dá pra calcular quando o domínio aparece, não
-   * antes) e propositalmente CACHEADO por execução (decisão do Davi ao
-   * revisar a troca de custo/latência: "reativo, com cache") — `this.
-   * clusterTentados` nunca é gravado em disco, some quando a instância
-   * termina, mas evita reembedar o MESMO domínio "sem sinal" várias vezes na
-   * mesma execução (o caso comum: o mesmo domínio aparecendo em buscas
-   * diferentes dentro de um único pedido). Fica de fora sozinho (retorna
-   * null sem chamar embedding nenhum) sempre que: falta `embedModel`
-   * configurado (mesma degradação graciosa do resto do embedding no
-   * projeto), o domínio já tem sinal próprio (clustering não serve pra
-   * nada aqui) ou não existe NENHUM domínio com sinal pra comparar ainda.
-   */
-  async credibilidadePorClustering({ dominio, assunto, host, embedModel }) {
-    if (!embedModel || !dominio) return null;
-    // Checagem direta em vez de `this.saber('credibilidade', dominio)`: `saber()`
-    // compara `item.vezes` (contador genérico que credibilidade não usa — aqui é
-    // acertos/erros), então sempre daria `undefined >= minimoPara(...)` = false e
-    // NUNCA pularia o clustering pra um domínio que já tem sinal próprio de
-    // verdade. Achado revisando este método antes de escrever os testes.
-    const temSinalProprio = this.itens.some(
-      (i) => i.tipo === 'credibilidade' && i.chave === dominio && i.acertos + i.erros >= minimoPara('credibilidade'),
-    );
-    if (temSinalProprio) return null;
-    if (this.clusterTentados.has(dominio)) return this.clusterTentados.get(dominio);
-
-    const resultado = await this._compararComClustersDeCredibilidade({ dominio, assunto, host, embedModel });
-    this.clusterTentados.set(dominio, resultado);
-    return resultado;
-  }
-
-  /** Núcleo de `credibilidadePorClustering()`, separado só pra manter o cache acima simples de ler. */
-  async _compararComClustersDeCredibilidade({ dominio, assunto, host, embedModel }) {
-    // Teto (mesmo espírito de LIMITE_CANDIDATAS em formarCluster): embedar
-    // dezenas de domínios candidatos na primeira chamada, de uma vez, seria
-    // caro demais — os mais recentes (fim do array, ver aprenderCredibilidade)
-    // são também os mais prováveis de ainda estar em jogo no mesmo tipo de
-    // pesquisa de hoje.
-    const candidatos = this.itens
-      .filter((i) => i.tipo === 'credibilidade' && i.chave !== dominio && i.acertos + i.erros >= minimoPara('credibilidade'))
-      .slice(-30);
-    if (!candidatos.length) return null;
-
-    const vetorDominio = await vetorDe(`${dominio} ${assunto || ''}`.trim(), { host, embedModel });
-    if (!vetorDominio) return null;
-
-    let melhor = null;
-    let melhorScore = 0;
-    for (const candidato of candidatos) {
-      // O vetor do CANDIDATO (não do domínio novo) fica cacheado no próprio
-      // item e é gravado em disco — diferente de `clusterTentados` (que é só
-      // desta execução), este vale pra sempre: o candidato já tem sinal
-      // consolidado, seu embedding não muda de uma execução pra outra.
-      // eslint-disable-next-line no-await-in-loop -- teto de 30 candidatos acima, e a maioria já vem cacheada em candidato.vec
-      const vetorCandidato = candidato.vec || (await vetorDe(`${candidato.chave} ${candidato.ultimoMotivo || ''}`.trim(), { host, embedModel }));
-      if (!vetorCandidato) continue;
-      if (!candidato.vec) candidato.vec = vetorCandidato;
-      const score = cosine(vetorDominio, vetorCandidato);
-      if (score > melhorScore) {
-        melhorScore = score;
-        melhor = candidato;
-      }
-    }
-    if (!melhor || melhorScore <= LIMIAR_CLUSTER) return null;
-
-    const saldoOriginal = melhor.acertos - melhor.erros;
-    const saldoHerdado = Math.trunc(saldoOriginal / 2);
-    const risco = saldoHerdado <= -2 ? 'medio' : saldoHerdado >= 2 ? 'confiavel' : null;
-    if (!risco) return null;
-
-    this.gravar(); // persiste os vetores de candidato calculados agora (cache entre execuções)
-    return {
-      dominio,
-      risco,
-      motivo: `parecido com ${melhor.chave} (domínio nunca visto antes, herdando metade do saldo aprendido por semelhança)`,
-      herdadoDe: melhor.chave,
-    };
-  }
-
   /** Bloco curto para o prompt de decisão, filtrado pelo que é relevante. */
   paraPrompt(objetivo = '', limite = 700) {
     const alvo = String(objetivo).toLowerCase();
@@ -381,32 +233,11 @@ class MemoriaOperacional {
   }
 
   listar() {
-    const pontuar = (i) => (i.tipo === 'credibilidade' ? i.acertos + i.erros : i.vezes);
-    return [...this.itens]
-      .sort((a, b) => a.tipo.localeCompare(b.tipo) || pontuar(b) - pontuar(a))
-      .map((i) => {
-        if (i.tipo === 'credibilidade') {
-          const saldo = i.acertos - i.erros;
-          return {
-            ...i,
-            confiavel: i.acertos + i.erros >= minimoPara('credibilidade') && Math.abs(saldo) >= 2,
-            motivo: i.ultimoMotivo,
-            // campos abaixo só existem para a lista genérica (que espera licao/vezes
-            // de qualquer tipo) conseguir mostrar um item de credibilidade também
-            licao:
-              i.ultimoMotivo ||
-              (saldo > 0
-                ? 'mais vezes corroborou do que divergiu de outras fontes'
-                : saldo < 0
-                  ? 'mais vezes divergiu do que corroborou outras fontes'
-                  : 'sinal ainda empatado entre acertos e erros'),
-            vezes: i.acertos + i.erros,
-            saldo,
-            rotulo: TIPOS[i.tipo],
-          };
-        }
-        return { ...i, confiavel: itemConfiavel(i), estado: estadoDoItem(i), rotulo: TIPOS[i.tipo] };
-      });
+    // os itens de credibilidade de domínio gravados até 22/10 ficam no arquivo, sem uso
+    return this.itens
+      .filter((i) => i.tipo !== 'credibilidade')
+      .sort((a, b) => a.tipo.localeCompare(b.tipo) || b.vezes - a.vezes)
+      .map((i) => ({ ...i, confiavel: itemConfiavel(i), estado: estadoDoItem(i), rotulo: TIPOS[i.tipo] }));
   }
 
   esquecer(chave, tipo = null) {
@@ -518,41 +349,6 @@ function observar(memoria, evento, dados) {
         tipo: 'fonte', chave: 'cadeia de busca',
         licao: `${dados.provedor} respondeu depois de ${dados.falhas.length} provedor(es) falharem`,
       });
-    }
-  }
-
-  // Confronto entre fontes (ver confronto.js, emitido em finalizarComResposta
-  // no fim de cada execução). Uma divergência não significa que o domínio
-  // isolado está errado — corroboração não é verdade, só é mais gente
-  // dizendo a mesma coisa. Por isso isto é um SALDO (aprenderCredibilidade),
-  // nunca um veredicto isolado: um evento não bloqueia nem acusa, e só passa
-  // a valer a partir do mínimo de ocorrências somadas (minimoPara).
-  if (evento === 'confronto') {
-    if (Array.isArray(dados.divergencias)) {
-      for (const d of dados.divergencias) {
-        const dominio = d?.b?.dominios?.[0];
-        if (!dominio) continue;
-        memoria.aprenderCredibilidade({
-          dominio,
-          positivo: false,
-          motivo: 'divergiu do valor corroborado por outra(s) fonte(s) em consulta(s) anterior(es) — não é veredicto, mas mereceu registro',
-        });
-      }
-    }
-
-    // O lado que faltava: um domínio do lado CORROBORADO de um valor confirmado
-    // (2+ fontes concordando, ver confronto.confrontar()) também merece
-    // registro — hoje só se aprendia a desconfiar, nunca a confiar mais.
-    if (Array.isArray(dados.confirmados)) {
-      for (const v of dados.confirmados) {
-        for (const dominio of v?.dominios || []) {
-          memoria.aprenderCredibilidade({
-            dominio,
-            positivo: true,
-            motivo: 'corroborou um valor confirmado por outra(s) fonte(s) em consulta(s) anterior(es)',
-          });
-        }
-      }
     }
   }
 

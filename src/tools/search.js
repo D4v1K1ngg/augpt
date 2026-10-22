@@ -245,7 +245,6 @@ const PESOS = [
 let tabela = null;
 let bloqueados = null;
 let personalizados = {}; // entradas do usuário, definidas em Configurações
-let aprendidos = {}; // observados pela memória operacional, por pasta de trabalho
 
 /**
  * O julgamento do usuário vence a base pública: ele conhece os sites do
@@ -265,44 +264,6 @@ function definirPersonalizados(lista = []) {
     };
   }
   return Object.keys(personalizados).length;
-}
-
-/**
- * Credibilidade aprendida por observação (ver memoria-operacional.js): um
- * domínio que divergiu do valor corroborado por outras fontes numa consulta
- * anterior desce na fila de leitura, complementando a tabela estática — não
- * é marcação do usuário, por isso mora num mapa separado e nunca sobrescreve
- * `personalizados`. Chamada de novo no início de cada execução (loop.js),
- * com o que a memória operacional DESTA pasta de trabalho já sabe.
- */
-function definirAprendidos(lista = []) {
-  aprendidos = {};
-  for (const item of lista) {
-    if (!item?.dominio) continue;
-    const chave = String(item.dominio).toLowerCase().replace(/^www\./, '').trim();
-    if (!chave) continue;
-    aprendidos[chave] = { risco: item.risco || 'medio', motivo: item.motivo || 'divergiu em consulta anterior' };
-  }
-  return Object.keys(aprendidos).length;
-}
-
-/**
- * Peça 4 (agrupamento de domínios por clustering, `MemoriaOperacional.
- * credibilidadePorClustering()`): diferente de `definirAprendidos` acima
- * (que SUBSTITUI o mapa inteiro, uma vez, no início da execução — os
- * domínios já eram conhecidos), este ACRESCENTA um domínio de cada vez,
- * porque o clustering só sabe herdar sinal pra um domínio DEPOIS de vê-lo
- * aparecer numa busca — reativo por natureza, não dá pra ter tudo de
- * antemão. Nunca sobrescreve uma entrada já aprendida individualmente
- * (`definirAprendidos` sempre vence: sinal próprio > sinal herdado por
- * semelhança).
- */
-function definirAprendido(dominio, info) {
-  if (!dominio || !info) return false;
-  const chave = String(dominio).toLowerCase().replace(/^www\./, '').trim();
-  if (!chave || aprendidos[chave]) return false;
-  aprendidos[chave] = { risco: info.risco || 'medio', motivo: info.motivo || 'parecido com outro domínio já observado' };
-  return true;
 }
 
 /**
@@ -357,8 +318,6 @@ function credibilidade(dominio) {
   return (
     personalizados[chave] ||
     personalizados[apex] ||
-    aprendidos[chave] ||
-    aprendidos[apex] ||
     tabela[chave] ||
     tabela[apex] ||
     null
@@ -549,7 +508,7 @@ async function buscar(consulta, opcoes = {}) {
 module.exports = {
   buscar, CADEIA, searxng, saudeDaBusca, registrarSaude, duckduckgoHtml, duckduckgoLite, marginalia, wikipedia, jina,
   ordenarPorQualidade, qualidadeDoDominio, subconsultas, buscarVarias, estaBloqueado,
-  definirPersonalizados, definirAprendidos, definirAprendido,
+  definirPersonalizados,
   estatisticasDeDominios: () => {
     if (tabela === null) credibilidade('x.com');
     if (bloqueados === null) estaBloqueado('x.com');
