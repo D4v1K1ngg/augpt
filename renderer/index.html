@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="styles.css" />
 <link rel="stylesheet" href="tema.css" />
 <script src="tema.js"></script>
+<script src="i18n.js"></script>
 </head>
 <body>
 
@@ -524,6 +525,19 @@
       <div class="ajustes-painel" id="ajGeral">
         <header class="pagina-topo"><div><h1>Geral</h1><p>O que muda o jeito do AuGPT responder no dia a dia. Tudo é gravado no seu computador assim que você muda.</p></div></header>
         <section class="grupo">
+          <h2>Você</h2>
+          <label class="linha"><span class="linha-texto"><span>Idioma do AuGPT</span><small>O idioma das telas e das respostas. Automático segue o idioma do Windows.</small></span>
+            <select id="ajIdioma">
+              <option value="">Automático (do Windows)</option>
+              <option value="pt">Português</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <label class="linha"><span class="linha-texto"><span>Como você quer ser chamado?</span><small>O AuGPT usa o nome para falar com você. Fica só neste computador.</small></span>
+            <input type="text" id="ajNome" maxlength="60" placeholder="Seu nome" />
+          </label>
+        </section>
+        <section class="grupo">
           <h2>Respostas</h2>
           <p class="dica grupo-sub">Os mesmos seletores do topo da tela — mudar aqui ou lá dá no mesmo.</p>
           <label class="linha"><span>Modelo principal</span>
@@ -965,7 +979,7 @@
 <dialog id="dlgModelos">
   <div class="dialogo dialogo-modelos">
     <h2>Onde cada modelo está rodando agora</h2>
-    <p class="dica">O modelo principal e o de memória (nomic-embed-text) deveriam estar na <b>GPU</b>; o roteador (Tev1) e o copiloto dedicado, na <b>CPU</b>, pra não disputar a placa de vídeo. "Não carregado" é normal: o Ollama carrega o modelo na primeira chamada e descarrega depois de alguns minutos parado.</p>
+    <p class="dica">O modelo principal e o de memória (nomic-embed-text) deveriam estar na <b>GPU</b>; o roteador (Tev1), na <b>CPU</b>, pra não disputar a placa de vídeo. "Não carregado" é normal: o Ollama carrega o modelo na primeira chamada e descarrega depois de alguns minutos parado.</p>
     <div id="dlgModelosCorpo"></div>
     <footer>
       <button class="btn-secundario" id="btnAtualizarModelos">Atualizar</button>
@@ -1012,20 +1026,82 @@
 <!-- Boas-vindas (15/10): verifica o computador, o Ollama, os modelos e a busca
      embutida, e instala o que faltar — cada instalação só começa no clique.
      Lógica em boas-vindas.js. -->
+<!-- Boas-vindas (22/10, pedido do Davi): tela cheia, em 3 passos — boas-vindas com idioma e nome,
+     o computador (o que falta instalar) e "tudo pronto". Nada é instalado sem o clique. -->
 <div class="boas-vindas" id="boasVindas" hidden role="dialog" aria-modal="true" aria-labelledby="bvTitulo">
-  <div class="bv-caixa">
-    <header class="bv-cabeca">
-      <h1 id="bvTitulo">Bem-vindo ao AuGPT</h1>
-      <p>Um agente de IA que roda no seu computador e pesquisa na web para responder. Vamos conferir o seu PC e preparar o que falta — nada é instalado sem você clicar.</p>
-    </header>
-    <ol class="bv-etapas" id="bvEtapas"><li class="bv-carregando">Verificando o computador…</li></ol>
-    <footer class="bv-rodape">
-      <button class="btn-secundario" id="bvVerificar">Verificar de novo</button>
-      <span class="bv-espaco"></span>
-      <button class="btn-secundario" id="bvPular">Pular por enquanto</button>
-      <button class="btn-primario" id="bvConcluir" disabled>Começar a usar</button>
-    </footer>
-  </div>
+  <div class="bv-fundo" aria-hidden="true"></div>
+  <header class="bv-topo">
+    <div class="bv-logo"><span class="tile"><span class="sym">Au</span></span><b>AuGPT</b></div>
+    <ol class="bv-passos" id="bvPassos">
+      <li data-passo="1"><span>1</span>Boas-vindas</li>
+      <li data-passo="2"><span>2</span>Seu computador</li>
+      <li data-passo="3"><span>3</span>Tudo pronto</li>
+    </ol>
+    <button class="btn-linha bv-pular" id="bvPular" type="button">Pular por enquanto</button>
+  </header>
+
+  <main class="bv-palco">
+    <section class="bv-tela" id="bvTela1">
+      <div class="bv-heroi">
+        <span class="tile bv-tile"><span class="sym">Au</span></span>
+        <h1 id="bvTitulo">Bem-vindo ao AuGPT</h1>
+        <p class="bv-lede">Seu agente de IA que roda no seu computador: pesquisa na web, lê o seu PC (só leitura) e responde com as fontes.</p>
+      </div>
+      <div class="bv-cartao bv-config">
+        <div class="bv-campo">
+          <span class="bv-rotulo">Idioma</span>
+          <div class="bv-idiomas" id="bvIdiomas" role="radiogroup" aria-label="Idioma">
+            <button type="button" role="radio" data-idioma="pt">Português</button>
+            <button type="button" role="radio" data-idioma="en">English</button>
+          </div>
+          <small id="bvIdiomaDetectado"></small>
+        </div>
+        <div class="bv-campo">
+          <label class="bv-rotulo" for="bvNome">Como você quer ser chamado? <em>opcional</em></label>
+          <input id="bvNome" type="text" maxlength="60" placeholder="Seu nome" autocomplete="given-name" />
+          <small>O AuGPT usa o nome para falar com você. Fica só neste computador.</small>
+        </div>
+      </div>
+      <ul class="bv-pilares">
+        <li><b>Privado</b><span>O modelo roda no seu PC; só as buscas na web saem dele.</span></li>
+        <li><b>Pesquisa de verdade</b><span>Lê várias fontes, cruza os números e mostra de onde veio cada informação.</span></li>
+        <li><b>Ferramentas</b><span>Testa a internet, lê o seu PC, cria gráficos, documentos e imagens.</span></li>
+      </ul>
+      <div class="bv-acoes-tela"><span class="bv-espaco"></span><button class="btn-primario bv-grande" id="bvIr2" type="button">Continuar</button></div>
+    </section>
+
+    <section class="bv-tela" id="bvTela2" hidden>
+      <div class="bv-heroi bv-heroi-menor">
+        <h1>Vamos preparar o seu computador</h1>
+        <p class="bv-lede">O AuGPT confere o que já tem e mostra o que falta. Nada é instalado sem você clicar.</p>
+      </div>
+      <h2 class="bv-grupo">Essencial</h2>
+      <ol class="bv-etapas" id="bvEtapas"></ol>
+      <h2 class="bv-grupo">Opcional</h2>
+      <ol class="bv-etapas bv-opcionais" id="bvOpcionais"></ol>
+      <div class="bv-acoes-tela">
+        <button class="btn-secundario" id="bvVoltar1" type="button">Voltar</button>
+        <button class="btn-secundario" id="bvVerificar" type="button">Verificar de novo</button>
+        <span class="bv-espaco"></span>
+        <span class="bv-falta" id="bvFalta"></span>
+        <button class="btn-primario bv-grande" id="bvIr3" type="button" disabled>Continuar</button>
+      </div>
+    </section>
+
+    <section class="bv-tela" id="bvTela3" hidden>
+      <div class="bv-heroi">
+        <span class="tile bv-tile"><span class="sym">Au</span></span>
+        <h1 id="bvProntoTitulo">Tudo pronto!</h1>
+        <p class="bv-lede">O AuGPT está pronto para pesquisar, conferir e responder. Para começar, experimente:</p>
+      </div>
+      <div class="bv-exemplos" id="bvExemplos"></div>
+      <div class="bv-acoes-tela">
+        <button class="btn-secundario" id="bvVoltar2" type="button">Voltar</button>
+        <span class="bv-espaco"></span>
+        <button class="btn-primario bv-grande" id="bvConcluir" type="button">Começar a usar</button>
+      </div>
+    </section>
+  </main>
 </div>
 
 <script src="grafico.js"></script>

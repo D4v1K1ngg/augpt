@@ -334,11 +334,25 @@ ipcMain.handle('browser:state', () => ({
  * digitou). `search.js`/`web.js` não sabem que o runtime embutido existe:
  * só leem `ctx.config.searxngUrl` normalmente.
  */
+/** O idioma em uso (22/10): o escolhido em Ajustes ou na boas-vindas; sem escolha, o do Windows. */
+function idiomaEfetivo() {
+  const escolhido = config.data.idioma;
+  if (escolhido === 'pt' || escolhido === 'en') return escolhido;
+  return String(app.getLocale() || '').toLowerCase().startsWith('pt') ? 'pt' : 'en';
+}
+
+/** O nome que o usuário deu (boas-vindas ou Ajustes) vira um fato da memória central: o agente usa em toda resposta. */
+function gravarNomeNaMemoria(nome) {
+  const memoria = new MemoriaCentral(app.getPath('userData'));
+  const limpo = String(nome || '').trim().slice(0, 60);
+  if (limpo) memoria.definir({ chave: 'nome', valor: `Chama-se ${limpo}.` });
+  else memoria.esquecer('nome');
+}
+
 function configParaAgente() {
-  if (config.data.usarSearxngEmbutido && searxngRuntime?.rodando) {
-    return { ...config.data, searxngUrl: `http://127.0.0.1:${searxngRuntime.porta}` };
-  }
-  return config.data;
+  const base = { ...config.data, idiomaEfetivo: idiomaEfetivo() };
+  if (config.data.usarSearxngEmbutido && searxngRuntime?.rodando) base.searxngUrl = `http://127.0.0.1:${searxngRuntime.porta}`;
+  return base;
 }
 
 /* ------------------------------ calibração da placa (19/10) ------------------------------ */
@@ -483,6 +497,7 @@ ipcMain.handle('config:restaurar', () => {
 
 ipcMain.handle('config:set', (_e, patch) => {
   const dados = config.save(filtrarPatchDeConfig(patch));
+  if (patch && 'nomeDoUsuario' in patch) gravarNomeNaMemoria(patch.nomeDoUsuario);
   if (agent) Object.assign(agent.config, configParaAgente());
   return dados;
 });
@@ -1209,10 +1224,13 @@ ipcMain.handle('boasVindas:instalarOllama', async () =>
 ipcMain.handle('boasVindas:ligarOllama', () => ollamaRuntime.localizarEIniciar(config.data.host));
 
 // fim: grava o modelo escolhido e liga a busca embutida, se ela foi instalada
-ipcMain.handle('boasVindas:concluir', async (_e, { modelo } = {}) => {
+ipcMain.handle('boasVindas:concluir', async (_e, { modelo, nome, idioma } = {}) => {
   const usarBusca = searxngRuntime.estaInstalado();
+  if (typeof nome === 'string') gravarNomeNaMemoria(nome);
   config.save({
     ...(modelo ? { model: modelo } : {}),
+    ...(typeof nome === 'string' ? { nomeDoUsuario: nome.trim().slice(0, 60) } : {}),
+    ...(idioma === 'pt' || idioma === 'en' || idioma === '' ? { idioma } : {}),
     embedModel: 'nomic-embed-text',
     modoDePesquisa: config.data.modoDePesquisa || 'automatico',
     boasVindasConcluida: true,

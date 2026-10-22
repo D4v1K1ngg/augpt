@@ -1,18 +1,24 @@
 'use strict';
 
-/* Tela de boas-vindas (15/10, distribuição para os amigos do Davi).
- * Etapas: computador → Ollama → modelos → busca na web. Cada instalação só
- * começa no clique do botão (é a confirmação do usuário). Usa as globais de
- * app.js: api, $, config, carregarConfig, carregarModelos, FASES_SX_EMBUTIDO.
- * Aparece sozinha na primeira abertura (sem modelo configurado e sem a
- * boas-vindas concluída); depois, pelo botão em Ajustes. */
+/* Tela de boas-vindas (15/10; refeita em 22/10 em tela cheia e em 3 passos, pedido do Davi).
+ *  1. Boas-vindas: o idioma (detectado do Windows, trocável aqui) e o nome (opcional).
+ *  2. Seu computador: computador, Ollama e modelos (essencial) e os opcionais. Cada instalação
+ *     só começa no clique do botão (é a confirmação do usuário).
+ *  3. Tudo pronto: exemplos para começar.
+ * Usa as globais de app*.js: api, $, config, carregarConfig, carregarModelos, FASES_SX_EMBUTIDO.
+ * Aparece sozinha na primeira abertura; depois, pelo botão em Ajustes → Geral. */
 
 const bv = {
+  passo: 1,
+  idioma: '', // '' = automático (o do Windows); 'pt' | 'en' quando o usuário escolhe aqui
   estado: null, // resposta de boasVindas:verificar
   escolhido: null, // nome do modelo principal escolhido
   baixando: null, // nome do modelo sendo baixado
   ocupado: false,
 };
+const t = (pt, vars) => (window.i18n ? window.i18n.tr(pt, vars) : pt);
+// frases prontas do processo principal (motivo da recomendação, avisos): ver PADROES em i18n.js
+const tt = (s) => (window.i18n ? window.i18n.trTexto(s) : String(s ?? ''));
 
 const h = (tag, props = {}, ...filhos) => {
   const el = document.createElement(tag);
@@ -24,7 +30,10 @@ const h = (tag, props = {}, ...filhos) => {
   for (const f of filhos.flat()) if (f !== null && f !== undefined && f !== false) el.append(f instanceof Node ? f : document.createTextNode(String(f)));
   return el;
 };
-const gb = (n) => `${String(Math.round(n * 10) / 10).replace('.', ',')} GB`;
+const gb = (n) => {
+  const x = Math.round(n * 10) / 10;
+  return `${window.i18n?.idioma === 'en' ? x : String(x).replace('.', ',')} GB`;
+};
 const temModelo = (nome) => (bv.estado?.modelos || []).some((m) => m === nome || m === `${nome}:latest` || m.split(':')[0] === nome && !nome.includes(':'));
 
 function etapa({ titulo, situacao, texto, corpo = [], acoes = [], progresso = null }) {
@@ -44,31 +53,64 @@ function etapa({ titulo, situacao, texto, corpo = [], acoes = [], progresso = nu
   );
 }
 
+/* ============================ passo 1: idioma e nome ============================ */
+
+function pintarIdioma() {
+  const ativo = window.i18n?.idioma || 'pt';
+  $('bvIdiomas').querySelectorAll('button').forEach((b) => {
+    const sim = b.dataset.idioma === ativo;
+    b.classList.toggle('ativo', sim);
+    b.setAttribute('aria-checked', String(sim));
+  });
+  $('bvIdiomaDetectado').textContent = t('Detectado no Windows: {idioma}', { idioma: window.i18n?.nomeDoIdioma(window.i18n.detectado()) || 'Português' });
+}
+
+$('bvIdiomas').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-idioma]');
+  if (!b) return;
+  // o que bate com o Windows fica "automático" (segue o sistema se ele mudar); o outro é escolha
+  bv.idioma = b.dataset.idioma === window.i18n?.detectado() ? '' : b.dataset.idioma;
+  window.i18n?.definir(bv.idioma);
+});
+
+// trocar o idioma refaz o que é montado pelo código (o texto fixo o i18n troca sozinho)
+window.addEventListener('idioma', () => {
+  if ($('boasVindas').hidden) return;
+  pintarIdioma();
+  if (bv.passo === 2) pintar();
+  if (bv.passo === 3) pintarPronto();
+});
+
+/* ============================ passo 2: o computador ============================ */
+
 function pintar() {
   const e = bv.estado;
   const lista = $('bvEtapas');
+  const opcionais = $('bvOpcionais');
   lista.replaceChildren();
+  opcionais.replaceChildren();
   if (!e) {
-    lista.append(h('li', { class: 'bv-carregando' }, 'Verificando o computador…'));
+    lista.append(h('li', { class: 'bv-carregando' }, t('Verificando o computador…')));
+    $('bvIr3').disabled = true;
     return;
   }
   const c = e.computador;
   const rec = e.recomendacao;
-  const gpu = c.gpus?.length ? c.gpus.map((g) => `${g.nome} · ${gb(g.vramGB)}`).join(', ') : 'nenhuma placa de vídeo com memória dedicada encontrada';
+  const gpu = c.gpus?.length ? c.gpus.map((g) => `${g.nome} · ${gb(g.vramGB)}`).join(', ') : t('nenhuma placa de vídeo com memória dedicada encontrada');
 
   // 1. computador
   lista.append(
     etapa({
-      titulo: 'Seu computador',
+      titulo: t('Seu computador'),
       situacao: rec.avisos.length ? 'aviso' : 'ok',
       corpo: [
         h('ul', { class: 'bv-ficha' },
-          h('li', {}, h('span', {}, 'Processador'), c.cpu || '—', ` (${c.nucleos} núcleos)`),
-          h('li', {}, h('span', {}, 'Memória RAM'), gb(c.ramTotalGB)),
-          h('li', {}, h('span', {}, 'Placa de vídeo'), gpu),
-          h('li', {}, h('span', {}, 'Espaço livre'), c.discoLivreGB != null ? `${gb(c.discoLivreGB)} (disco dos modelos)` : '—')
+          h('li', {}, h('span', {}, t('Processador')), c.cpu || '—', ` (${t('{n} núcleos', { n: c.nucleos })})`),
+          h('li', {}, h('span', {}, t('Memória RAM')), gb(c.ramTotalGB)),
+          h('li', {}, h('span', {}, t('Placa de vídeo')), gpu),
+          h('li', {}, h('span', {}, t('Espaço livre')), c.discoLivreGB != null ? t('{gb} (disco dos modelos)', { gb: gb(c.discoLivreGB) }) : '—')
         ),
-        ...rec.avisos.map((a) => h('p', { class: 'bv-aviso' }, `⚠ ${a}`)),
+        ...rec.avisos.map((a) => h('p', { class: 'bv-aviso' }, `⚠ ${tt(a)}`)),
       ],
     })
   );
@@ -77,21 +119,21 @@ function pintar() {
   const ollamaOk = e.ollama.online;
   lista.append(
     etapa({
-      titulo: 'Ollama (o programa que roda a IA)',
+      titulo: t('Ollama (o programa que roda a IA)'),
       situacao: ollamaOk ? 'ok' : 'falta',
       texto: ollamaOk
-        ? 'Instalado e ligado.'
+        ? t('Instalado e ligado.')
         : e.ollama.instalado
-          ? 'Instalado, mas desligado.'
+          ? t('Instalado, mas desligado.')
           : e.plataforma === 'win32'
-            ? 'Não está instalado. O AuGPT instala pelo winget (pacote oficial) ou pelo instalador oficial do site ollama.com.'
-            : 'Não está instalado. No Mac e no Linux a instalação pede senha de administrador; clique para ver como instalar.',
+            ? t('Não está instalado. O AuGPT instala pelo winget (pacote oficial) ou pelo instalador oficial do site ollama.com.')
+            : t('Não está instalado. No Mac e no Linux a instalação pede senha de administrador; clique para ver como instalar.'),
       progresso: bv.progressoOllama,
       acoes: ollamaOk
         ? []
         : e.ollama.instalado
-          ? [h('button', { class: 'btn-primario', disabled: bv.ocupado, onclick: ligarOllama }, 'Ligar o Ollama')]
-          : [h('button', { class: 'btn-primario', disabled: bv.ocupado, onclick: instalarOllama }, 'Instalar o Ollama')],
+          ? [h('button', { class: 'btn-primario', disabled: bv.ocupado, onclick: ligarOllama }, t('Ligar o Ollama'))]
+          : [h('button', { class: 'btn-primario', disabled: bv.ocupado, onclick: instalarOllama }, t('Instalar o Ollama'))],
     })
   );
 
@@ -104,13 +146,13 @@ function pintar() {
       h('span', { class: 'bv-modelo-nome' }, m.rotulo, h('small', {}, ` ${m.nome} · ${gb(m.downloadGB)}`)),
       h('span', { class: 'bv-modelo-papel' }, papel),
       temModelo(m.nome)
-        ? h('span', { class: 'bv-instalado' }, 'instalado ✓')
-        : h('button', { class: 'btn-secundario', disabled: !ollamaOk || bv.ocupado, onclick: () => baixarModelos([m.nome]) }, bv.baixando === m.nome ? 'baixando…' : 'Baixar')
+        ? h('span', { class: 'bv-instalado' }, t('instalado ✓'))
+        : h('button', { class: 'btn-secundario', disabled: !ollamaOk || bv.ocupado, onclick: () => baixarModelos([m.nome]) }, bv.baixando === m.nome ? t('baixando…') : t('Baixar'))
     );
   const faltam = [escolhido, rec.embedding].filter((m) => !temModelo(m.nome)).map((m) => m.nome);
-  const seletor = h('select', { class: 'bv-seletor', 'aria-label': 'Outro modelo principal', disabled: bv.ocupado },
+  const seletor = h('select', { class: 'bv-seletor', 'aria-label': t('Outro modelo principal'), disabled: bv.ocupado },
     ...[rec.principal, ...rec.alternativas].map((m) => {
-      const op = h('option', { value: m.nome }, `${m.rotulo} · ${gb(m.downloadGB)}${m.nome === rec.principal.nome ? ' · recomendado' : m.cabe === false ? ' · pesado para este PC' : ''}`);
+      const op = h('option', { value: m.nome }, `${m.rotulo} · ${gb(m.downloadGB)}${m.nome === rec.principal.nome ? t(' · recomendado') : m.cabe === false ? t(' · pesado para este PC') : ''}`);
       if (m.nome === principal) op.selected = true;
       return op;
     })
@@ -119,76 +161,73 @@ function pintar() {
     bv.escolhido = seletor.value;
     pintar();
   });
+  const tamanhoQueFalta = gb([escolhido, rec.embedding].filter((m) => faltam.includes(m.nome)).reduce((s, m) => s + m.downloadGB, 0));
   lista.append(
     etapa({
-      titulo: 'Modelos de IA',
+      titulo: t('Modelos de IA'),
       situacao: faltam.length ? 'falta' : 'ok',
-      texto: `Recomendado para este PC: ${rec.principal.rotulo} — ${rec.principal.motivo}.`,
-      corpo: [h('ul', { class: 'bv-modelos' }, linhaModelo(escolhido, 'responde e pesquisa'), linhaModelo(rec.embedding, 'escolhe os trechos das páginas')), h('label', { class: 'bv-outro' }, 'Modelo principal: ', seletor)],
+      texto: t('Recomendado para este PC: {rotulo} — {motivo}.', { rotulo: rec.principal.rotulo, motivo: tt(rec.principal.motivo) }),
+      corpo: [h('ul', { class: 'bv-modelos' }, linhaModelo(escolhido, t('responde e pesquisa')), linhaModelo(rec.embedding, t('escolhe os trechos das páginas'))), h('label', { class: 'bv-outro' }, t('Modelo principal: '), seletor)],
       progresso: bv.progressoModelo,
-      acoes: faltam.length ? [h('button', { class: 'btn-primario', disabled: !ollamaOk || bv.ocupado, onclick: () => baixarModelos(faltam) }, `Baixar ${faltam.length === 2 ? 'os dois' : 'o que falta'} (${gb([escolhido, rec.embedding].filter((m) => faltam.includes(m.nome)).reduce((s, m) => s + m.downloadGB, 0))})`)] : [],
+      acoes: faltam.length ? [h('button', { class: 'btn-primario', disabled: !ollamaOk || bv.ocupado, onclick: () => baixarModelos(faltam) }, faltam.length === 2 ? t('Baixar os dois ({gb})', { gb: tamanhoQueFalta }) : t('Baixar o que falta ({gb})', { gb: tamanhoQueFalta }))] : [],
     })
   );
 
-  // 4. busca
+  // opcionais: busca, YouTube, texto de imagens, criar imagens
   const busca = e.busca || {};
-  lista.append(
+  opcionais.append(
     etapa({
-      titulo: 'Busca na web (SearXNG embutido)',
+      titulo: t('Busca na web (SearXNG embutido)'),
       situacao: busca.instalado ? 'ok' : 'opcional',
       texto: busca.instalado
-        ? 'Instalada — o AuGPT pesquisa em vários buscadores ao mesmo tempo.'
-        : 'Recomendada: um buscador próprio que consulta vários sites de busca de uma vez (baixa Python e o SearXNG, cerca de 130 MB). Sem ela, o AuGPT usa buscadores de reserva, com resultados piores.',
+        ? t('Instalada — o AuGPT pesquisa em vários buscadores ao mesmo tempo.')
+        : t('Recomendada: um buscador próprio que consulta vários sites de busca de uma vez (baixa Python e o SearXNG, cerca de 130 MB). Sem ela, o AuGPT usa buscadores de reserva, com resultados piores.'),
       progresso: bv.progressoBusca,
-      acoes: busca.instalado ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarBusca }, 'Instalar a busca')],
+      acoes: busca.instalado ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarBusca }, t('Instalar a busca'))],
     })
   );
-
-  // 5. YouTube (Fase 3)
   const youtube = e.youtube || {};
-  lista.append(
+  opcionais.append(
     etapa({
-      titulo: 'Vídeos do YouTube (yt-dlp)',
+      titulo: t('Vídeos do YouTube (yt-dlp)'),
       situacao: youtube.instalado ? 'ok' : 'opcional',
       texto: youtube.instalado
-        ? 'Instalado — o agente lê a legenda e os comentários de vídeos, sem baixá-los.'
-        : 'Opcional: deixa o agente "assistir" a reviews e tutoriais lendo a legenda e os comentários (o vídeo não é baixado). Baixa o yt-dlp oficial, 18 MB, com o SHA-256 conferido.',
+        ? t('Instalado — o agente lê a legenda e os comentários de vídeos, sem baixá-los.')
+        : t('Opcional: deixa o agente "assistir" a reviews e tutoriais lendo a legenda e os comentários (o vídeo não é baixado). Baixa o yt-dlp oficial, 18 MB, com o SHA-256 conferido.'),
       progresso: bv.progressoYoutube,
-      acoes: youtube.instalado ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarYoutube }, 'Instalar o yt-dlp')],
+      acoes: youtube.instalado ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarYoutube }, t('Instalar o yt-dlp'))],
     })
   );
-
-  // 6. OCR (Fase 4)
   const ocr = e.ocr || {};
-  lista.append(
+  opcionais.append(
     etapa({
-      titulo: 'Texto de imagens (Tesseract)',
+      titulo: t('Texto de imagens (Tesseract)'),
       situacao: ocr.instalado ? 'ok' : 'opcional',
       texto: ocr.instalado
-        ? 'Instalado — o texto das imagens anexadas é lido letra a letra, sem internet.'
-        : 'Opcional: lê o texto de prints, documentos e notas fiscais que você anexar, sem IA e sem internet (cerca de 50 MB, pelo winget; o Windows pode pedir permissão).',
+        ? t('Instalado — o texto das imagens anexadas é lido letra a letra, sem internet.')
+        : t('Opcional: lê o texto de prints, documentos e notas fiscais que você anexar, sem IA e sem internet (cerca de 50 MB, pelo winget; o Windows pode pedir permissão).'),
       progresso: bv.progressoOcr,
-      acoes: ocr.instalado || ocr.manual ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarOcr }, 'Instalar o Tesseract')],
+      acoes: ocr.instalado || ocr.manual ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarOcr }, t('Instalar o Tesseract'))],
     })
   );
-
-  // 7. criar imagens (Fase 5)
   const img = e.imagem || {};
-  lista.append(
+  opcionais.append(
     etapa({
-      titulo: 'Criar imagens (FLUX.2 Klein)',
+      titulo: t('Criar imagens (FLUX.2 Klein)'),
       situacao: img.instalado ? 'ok' : 'opcional',
       texto: img.instalado
-        ? 'Instalado — peça "crie uma imagem de…" e ela é feita no seu computador.'
+        ? t('Instalado — peça "crie uma imagem de…" e ela é feita no seu computador.')
         : img.pode
-          ? `Opcional: cria imagens no seu computador, sem internet. ${img.motivo.charAt(0).toUpperCase()}${img.motivo.slice(1)}. Cerca de ${String((img.downloadGB || 6).toFixed(1)).replace('.', ',')} GB de download.`
-          : `Não disponível neste computador: ${img.motivo}.`,
+          ? t('Opcional: cria imagens no seu computador, sem internet. {motivo}. Cerca de {gb} de download.', { motivo: `${tt(img.motivo).charAt(0).toUpperCase()}${tt(img.motivo).slice(1)}`, gb: gb(img.downloadGB || 6) })
+          : t('Não disponível neste computador: {motivo}.', { motivo: tt(img.motivo) }),
       progresso: bv.progressoImagem,
-      acoes: img.instalado || !img.pode ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarImagem }, 'Instalar o gerador de imagens')],
+      acoes: img.instalado || !img.pode ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarImagem }, t('Instalar o gerador de imagens'))],
     })
   );
 
-  $('bvConcluir').disabled = !(ollamaOk && temModelo(escolhido.nome) && temModelo(rec.embedding.nome)) || bv.ocupado;
+  const pronto = ollamaOk && temModelo(escolhido.nome) && temModelo(rec.embedding.nome);
+  $('bvIr3').disabled = !pronto || bv.ocupado;
+  $('bvFalta').textContent = pronto ? '' : t('Falta o essencial: o Ollama ligado e os dois modelos. Dá para pular e preparar depois em Ajustes.');
 }
 
 async function verificar() {
@@ -197,7 +236,7 @@ async function verificar() {
   try {
     bv.estado = await api.boasVindas.verificar();
   } catch (err) {
-    $('bvEtapas').replaceChildren(h('li', { class: 'bv-etapa falta' }, h('i', { class: 'bv-marca' }), h('div', { class: 'bv-conteudo' }, h('b', {}, 'Não consegui verificar o computador'), h('p', {}, String(err.message || err)))));
+    $('bvEtapas').replaceChildren(h('li', { class: 'bv-etapa falta' }, h('i', { class: 'bv-marca' }), h('div', { class: 'bv-conteudo' }, h('b', {}, t('Não consegui verificar o computador')), h('p', {}, String(err.message || err)))));
     return;
   }
   pintar();
@@ -216,7 +255,7 @@ async function ocupar(tarefa) {
 
 const instalarOllama = () =>
   ocupar(async () => {
-    bv.progressoOllama = { texto: 'Começando…', porcento: 5 };
+    bv.progressoOllama = { texto: t('Começando…'), porcento: 5 };
     pintar();
     const r = await api.boasVindas.instalarOllama();
     bv.progressoOllama = { texto: r.texto, porcento: r.ok ? 100 : 0 };
@@ -224,61 +263,41 @@ const instalarOllama = () =>
 
 const ligarOllama = () =>
   ocupar(async () => {
-    bv.progressoOllama = { texto: 'Ligando o Ollama…', porcento: 50 };
+    bv.progressoOllama = { texto: t('Ligando o Ollama…'), porcento: 50 };
     pintar();
     const r = await api.boasVindas.ligarOllama();
-    bv.progressoOllama = r.ok ? null : { texto: r.error || 'O Ollama não respondeu.', porcento: 0 };
+    bv.progressoOllama = r.ok ? null : { texto: r.error || t('O Ollama não respondeu.'), porcento: 0 };
   });
 
 const baixarModelos = (nomes) =>
   ocupar(async () => {
     for (const nome of nomes) {
       bv.baixando = nome;
-      bv.progressoModelo = { texto: `${nome}: preparando…`, porcento: 0 };
+      bv.progressoModelo = { texto: t('{nome}: preparando…', { nome }), porcento: 0 };
       pintar();
       const r = await api.ollama.pull(nome);
       if (!r.ok) {
         bv.progressoModelo = { texto: `${nome}: ${r.error || 'falhou'}`, porcento: 0 };
         break;
       }
-      bv.progressoModelo = { texto: `${nome}: pronto`, porcento: 100 };
+      bv.progressoModelo = { texto: t('{nome}: pronto', { nome }), porcento: 100 };
     }
     bv.baixando = null;
   });
 
-const instalarBusca = () =>
+const instalacao = (chave, chamar, feito) =>
   ocupar(async () => {
-    bv.progressoBusca = { texto: 'Começando…', porcento: 5 };
+    bv[chave] = { texto: t('Começando…'), porcento: 5 };
     pintar();
-    const r = await api.searxngRuntime.instalar();
-    bv.progressoBusca = r.ok ? { texto: 'Busca instalada.', porcento: 100 } : { texto: r.error || 'A instalação falhou.', porcento: 0 };
+    const r = await chamar();
+    bv[chave] = r.ok ? { texto: t(feito), porcento: 100 } : { texto: r.error || t('A instalação falhou.'), porcento: 0 };
   });
+const instalarBusca = () => instalacao('progressoBusca', () => api.searxngRuntime.instalar(), 'Busca instalada.');
+const instalarYoutube = () => instalacao('progressoYoutube', () => api.componentes.instalarYtdlp(), 'yt-dlp instalado.');
+const instalarOcr = () => instalacao('progressoOcr', () => api.componentes.instalarTesseract(), 'Tesseract instalado.');
+const instalarImagem = () => instalacao('progressoImagem', () => api.componentes.instalarImagem(), 'Gerador de imagens instalado.');
 
-const instalarYoutube = () =>
-  ocupar(async () => {
-    bv.progressoYoutube = { texto: 'Começando…', porcento: 5 };
-    pintar();
-    const r = await api.componentes.instalarYtdlp();
-    bv.progressoYoutube = r.ok ? { texto: 'yt-dlp instalado.', porcento: 100 } : { texto: r.error || 'A instalação falhou.', porcento: 0 };
-  });
-
-const instalarOcr = () =>
-  ocupar(async () => {
-    bv.progressoOcr = { texto: 'Começando…', porcento: 5 };
-    pintar();
-    const r = await api.componentes.instalarTesseract();
-    bv.progressoOcr = r.ok ? { texto: 'Tesseract instalado.', porcento: 100 } : { texto: r.error || 'A instalação falhou.', porcento: 0 };
-  });
-
-const instalarImagem = () =>
-  ocupar(async () => {
-    bv.progressoImagem = { texto: 'Começando…', porcento: 2 };
-    pintar();
-    const r = await api.componentes.instalarImagem();
-    bv.progressoImagem = r.ok ? { texto: 'Gerador de imagens instalado.', porcento: 100 } : { texto: r.error || 'A instalação falhou.', porcento: 0 };
-  });
-
-// progresso que chega do processo principal (canal genérico, ver app.js api.onEvent)
+// progresso que chega do processo principal (canal genérico, ver app-eventos.js api.onEvent)
 window.boasVindasEvento = (canal, dados = {}) => {
   if ($('boasVindas').hidden) return;
   if (canal === 'ollama-instalacao-progresso') bv.progressoOllama = { texto: dados.texto, porcento: dados.porcento ?? bv.progressoOllama?.porcento ?? 30 };
@@ -293,32 +312,88 @@ window.boasVindasEvento = (canal, dados = {}) => {
   pintar();
 };
 
-function abrirBoasVindas() {
+/* ============================ passo 3: tudo pronto ============================ */
+
+const EXEMPLOS = ['teste minha internet', 'qual a configuração do meu pc?', 'Quais os melhores fones intra-auriculares para PUBG até R$ 300?'];
+
+function pintarPronto() {
+  const nome = $('bvNome').value.trim();
+  $('bvProntoTitulo').textContent = nome ? t('Tudo pronto, {nome}!', { nome }) : t('Tudo pronto!');
+  $('bvExemplos').replaceChildren(
+    ...EXEMPLOS.map((ex) =>
+      h('button', { type: 'button', class: 'bv-exemplo', onclick: () => concluir(t(ex)) }, h('span', { class: 'bv-exemplo-seta', 'aria-hidden': 'true' }, '↑'), t(ex))
+    )
+  );
+}
+
+/* ============================ navegação ============================ */
+
+function irPara(passo) {
+  bv.passo = passo;
+  for (const n of [1, 2, 3]) $(`bvTela${n}`).hidden = n !== passo;
+  $('bvPassos').querySelectorAll('li').forEach((li) => {
+    const n = Number(li.dataset.passo);
+    li.classList.toggle('feito', n < passo);
+    li.classList.toggle('atual', n === passo);
+  });
+  $('boasVindas').scrollTop = 0;
+  if (passo === 2) {
+    if (bv.estado) pintar(); // refeito no idioma de agora
+    else verificar();
+  }
+  if (passo === 3) pintarPronto();
+}
+
+async function abrirBoasVindas() {
+  try {
+    const cfg = await api.config.get();
+    bv.idioma = cfg.idioma || '';
+    $('bvNome').value = cfg.nomeDoUsuario || '';
+  } catch {
+    /* começa em branco */
+  }
   $('boasVindas').hidden = false;
-  verificar();
+  document.body.classList.add('com-boas-vindas');
+  pintarIdioma();
+  irPara(1);
+  verificar(); // já confere o computador enquanto a pessoa lê o passo 1
 }
 
 function fecharBoasVindas() {
   $('boasVindas').hidden = true;
+  document.body.classList.remove('com-boas-vindas');
 }
 
-$('bvVerificar').addEventListener('click', verificar);
-// pular também conta como visto: não abre de novo sozinha (continua em Ajustes)
-$('bvPular').addEventListener('click', async () => {
-  fecharBoasVindas();
+/** Fecha a boas-vindas gravando o nome e o idioma; com `pedido`, já o põe na caixa de mensagem. */
+async function concluir(pedido) {
+  const modelo = bv.escolhido || bv.estado?.recomendacao?.principal?.nome;
+  const pronto = bv.passo === 3;
+  const nome = $('bvNome').value.trim();
   try {
-    await api.config.set({ boasVindasConcluida: true });
+    if (pronto) await api.boasVindas.concluir({ modelo, nome, idioma: bv.idioma });
+    else await api.config.set({ boasVindasConcluida: true, nomeDoUsuario: nome, idioma: bv.idioma });
   } catch {
     /* abre de novo na próxima vez */
   }
-});
-$('bvConcluir').addEventListener('click', async () => {
-  const modelo = bv.escolhido || bv.estado?.recomendacao?.principal?.nome;
-  await api.boasVindas.concluir({ modelo });
   fecharBoasVindas();
   if (typeof carregarConfig === 'function') await carregarConfig();
   if (typeof carregarModelos === 'function') await carregarModelos();
-});
+  if (pedido && typeof el !== 'undefined' && el.aEntrada) {
+    el.aEntrada.value = pedido;
+    el.aEntrada.dispatchEvent(new Event('input'));
+    el.aEntrada.focus();
+  }
+}
+
+$('bvIr2').addEventListener('click', () => irPara(2));
+$('bvIr3').addEventListener('click', () => irPara(3));
+$('bvVoltar1').addEventListener('click', () => irPara(1));
+$('bvVoltar2').addEventListener('click', () => irPara(2));
+$('bvVerificar').addEventListener('click', verificar);
+$('bvNome').addEventListener('keydown', (e) => e.key === 'Enter' && irPara(2));
+// pular também conta como visto: não abre de novo sozinha (continua em Ajustes); guarda o nome e o idioma
+$('bvPular').addEventListener('click', () => concluir());
+$('bvConcluir').addEventListener('click', () => concluir());
 $('btnAbrirBoasVindas')?.addEventListener('click', abrirBoasVindas);
 
 // primeira abertura: abre enquanto a boas-vindas não foi concluída nem pulada.

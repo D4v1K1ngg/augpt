@@ -126,6 +126,8 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
     },
     // o que o usuário pediu para guardar ("lembre que…", 22/10): vai para o escritor em toda resposta
     preferencias: () => preferenciasParaEscrever(this.userDataPath, cfg),
+    // o idioma das telas (22/10): 'en' faz o escritor responder em inglês
+    idioma: cfg.idiomaEfetivo === 'en' ? 'en' : 'pt',
     lerPagina: (url) => lerComCache(url, ctxWeb),
     embed: (textos) => ollama.embed({ host: cfg.host, model: cfg.embedModel || 'nomic-embed-text', input: textos, signal }),
     // Reddit e fóruns cadastrados (dados/fontes-da-comunidade.json): "site:reddit.com …", "site:clubedohardware.com.br …"
@@ -346,7 +348,7 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
     const comRelatorio = r.relatorio
       ? `${comVideos}\n\n${relatorioPdf ? `**Relatório completo em PDF:** \`${relatorioPdf}\` — ${r.secoes.length} partes, ${r.fontes.length} fontes, ${Math.max(1, Math.round(r.gastoS / 60))} min de pesquisa${r.interrompida ? ' (interrompida antes do fim)' : ''}.` : ''}`
       : comVideos;
-    const final = r.fontes.length ? `${comRelatorio}\n\n---\n**Fontes**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comRelatorio;
+    const final = r.fontes.length ? `${comRelatorio}\n\n---\n**${cfg.idiomaEfetivo === 'en' ? 'Sources' : 'Fontes'}**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comRelatorio;
     this.emit('nucleo-fim', { modo, rota: r.rota || 'pesquisa', ms: Date.now() - inicio, fontes: r.fontes.length, entendimento: r.entendimento });
     await this.fotografarModelos();
     this.emit('concluido', { resumo: final, resposta: true, iteracoes: 0, uso: this.uso, verificacao: null, confianca: null });

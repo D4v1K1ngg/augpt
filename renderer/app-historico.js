@@ -1146,10 +1146,10 @@ $('btnLimparExec').addEventListener('click', async () => {
   const resumir = () => {
     const ollama = $('statusOllama');
     const modelos = $('btnModelos');
-    const pesquisa = $('modoDePesquisa').value === 'investigacao' ? `investigação ${config.minutosDeInvestigacao || 10} min` : `pesquisa ${curto($('modoDePesquisa'))}`;
-    const partes = [$('modelo').value || 'sem modelo', pesquisa, curto($('modoResposta'))].filter(Boolean);
+    const pesquisa = $('modoDePesquisa').value === 'investigacao' ? tr('investigação {n} min', { n: config.minutosDeInvestigacao || 10 }) : tr('pesquisa {modo}', { modo: curto($('modoDePesquisa')) });
+    const partes = [$('modelo').value || tr('sem modelo'), pesquisa, curto($('modoResposta'))].filter(Boolean);
     const desligado = ollama.classList.contains('offline');
-    const texto = desligado ? `Ollama desligado · ${partes.join(' · ')}` : partes.join(' · ');
+    const texto = desligado ? tr('Ollama desligado · {resto}', { resto: partes.join(' · ') }) : partes.join(' · ');
     if ($('resumoExecucao').textContent !== texto) $('resumoExecucao').textContent = texto;
     botao.classList.toggle('offline', desligado);
     const atencao = modelos.classList.contains('modelos-atencao') || buscaFraca;

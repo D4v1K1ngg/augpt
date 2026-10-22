@@ -26,11 +26,11 @@ function autoAltura(campo) {
 function quando(iso) {
   const data = new Date(iso);
   const minutos = Math.floor((Date.now() - data.getTime()) / 60000);
-  if (minutos < 1) return 'agora';
-  if (minutos < 60) return `há ${minutos} min`;
-  if (minutos < 1440) return `há ${Math.floor(minutos / 60)} h`;
-  if (minutos < 2880) return 'ontem';
-  return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  if (minutos < 1) return tr('agora');
+  if (minutos < 60) return tr('há {n} min', { n: minutos });
+  if (minutos < 1440) return tr('há {n} h', { n: Math.floor(minutos / 60) });
+  if (minutos < 2880) return tr('ontem');
+  return data.toLocaleDateString(window.i18n?.locale() || 'pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
 /* ============================ estado ============================ */
@@ -298,7 +298,7 @@ function no(n) {
   t.atividade.hidden = false; // o raciocínio mora no cartão: com passo, o cartão aparece
   t.noAtual = node;
   t.passos = Math.max(t.passos, n);
-  t.resumoPassos.textContent = `raciocínio · ${t.passos} passo${t.passos > 1 ? 's' : ''}`;
+  t.resumoPassos.textContent = tr(t.passos > 1 ? 'raciocínio · {n} passos' : 'raciocínio · {n} passo', { n: t.passos });
   return node;
 }
 

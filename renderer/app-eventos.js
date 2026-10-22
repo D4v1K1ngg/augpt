@@ -39,7 +39,7 @@ const manipuladores = {
       const s = Math.floor((Date.now() - agente.inicio) / 1000);
       el.tempo.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}`;
     }, 1000);
-    situacao(`pensando · ${modelo}`);
+    situacao(tr('pensando · {modelo}', { modelo }));
   },
 
   // 19/10: o caminho novo começa por aqui, e sem isto o "decorrido" ficava em 0s e passos/tokens
@@ -54,7 +54,7 @@ const manipuladores = {
     // 19/10: o nó nasce com o primeiro conteúdo do passo (pensamento, ação…); só com o
     // número, a trilha virava uma pilha de bolinhas e o "raciocínio" parecia não abrir
     if (agente.turno) agente.turno.passoAtual = n;
-    situacao(`passo ${n} de ${de}`);
+    situacao(tr('passo {n} de {de}', { n, de }));
   },
 
   pensando({ n }) {
@@ -62,7 +62,7 @@ const manipuladores = {
     if (!alvo.querySelector('.cartao.pensamento')) {
       cartao(alvo, 'pensamento provisorio', 'raciocinando', '<div class="digitando"><i></i><i></i><i></i></div>');
     }
-    situacao('raciocinando…');
+    situacao(tr('raciocinando…'));
   },
 
   raciocinio({ n, pensamento, raciocinio, plano, critica }) {
@@ -109,12 +109,12 @@ const manipuladores = {
     if (GERACOES_DE_ARQUIVO.includes(nome) && agente.turno) {
       agente.turno.chamadasDeArquivo[n] = { nome, argumentos };
     }
-    situacao(`executando ${nome}`);
+    situacao(tr('executando {nome}', { nome }));
   },
 
   aprovacao({ id, nome, argumentos, risco, descricao, critica, permiteSempre, motivo }) {
     abrirDetalhe();
-    situacao('aguardando sua confirmação');
+    situacao(tr('aguardando sua confirmação'));
     // Fase 1 de segurança (2026-09-23): o cartão mostra EXATAMENTE o que vai
     // rodar (o comando, o código, o arquivo, a URL) — antes só aparecia o
     // nome da ferramenta, e o usuário aprovava "executar_comando" sem ver o
@@ -174,7 +174,7 @@ const manipuladores = {
 
   pergunta({ id, pergunta }) {
     abrirDetalhe();
-    situacao('o agente fez uma pergunta');
+    situacao(tr('o agente fez uma pergunta'));
     const card = cartao(
       agente.turno?.noAtual || noSolto(),
       'pergunta',
@@ -266,7 +266,7 @@ const manipuladores = {
   redigindo({ fontes }) {
     const t = agente.turno;
     if (!t) return;
-    situacao(`redigindo a resposta a partir de ${fontes} fonte(s)…`);
+    situacao(tr('redigindo a resposta a partir de {n} fonte(s)…', { n: fontes }));
     t.detalhe.open = false;
     t.resposta.hidden = false;
     t.buffer = '';
@@ -433,7 +433,7 @@ const manipuladores = {
     if (agente.fontes.size) {
       const rodape = document.createElement('p');
       rodape.className = 'secundario meta-turno';
-      rodape.textContent = `${iteracoes} passos · ${agente.fontes.size} fonte(s)`;
+      rodape.textContent = tr('{n} passos · {f} fonte(s)', { n: iteracoes, f: agente.fontes.size });
       t.resposta.appendChild(rodape);
     }
     carregarArvore(true);
@@ -448,7 +448,7 @@ const manipuladores = {
     salvarConversa('agente');
     if (!t) return;
     t.resposta.hidden = false;
-    t.resposta.innerHTML = `<p>Parei em ${iteracoes} passos sem concluir.</p><p class="secundario">Aumente o limite em Ajustes ou peça algo mais específico.</p>`;
+    t.resposta.innerHTML = `<p>${esc(tr('Parei em {n} passos sem concluir.', { n: iteracoes }))}</p><p class="secundario">${esc(tr('Aumente o limite em Ajustes ou peça algo mais específico.'))}</p>`;
     t.arquivosGerados.forEach((a) => adicionarSaida({ caminho: a.caminho, tamanho: a.tamanho, tipo: 'gerado' }));
     if (t.arquivosGerados.length) renderizarAnexosGerados(t.resposta, t.arquivosGerados);
   },
@@ -458,7 +458,7 @@ const manipuladores = {
     encerrarTurno();
     if (!t) return;
     t.resposta.hidden = false;
-    t.resposta.innerHTML = `<p class="secundario">Interrompido por você após ${iteracoes} passos.</p>`;
+    t.resposta.innerHTML = `<p class="secundario">${esc(tr('Interrompido por você após {n} passos.', { n: iteracoes }))}</p>`;
     t.arquivosGerados.forEach((a) => adicionarSaida({ caminho: a.caminho, tamanho: a.tamanho, tipo: 'gerado' }));
     if (t.arquivosGerados.length) renderizarAnexosGerados(t.resposta, t.arquivosGerados);
   },
@@ -684,12 +684,10 @@ const manipuladores = {
     const linha = document.createElement('div');
     linha.className = 'resumo-execucao';
     linha.innerHTML = `
-      <span>${resumo.passos} passos · ${resumo.ferramentas} ferramentas · ${resumo.fontes} fontes · ${(
-      resumo.duracaoMs / 1000
-    ).toFixed(1)}s · ${resumo.tokens.toLocaleString('pt-BR')} tokens${
-      resumo.erros ? ` · <b class="ruim">${resumo.erros} erros</b>` : ''
+      <span>${esc(tr('{p} passos · {f} ferramentas · {fo} fontes · {s}s · {t} tokens', { p: resumo.passos, f: resumo.ferramentas, fo: resumo.fontes, s: (resumo.duracaoMs / 1000).toFixed(1), t: resumo.tokens.toLocaleString(window.i18n?.locale() || 'pt-BR') }))}${
+      resumo.erros ? ` · <b class="ruim">${esc(tr('{n} erros', { n: resumo.erros }))}</b>` : ''
     }</span>
-      <button class="btn-linha">relatório</button>`;
+      <button class="btn-linha">${esc(tr('relatório'))}</button>`;
     linha.querySelector('button').addEventListener('click', () => {
       trocarAba('execucoes');
       abrirRelatorio(id);
@@ -866,7 +864,7 @@ const manipuladores = {
  * ponytail: página que falhou ao ler não aparece (a ferramenta só avisa a
  * leitura que deu certo); emitir 'fonte' com erro em src/tools/web.js se fizer falta.
  */
-const hora = () => new Date().toLocaleTimeString('pt-BR');
+const hora = () => new Date().toLocaleTimeString(window.i18n?.locale() || 'pt-BR');
 const FERRAMENTAS_DE_PESQUISA = /^(pesquisar|ler_pagina|buscar|navegar|comparar_precos)/;
 
 function etapaDaAtividade(chave, titulo, descricao = '') {
@@ -881,7 +879,7 @@ function etapaDaAtividade(chave, titulo, descricao = '') {
     atual.className = 'atual';
     atual.dataset.chave = chave;
     atual.innerHTML = '<i class="marca"></i><div><b></b><p></p><time></time></div>';
-    atual.querySelector('b').textContent = titulo;
+    atual.querySelector('b').textContent = tr(titulo);
     atual.querySelector('time').textContent = hora();
     lista.appendChild(atual);
     painel.hidden = false;
@@ -896,9 +894,9 @@ function resumoDaAtividade() {
   const a = (t.contagem = t.contagem || { buscas: 0, sites: new Map() });
   const paginas = [...a.sites.values()].reduce((s, x) => s + x.paginas, 0);
   const partes = [];
-  if (a.buscas) partes.push(`${a.buscas} busca${a.buscas === 1 ? '' : 's'}`);
-  if (a.resultados) partes.push(`${a.resultados} resultado${a.resultados === 1 ? "" : "s"} vistos`);
-  if (paginas) partes.push(`${paginas} página${paginas === 1 ? '' : 's'} em ${a.sites.size} site${a.sites.size === 1 ? '' : 's'}`);
+  if (a.buscas) partes.push(tr(a.buscas === 1 ? '{n} busca' : '{n} buscas', { n: a.buscas }));
+  if (a.resultados) partes.push(tr(a.resultados === 1 ? '{n} resultado vistos' : '{n} resultados vistos', { n: a.resultados }));
+  if (paginas) partes.push(tr(`{n} página${paginas === 1 ? '' : 's'} em {s} site${a.sites.size === 1 ? '' : 's'}`, { n: paginas, s: a.sites.size }));
   t.caixa.querySelector('.atividade-resumo').textContent = partes.length ? `· ${partes.join(' · ')}` : '';
 }
 
@@ -928,7 +926,7 @@ function siteConsultado(url) {
   site.paginas += 1;
   site.linha.href = url; // abre a última página lida daquele site
   site.linha.title = url;
-  site.linha.querySelector('.qtd').textContent = `${site.paginas} página${site.paginas === 1 ? '' : 's'} ✓`;
+  site.linha.querySelector('.qtd').textContent = tr(site.paginas === 1 ? '{n} página ✓' : '{n} páginas ✓', { n: site.paginas });
 }
 
 function atividade(canal, d) {
@@ -940,7 +938,7 @@ function atividade(canal, d) {
       return etapaDaAtividade('entender', 'Entendendo o pedido');
     // núcleo de pesquisa (15/10): a pergunta como o modelo entendeu, e o que o pesquisador vai pensando
     case 'nucleo-entendimento':
-      return etapaDaAtividade('entender', 'Entendendo o pedido', d.precisaBuscar === false ? 'responde sem pesquisar' : `${d.pergunta}${d.modo ? ` · pesquisa ${d.modo}` : ''}`);
+      return etapaDaAtividade('entender', 'Entendendo o pedido', d.precisaBuscar === false ? tr('responde sem pesquisar') : `${d.pergunta}${d.modo ? ` · ${tr('pesquisa {modo}', { modo: d.modo })}` : ''}`);
     case 'raciocinio':
       if (t.caixa.querySelector('.atividade-etapas li:last-child')?.dataset.chave === 'pesquisar') return etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.pensamento);
       return;
@@ -950,27 +948,27 @@ function atividade(canal, d) {
       return etapaDaAtividade('planejar', 'Planejando a pesquisa', [d.atividade, d.tipoDeUso].filter(Boolean).join(' · '));
     case 'pesquisa-criterios':
     case 'pesquisa-plano':
-      return etapaDaAtividade('planejar', 'Planejando a pesquisa', d.criterios?.length ? `Critérios: ${nomes(d.criterios)}` : '');
+      return etapaDaAtividade('planejar', 'Planejando a pesquisa', d.criterios?.length ? tr('Critérios: {c}', { c: nomes(d.criterios) }) : '');
     case 'ferramenta':
       if (!FERRAMENTAS_DE_PESQUISA.test(d.nome)) return etapaDaAtividade('agir', 'Executando ações', d.nome);
-      return etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.argumentos?.consulta ? `Busca: ${d.argumentos.consulta}` : d.argumentos?.url || '');
+      return etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.argumentos?.consulta ? tr('Busca: {q}', { q: d.argumentos.consulta }) : d.argumentos?.url || '');
     case 'fonte':
       t.contagem = t.contagem || { buscas: 0, sites: new Map() };
       if (d.tipo === 'busca') {
         t.contagem.buscas += 1;
         t.contagem.resultados = (t.contagem.resultados || 0) + (Number(d.resultados) || 0);
-        etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.consultas?.length ? `Busca: ${d.consultas[d.consultas.length - 1]}` : '');
+        etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.consultas?.length ? tr('Busca: {q}', { q: d.consultas[d.consultas.length - 1] }) : '');
       } else if (d.url) {
         siteConsultado(d.url);
         resumoDaAtividade();
       }
       return;
     case 'pesquisa-candidatos':
-      return etapaDaAtividade('comparar', 'Comparando as opções encontradas', d.finalistas?.length ? `Na frente: ${nomes(d.finalistas)}` : '');
+      return etapaDaAtividade('comparar', 'Comparando as opções encontradas', d.finalistas?.length ? tr('Na frente: {c}', { c: nomes(d.finalistas) }) : '');
     case 'pesquisa-matriz':
-      return etapaDaAtividade('conferir-evidencias', 'Conferindo as evidências de cada opção', `${Math.round((d.cobertura || 0) * 100)}% dos critérios com evidência`);
+      return etapaDaAtividade('conferir-evidencias', 'Conferindo as evidências de cada opção', tr('{p}% dos critérios com evidência', { p: Math.round((d.cobertura || 0) * 100) }));
     case 'redigindo':
-      return etapaDaAtividade('escrever', 'Escrevendo a resposta', d.fontes ? `A partir de ${d.fontes} fonte(s)` : '');
+      return etapaDaAtividade('escrever', 'Escrevendo a resposta', d.fontes ? tr('A partir de {n} fonte(s)', { n: d.fontes }) : '');
     case 'verificacao':
       return etapaDaAtividade('verificar', 'Conferindo a resposta com as fontes');
     case 'concluido':

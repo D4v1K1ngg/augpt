@@ -161,7 +161,7 @@
   slides.addEventListener('click', (e) => {
     const b = e.target.closest('.try');
     if (!b) return;
-    el.aEntrada.value = DECK[Number(b.dataset.i)].try;
+    el.aEntrada.value = window.tr ? tr(DECK[Number(b.dataset.i)].try) : DECK[Number(b.dataset.i)].try; // no idioma da tela (22/10)
     autoAltura(el.aEntrada);
     el.aEntrada.focus();
     el.aEntrada.setSelectionRange(el.aEntrada.value.length, el.aEntrada.value.length);

@@ -138,6 +138,9 @@ const DEFAULTS = {
   imagensNasRespostas: true,
   // Atualizações do AuGPT (21/10): conferir as Releases do GitHub ao abrir e avisar; instalar só no clique.
   procurarAtualizacoes: true,
+  // Idioma (22/10): '' segue o Windows; 'pt' ou 'en' é a escolha do usuário. E o nome dado na boas-vindas.
+  idioma: '',
+  nomeDoUsuario: '',
   atualizacaoIgnorada: '',
   preBuscaConcorrencia: 2,
   // Modo AUTO (auto.js, 2026-10-10): cada pedido ganha um nível —
@@ -347,7 +350,7 @@ function sanearSemprePermitidas(lista) {
 const CAMPOS_QUE_NAO_SAO_AJUSTES = new Set([
   'workspace', 'model', 'mcpServidores', 'dominiosPersonalizados', 'agendamentos',
   'skillsDesativadas', 'ferramentasDesativadas', 'lateralAberta',
-  'ollamaIniciarAutomaticamente', 'boasVindasConcluida',
+  'ollamaIniciarAutomaticamente', 'boasVindasConcluida', 'idioma', 'nomeDoUsuario',
 ]);
 
 class Config {

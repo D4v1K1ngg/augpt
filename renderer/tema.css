@@ -431,3 +431,102 @@ html[data-theme="light"] .grupo input.caixa::before { background: #fff; }
 .exec-comparativo[open] { padding-bottom: 18px; }
 .exec-comparativo > summary h2 { margin: 0; font-size: 15px; }
 .grupo .dica b { color: var(--text); font-weight: 600; }
+
+/* =========================================================================
+   Boas-vindas em tela cheia (22/10): 3 passos — boas-vindas com idioma e nome,
+   o computador, tudo pronto. Fundo grafite com o brilho do ouro, cartões do deck.
+   ========================================================================= */
+.boas-vindas { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: stretch; place-items: stretch; padding: 0; background: var(--void); backdrop-filter: none; overflow-y: auto; }
+.boas-vindas[hidden] { display: none; }
+body.com-boas-vindas { overflow: hidden; }
+.bv-fundo {
+  position: fixed; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 85% -5%, color-mix(in srgb, var(--gold) 14%, transparent), transparent 70%),
+    radial-gradient(45% 40% at 0% 100%, color-mix(in srgb, var(--gold) 7%, transparent), transparent 70%);
+}
+.bv-topo { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 20px; padding: 18px 32px; background: color-mix(in srgb, var(--void) 80%, transparent); backdrop-filter: blur(10px); }
+.bv-logo { display: flex; align-items: center; gap: 10px; }
+.bv-logo b { font: 600 17px/1 var(--serif); color: var(--text-forte); }
+.bv-passos { list-style: none; margin: 0 auto; padding: 0; display: flex; align-items: center; gap: 6px; }
+.bv-passos li { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; font-size: 12.5px; color: var(--fraco); transition: color .2s, background .2s; }
+.bv-passos li span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line-forte); font-size: 11px; font-variant-numeric: tabular-nums; }
+.bv-passos li + li::before { content: ""; width: 26px; height: 1px; margin-right: 6px; background: var(--line-forte); }
+.bv-passos li.atual { color: var(--text-forte); background: var(--panel); }
+.bv-passos li.atual span { background: var(--ingot); color: var(--on-gold); border-color: transparent; font-weight: 600; }
+.bv-passos li.feito { color: var(--muted); }
+.bv-passos li.feito span { border-color: var(--gold); color: var(--gold); }
+.bv-pular { color: var(--muted); }
+
+.bv-palco { position: relative; flex: 1; display: flex; justify-content: center; padding: 3vh 24px 56px; }
+.bv-tela { width: min(900px, 100%); animation: bv-entra .45s var(--ease) both; }
+.bv-tela[hidden] { display: none; }
+@keyframes bv-entra { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.bv-heroi { text-align: center; margin: 4vh auto 28px; max-width: 680px; }
+.bv-heroi-menor { margin-top: 1vh; }
+.bv-tile { width: 64px; height: 64px; border-radius: 18px; margin: 0 auto 22px; box-shadow: 0 1px 0 rgba(255, 255, 255, .4) inset, 0 18px 40px -12px color-mix(in srgb, var(--gold) 55%, transparent); }
+.bv-tile .sym { font-size: 28px; }
+.bv-heroi h1 { margin: 0 0 12px; font: 500 clamp(30px, 4vw, 46px)/1.08 var(--serif); letter-spacing: -.03em; color: var(--text-forte); }
+.bv-heroi-menor h1 { font-size: clamp(26px, 3vw, 34px); }
+.bv-lede { margin: 0 auto; max-width: 58ch; font-size: 15px; line-height: 1.65; color: var(--muted); }
+
+.bv-cartao, .bv-config {
+  position: relative; border: 1px solid var(--line); border-radius: 22px; background: var(--panel); overflow: hidden;
+  box-shadow: 0 30px 80px -40px rgba(0, 0, 0, .6), 0 1px 0 rgba(255, 255, 255, .03) inset;
+}
+.bv-cartao::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--gold) 7%, transparent), transparent 55%); }
+.bv-config { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.bv-campo { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 26px 28px; }
+.bv-campo + .bv-campo { border-left: 1px solid var(--line); }
+.bv-rotulo { font: 500 16px/1.3 var(--serif); color: var(--text-forte); }
+.bv-rotulo em { font: 400 11.5px var(--sans); font-style: normal; color: var(--fraco); margin-left: 6px; }
+.bv-campo small { font-size: 12px; line-height: 1.55; color: var(--muted); }
+.bv-idiomas { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border: 1px solid var(--line-forte); border-radius: 14px; background: var(--void); }
+.bv-idiomas button { height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 500 14px var(--sans); cursor: pointer; transition: background .2s, color .2s; }
+.bv-idiomas button:hover { color: var(--text-forte); }
+.bv-idiomas button.ativo { background: var(--ingot); color: var(--on-gold); box-shadow: 0 1px 0 rgba(255, 255, 255, .35) inset; }
+#bvNome { height: 48px; border: 1px solid var(--line-forte); border-radius: 14px; padding: 0 16px; background: var(--void); color: var(--text-forte); font: 15px var(--sans); }
+#bvNome:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent); }
+
+.bv-pilares { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.bv-pilares li { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--panel) 60%, transparent); }
+.bv-pilares b { font: 500 15px/1.3 var(--serif); color: var(--text-forte); }
+.bv-pilares span { font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+
+.bv-acoes-tela { display: flex; align-items: center; gap: 10px; margin-top: 26px; flex-wrap: wrap; }
+.bv-espaco { flex: 1; }
+.bv-grande { height: 44px; padding: 0 26px; border-radius: 12px; font-size: 14px; }
+.bv-falta { font-size: 12px; color: var(--muted); max-width: 46ch; text-align: right; }
+
+/* passo 2: o computador */
+.bv-grupo { margin: 22px 0 10px; font: 500 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--fraco); }
+.bv-etapas { gap: 12px; }
+.bv-opcionais { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bv-etapa { gap: 14px; padding: 18px 20px; border-radius: 16px; background: var(--panel); border-color: var(--line); }
+.bv-conteudo > b { font: 500 16px/1.3 var(--serif); margin-bottom: 6px; }
+.bv-conteudo > p { font-size: 13px; color: var(--muted); }
+.bv-marca { width: 18px; height: 18px; margin-top: 3px; }
+.bv-etapa.ok .bv-marca { background: var(--green); border-color: var(--green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 16%, transparent); }
+.bv-ficha { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; }
+.bv-ficha span { min-width: 0; display: block; font-size: 11.5px; }
+.bv-modelo { border-radius: 12px; background: var(--void); }
+.bv-progresso { border-radius: 10px; height: 26px; }
+.bv-progresso span { padding: 5px 10px; }
+.bv-barra { background: color-mix(in srgb, var(--gold) 38%, transparent); }
+
+/* passo 3: tudo pronto */
+.bv-exemplos { display: flex; flex-direction: column; gap: 10px; max-width: 620px; margin: 0 auto; }
+.bv-exemplo { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); color: var(--text-forte); font: 14px var(--sans); text-align: left; cursor: pointer; transition: border-color .2s, transform .2s var(--ease); }
+.bv-exemplo:hover { border-color: var(--gold); transform: translateY(-1px); }
+.bv-exemplo-seta { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 9px; background: var(--ingot); color: var(--on-gold); font-weight: 700; }
+#bvTela3 .bv-acoes-tela { max-width: 620px; margin-left: auto; margin-right: auto; }
+
+@media (max-width: 760px) {
+  .bv-topo { padding: 14px 16px; flex-wrap: wrap; }
+  .bv-passos { order: 3; width: 100%; justify-content: center; }
+  .bv-passos li + li::before { width: 10px; }
+  .bv-config, .bv-pilares, .bv-opcionais, .bv-ficha { grid-template-columns: 1fr; }
+  .bv-campo + .bv-campo { border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (prefers-reduced-motion: reduce) { .bv-tela { animation: none; } }

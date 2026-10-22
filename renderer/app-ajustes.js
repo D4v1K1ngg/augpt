@@ -22,9 +22,32 @@ async function carregarConfig() {
   el.caminho.title = config.workspace || '';
   aplicarLateral(config.lateralAberta !== false);
   aplicarPainelDireito(config.painelDireitoAberto === true);
+  // idioma (22/10): o gravado no config manda; a tela abriu com o do localStorage (i18n.js)
+  if (window.i18n && (config.idioma || '') !== window.i18n.escolha) window.i18n.definir(config.idioma || '');
+  pintarSaudacao();
 }
 
+/** "O que você precisa, Davi?" na tela inicial quando há nome (22/10). */
+function pintarSaudacao() {
+  const titulo = document.querySelector('#deckAbertura .deck-head h1');
+  if (!titulo) return;
+  const nome = String(config?.nomeDoUsuario || '').trim();
+  titulo.textContent = nome ? tr('O que você precisa, {nome}?', { nome }) : tr('O que você precisa?');
+}
+window.addEventListener('idioma', pintarSaudacao);
+
+$('ajIdioma').addEventListener('change', async (e) => {
+  config = await api.config.set({ idioma: e.target.value });
+  window.i18n?.definir(e.target.value);
+});
+$('ajNome').addEventListener('change', async (e) => {
+  config = await api.config.set({ nomeDoUsuario: e.target.value.trim() });
+  pintarSaudacao();
+});
+
 function preencherConfig() {
+  $('ajIdioma').value = config.idioma || '';
+  $('ajNome').value = config.nomeDoUsuario || '';
   $('cfgHost').value = config.host;
   $('cfgEmbed').value = config.embedModel;
   $('cfgTopK').value = config.memoryTopK;
@@ -685,7 +708,7 @@ function pintarAtualizacao() {
 
 function mostrarFaixaAtualizacao(info) {
   atualizacao = { ok: true, ...info };
-  $('faixaAtualizacaoTexto').textContent = `AuGPT ${info.versao} disponível (você está na ${info.atual}).`;
+  $('faixaAtualizacaoTexto').textContent = tr('AuGPT {versao} disponível (você está na {atual}).', { versao: info.versao, atual: info.atual });
   $('lnkFaixaNovidades').href = info.pagina || '#';
   $('faixaAtualizacao').hidden = false;
 }
