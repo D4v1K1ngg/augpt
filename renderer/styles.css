@@ -188,7 +188,11 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* =============================== layout =============================== */
 
-.corpo { display: flex; height: calc(100vh - var(--barra)); overflow: hidden; }
+/* 23/10: o corpo ocupa o que sobra abaixo da barra e das faixas (atualização, Ollama) — com altura
+   fixa de "tela menos a barra", a faixa empurrava a caixa de texto para fora da tela */
+body { display: flex; flex-direction: column; }
+body > .barra, body > .faixa-ollama { flex: none; }
+.corpo { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 
 .lateral {
   width: var(--lateral); flex: none; background: var(--panel); border-right: 1px solid var(--line);
@@ -812,7 +816,7 @@ body.sem-lateral .lateral > * { min-width: calc(var(--lateral) - 32px); }
 
 /* =============================== aba de skills =============================== */
 
-.skills-view { flex: 1; display: flex; flex-direction: column; height: calc(100vh - var(--barra)); min-width: 0; }
+.skills-view { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .skills-rolagem { flex: 1; overflow-y: auto; }
 .skills-coluna { max-width: 860px; margin: 0 auto; padding: 34px 28px 60px; }
 
@@ -1051,7 +1055,7 @@ body.sem-lateral .lateral > * { min-width: calc(var(--lateral) - 32px); }
 
 /* =============================== páginas (skills, config) =============================== */
 
-.pagina { flex: 1; display: flex; flex-direction: column; height: calc(100vh - var(--barra)); min-width: 0; }
+.pagina { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .pagina-rolagem { flex: 1; overflow-y: auto; }
 .pagina-coluna { max-width: 860px; margin: 0 auto; padding: 34px 28px 70px; }
 .pagina-topo { display: flex; gap: 24px; align-items: flex-start; margin-bottom: 28px; flex-wrap: wrap; }

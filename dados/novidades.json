@@ -1,5 +1,21 @@
 [
   {
+    "versao": "0.34.1",
+    "data": "2026-10-23",
+    "pt": {
+      "titulo": "Correção da faixa de atualização",
+      "itens": [
+        "Com a faixa de atualização (ou a do Ollama) aberta, a caixa de texto descia e ficava fora da tela. Agora a tela se ajusta ao espaço que sobra."
+      ]
+    },
+    "en": {
+      "titulo": "Update bar fix",
+      "itens": [
+        "With the update bar (or the Ollama bar) open, the text box was pushed off the screen. Now the screen fits the space that is left."
+      ]
+    }
+  },
+  {
     "versao": "0.34.0",
     "data": "2026-10-23",
     "pt": {
