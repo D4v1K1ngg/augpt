@@ -186,6 +186,72 @@ function conferirPromessas(texto) {
   return { texto: limpo, tiradas };
 }
 
+/**
+ * Abertura de enchimento (23/10, histórico: 44 de 125 respostas): "Hoje é 22 de outubro de 2026.",
+ * "Com base nas fontes disponíveis, …", "Como o AuGPT, …", "# Relatório: …" no topo. Sai do começo
+ * da resposta (depois das fotos do topo, se houver); o resto do texto não é tocado.
+ */
+function semEnchimento(texto) {
+  const s = String(texto || '');
+  const topo = (/^(?:\s*!\[[^\]]*\]\([^)]*\)[^\n]*\n+)*/.exec(s) || [''])[0];
+  let corpo = s.slice(topo.length);
+  const antes = corpo;
+  for (let i = 0; i < 3; i += 1) {
+    corpo = corpo
+      .replace(/^\s*#{1,3}\s*Relat[óo]rio\b[^\n]*\n+/i, '')
+      .replace(/^\s*\*\*Data (?:do relat[óo]rio|da (?:an[áa]lise|pesquisa)|de refer[êe]ncia):\*\*[^\n]*\n+/i, '')
+      .replace(/^\s*Hoje (?:é|e) (?:\*\*)?[^.\n]{4,40}(?:\*\*)?[.,]\s+/i, '')
+      .replace(/^\s*(?:Com base n[ao]s?|Baseado n[ao]s?|De acordo com as) (?:fontes|informa[çc][õo]es|pesquisas?|dados|an[áa]lises?)\b[^,.\n]{0,80},\s*/i, '')
+      .replace(/^\s*Como o AuGPT,\s*/i, '');
+  }
+  if (corpo === antes) return s;
+  corpo = corpo.replace(/^(\s*\**)(\p{Ll})/u, (m, pre, letra) => pre + letra.toUpperCase());
+  return topo + corpo;
+}
+
+/**
+ * Trava ao contrário da de promessas (23/10, histórico): o modelo dizia "não consigo medir a sua
+ * conexão", "não consigo exibir as imagens aqui no chat", "o AuGPT não consegue navegar" — e o
+ * AuGPT faz as três coisas. A frase sai e, no fim, entra a oferta do recurso.
+ */
+const NEGACOES = [
+  { id: 'teste_de_rede', re: /\bn[ãa]o (?:consigo|posso|tenho como) (?:medir|testar|verificar|ver|checar)\b[^.!?\n]{0,70}\b(?:internet|conex[ãa]o|velocidade|ping|lat[êe]ncia)/i },
+  { id: 'buscar_imagens', re: /\bn[ãa]o (?:consigo|posso|tenho como) (?:exibir|mostrar|buscar|trazer|enviar|apresentar)\b[^.!?\n]{0,50}\b(?:imagens?|fotos?)/i },
+  { id: 'navegador', re: /\bn[ãa]o (?:consigo|consegue|posso|tenho (?:a )?capacidade (?:direta )?de) (?:navegar|acessar|abrir|entrar|fazer login|realizar login|logar)\b/i },
+  { id: 'consultar_pc', re: /\bn[ãa]o tenho acesso (?:ao seu|à sua|a sua|ao) (?:hardware|computador|pc|sistema|rede)|\bn[ãa]o (?:consigo|posso) (?:ver|acessar|consultar|ler)\b[^.!?\n]{0,30}\b(?:seu|sua) (?:computador|pc|hardware|sistema)/i },
+  { id: null, re: /\bsou (?:apenas )?uma intelig[êe]ncia artificial baseada em texto|\bcomo (?:um )?modelo de (?:intelig[êe]ncia artificial|linguagem)(?: baseado em texto)?,? (?:eu )?n[ãa]o (?:tenho|consigo|posso)/i },
+];
+const OFERTA_DO_NAVEGADOR = {
+  pt: 'Eu **consigo abrir sites** no navegador do AuGPT, fazer login, clicar e baixar arquivos (cada ação pede a sua confirmação). Peça, por exemplo: **"acesse <endereço> e …"**.',
+  en: 'I **can open sites** in the AuGPT browser, log in, click and download files (each action asks for your confirmation). Ask, for example: **"go to <address> and …"**.',
+};
+
+function conferirNegacoes(texto, idioma = 'pt') {
+  const tiradas = [];
+  const ids = [];
+  const original = String(texto || '').split('\n');
+  let noCodigo = false;
+  const linhas = original.map((linha) => {
+    if (/^\s*```/.test(linha)) noCodigo = !noCodigo;
+    if (noCodigo || /^\s*(\||```|#)/.test(linha) || !NEGACOES.some((n) => n.re.test(linha))) return linha;
+    return linha
+      .split(/(?<=[.!?])\s+(?=[*_\p{Lu}"(])/u)
+      .filter((f) => {
+        const achada = NEGACOES.find((n) => n.re.test(f));
+        if (!achada) return true;
+        tiradas.push(f.trim().slice(0, 140));
+        if (achada.id && !ids.includes(achada.id)) ids.push(achada.id);
+        return false;
+      })
+      .join(' ');
+  });
+  let limpo = linhas.filter((l, i) => l === original[i] || l.trim()).join('\n');
+  const id = ids[0];
+  const oferta = id === 'navegador' ? OFERTA_DO_NAVEGADOR[idioma === 'en' ? 'en' : 'pt'] : id ? ofertaDe(id, idioma) : null;
+  if (oferta && !limpo.includes(oferta.slice(0, 40))) limpo = `${limpo.trim()}\n\n${oferta}`;
+  return { texto: limpo, tiradas };
+}
+
 /* ------------------------------ utilitários (a aba e o "o que você pode fazer?") ------------------------------ */
 
 /**
@@ -265,4 +331,4 @@ function textoDosUtilitarios(cartoes, idioma = 'pt') {
   return linhas.join('\n');
 }
 
-module.exports = { UTILITARIOS, utilitarios, pedeOQueFaz, textoDosUtilitarios, ofertaDePesquisa, ofertasBilingues, conferirPromessas, PALAVRAS, CAPACIDADES, EXECUTAVEIS, disponiveis, listaParaEntender, blocoParaEscrever, valida, ofertaDe, aceitouOferta };
+module.exports = { UTILITARIOS, utilitarios, pedeOQueFaz, textoDosUtilitarios, ofertaDePesquisa, ofertasBilingues, conferirPromessas, conferirNegacoes, semEnchimento, PALAVRAS, CAPACIDADES, EXECUTAVEIS, disponiveis, listaParaEntender, blocoParaEscrever, valida, ofertaDe, aceitouOferta };

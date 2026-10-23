@@ -307,6 +307,15 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
     // trava de promessa: o AuGPT não oferece o que não faz (capacidades.js)
     // 21/10: o modelo pequeno escreveu "### #### 1. Setup Híbrido" — o título duplo não virava cartão (sem cartão, sem foto)
     if (r.produto) r.texto = r.texto.replace(/^#{1,3}\s+(?=#### \d+\.\s)/gm, '');
+    // o que o modelo escreveu (não as rotas): sem abertura de enchimento e sem negar o que o AuGPT faz (23/10)
+    if (!r.doCodigo) {
+      r.texto = catalogo.semEnchimento(r.texto);
+      const negacoes = catalogo.conferirNegacoes(r.texto, emIngles ? 'en' : 'pt');
+      if (negacoes.tiradas.length) {
+        r.texto = negacoes.texto;
+        this.emit('aviso', { texto: `negação de um recurso do AuGPT, tirada da resposta: ${negacoes.tiradas.join(' | ').slice(0, 300)}` });
+      }
+    }
     const promessas = catalogo.conferirPromessas(r.texto);
     if (promessas.tiradas.length) {
       r.texto = promessas.texto;

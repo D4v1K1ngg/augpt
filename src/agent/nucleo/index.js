@@ -717,12 +717,28 @@ async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000 } = {
 }
 
 // ajuste "Resposta" da barra (15/10: antes ignorado pelo núcleo)
+// 23/10 (histórico): o "detalhada" pedia "pelo menos 1.200 palavras, como um relatório" para qualquer
+// pergunta — "Quem é você?" teve 1.999 palavras e 44 de 125 respostas abriam com "# Relatório…"
 const TAMANHO_DA_RESPOSTA = {
-  normal: '',
-  detalhada: '\n- RESPOSTA DETALHADA: escreva uma resposta longa e completa, como um relatório (pelo menos 1.200 palavras), cobrindo todos os ângulos que as fontes trazem.',
+  normal: '\n- TAMANHO NA MEDIDA DA PERGUNTA: pergunta simples ou factual (um número, um nome, sim ou não, uma definição) → até 3 parágrafos curtos; explicação, comparação ou recomendação → o necessário para responder bem, sem repetir.',
+  detalhada: '\n- RESPOSTA DETALHADA, NA MEDIDA DA PERGUNTA: cubra os ângulos que as fontes trazem, com dados concretos; comparação, recomendação, análise ou guia vai até umas 900 palavras. Pergunta simples ou factual continua curta (até 3 parágrafos). Nunca encha para parecer completa.',
   tecnica: '\n- RESPOSTA TÉCNICA: use a linguagem e os dados técnicos precisos (números, unidades, especificações), sem simplificar demais; só explique siglas.',
   curta: '\n- RESPOSTA CURTA: no máximo 3 parágrafos, só o essencial.',
 };
+
+/**
+ * O tamanho que a pergunta pede (23/10): pergunta simples ou factual ("quem é você?", "qual a
+ * cotação do dólar?") vira 'curta' mesmo com "detalhada" nos Ajustes; comparação, recomendação,
+ * explicação e quem pede detalhe ficam com o tamanho escolhido.
+ */
+function tamanhoNaMedida(pergunta, tamanho = 'normal', { produto = false } = {}) {
+  const t = String(pergunta || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').trim();
+  const palavras = t.split(/\s+/).filter(Boolean).length;
+  if (produto || tamanho === 'curta' || tamanho === 'tecnica') return tamanho;
+  if (/\b(detalh|explique|explica|compar|diferenc|analis|relatorio|guia|passo a passo|como|por ?que|vale a pena|melhor|recomend|dicas?|resum|liste|todos|tudo)\w*/.test(t)) return tamanho;
+  const simples = palavras <= 10 && /^(e )?(qual|quais|quanto|quantos|quantas|quem|quando|onde|o que (e|significa)|que (horas|dia)|existe|tem|e verdade|ja (saiu|lancou))\b/.test(t);
+  return simples ? 'curta' : tamanho;
+}
 
 function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal', atual = false, sobreOUsuario = '', capacidadesNaEscrita = '', preferencias = '', idioma = 'pt' }) {
   return `Você é o AuGPT, um assistente que pesquisa na web e escreve respostas completas, claras e bem explicadas, em ${idioma === 'en' ? 'INGLÊS (en-US): a resposta inteira em inglês, inclusive títulos, tabelas e cartões, mesmo com o material em português' : 'português do Brasil'}. Hoje é ${hoje}.${TAMANHO_DA_RESPOSTA[tamanho] || ''}
@@ -731,7 +747,8 @@ ${
   comFontes
     ? `Responda à pergunta do usuário usando as fontes abaixo.
 - Respeite exatamente as condições do pedido (plataforma, tipo de produto, orçamento, quantidade de opções). Fonte que trata de outra coisa (outra plataforma, outro tipo de produto) não serve de base para a recomendação.
-- Comece respondendo diretamente à pergunta. Depois desenvolva, com seções (##) quando o assunto pedir.
+- Comece respondendo diretamente à pergunta: a primeira frase já é a resposta. Depois desenvolva, com seções (##) só quando o assunto pedir.
+- Não comece com a data ("Hoje é…"), com "Com base nas fontes…", "Como o AuGPT…" nem com título de relatório ("# Relatório…"). Sem título no topo de resposta curta.
 - Explique os termos técnicos para quem não é especialista.
 - Cite a fonte de cada informação com [n] no fim da frase. Não cite número que não está nas fontes.
 - Cruze as fontes: quando várias falam do mesmo ponto, cite todas ([2][5]); não apoie a resposta inteira numa fonte só. Um vídeo é uma fonte como as outras — o que é dito nele é a opinião de quem fez o review.
@@ -1139,7 +1156,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const semVideos = /\b(youtube|v[ií]deos?)\b/i.test(pergunta) && !(typeof deps.buscarNoYoutube === 'function');
   emit('redigindo', { fontes: usadas.length });
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho, atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: capacidades.blocoParaEscrever(deps), preferencias: typeof deps.preferencias === 'function' ? deps.preferencias() : '', idioma: deps.idioma })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: capacidades.blocoParaEscrever(deps), preferencias: typeof deps.preferencias === 'function' ? deps.preferencias() : '', idioma: deps.idioma })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
@@ -1248,4 +1265,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null };
 }
 
-module.exports = { comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
