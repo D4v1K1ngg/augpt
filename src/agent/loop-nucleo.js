@@ -373,7 +373,7 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
       []
     );
     const videos = assistidos.length
-      ? `\n\n**Vídeos**\n${assistidos
+      ? `\n\n**${cfg.idiomaEfetivo === 'en' ? 'Videos' : 'Vídeos'}**\n${assistidos
           .map((f, i) => (miniaturas[i] ? `${imagens.marcacao(`▶ ${f.titulo}`, miniaturas[i])}{yt:${idDoVideo(f.url)}}` : `- [▶ ${String(f.titulo).replace(/[[\]]/g, '')}](${f.url})`))
           .join('\n')}`
       : '';

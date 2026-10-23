@@ -8,7 +8,41 @@
 const c = require('../../src/agent/capacidades');
 const { tamanhoNaMedida, sistemaDoEscritor } = require('../../src/agent/nucleo');
 
+const nucleo = require('../../src/agent/nucleo');
+const { tipoDoPedido } = require('../../src/agent/tipo-de-pedido');
+
 module.exports = [
+  {
+    nome: 'pesquisa só quando precisa: sobre o AuGPT, conta direta e prova ficam sem busca (inclusive quando o JSON do entendimento vem ilegível); cotação, notícia e "como funciona" pesquisam',
+    tipo: 'unidade',
+    executar() {
+      const sem = ['Quem é voce ?', 'o que você é?', 'como você funciona?', 'calcule 37*48', 'quanto é 2^10?', 'Questão 1 — Álgebra: x+y=6 e \\(x^3+y^3=72\\)'];
+      const com = ['quanto é o dólar hoje?', 'Como que uma lanpada de led funciona ?', 'qual a cotação do dolar?', 'o que você acha da rtx 5080?'];
+      return [
+        ...sem.map((p) => nucleo.podeFicarSemBusca(p) || `sem busca: ${p}`),
+        ...com.map((p) => !nucleo.podeFicarSemBusca(p) || `pesquisa: ${p}`),
+        nucleo.lerEntendimento('{"precisa_buscar": true}', 'Quem é você?').precisaBuscar === false || 'o modelo não força busca sobre o AuGPT',
+        nucleo.lerEntendimento('sem json nenhum', 'Questão 1 — Álgebra: x+y=6 e \\(x^3+y^3=72\\)').precisaBuscar === false || 'reserva respeita a prova',
+        nucleo.lerEntendimento('sem json nenhum', 'qual a cotação do dólar?').precisaBuscar === true || 'reserva pesquisa o resto',
+      ];
+    },
+  },
+  {
+    nome: 'pedido de ação vai para o navegador ("navegue nesse site", "abra https://…"); pergunta analítica depois de uma conversa de produto não vira produto (sem fotos nem "Onde comprar")',
+    tipo: 'unidade',
+    executar() {
+      const conversa = [{ role: 'user', content: 'Será que a RTX 60 vai vir custando muito? qual comprar?' }];
+      const produto = (p) => nucleo.conferirEntendimento({ produto: true, assuntos: ['RTX 60'], pergunta: p }, { pergunta: p, conversa }).produto;
+      return [
+        tipoDoPedido("Navegue nesse site pra min 'https://www.unip.br/aluno/central/'").tipo === 'site' || 'navegue',
+        tipoDoPedido('abra https://g1.globo.com').tipo === 'site' || 'abra',
+        tipoDoPedido('acesse o site https://g1.globo.com e resuma a manchete').tipo !== 'site' || 'ler o site continua leitura',
+        produto('Quais evidências concretas sustentam sua previsão de que a RTX 60 será mais cara? Separe fatos, rumores e inferências') === false || 'analítica',
+        produto('qual o preço de hoje da rtx 5080?') === true || 'preço continua produto',
+        produto('qual a diferença entre a 5080 e a 5070 ti, vale a pena?') === true || 'vale a pena continua produto',
+      ];
+    },
+  },
   {
     nome: 'respostas: pergunta simples recebe resposta curta mesmo no "detalhada"; comparação, explicação, guia e produto ficam com o tamanho escolhido; o "detalhada" não pede mais 1.200 palavras',
     tipo: 'unidade',

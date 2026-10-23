@@ -123,7 +123,13 @@ const SEM_BUSCA = /^\s*(oi|ol[aá]|bom dia|boa (tarde|noite)|e a[ií]|obrigad[oa
 // questões pesquisou "Questão 6 matemática vestibular" e listou como fonte um
 // editor de PDF e um app de formulários): resolve, não pesquisa
 const QUESTAO_DE_EXATAS = (t) => /\bquest[aã]o\s*\d/i.test(t) && /\\\(|\\\[|\\frac|\^|\b\d+\s*[=+*/x×]\s*\d|\b[a-z]\s*[=+]\s*\d|\bf\(x\)|\blog_?\d|\bmatriz\b/i.test(t);
-const podeFicarSemBusca = (pergunta) => SEM_BUSCA.test(String(pergunta || '').trim()) || QUESTAO_DE_EXATAS(String(pergunta || ''));
+// sobre o próprio AuGPT e conta direta (23/10, histórico: "Quem é você?" fez 6 buscas e citou a Wikipédia)
+const SOBRE_O_AUGPT = /^\s*(quem (é|e) (voc[eê]|vc|o augpt)|o que (voc[eê]|vc) (é|e)(?![a-zà-ú])|como (voc[eê]|vc) funciona|quem (te|o) (criou|fez|desenvolveu)|qual (é |e )?(o )?seu nome|voc[eê] (é|e) (uma )?(ia|intelig|rob[oô]))/i;
+const CONTA_DIRETA = /^\s*(resolva|calcule|quanto (é|e|da|dá)|derive|integre|simplifique|fatore)(?![a-zà-ú])[^?]*[\d=+\-*/^√]/i;
+const podeFicarSemBusca = (pergunta) => {
+  const t = String(pergunta || '').trim();
+  return SEM_BUSCA.test(t) || QUESTAO_DE_EXATAS(t) || SOBRE_O_AUGPT.test(t) || CONTA_DIRETA.test(t);
+};
 
 // Travas do código para o modelo pequeno que erra os campos do entendimento (18/10): palavras que
 // dizem "depende de quando" e "é sobre o usuário" valem em qualquer tema
@@ -163,7 +169,8 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     const assuntos = (Array.isArray(j.assuntos) ? j.assuntos : []).map((a) => String(a || '').trim()).filter((a) => a.length >= 2 && a.length <= 80).slice(0, 4);
     // o modelo só decide "sem busca" no que é claramente conversa; um nome solto ("Dragon Ball Super Beerus") pesquisa
     const exatas = QUESTAO_DE_EXATAS(String(pergunta || ''));
-    const precisaBuscar = !exatas && (j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta)));
+    const semBusca = exatas || SOBRE_O_AUGPT.test(String(pergunta || '')) || CONTA_DIRETA.test(String(pergunta || ''));
+    const precisaBuscar = !semBusca && (j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta)));
     return {
       precisaBuscar,
       produto: j.produto === true,
@@ -178,7 +185,8 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     };
   } catch {
     // JSON quebrado: busca, com a pergunta como veio
-    return { precisaBuscar: true, produto: false, criarImagem: pedeImagem(pergunta), atual: PISTA_DE_ATUAL.test(pergunta), sobreOUsuario: PISTA_DO_USUARIO.test(pergunta), imagemAjuda: false, assuntos: [], pergunta };
+    // 23/10: a reserva pesquisava sempre — a prova de 10 questões (JSON longo, ilegível) fez 7 buscas
+    return { precisaBuscar: !podeFicarSemBusca(pergunta), produto: false, criarImagem: pedeImagem(pergunta), atual: PISTA_DE_ATUAL.test(pergunta), sobreOUsuario: PISTA_DO_USUARIO.test(pergunta), imagemAjuda: false, assuntos: [], pergunta };
   }
 }
 
@@ -217,7 +225,11 @@ function conferirEntendimento(ent, { pergunta, conversa = [] }) {
   const tem = (t) => palavrasDe(t).some((w) => doUsuario.has(w));
   const pedidosDoUsuario = `${pergunta} ${conversa.filter((m) => m.role === 'user').slice(-3).map((m) => m.content).join(' ')}`;
   const assuntos = (ent.assuntos || []).filter(tem);
-  const produto = ent.produto === true && temPistaDeProduto(pedidosDoUsuario);
+  // 23/10: "Quais evidências sustentam sua previsão? Separe fatos e rumores", depois de uma conversa de
+  // produto, virou produto (fotos e "Onde comprar"). Pergunta analítica sem intenção de compra não é.
+  const analitica = /\b(evid[eê]ncias?|separe|fatos?|rumores?|infer[eê]ncias?|diferen[cç]a entre|como funciona|por que|porque|explique|o que (é|e|significa)|hist[oó]ria)\b/i.test(String(pergunta || ''));
+  const querComprar = /\b(comprar|compro|pre[cç]os?|custa|vale a pena|melhor(es)?|recomend\w*|qual (escolher|devo|comprar)|onde (comprar|encontrar)|barat\w*|promo[cç]\w*|black friday|review)\b/i.test(String(pergunta || ''));
+  const produto = ent.produto === true && temPistaDeProduto(pedidosDoUsuario) && !(analitica && !querComprar);
   return {
     ...ent,
     produto,
@@ -1197,7 +1209,8 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   }
   // só ficam na lista as fontes que a resposta citou (ou todas as usadas, se ela não citou nenhuma)
   const citadas = new Set([...String(escrito).matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
-  const lista = usadas.filter((f) => !citadas.size || citadas.has(f.n)).map(({ n, url, titulo, video, trechos }) => ({ n, url, titulo, ...(video ? { video: true, lido: trechos.length > 0 } : {}) }));
+  // 23/10: sem citação, a lista trazia todas as lidas (a capital da França listou "Encarceramento nos Estados Unidos")
+  const lista = usadas.filter((f) => citadas.has(f.n)).map(({ n, url, titulo, video, trechos }) => ({ n, url, titulo, ...(video ? { video: true, lido: trechos.length > 0 } : {}) }));
   // gráficos (18/10): validados e, com fontes, só com números que estão nelas; saem do texto
   // enquanto as conferências mexem nele (o ⚠ e o corte das citações quebrariam o JSON)
   // com fontes, o que a conferência aceita no gráfico: o lido, a pergunta e a conversa (os "dados acima")

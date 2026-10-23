@@ -208,7 +208,8 @@ const ACAO_NO_SITE =
 // ("acesse o site e resuma" é leitura: só "acesse" não basta)
 // 18/10 (conversas reais): "Acesse esse site 'https://www.unip.br/'" sozinho é
 // abrir o site — virava pesquisa e um "Relatório Técnico" inventado sobre a UNIP
-const ABRIR_O_SITE = /\b(acess[ea]r?|abr[ae]|abrir|entr[ae]r?|v[aá] (para|pra|no|na))\b[^.?!]{0,25}\b(site|pagina|portal|link|endereco)\b/;
+// 23/10: "Navegue nesse site…" e "abra https://…" (sem a palavra site) iam para a pesquisa, que respondia "não consigo navegar"
+const ABRIR_O_SITE = /\b(acess[ea]r?|abr[ae]|abrir|entr[ae]r?|navegu?e|navegar|v[aá] (para|pra|no|na))\b[^.?!]{0,25}\b(site|pagina|portal|link|endereco|https?|www)\b/;
 const LEITURA_DO_SITE = /\b(resum\w*|explique|explica|o que (diz|fala|tem)|leia|traduz\w*|pesquis\w*|analis\w*|compar\w*|quais|qual|quanto)\b/;
 // login sem endereço ("realize login no site da unip"): o agente abre o site pelo nome
 const LOGIN_NO_SITE = /\b(login|logar|logue|entrar na (minha )?conta)\b[^.?!]{0,30}\b(site|portal|pagina|conta|sistema)\b|\b(site|portal|pagina)\b[^.?!]{0,30}\b(login|logar)\b/;
