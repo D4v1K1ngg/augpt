@@ -32,10 +32,12 @@ const ROTAS = [
     // "o que você pode fazer?": a mesma lista da aba Utilitários, montada pelo código
     id: 'utilitarios',
     detecta: ({ objetivo }) => catalogo.pedeOQueFaz(objetivo),
-    responde: ({ deps }) => {
-      const texto = catalogo.textoDosUtilitarios(catalogo.utilitarios({ instalados: { imagem: !!deps.gerarImagem, youtube: !!deps.buscarNoYoutube } }));
-      deps.emit('resposta-token', { pedaco: texto });
-      return { ...SEM_PESQUISA, texto, modo: 'utilitarios' };
+    responde: ({ deps, config }) => {
+      const idioma = config?.idiomaEfetivo === 'en' ? 'en' : 'pt';
+      const texto = catalogo.textoDosUtilitarios(catalogo.utilitarios({ instalados: { imagem: !!deps.gerarImagem, youtube: !!deps.buscarNoYoutube } }), idioma);
+      deps.emit('resposta-token', { pedaco: texto, noIdioma: idioma === 'en' });
+      // já sai no idioma da tela: a tradução pelo modelo (traducao.js) não é preciso
+      return { ...SEM_PESQUISA, texto, modo: 'utilitarios', noIdioma: idioma === 'en' };
     },
   },
   {
@@ -99,7 +101,8 @@ function escolherRota(ctx) {
 /** Responde pela rota escolhida; null = a rota devolveu (a pesquisa responde). A resposta leva `rota`. */
 async function responderPelaRota(ctx, escolha) {
   const r = await escolha.rota.responde(ctx, escolha.pedido);
-  return r ? { ...r, rota: escolha.rota.id } : null;
+  // doCodigo: o texto foi montado pelo código, em português (a tela em inglês traduz — traducao.js)
+  return r ? { ...r, rota: escolha.rota.id, doCodigo: true } : null;
 }
 
 /** Ação pelo id (entendimento ou "sim" a uma oferta), sem passar pela detecção. */

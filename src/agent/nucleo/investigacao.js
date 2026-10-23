@@ -56,8 +56,8 @@ function lerPlano(texto, pergunta) {
   }
 }
 
-function sistemaDaSecao({ hoje, pergunta, titulo }) {
-  return `Você escreve UMA seção de um relatório de investigação, em português do Brasil. Hoje é ${hoje}.
+function sistemaDaSecao({ hoje, pergunta, titulo, idioma = 'pt' }) {
+  return `Você escreve UMA seção de um relatório de investigação, ${idioma === 'en' ? 'em INGLÊS (en-US)' : 'em português do Brasil'}. Hoje é ${hoje}.
 Relatório sobre: "${String(pergunta).slice(0, 600)}"
 Seção: "${titulo}"
 - Use só as fontes abaixo. Cite a fonte de cada informação com [n] no fim da frase; não cite número que não está nas fontes.
@@ -66,8 +66,8 @@ Seção: "${titulo}"
 - Se as fontes não respondem a esta parte, diga isso em uma frase, sem inventar.`;
 }
 
-function sistemaDoResumo({ hoje, tamanho = 'normal' }) {
-  return `Você escreve o RESUMO de uma investigação, em português do Brasil, para o chat. Hoje é ${hoje}.
+function sistemaDoResumo({ hoje, tamanho = 'normal', idioma = 'pt' }) {
+  return `Você escreve o RESUMO de uma investigação, ${idioma === 'en' ? 'em INGLÊS (en-US)' : 'em português do Brasil'}, para o chat. Hoje é ${hoje}.
 - Comece respondendo diretamente ao pedido. Depois traga os pontos mais importantes de cada parte, com os dados concretos.
 - Cite as fontes com [n], os mesmos números das seções.
 - ${tamanho === 'detalhada' ? 'Até umas 800 palavras.' : 'Entre 250 e 500 palavras.'} O relatório completo vai em PDF; não diga "veja o PDF" a cada parágrafo.
@@ -144,7 +144,7 @@ async function investigar({ pergunta, conversa = [], minutos = 10, tamanho = 'no
       texto = nucleo.semImagens(
         await escrever(
           [
-            { role: 'system', content: `${sistemaDaSecao({ hoje, pergunta: ent.pergunta, titulo: sub.titulo })}\n\n<fontes>\n${nucleo.blocoDeFontes(material)}\n</fontes>` },
+            { role: 'system', content: `${sistemaDaSecao({ hoje, pergunta: ent.pergunta, titulo: sub.titulo, idioma: deps.idioma })}\n\n<fontes>\n${nucleo.blocoDeFontes(material)}\n</fontes>` },
             { role: 'user', content: sub.pergunta },
           ],
           () => {}
@@ -177,7 +177,7 @@ async function investigar({ pergunta, conversa = [], minutos = 10, tamanho = 'no
     resumo = nucleo.semImagens(
       await escrever(
         [
-          { role: 'system', content: `${sistemaDoResumo({ hoje, tamanho })}\n\n<secoes_do_relatorio>\n${partes.slice(0, 26000)}\n</secoes_do_relatorio>` },
+          { role: 'system', content: `${sistemaDoResumo({ hoje, tamanho, idioma: deps.idioma })}\n\n<secoes_do_relatorio>\n${partes.slice(0, 26000)}\n</secoes_do_relatorio>` },
           { role: 'user', content: pergunta },
         ],
         (pedaco) => emit('resposta-token', { pedaco })

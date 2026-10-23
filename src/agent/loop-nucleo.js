@@ -13,6 +13,7 @@ const ollama = require('../llm/ollama');
 const { Sandbox } = require('../tools/sandbox');
 const { consultasNaComunidade } = require('../tools/comunidade');
 const { preferenciasParaEscrever } = require('./memoria-no-chat');
+const traducao = require('./traducao');
 const imagens = require('../tools/imagens');
 const search = require('../tools/search');
 const { lerComCache } = require('../tools/web');
@@ -249,17 +250,29 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
     const normalizado = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
     const jogoDaConversa = () => jogoDoTexto(normalizado(`${objetivo} ${conversa.slice(-4).map((m) => m.content).join(' ')}`)) || 'aws';
     // as rotas que o código responde (rotas-do-codigo.js): a ordem da lista é a prioridade
-    const contexto = (extra = {}) => ({ objetivo, conversa, deps, signal, pasta: this.userDataPath, jogo: jogoDaConversa(), dirImagens: this.dirImagens(), config: cfg, ...extra });
-    deps.executarAcao = (id, { pergunta, modo: modoDoTeste = null, confirmado = false } = {}) => rotas.executar(id, contexto({ objetivo: pergunta, modo: modoDoTeste, confirmado }));
+    // tela em inglês (23/10): as rotas entendem e escrevem português. O pedido em inglês vira
+    // português para a rota, e o texto dela não vai direto para a tela: sai traduzido no fim
+    const emIngles = cfg.idiomaEfetivo === 'en';
+    // (a lista de utilitários já escreve em inglês: mostra na hora, ver noIdioma)
+    const depsDasRotas = emIngles ? { ...deps, emit: (e, d) => (e === 'resposta-token' && !d?.noIdioma ? undefined : deps.emit(e, d)) } : deps;
+    const emPortugues = async (texto) => (emIngles && traducao.pareceIngles(texto) ? (await traducao.paraPortugues(texto, deps.chamar)) || texto : texto);
+    const contexto = (extra = {}) => ({ objetivo, conversa, deps: depsDasRotas, signal, pasta: this.userDataPath, jogo: jogoDaConversa(), dirImagens: this.dirImagens(), config: cfg, ...extra });
+    deps.executarAcao = async (id, { pergunta, modo: modoDoTeste = null, confirmado = false } = {}) => rotas.executar(id, contexto({ objetivo: await emPortugues(pergunta), modo: modoDoTeste, confirmado }));
     const aceitou = !investigando && !imagensDoPedido.length && catalogo.aceitouOferta(objetivo, conversa);
-    const escolha = !investigando && !aceitou && !imagensDoPedido.length ? rotas.escolherRota(contexto()) : null;
+    let escolha = !investigando && !aceitou && !imagensDoPedido.length ? rotas.escolherRota(contexto()) : null;
+    let objetivoDaRota = objetivo;
+    if (emIngles && !escolha && !investigando && !aceitou && !imagensDoPedido.length && traducao.pareceIngles(objetivo)) {
+      const pt = await emPortugues(objetivo);
+      const achada = pt !== objetivo && rotas.escolherRota(contexto({ objetivo: pt }));
+      if (achada) [escolha, objetivoDaRota] = [achada, pt];
+    }
     const pelaPesquisa = async () => ({ ...(await nucleo.responder({ pergunta: aceitou?.id === 'pesquisa' ? aceitou.pergunta : objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido })), rota: 'pesquisa' });
     const r = aceitou && aceitou.id !== 'pesquisa'
       ? (await deps.executarAcao(aceitou.id, { pergunta: objetivo, modo: aceitou.modo, confirmado: true })) || (await pelaPesquisa())
       : investigando
       ? { ...(await investigar({ pergunta: objetivo, conversa, minutos: Number(cfg.minutosDeInvestigacao) || 10, tamanho: cfg.modoResposta || 'normal', deps })), rota: 'investigacao' }
       : escolha
-      ? (await rotas.responderPelaRota(contexto(), escolha)) || (await pelaPesquisa())
+      ? (await rotas.responderPelaRota(contexto({ objetivo: objetivoDaRota }), escolha)) || (await pelaPesquisa())
       : await pelaPesquisa();
     // o relatório completo vira PDF na pasta de trabalho, anexado à resposta
     let relatorioPdf = null;
@@ -280,6 +293,17 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
       }
     }
     if (!r.texto) throw new Error('a escrita veio vazia');
+    // o texto montado pelo código (as rotas) sai em inglês, em streaming; a investigação já escreve no idioma
+    if (emIngles && r.doCodigo && !r.noIdioma) {
+      const ofertasDePesquisa = [...r.texto.matchAll(/Quer que eu pesquise \*\*(.+?)\*\*\? É só responder \*\*"sim"\*\*\./g)].map((m) => [m[0], catalogo.ofertaDePesquisa(m[1], 'en')]);
+      r.texto = await traducao.paraIngles(r.texto, {
+        escrever: deps.escrever,
+        fixos: [...catalogo.ofertasBilingues(), ...ofertasDePesquisa],
+        traduzirFixo: require('./i18n-do-app').emIngles, // títulos e séries dos gráficos
+        onPedaco: (pedaco) => deps.emit('resposta-token', { pedaco }),
+        onFalha: (motivo) => this.emit('aviso', { texto: motivo }),
+      });
+    }
     // trava de promessa: o AuGPT não oferece o que não faz (capacidades.js)
     // 21/10: o modelo pequeno escreveu "### #### 1. Setup Híbrido" — o título duplo não virava cartão (sem cartão, sem foto)
     if (r.produto) r.texto = r.texto.replace(/^#{1,3}\s+(?=#### \d+\.\s)/gm, '');

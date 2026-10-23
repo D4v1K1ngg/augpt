@@ -115,26 +115,37 @@ E só ofereça o que está nesta lista: o AuGPT NÃO abre programas do Windows (
 const valida = (id) => (POR_ID.has(String(id || '')) ? String(id) : null);
 
 /** A oferta para o fim da resposta (só das que executam: o "sim" seguinte aciona). */
-const ofertaDe = (id) => POR_ID.get(id)?.executa ? POR_ID.get(id).oferta : null;
+// as ofertas em inglês (23/10): fixas, para o "yes" continuar valendo (aceitouOferta confere as duas)
+const OFERTAS_EN = {
+  teste_de_rede: 'I can **test your internet now**: download, upload, ping and bufferbloat (the test uses up to ~300 MB). Want me to? Just reply **"yes"**, or **"just the ping"**, which uses almost no data.',
+  rota_de_jogo: 'I can **measure your ping to the game servers** and show the route to the best one. Want me to? Just reply **"yes"**.',
+  diagnostico_da_rede: 'I can **X-ray your network now**: cable or Wi-Fi, ping to the router, router model and how many devices are connected (read-only, nothing is changed). Want me to? Just reply **"yes"**.',
+  consultar_pc: 'I can **check your computer** to see that (read-only: space, specs, drivers, peripherals, files). Want me to? Just reply **"yes"**.',
+  ajustes_de_rede: 'I can **tune your network adapter** (DNS, adapter power saving, DNS cache): I show what changes first, you approve, and it can be undone. Want me to? Just reply **"yes"**.',
+  trafego_de_rede: 'I can **see what is using your internet now**: the adapter traffic and the connected programs. Want me to? Just reply **"yes"**.',
+};
+const ofertaDe = (id, idioma = 'pt') => (POR_ID.get(id)?.executa ? (idioma === 'en' && OFERTAS_EN[id]) || POR_ID.get(id).oferta : null);
+/** [português, inglês] de cada oferta: a tradução das respostas do código troca uma pela outra sem passar pelo modelo. */
+const ofertasBilingues = () => CAPACIDADES.filter((c) => c.executa && c.oferta && OFERTAS_EN[c.id]).map((c) => [c.oferta, OFERTAS_EN[c.id]]);
 
-const SIM = /^\s*(sim|s|pode|pode sim|pode testar|pode fazer|pode ver|quero|ok|okay|blz|beleza|manda|vai|claro|bora|faz|fa[cç]a|isso|por favor|claro que sim)\b/i;
+const SIM = /^\s*(sim|s|pode|pode sim|pode testar|pode fazer|pode ver|quero|ok|okay|blz|beleza|manda|vai|claro|bora|faz|fa[cç]a|isso|por favor|claro que sim|yes|y|yeah|yep|sure|please|go ahead|do it|of course)\b/i;
 
 /**
  * "sim" logo depois de uma oferta → a capacidade oferecida (e "só o ping" na oferta do teste de rede).
  * @returns { id, modo? } | null
  */
 /** Oferta de pesquisa (item 3): o "sim" seguinte vira a pergunta "pesquise <assunto>". */
-const ofertaDePesquisa = (assunto) => `Quer que eu pesquise **${assunto}**? É só responder **"sim"**.`;
+const ofertaDePesquisa = (assunto, idioma = 'pt') => (idioma === 'en' ? `Want me to research **${assunto}**? Just reply **"yes"**.` : `Quer que eu pesquise **${assunto}**? É só responder **"sim"**.`);
 
 function aceitouOferta(texto, conversa = []) {
   const ultima = [...conversa].reverse().find((m) => m.role === 'assistant');
   if (!ultima) return null;
   const t = String(texto || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  const pesquisa = /Quer que eu pesquise \*\*(.+?)\*\*\? É só responder/.exec(String(ultima.content || ''));
+  const pesquisa = /(?:Quer que eu pesquise|Want me to research) \*\*(.+?)\*\*\? (?:É só responder|Just reply)/.exec(String(ultima.content || ''));
   if (pesquisa && SIM.test(t) && t.length <= 60) return { id: 'pesquisa', pergunta: `pesquise ${pesquisa[1]}` };
-  const oferecida = CAPACIDADES.find((c) => c.executa && String(ultima.content || '').includes(c.oferta.slice(0, 40)));
+  const oferecida = CAPACIDADES.find((c) => c.executa && [c.oferta, OFERTAS_EN[c.id]].some((o) => o && String(ultima.content || '').includes(o.slice(0, 40))));
   if (!oferecida) return null;
-  if (oferecida.id === 'teste_de_rede' && /\bso (o )?(ping|latencia)\b/.test(t)) return { id: oferecida.id, modo: 'ping' };
+  if (oferecida.id === 'teste_de_rede' && /\bso (o )?(ping|latencia)\b|\bjust (the )?ping\b|\bonly (the )?ping\b/.test(t)) return { id: oferecida.id, modo: 'ping' };
   return SIM.test(t) && t.length <= 60 ? { id: oferecida.id } : null;
 }
 
@@ -230,24 +241,28 @@ const PEDE_O_QUE_FAZ = /\b(o que (voce|vc|o augpt|tu) (pode|consegue|sabe|e capa
 const pedeOQueFaz = (texto) => PEDE_O_QUE_FAZ.test(String(texto || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase());
 
 /** A resposta de "o que você pode fazer?", montada pelo código com a mesma lista da aba. */
-function textoDosUtilitarios(cartoes) {
+function textoDosUtilitarios(cartoes, idioma = 'pt') {
+  // em inglês (23/10): o mesmo texto pelo dicionário da tela, sem passar pelo modelo
+  const t = idioma === 'en' ? require('./i18n-do-app').emIngles : (s) => s;
   const grupos = [];
   for (const c of cartoes) {
     let g = grupos.find((x) => x.nome === c.grupo);
     if (!g) grupos.push((g = { nome: c.grupo, itens: [] }));
     g.itens.push(c);
   }
-  const linhas = ['Rodo no seu computador e, além de pesquisar na internet, faço isto — é só pedir com as suas palavras (os exemplos abaixo funcionam):', ''];
+  const en = idioma === 'en';
+  const linhas = [en ? 'I run on your computer and, besides searching the web, I do the following. Just ask in your own words (the examples below work):' : 'Rodo no seu computador e, além de pesquisar na internet, faço isto — é só pedir com as suas palavras (os exemplos abaixo funcionam):', ''];
   for (const g of grupos) {
-    linhas.push(`**${g.nome}**`);
+    linhas.push(`**${t(g.nome)}**`);
     for (const c of g.itens) {
-      const como = c.exemplo ? ` — ex.: *"${c.exemplo}"*` : c.dica ? ` — ${c.dica}` : '';
-      linhas.push(`- **${c.nome}**: ${c.descricao}${como}${c.disponivel ? '' : ` *(${c.falta})*`}`);
+      const como = c.exemplo ? ` — ${en ? 'e.g.' : 'ex.:'} *"${t(c.exemplo)}"*` : c.dica ? ` — ${t(c.dica)}` : '';
+      linhas.push(`- **${t(c.nome)}**: ${t(c.descricao)}${como}${c.disponivel ? '' : ` *(${t(c.falta)})*`}`);
     }
     linhas.push('');
   }
-  linhas.push('Tudo isso também está na aba **Utilitários**, na barra da esquerda, com um botão para usar cada um.', '', '*O que é do seu computador eu só leio — nada é mudado sem você aprovar (como nos ajustes da placa de rede), e nada sai dele.*');
+  if (en) linhas.push('All of this is also in the **Utilities** tab, on the left bar, with a button to use each one.', '', '*What is on your computer I only read: nothing is changed without your approval (as with the network adapter tuning), and nothing leaves it.*');
+  else linhas.push('Tudo isso também está na aba **Utilitários**, na barra da esquerda, com um botão para usar cada um.', '', '*O que é do seu computador eu só leio — nada é mudado sem você aprovar (como nos ajustes da placa de rede), e nada sai dele.*');
   return linhas.join('\n');
 }
 
-module.exports = { UTILITARIOS, utilitarios, pedeOQueFaz, textoDosUtilitarios, ofertaDePesquisa, conferirPromessas, PALAVRAS, CAPACIDADES, EXECUTAVEIS, disponiveis, listaParaEntender, blocoParaEscrever, valida, ofertaDe, aceitouOferta };
+module.exports = { UTILITARIOS, utilitarios, pedeOQueFaz, textoDosUtilitarios, ofertaDePesquisa, ofertasBilingues, conferirPromessas, PALAVRAS, CAPACIDADES, EXECUTAVEIS, disponiveis, listaParaEntender, blocoParaEscrever, valida, ofertaDe, aceitouOferta };

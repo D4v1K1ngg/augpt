@@ -31,7 +31,40 @@ function i18nEmIngles() {
   return contexto.window.i18n;
 }
 
+const traducao = require('../../src/agent/traducao');
+const catalogo = require('../../src/agent/capacidades');
+
 module.exports = [
+  {
+    nome: 'idiomas (fase 2): a resposta de uma rota sai em inglês com tabela, link, código, imagem e oferta intactos; o streaming nunca mostra marcador pela metade; marcador perdido devolve o original',
+    tipo: 'unidade',
+    async executar() {
+      const oferta = catalogo.ofertaDe('consultar_pc');
+      const texto = `**Espaço nas unidades**\n\n![disco](augpt-img://abc.png)\n\nVeja \`cleanmgr\` em https://support.microsoft.com/pt-br e [o guia](https://exemplo.com/guia).\n\n\`\`\`chart\n{"type":"bar"}\n\`\`\`\n\n${oferta}`;
+      // o "modelo" traduz o que não está protegido e devolve em pedaços pequenos, cortando marcadores no meio
+      const traduzir = (s) => s.replace('Espaço nas unidades', 'Drive space').replace('Veja', 'See').replace('em ', 'at ').replace('o guia', 'the guide');
+      const escritor = (perder = false) => async (msgs, onToken) => {
+        let saida = traduzir(msgs[1].content);
+        if (perder) saida = saida.replace('⟦0⟧', '');
+        for (let i = 0; i < saida.length; i += 3) onToken(saida.slice(i, i + 3));
+        return saida;
+      };
+      const pedacos = [];
+      const en = await traducao.paraIngles(texto, { escrever: escritor(), fixos: catalogo.ofertasBilingues(), onPedaco: (p) => pedacos.push(p) });
+      let falha = '';
+      const perdido = await traducao.paraIngles(texto, { escrever: escritor(true), fixos: catalogo.ofertasBilingues(), onFalha: (m) => (falha = m) });
+      const conversa = [{ role: 'assistant', content: en }];
+      return [
+        /^\*\*Drive space\*\*/.test(en) || en.slice(0, 80),
+        en.includes('![disco](augpt-img://abc.png)') && en.includes('`cleanmgr`') && en.includes('https://support.microsoft.com/pt-br') && en.includes('[the guide](https://exemplo.com/guia)') && en.includes('```chart\n{"type":"bar"}\n```') || en,
+        en.includes(catalogo.ofertaDe('consultar_pc', 'en')) && !en.includes(oferta) || 'oferta em inglês',
+        pedacos.join('') === en && !pedacos.some((p) => /⟦|⟧/.test(p)) || 'streaming sem marcador',
+        perdido === texto && /perdeu/.test(falha) || 'marcador perdido: fica o original',
+        catalogo.aceitouOferta('yes', conversa)?.id === 'consultar_pc' || 'o "yes" aceita a oferta traduzida',
+        traducao.pareceIngles('how much free space does my pc have?') && traducao.pareceIngles('what can you do?') && !traducao.pareceIngles('quanto espaço livre meu pc tem?') && !traducao.pareceIngles('o que você pode fazer?') || 'pareceIngles',
+      ];
+    },
+  },
   {
     nome: 'idiomas: toda frase passada a tr()/t() no código da tela tem tradução para o inglês',
     tipo: 'unidade',

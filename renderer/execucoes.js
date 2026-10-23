@@ -25,7 +25,7 @@ const ms = (n) => (n < 1000 ? `${Math.round(n)}ms` : `${(n / 1000).toFixed(1)}s`
 function quando(iso) {
   const data = new Date(iso);
   const minutos = Math.floor((Date.now() - data.getTime()) / 60000);
-  if (minutos < 1) return 'agora';
+  if (minutos < 1) return window.tr ? tr('agora') : 'agora';
   if (minutos < 60) return `há ${minutos} min`;
   if (minutos < 1440) return `há ${Math.floor(minutos / 60)}h`;
   return data.toLocaleDateString('pt-BR');

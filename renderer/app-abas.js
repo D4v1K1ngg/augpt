@@ -209,7 +209,7 @@ async function carregarUtilitarios() {
       card.innerHTML = `<svg class="util-icone" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES_UTIL[c.icone] || ICONES_UTIL.lupa}</svg><h3></h3><p class="util-desc"></p><p class="util-como"></p><div class="util-rodape"></div>`;
       card.querySelector('h3').textContent = c.nome;
       card.querySelector('.util-desc').textContent = c.descricao;
-      card.querySelector('.util-como').textContent = c.exemplo ? `"${c.exemplo}"` : c.dica || '';
+      card.querySelector('.util-como').textContent = c.exemplo ? `"${tr(c.exemplo)}"` : c.dica || '';
       const rodape = card.querySelector('.util-rodape');
       if (!c.disponivel) {
         rodape.textContent = c.falta;
@@ -219,7 +219,7 @@ async function carregarUtilitarios() {
         b.textContent = 'Usar';
         b.addEventListener('click', () => {
           trocarAba('agente');
-          el.aEntrada.value = c.exemplo;
+          el.aEntrada.value = tr(c.exemplo); // no idioma da tela (23/10)
           enviarPedido();
         });
         rodape.append(b);

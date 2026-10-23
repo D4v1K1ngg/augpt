@@ -1239,11 +1239,12 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const ocrConfirma = imagens.some((i) => i.texto && (ent.assuntos || []).some((a) => tituloCita(i.texto, a)));
   const pelaAparencia = imagens.length > 0 && !ocrConfirma && (ent.produto || /prov[áa]vel|provavelmente|n[ãa]o d[áa] para saber|n[ãa]o identificado/i.test(identificacao));
   // a oferta da ação que ajudaria (uma só; não repete a que a resposta anterior já fez)
-  const oferta = ent.sugerir && capacidades.ofertaDe(ent.sugerir);
+  const oferta = ent.sugerir && capacidades.ofertaDe(ent.sugerir, deps.idioma);
   const jaOfereceu = oferta && conversa.slice(-4).some((m) => m.role === 'assistant' && String(m.content || '').includes(oferta.slice(0, 40)));
   if (oferta && !jaOfereceu) conferido.texto = `${conferido.texto.trim()}\n\n${oferta}`;
   const comGraficos = recolocarGraficos(conferido.texto, graf.graficos);
-  const texto = pelaAparencia ? `*Pela foto, o modelo foi reconhecido pela aparência — o nome dele não está escrito na imagem, então pode ser outro parecido da mesma linha.*\n\n${comGraficos}` : comGraficos;
+  const avisoDaFoto = deps.idioma === 'en' ? '*From the photo, the model was recognized by its looks: its name is not written in the image, so it may be a similar one from the same line.*' : '*Pela foto, o modelo foi reconhecido pela aparência — o nome dele não está escrito na imagem, então pode ser outro parecido da mesma linha.*';
+  const texto = pelaAparencia ? `${avisoDaFoto}\n\n${comGraficos}` : comGraficos;
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null };
 }
 
