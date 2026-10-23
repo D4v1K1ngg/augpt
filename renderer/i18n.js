@@ -60,6 +60,10 @@
     'Sim, ativar': 'Yes, start it', 'Não': 'No',
     'Atualizar agora': 'Update now', 'Novidades': 'What\'s new', 'Depois': 'Later', 'Pular esta versão': 'Skip this version',
     'AuGPT {versao} disponível (você está na {atual}).': 'AuGPT {versao} is available (you have {atual}).',
+    // imagens das respostas (23/10)
+    'Abrir imagem': 'Open image', 'Baixar imagem': 'Download image', 'Ver na fonte original': 'View original source',
+    'Opções da imagem': 'Image options', 'Baixar ou ver na fonte': 'Download or view source', 'salva — mostrar na pasta': 'saved — show in folder',
+    'não consegui salvar ({erro})': "couldn't save ({erro})",
     // janela Novidades (23/10)
     'Novidades do AuGPT': 'What\'s new in AuGPT', 'Novidades do AuGPT {versao}': 'What\'s new in AuGPT {versao}',
     'Ver novidades': "See what's new", 'Novidades da versão nova': 'What\'s new in the new version', 'Ver no GitHub': 'View on GitHub',

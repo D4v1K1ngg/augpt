@@ -996,6 +996,23 @@
   </div>
 </dialog>
 
+<!-- Imagens das respostas (23/10): o menu do botão no canto da foto e a imagem ampliada -->
+<div class="menu-imagem" id="menuImagem" role="menu" hidden>
+  <button type="button" role="menuitem" data-acao="abrir">Abrir imagem</button>
+  <button type="button" role="menuitem" data-acao="baixar">Baixar imagem</button>
+  <button type="button" role="menuitem" data-acao="fonte">Ver na fonte original</button>
+</div>
+<dialog id="dlgImagem" class="dlg-imagem">
+  <img id="dlgImagemFoto" alt="" />
+  <div class="dlg-imagem-barra">
+    <span class="dlg-imagem-legenda" id="dlgImagemLegenda" data-sem-traducao></span>
+    <span class="dlg-imagem-status" id="dlgImagemStatus"></span>
+    <button type="button" class="btn-secundario" id="btnImagemFonte">Ver na fonte original</button>
+    <button type="button" class="btn-secundario" id="btnImagemBaixar">Baixar</button>
+    <button type="button" class="btn-primario" id="btnImagemFechar" autofocus>Fechar</button>
+  </div>
+</dialog>
+
 <dialog id="dlgModelos">
   <div class="dialogo dialogo-modelos">
     <h2>Onde cada modelo está rodando agora</h2>

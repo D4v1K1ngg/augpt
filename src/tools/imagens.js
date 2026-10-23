@@ -53,8 +53,36 @@ function nomeDoArquivo(url, ext) {
   return `${hex.replace(/\d/g, (d) => 'ghijklmnop'[d])}.${ext}`;
 }
 
-/** Baixa e grava a imagem. Devolve `augpt-img://arquivo.ext` ou null. */
-async function guardarImagem(url, { dir, config = {}, deps = {} } = {}) {
+/**
+ * De onde veio cada imagem (23/10, pedido do Davi: "ver a imagem na fonte original"): `origens.json`
+ * na pasta das imagens, nome do arquivo → { url da imagem, página onde ela está }.
+ * ponytail: o arquivo inteiro é regravado a cada imagem nova; vira um índice por arquivo se crescer demais.
+ */
+const ORIGENS = 'origens.json';
+function lerOrigens(dir) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(dir, ORIGENS), 'utf8')) || {};
+  } catch {
+    return {};
+  }
+}
+function anotarOrigem(dir, nome, url, pagina) {
+  const origens = lerOrigens(dir);
+  const antes = origens[nome];
+  const nova = { url, pagina: (/^https?:\/\//i.test(String(pagina || '')) && String(pagina)) || antes?.pagina || null };
+  if (antes?.url === nova.url && antes?.pagina === nova.pagina) return;
+  origens[nome] = nova;
+  try {
+    fs.writeFileSync(path.join(dir, ORIGENS), JSON.stringify(origens));
+  } catch {
+    // sem a origem, a imagem continua; só o "ver na fonte" não aparece
+  }
+}
+/** A origem de um arquivo de imagem, ou null (imagem criada no PC ou baixada antes de 23/10). */
+const origemDe = (dir, nome) => (NOME_VALIDO.test(String(nome)) && lerOrigens(dir)[nome]) || null;
+
+/** Baixa e grava a imagem. Devolve `augpt-img://arquivo.ext` ou null. `pagina`: onde a imagem está publicada. */
+async function guardarImagem(url, { dir, config = {}, deps = {}, pagina = null } = {}) {
   if (!dir || !/^https?:\/\//i.test(String(url || ''))) return null;
   try {
     const r = await (deps.baixar || baixar)(url, {
@@ -71,6 +99,7 @@ async function guardarImagem(url, { dir, config = {}, deps = {} } = {}) {
     fs.mkdirSync(dir, { recursive: true });
     const destino = path.join(dir, nome);
     if (!fs.existsSync(destino)) fs.writeFileSync(destino, r.buffer);
+    anotarOrigem(dir, nome, url, pagina);
     return `${ESQUEMA}://${nome}`;
   } catch {
     return null;
@@ -122,7 +151,7 @@ async function imagemDe(nome, { consulta = nome, config = {}, dir, deps = {}, te
   if (config.imagensNasRespostas === false || !dir) return null;
   const candidatas = (await buscarImagens(consulta, { config, deps })).filter((c) => tituloCita(c.titulo, nome)).slice(0, tentativas);
   for (const c of candidatas) {
-    const uri = await guardarImagem(c.url, { dir, config, deps });
+    const uri = await guardarImagem(c.url, { pagina: c.pagina, dir, config, deps });
     if (uri) return uri;
   }
   return null;
@@ -150,7 +179,7 @@ async function imagemDoCartao(nome, { contexto = '', config = {}, dir, deps = {}
       .filter((c) => tituloCita(c.titulo, nome) && (modelo || !contexto || citaOAssunto(c.titulo, contexto)))
       .slice(0, tentativas);
     for (const c of candidatas) {
-      const uri = await guardarImagem(c.url, { dir, config, deps });
+      const uri = await guardarImagem(c.url, { pagina: c.pagina, dir, config, deps });
       if (uri) return uri;
     }
   }
@@ -176,7 +205,7 @@ async function imagensDosItens(nomes, { contexto = '', config = {}, dir, deps = 
     const nota = (titulo) => termos.filter((x) => semAcento(titulo).includes(x)).length;
     const candidatas = listas[i].filter((c) => citaOAssunto(c.titulo, contexto) && !usadas.has(c.url)).sort((a, b) => nota(b.titulo) - nota(a.titulo)).slice(0, 4);
     for (const c of candidatas) {
-      const uri = await guardarImagem(c.url, { dir, config, deps }).catch(() => null);
+      const uri = await guardarImagem(c.url, { pagina: c.pagina, dir, config, deps }).catch(() => null);
       if (uri && ![...achadas.values()].includes(uri)) {
         usadas.add(c.url);
         achadas.set(nomes[i], uri);
@@ -219,7 +248,7 @@ async function imagemDeReferencia(assunto, { daWikipedia = [], config = {}, dir,
 async function imagensDe(nome, { consulta = nome, config = {}, dir, deps = {}, n = 5, tentativas = 10 } = {}) {
   if (config.imagensNasRespostas === false || !dir) return [];
   const candidatas = (await buscarImagens(consulta, { config, deps, maximo: 30 })).filter((c) => tituloCita(c.titulo, nome)).slice(0, tentativas);
-  const baixadas = await Promise.all(candidatas.map((c) => guardarImagem(c.url, { dir, config, deps }).catch(() => null)));
+  const baixadas = await Promise.all(candidatas.map((c) => guardarImagem(c.url, { pagina: c.pagina, dir, config, deps }).catch(() => null)));
   return [...new Set(baixadas.filter(Boolean))].slice(0, n);
 }
 
@@ -243,6 +272,6 @@ module.exports = {
   imagensDosItens,
   citaOAssunto,
   ESQUEMA, NOME_VALIDO, MAX_BYTES,
-  guardarImagem, buscarImagens, imagemDe, imagensDe, imagensDosProdutos, imagemDeReferencia, imagensDeReferencia,
+  guardarImagem, origemDe, buscarImagens, imagemDe, imagensDe, imagensDosProdutos, imagemDeReferencia, imagensDeReferencia,
   tituloCita, extensaoPelosBytes, nomeDoArquivo, marcacao, comLimite,
 };

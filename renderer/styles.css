@@ -448,6 +448,34 @@ body:not(.mostrar-tecnico) .tecnico { display: none !important; }
 /* Cartão de produto: cada "#### N. Nome" de uma recomendação (renderer/md.js) */
 /* Imagem da resposta (`![…](augpt-img://…)`, src/tools/imagens.js) */
 .md-figura { margin: 0 0 16px; }
+/* imagens das respostas (23/10): clicar abre; o botão no canto aparece no hover */
+.md-figura { position: relative; }
+.md-figura:not(.md-destaque) { width: fit-content; }
+.md-figura img { cursor: zoom-in; }
+.md-img-acoes {
+  position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center;
+  width: 30px; height: 30px; padding: 0; border-radius: 8px; cursor: pointer;
+  background: rgba(10, 12, 16, 0.72); color: #fff; border: 1px solid rgba(255, 255, 255, 0.18);
+  opacity: 0; transition: opacity 0.15s ease; backdrop-filter: blur(4px);
+}
+.md-trilho .md-figura .md-img-acoes { bottom: 34px; }
+.md-figura:hover .md-img-acoes, .md-img-acoes:focus-visible, .md-img-acoes[aria-expanded="true"] { opacity: 1; }
+.md-img-acoes:hover { background: rgba(10, 12, 16, 0.9); border-color: var(--gold); }
+.menu-imagem {
+  position: fixed; z-index: 1000; min-width: 200px; padding: 5px; display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line-forte); border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+.menu-imagem[hidden] { display: none; }
+.menu-imagem button { text-align: left; padding: 8px 12px; border: 0; border-radius: 7px; background: none; color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; }
+.menu-imagem button:hover, .menu-imagem button:focus-visible { background: var(--line); }
+.menu-imagem button[hidden] { display: none; }
+.dlg-imagem { width: fit-content; max-width: 94vw; padding: 0; background: var(--panel); overflow: hidden; }
+/* foto pequena (miniatura da busca) cresce até 560 px de largura, sem passar da tela */
+.dlg-imagem img { display: block; width: auto; min-width: min(560px, 94vw); max-width: 94vw; max-height: calc(92vh - 64px); margin: 0 auto; object-fit: contain; background: #fff; }
+.dlg-imagem-barra { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); min-width: min(560px, 94vw); }
+.dlg-imagem-legenda { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlg-imagem-status { font-size: 12px; color: var(--muted); }
+.dlg-imagem-status button { border: 0; background: none; padding: 0; color: var(--gold); font: inherit; cursor: pointer; text-decoration: underline; }
 /* várias imagens de referência (uma por assunto), lado a lado */
 .md-galeria { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 16px; }
 .md-galeria .md-figura { margin: 0; }

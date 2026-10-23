@@ -171,10 +171,12 @@
       // ficar à esquerda do cartão inteiro.
       // Carrossel (Fase 4): várias imagens do app numa linha só — `![a](augpt-img://…) ![b](augpt-img://…)`
       const IMG = /!\[([^\]]*)\]\((augpt-img:\/\/[a-z]{20,64}\.(?:jpg|png|webp))\)/g;
+      // 23/10 (pedido do Davi): clicar abre a imagem; o botão no canto (no hover) baixa ou abre a fonte
+      const ACOES = '<button type="button" class="md-img-acoes" aria-label="Opções da imagem" title="Baixar ou ver na fonte"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg></button>';
       if (/^\s*(!\[[^\]]*\]\(augpt-img:\/\/[a-z]{20,64}\.(?:jpg|png|webp)\)\s*){2,}$/.test(linha)) {
         fecharLista();
         fecharCitacao();
-        const figuras = [...linha.matchAll(IMG)].map((m) => `<figure class="md-figura"><img src="${m[2]}" alt="${m[1]}" loading="lazy" /><figcaption>${m[1]}</figcaption></figure>`).join('');
+        const figuras = [...linha.matchAll(IMG)].map((m) => `<figure class="md-figura"><img src="${m[2]}" alt="${m[1]}" loading="lazy" />${ACOES}<figcaption>${m[1]}</figcaption></figure>`).join('');
         saida.push(`<div class="md-carrossel"><button type="button" class="md-seta" data-dir="-1" aria-label="Imagem anterior">‹</button><div class="md-trilho">${figuras}</div><button type="button" class="md-seta" data-dir="1" aria-label="Próxima imagem">›</button></div>`);
         continue;
       }
@@ -193,10 +195,10 @@
       if (imagem) {
         fecharLista();
         fecharCitacao();
-        const figura = `<figure class="md-figura"><img src="${imagem[2]}" alt="${imagem[1]}" loading="lazy" /></figure>`;
+        const figura = `<figure class="md-figura"><img src="${imagem[2]}" alt="${imagem[1]}" loading="lazy" />${ACOES}</figure>`;
         const anterior = saida[saida.length - 1] || '';
         // no cartão, a foto em destaque no topo (21/10), com ela mesma desfocada atrás
-        if (cartao && /^<h5>/.test(anterior)) saida.splice(saida.length - 1, 0, `<figure class="md-figura md-destaque" style="--fundo: url('${imagem[2]}')"><img src="${imagem[2]}" alt="${imagem[1]}" loading="lazy" /></figure>`);
+        if (cartao && /^<h5>/.test(anterior)) saida.splice(saida.length - 1, 0, `<figure class="md-figura md-destaque" style="--fundo: url('${imagem[2]}')"><img src="${imagem[2]}" alt="${imagem[1]}" loading="lazy" />${ACOES}</figure>`);
         // imagens seguidas fora de cartão (uma por assunto: "Tesla e Edison") viram uma galeria
         else if (!cartao && anterior.startsWith('<figure class="md-figura">')) saida[saida.length - 1] = `<div class="md-galeria">${anterior}${figura}</div>`;
         else if (!cartao && anterior.startsWith('<div class="md-galeria">')) saida[saida.length - 1] = anterior.replace(/<\/div>$/, `${figura}</div>`);

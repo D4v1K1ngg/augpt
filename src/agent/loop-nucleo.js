@@ -184,7 +184,7 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
     if (cfg.searxngUrl && enxerga) {
       deps.buscarReferencias = async (q) => {
         const candidatas = (await imagens.buscarImagens(q, { config: cfg, maximo: 12, grande: true })).slice(0, 8);
-        const uris = await Promise.all(candidatas.map((c) => imagens.guardarImagem(c.url, { dir: this.dirImagens(), config: cfg }).catch(() => null)));
+        const uris = await Promise.all(candidatas.map((c) => imagens.guardarImagem(c.url, { pagina: c.pagina, dir: this.dirImagens(), config: cfg }).catch(() => null)));
         const prontas = [];
         for (const [i, uri] of uris.entries()) {
           if (!uri || prontas.length >= 4) continue;
@@ -207,7 +207,7 @@ async function responderPeloNucleo({ objetivo, conversa, imagens: anexadas = [] 
   if (cfg.searxngUrl && cfg.imagensNasRespostas !== false && enxerga) {
     deps.buscarImagensParaVer = async (q) => {
       const candidatas = (await imagens.buscarImagens(q, { config: cfg, maximo: 8 })).slice(0, 6);
-      const uris = await Promise.all(candidatas.map((c) => imagens.guardarImagem(c.url, { dir: this.dirImagens(), config: cfg }).catch(() => null)));
+      const uris = await Promise.all(candidatas.map((c) => imagens.guardarImagem(c.url, { pagina: c.pagina, dir: this.dirImagens(), config: cfg }).catch(() => null)));
       return candidatas
         .map((c, i) => (uris[i] ? { ...c, base64: fs.readFileSync(path.join(this.dirImagens(), uris[i].replace(/^augpt-img:\/\//, ''))).toString('base64') } : null))
         .filter(Boolean)

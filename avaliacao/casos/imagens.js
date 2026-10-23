@@ -167,10 +167,30 @@ module.exports = [
       return [
         texto.includes(`#### 1. Simgot EM6L\n![Simgot EM6L](${foto})\n`) || `a foto vem logo depois do nome: ${texto.slice(texto.indexOf('#### 1.'), texto.indexOf('#### 1.') + 160)}`,
         !/#### 2\. Truthear Hexa\n!\[/.test(texto) || 'produto sem foto não ganha marcação',
-        html.includes(`<section class="cartao-produto">\n<figure class="md-figura md-destaque" style="--fundo: url('${foto}')"><img src="${foto}" alt="Simgot EM6L" loading="lazy" /></figure>\n<h5>1. Simgot EM6L</h5>`) || `no cartão a foto vai antes do título: ${html.slice(html.indexOf('<section'), html.indexOf('<section') + 260)}`,
+        // o botão de opções da foto (23/10) fica dentro da figura; tirado aqui para conferir a ordem
+        /class="md-img-acoes"/.test(html) && html.replace(/<button type="button" class="md-img-acoes"[\s\S]*?<\/button>/g, '').includes(`<section class="cartao-produto">\n<figure class="md-figura md-destaque" style="--fundo: url('${foto}')"><img src="${foto}" alt="Simgot EM6L" loading="lazy" /></figure>\n<h5>1. Simgot EM6L</h5>`) || `no cartão a foto vai antes do título: ${html.slice(html.indexOf('<section'), html.indexOf('<section') + 260)}`,
         /^<figure class="md-figura"><img src="augpt-img:/.test(solta) || `fora de cartão a imagem fica onde está: ${solta.slice(0, 120)}`,
         !/<img/.test(recusadas) || `endereço que não é do app virou imagem: ${recusadas}`,
       ];
+    },
+  },
+  {
+    nome: 'imagens: a origem de cada foto baixada fica guardada (endereço e página, para "ver na fonte original"); baixar de novo sem página não apaga a página; nome inválido não lê nada',
+    tipo: 'unidade',
+    async executar() {
+      const dir = pasta();
+      const { baixar } = redeFalsa({ arquivos: { 'https://a.com/foto.jpg': { tipo: 'image/jpeg', buffer: JPEG } } });
+      const uri = await imagens.guardarImagem('https://a.com/foto.jpg', { dir, deps: { baixar }, pagina: 'https://loja.com/produto' });
+      await imagens.guardarImagem('https://a.com/foto.jpg', { dir, deps: { baixar } });
+      const nome = String(uri).replace('augpt-img://', '');
+      const o = imagens.origemDe(dir, nome);
+      const resultado = [
+        (o?.url === 'https://a.com/foto.jpg' && o?.pagina === 'https://loja.com/produto') || JSON.stringify(o),
+        imagens.origemDe(dir, '../origens.json') === null || 'nome inválido',
+        imagens.origemDe(dir, 'abcdefghijabcdefghijabcd.jpg') === null || 'sem origem (imagem antiga ou criada)',
+      ];
+      fs.rmSync(dir, { recursive: true, force: true });
+      return resultado;
     },
   },
 ];

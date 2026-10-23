@@ -1306,6 +1306,26 @@ ipcMain.handle('novidades:ler', async (_e, { versao } = {}) => {
     return { ok: false, error: err.message };
   }
 });
+/* Imagens das respostas (23/10, pedido do Davi): baixar uma cópia e abrir a fonte original. */
+const dirImagens = () => path.join(app.getPath('userData'), 'imagens');
+ipcMain.handle('imagem:origem', (_e, { nome } = {}) => imagens.origemDe(dirImagens(), nome));
+ipcMain.handle('imagem:salvar', async (e, { nome, sugestao } = {}) => {
+  if (!imagens.NOME_VALIDO.test(String(nome))) return { ok: false, error: 'imagem inválida' };
+  const ext = path.extname(nome);
+  const base = String(sugestao || '').normalize('NFD').replace(/\p{M}/gu, '').replace(/[^\w -]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'imagem-augpt';
+  const r = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), {
+    defaultPath: path.join(app.getPath('downloads'), `${base}${ext}`),
+    filters: [{ name: 'Imagem', extensions: [ext.slice(1)] }],
+  });
+  if (r.canceled || !r.filePath) return { ok: false, cancelado: true };
+  try {
+    await fsp.copyFile(path.join(dirImagens(), nome), r.filePath);
+    return { ok: true, caminho: r.filePath };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('imagem:mostrarNaPasta', (_e, { caminho } = {}) => caminho && shell.showItemInFolder(caminho));
 function procurarAtualizacaoAoAbrir() {
   if (!app.isPackaged || config.data.procurarAtualizacoes === false) return;
   setTimeout(async () => {

@@ -3,14 +3,18 @@
     "versao": "0.34.1",
     "data": "2026-10-23",
     "pt": {
-      "titulo": "Correção da faixa de atualização",
+      "titulo": "Abrir e baixar imagens",
       "itens": [
+        "**Clique numa imagem para abrir em tamanho grande**: vale para as fotos da internet e para as imagens que o AuGPT cria.",
+        "**Ao passar o mouse sobre uma imagem**, um botão no canto inferior direito oferece **baixar a imagem** ou **ver na fonte original** (a página de onde ela veio).",
         "Com a faixa de atualização (ou a do Ollama) aberta, a caixa de texto descia e ficava fora da tela. Agora a tela se ajusta ao espaço que sobra."
       ]
     },
     "en": {
-      "titulo": "Update bar fix",
+      "titulo": "Open and download images",
       "itens": [
+        "**Click an image to open it full size**: works for photos from the web and for images AuGPT creates.",
+        "**Hover over an image** and a button in the bottom-right corner lets you **download the image** or **view the original source** (the page it came from).",
         "With the update bar (or the Ollama bar) open, the text box was pushed off the screen. Now the screen fits the space that is left."
       ]
     }

@@ -27,6 +27,11 @@ contextBridge.exposeInMainWorld('augpt', {
   // tela de boas-vindas (15/10)
   utilitarios: { listar: () => ipcRenderer.invoke('utilitarios:listar') },
   atualizacao: { verificar: () => ipcRenderer.invoke('atualizacao:verificar'), instalar: () => ipcRenderer.invoke('atualizacao:instalar') },
+  imagem: {
+    origem: (nome) => ipcRenderer.invoke('imagem:origem', { nome }),
+    salvar: (nome, sugestao) => ipcRenderer.invoke('imagem:salvar', { nome, sugestao }),
+    mostrarNaPasta: (caminho) => ipcRenderer.invoke('imagem:mostrarNaPasta', { caminho }),
+  },
   novidades: { pendentes: () => ipcRenderer.invoke('novidades:pendentes'), ler: (versao) => ipcRenderer.invoke('novidades:ler', { versao }) },
   componentes: {
     estado: () => ipcRenderer.invoke('componentes:estado'),

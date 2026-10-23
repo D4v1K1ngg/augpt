@@ -57,7 +57,7 @@ async function fotosDe(item, { n, dir, config, deps }) {
   const achadas = [];
   for (let i = 0; i < ordem.length && achadas.length < n; i += 4) {
     const lote = ordem.slice(i, i + 4);
-    const baixadas = await Promise.all(lote.map((c) => imagens.guardarImagem(c.url, { dir, config, deps }).catch(() => null)));
+    const baixadas = await Promise.all(lote.map((c) => imagens.guardarImagem(c.url, { pagina: c.pagina, dir, config, deps }).catch(() => null)));
     lote.forEach((c, k) => {
       if (baixadas[k] && achadas.length < n && !achadas.some((a) => a.uri === baixadas[k])) achadas.push({ uri: baixadas[k], pagina: c.pagina });
     });

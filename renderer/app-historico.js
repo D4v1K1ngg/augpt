@@ -1193,6 +1193,91 @@ document.addEventListener('click', (e) => {
   figura.querySelector('img').replaceWith(quadro);
 });
 
+/* Imagens das respostas (23/10, pedido do Davi): clicar na foto abre ela grande; o botão no canto
+   (aparece ao passar o mouse) baixa a imagem ou abre a página de onde ela veio. */
+const imagemAberta = { nome: null, legenda: '', origem: null };
+const nomeDaImagem = (img) => /^augpt-img:\/\/([a-z]{20,64}\.(?:jpg|png|webp))/.exec(img?.getAttribute('src') || '')?.[1] || null;
+
+async function prepararImagem(img) {
+  imagemAberta.nome = nomeDaImagem(img);
+  imagemAberta.legenda = img.alt || img.closest('figure')?.querySelector('figcaption')?.textContent || '';
+  imagemAberta.origem = imagemAberta.nome ? await api.imagem.origem(imagemAberta.nome).catch(() => null) : null;
+  return imagemAberta;
+}
+const fonteDaImagem = () => imagemAberta.origem?.pagina || imagemAberta.origem?.url || null;
+
+async function baixarImagem(status) {
+  if (!imagemAberta.nome) return;
+  const r = await api.imagem.salvar(imagemAberta.nome, imagemAberta.legenda);
+  if (!status) return;
+  status.textContent = '';
+  if (r.ok) {
+    const botao = document.createElement('button');
+    botao.type = 'button';
+    botao.textContent = tr('salva — mostrar na pasta');
+    botao.addEventListener('click', () => api.imagem.mostrarNaPasta(r.caminho));
+    status.append(botao);
+  } else if (!r.cancelado) status.textContent = tr('não consegui salvar ({erro})', { erro: r.error });
+}
+
+function abrirImagemGrande(img) {
+  $('dlgImagemFoto').src = img.getAttribute('src');
+  $('dlgImagemFoto').alt = imagemAberta.legenda;
+  $('dlgImagemLegenda').textContent = imagemAberta.legenda;
+  $('dlgImagemStatus').textContent = '';
+  $('btnImagemFonte').hidden = !fonteDaImagem();
+  $('dlgImagem').showModal();
+}
+
+function fecharMenuImagem() {
+  $('menuImagem').hidden = true;
+  document.querySelectorAll('.md-img-acoes[aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+}
+
+document.addEventListener('click', async (e) => {
+  const botao = e.target.closest('.md-img-acoes');
+  if (botao) {
+    e.stopPropagation();
+    const aberto = botao.getAttribute('aria-expanded') === 'true';
+    fecharMenuImagem();
+    if (aberto) return;
+    const img = botao.closest('figure').querySelector('img');
+    await prepararImagem(img);
+    menuImagem.img = img;
+    const menu = $('menuImagem');
+    menu.querySelector('[data-acao="fonte"]').hidden = !fonteDaImagem();
+    menu.hidden = false;
+    const r = botao.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, Math.min(r.right - menu.offsetWidth, innerWidth - menu.offsetWidth - 8))}px`;
+    menu.style.top = `${r.bottom + 6 + menu.offsetHeight > innerHeight ? r.top - menu.offsetHeight - 6 : r.bottom + 6}px`;
+    botao.setAttribute('aria-expanded', 'true');
+    return;
+  }
+  const item = e.target.closest('#menuImagem [data-acao]');
+  if (item) {
+    const acao = item.dataset.acao;
+    fecharMenuImagem();
+    if (acao === 'abrir') abrirImagemGrande(menuImagem.img);
+    if (acao === 'baixar') baixarImagem(null);
+    if (acao === 'fonte' && fonteDaImagem()) window.open(fonteDaImagem(), '_blank');
+    return;
+  }
+  if (!e.target.closest('#menuImagem')) fecharMenuImagem();
+  const img = e.target.closest('.md-figura img');
+  if (img && !e.target.closest('.md-video')) {
+    await prepararImagem(img);
+    abrirImagemGrande(img);
+  }
+});
+const menuImagem = { img: null };
+document.addEventListener('keydown', (e) => e.key === 'Escape' && fecharMenuImagem());
+document.addEventListener('scroll', fecharMenuImagem, true);
+$('btnImagemFechar').addEventListener('click', () => $('dlgImagem').close());
+$('btnImagemBaixar').addEventListener('click', () => baixarImagem($('dlgImagemStatus')));
+$('btnImagemFonte').addEventListener('click', () => fonteDaImagem() && window.open(fonteDaImagem(), '_blank'));
+// clicar fora da imagem (no fundo escuro) fecha
+$('dlgImagem').addEventListener('click', (e) => e.target === $('dlgImagem') && $('dlgImagem').close());
+
 // Fase 4 (16/10): setas do carrossel de imagens (md.js) — uma imagem por clique
 document.addEventListener('click', (e) => {
   const seta = e.target.closest('.md-carrossel .md-seta');
