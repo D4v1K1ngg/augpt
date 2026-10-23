@@ -13,6 +13,36 @@ const { tipoDoPedido } = require('../../src/agent/tipo-de-pedido');
 
 module.exports = [
   {
+    nome: 'pesquisa para quando o material basta: cumpridos os mínimos, as leituras esgotadas encerram antes da 6ª rodada; sem fonte nenhuma, continua tentando',
+    tipo: 'unidade',
+    async executar() {
+      let n = 0;
+      let lidasN = 0;
+      const deps = {
+        // o "modelo" nunca chama pronto: sempre busca de novo e pede para ler mais uma fonte
+        chamar: async (msgs, o) => (o.json ? { content: '{"precisa_buscar": true}' } : { content: '', chamadas: [{ function: { name: 'buscar_na_web', arguments: { buscas: [`q${n}`] } } }, { function: { name: 'ler_pagina', arguments: { fonte: 3 * n, foco: 'x' } } }] }),
+        buscar: async (q) => [1, 2, 3].map((i) => ({ titulo: `${q} ${i}`, url: `https://site${String(q).replace(/\W/g, '')}${i}.com/p`, resumo: 'texto sobre x' })),
+        lerPagina: async () => (lidasN += 1, { texto: 'conteúdo útil sobre x '.repeat(40), titulo: 'x' }),
+        embed: async (t) => t.map(() => [1, 0]),
+        emit: (e) => { if (e === 'iteracao') n += 1; },
+      };
+      await nucleo.pesquisar({ pergunta: 'x', modo: 'normal', deps, hoje: 'hoje' });
+      return [n < 6 || `rodadas: ${n}`, lidasN >= 3 || `leu ${lidasN}`];
+    },
+  },
+  {
+    nome: 'fotos: pergunta de suporte ("como atualizar o chipset?", "é possível usar o loudness na minha G6?") vai sem foto no topo; pergunta sobre o produto continua com foto',
+    tipo: 'unidade',
+    executar() {
+      const fotos = (p, assuntos) => nucleo.conferirEntendimento({ produto: false, imagemAjuda: true, assuntos, pergunta: p }, { pergunta: p, conversa: [] }).fotos;
+      return [
+        fotos('como atualizar o chipset do processador Ryzen 7 7800X3D?', ['Ryzen 7 7800X3D']).length === 0 || 'chipset',
+        fotos('É possivel usar o loudness equalization na minha sound blaster g6 ?', ['Sound Blaster G6']).length === 0 || 'loudness',
+        fotos('me fale da Sound Blaster G6', ['Sound Blaster G6']).length === 1 || 'produto continua com foto',
+      ];
+    },
+  },
+  {
     nome: 'pesquisa só quando precisa: sobre o AuGPT, conta direta e prova ficam sem busca (inclusive quando o JSON do entendimento vem ilegível); cotação, notícia e "como funciona" pesquisam',
     tipo: 'unidade',
     executar() {

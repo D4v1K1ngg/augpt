@@ -126,6 +126,7 @@ const QUESTAO_DE_EXATAS = (t) => /\bquest[aã]o\s*\d/i.test(t) && /\\\(|\\\[|\\f
 // sobre o próprio AuGPT e conta direta (23/10, histórico: "Quem é você?" fez 6 buscas e citou a Wikipédia)
 const SOBRE_O_AUGPT = /^\s*(quem (é|e) (voc[eê]|vc|o augpt)|o que (voc[eê]|vc) (é|e)(?![a-zà-ú])|como (voc[eê]|vc) funciona|quem (te|o) (criou|fez|desenvolveu)|qual (é |e )?(o )?seu nome|voc[eê] (é|e) (uma )?(ia|intelig|rob[oô]))/i;
 const CONTA_DIRETA = /^\s*(resolva|calcule|quanto (é|e|da|dá)|derive|integre|simplifique|fatore)(?![a-zà-ú])[^?]*[\d=+\-*/^√]/i;
+const PERGUNTA_DE_SUPORTE = /(?<![a-zà-ú])(como (atualizar|configurar|ativar|desativar|instalar|desinstalar|resolver|consertar|corrigir|arrumar|habilitar|desabilitar|mudar|trocar|tirar|remover|limpar)|(é|e) poss[ií]vel (usar|ativar|fazer|instalar|configurar)|n[ãa]o (tenho|aparece|acho|encontro) (a )?op[çc][ãa]o|n[ãa]o (funciona|liga|abre|conecta|reconhece)|(d[áa]|deu|est[áa] dando) erro|travando|com (lag|problema|defeito))\b/i;
 const podeFicarSemBusca = (pergunta) => {
   const t = String(pergunta || '').trim();
   return SEM_BUSCA.test(t) || QUESTAO_DE_EXATAS(t) || SOBRE_O_AUGPT.test(t) || CONTA_DIRETA.test(t);
@@ -239,7 +240,9 @@ function conferirEntendimento(ent, { pergunta, conversa = [] }) {
     // (18/10, 2B: "me fale da Torre Eiffel" veio com imagem_ajuda false); nome de uma palavra só
     // ("Brasil", "Lula") segue o que o modelo disse
     // pedido de gráfico não leva foto (18/10, no app: o carrossel da RTX 5080 em cima do gráfico pedido)
-    fotos: (pedeGrafico(pergunta) ? [] : assuntos)
+    // 23/10 (histórico): "como atualizar o chipset?", "é possível usar o loudness na minha G6?" vinham
+    // com 3 fotos do produto, que não ajudam a resolver nada — pergunta de suporte vai sem foto no topo
+    fotos: (pedeGrafico(pergunta) || PERGUNTA_DE_SUPORTE.test(String(pergunta || '')) ? [] : assuntos)
       .filter((a) => produto || assuntoConcreto(a, pedidosDoUsuario))
       .filter((a) => ent.imagemAjuda !== false || produto || /\d/.test(a) || palavrasDe(a).length >= 2)
       .slice(0, 3),
@@ -613,8 +616,21 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     return null;
   };
 
+  // 23/10 (histórico): 61 de 84 pesquisas normais foram até a 6ª rodada e 19 de 39 profundas até a 12ª —
+  // o modelo quase nunca chama "pronto". Cumpridos os mínimos, o código para quando as leituras se
+  // esgotam ou quando uma rodada inteira não trouxe fonte nem leitura nova.
+  let semNovidade = 0;
+  let rodadaDosMinimos = null;
   for (let rodada = 1; rodada <= total; rodada += 1) {
     if (signal?.aborted) break;
+    const minimos = buscasFeitas >= regras.minBuscas && lidas() >= regras.minLeituras && fontes.length > 0;
+    if (minimos && rodadaDosMinimos === null) rodadaDosMinimos = rodada;
+    // cumpridos os mínimos, mais uma rodada no máximo (o modelo que nunca chama pronto não segue até o limite)
+    if (rodada > 1 && minimos && (leiturasFeitas >= regras.leituras || semNovidade >= 1 || rodada > rodadaDosMinimos + 1)) {
+      emit('aviso', { texto: `pesquisa encerrada na rodada ${rodada - 1} de ${total}: ${leiturasFeitas >= regras.leituras ? 'as leituras desta pesquisa se esgotaram' : semNovidade >= 1 ? 'a última rodada não trouxe nada novo' : 'os mínimos do modo já estavam cumpridos'}` });
+      break;
+    }
+    const antesDaRodada = { fontes: fontes.length, lidas: lidas() };
     emit('iteracao', { n: rodada, de: total });
     // o começo da conversa fica IGUAL em toda rodada: o Ollama reaproveita o que já leu (17/10, RX 580:
     // com "rodada N de 6" nas instruções, cada rodada relia o histórico inteiro — 6.337 tokens, 87 s)
@@ -661,6 +677,7 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
     await Promise.all(chamadas.map((c, i) => (ehBusca(c) ? rodar(c).then((x) => (saidas[i] = x)) : null)));
     await Promise.all(chamadas.map((c, i) => (ehBusca(c) ? null : rodar(c).then((x) => (saidas[i] = x)))));
     chamadas.forEach((c, i) => historico.push({ role: 'tool', tool_name: c.nome, content: saidas[i] }));
+    semNovidade = fontes.length === antesDaRodada.fontes && lidas() === antesDaRodada.lidas ? semNovidade + 1 : 0;
     if (chamadas.some((c) => c.nome === 'pronto')) {
       const falta = aindaECedo(rodada);
       if (falta) {
