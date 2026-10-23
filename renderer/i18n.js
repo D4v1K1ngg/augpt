@@ -60,6 +60,13 @@
     'Sim, ativar': 'Yes, start it', 'Não': 'No',
     'Atualizar agora': 'Update now', 'Novidades': 'What\'s new', 'Depois': 'Later', 'Pular esta versão': 'Skip this version',
     'AuGPT {versao} disponível (você está na {atual}).': 'AuGPT {versao} is available (you have {atual}).',
+    // janela Novidades (23/10)
+    'Novidades do AuGPT': 'What\'s new in AuGPT', 'Novidades do AuGPT {versao}': 'What\'s new in AuGPT {versao}',
+    'Ver novidades': "See what's new", 'Novidades da versão nova': 'What\'s new in the new version', 'Ver no GitHub': 'View on GitHub',
+    'Esta versão não trouxe notas.': 'This version has no notes.', 'As notas desta versão estão na página dela no GitHub.': "This version's notes are on its GitHub page.", 'O AuGPT foi atualizado': 'AuGPT was updated',
+    'Não consegui ler as novidades desta versão ({erro}).': 'I couldn\'t read this version\'s notes ({erro}).',
+    'Você está na {atual}. Isto chega quando você atualizar.': 'You have {atual}. This arrives when you update.',
+    'Você está na versão {atual}.': 'You have version {atual}.', 'Bem-vindo à versão {atual}. Veja o que mudou:': 'Welcome to version {atual}. Here\'s what changed:',
 
     /* ---------- lateral ---------- */
     'agente local': 'local agent', 'Nova conversa': 'New chat', 'Excluir': 'Delete', 'Cancelar': 'Cancel',

@@ -19,7 +19,7 @@ const BASE = `https://github.com/${REPO}/releases`;
 
 /** "v0.28.0" é mais nova que "0.27.0"? (só números; "-beta" e afins são ignorados) */
 function maisNova(nova, atual) {
-  const partes = (v) => String(v || '').replace(/^v/, '').split(/[.-]/).slice(0, 3).map((n) => parseInt(n, 10) || 0);
+  const partes = (v) => { const p = String(v || '').replace(/^v/, '').split(/[.-]/); return [0, 1, 2].map((i) => parseInt(p[i], 10) || 0); };
   const [a, b] = [partes(nova), partes(atual)];
   for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i] > b[i];
   return false;
@@ -82,4 +82,19 @@ async function baixar(info, { dir, buscar = (...a) => fetch(...a), emitir = () =
   return arquivo;
 }
 
-module.exports = { REPO, maisNova, lerLatestYml, verificar, baixar };
+/**
+ * As novidades (23/10, pedido do Davi): dados/novidades.json, uma entrada por versão. Mostra as
+ * versões depois de `de` até `ate` (inclusive); sem `de` (veio de uma versão sem esta janela), só a `ate`.
+ */
+function novidadesEntre(lista, de, ate) {
+  return (Array.isArray(lista) ? lista : []).filter((n) => n?.versao && !maisNova(n.versao, ate) && (de ? maisNova(n.versao, de) : n.versao === ate));
+}
+
+/** As novidades de uma versão ainda não instalada: o mesmo arquivo, na tag dela no GitHub. */
+async function novidadesRemotas(versao, { buscar = (...a) => fetch(...a) } = {}) {
+  const r = await pedir(buscar, `https://raw.githubusercontent.com/${REPO}/v${versao}/dados/novidades.json`, 10000);
+  if (!r.ok) throw new Error(`o GitHub respondeu HTTP ${r.status}`);
+  return r.json();
+}
+
+module.exports = { REPO, maisNova, lerLatestYml, verificar, baixar, novidadesEntre, novidadesRemotas };

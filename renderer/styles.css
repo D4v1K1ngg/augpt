@@ -1342,6 +1342,22 @@ body.sem-lateral .lateral > * { min-width: calc(var(--lateral) - 32px); }
 .status.modelos-atencao .ponto { background: var(--amber); box-shadow: 0 0 0 3px rgba(224, 176, 79, 0.14); }
 .status.modelos-atencao span { color: var(--amber); }
 .dialogo-modelos { width: min(760px, 92vw); }
+/* Novidades (23/10) */
+#dlgNovidades { width: min(640px, 92vw); }
+.novidades-topo { display: flex; gap: 14px; align-items: center; margin-bottom: 8px; }
+.novidades-topo .tile { flex: none; width: 42px; height: 42px; border-radius: 11px; }
+.novidades-topo h2 { margin: 0 0 4px; font-size: 18px; }
+.novidades-topo .dica { margin: 0; }
+.novidades-corpo { max-height: min(60vh, 520px); overflow-y: auto; padding-right: 6px; }
+.novidades-versao { border-top: 1px solid var(--line); padding: 14px 0 4px; }
+.novidades-versao:first-child { border-top: 0; }
+.novidades-versao h3 { margin: 0 0 8px; font-size: 14px; font-weight: 500; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.novidades-versao h3 .versao { color: var(--gold); font-variant-numeric: tabular-nums; }
+.novidades-versao h3 .data { color: var(--muted); font-size: 11px; font-weight: 400; }
+.novidades-versao ul { margin: 0; padding-left: 18px; }
+.novidades-versao li { margin-bottom: 7px; line-height: 1.5; font-size: 13px; }
+.novidades-versao li b, .novidades-versao li strong { color: var(--text); font-weight: 600; }
+.novidades-vazio { color: var(--muted); font-size: 13px; padding: 12px 0; }
 .tabela-modelos { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 14px; }
 .tabela-modelos th { text-align: left; font-weight: 400; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line-forte); }
 .tabela-modelos td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }

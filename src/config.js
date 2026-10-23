@@ -142,6 +142,8 @@ const DEFAULTS = {
   idioma: '',
   nomeDoUsuario: '',
   atualizacaoIgnorada: '',
+  // a versão que já mostrou a janela "Novidades" (23/10)
+  ultimaVersaoVista: '',
   preBuscaConcorrencia: 2,
   // Modo AUTO (auto.js, 2026-10-10): cada pedido ganha um nível —
   // 0 direto (conversa), 1 conversa com pesquisa rápida, 2 pesquisa padrão,

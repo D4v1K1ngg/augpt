@@ -1,0 +1,72 @@
+[
+  {
+    "versao": "0.34.0",
+    "data": "2026-10-23",
+    "pt": {
+      "titulo": "Boas-vindas, inglês e respostas mais diretas",
+      "itens": [
+        "**Novidades dentro do AuGPT:** depois de cada atualização, esta janela mostra o que mudou. O botão \"Novidades\" da faixa de atualização também abre aqui, sem ir para o GitHub.",
+        "**Tela de boas-vindas nova:** em tela cheia, em 3 passos, com o seu nome (opcional) e o idioma.",
+        "**AuGPT em inglês:** o idioma do Windows é detectado sozinho e pode ser trocado em Ajustes → Geral. A tela e as respostas seguem o idioma escolhido.",
+        "**Respostas na medida da pergunta:** pergunta simples recebe resposta curta, mesmo no modo detalhado. Sai a abertura de enchimento (\"Hoje é…\", \"Com base nas fontes…\").",
+        "**O AuGPT não diz mais que não consegue** medir a sua internet, mostrar imagens ou abrir sites: ele oferece o recurso.",
+        "**Pesquisa mais rápida:** sem busca para perguntas sobre o AuGPT e contas diretas, e a pesquisa para quando o material já basta.",
+        "**Fontes só as citadas**, e pergunta de suporte (\"como atualizar o chipset?\") vem sem fotos do produto no topo.",
+        "\"Navegue nesse site\" e \"abra https://…\" vão direto para o navegador do AuGPT.",
+        "Sai \"Copiloto e crítico\" de Ajustes → Tarefas, que não era mais usado."
+      ]
+    },
+    "en": {
+      "titulo": "Welcome screen, English and more direct answers",
+      "itens": [
+        "**What's new inside AuGPT:** after each update, this window shows what changed. The \"What's new\" button on the update bar opens it here too, instead of GitHub.",
+        "**New welcome screen:** full screen, in 3 steps, with your name (optional) and language.",
+        "**AuGPT in English:** the Windows language is detected automatically and can be changed in Settings → General. The screens and the answers follow the chosen language.",
+        "**Answers sized to the question:** a simple question gets a short answer, even in detailed mode. Filler openings (\"Today is…\", \"Based on the sources…\") are gone.",
+        "**AuGPT no longer says it can't** measure your internet, show images or open sites: it offers the feature instead.",
+        "**Faster research:** no web search for questions about AuGPT or plain math, and research stops when it already has enough material.",
+        "**Only the cited sources** are listed, and support questions (\"how do I update the chipset?\") no longer get product photos on top.",
+        "\"Browse this site\" and \"open https://…\" go straight to the AuGPT browser.",
+        "\"Copilot and critic\" was removed from Settings → Tasks, since it was no longer used."
+      ]
+    }
+  },
+  {
+    "versao": "0.30.0",
+    "data": "2026-10-22",
+    "pt": {
+      "titulo": "Memória pelo chat e Ajustes reorganizados",
+      "itens": [
+        "**Memória sobre você pelo chat:** diga \"lembre que…\" e o AuGPT guarda; \"esqueça…\" apaga. O que ele sabe de você entra nas respostas.",
+        "**Ajustes e Execuções no padrão da tela do agente:** grupos em colunas no lugar da lista única, e a janela \"Visualizar execuções\" refeita.",
+        "Sai o aprendizado automático de sites, que marcava quase tudo como confiável."
+      ]
+    },
+    "en": {
+      "titulo": "Memory through the chat and reorganized Settings",
+      "itens": [
+        "**Memory about you through the chat:** say \"remember that…\" and AuGPT keeps it; \"forget…\" deletes it. What it knows about you goes into the answers.",
+        "**Settings and Executions match the agent screen:** groups in columns instead of one long list, and the \"View executions\" window was redone.",
+        "Automatic site learning was removed, since it marked almost every site as trusted."
+      ]
+    }
+  },
+  {
+    "versao": "0.28.0",
+    "data": "2026-10-21",
+    "pt": {
+      "titulo": "Atualizar pelo próprio AuGPT",
+      "itens": [
+        "**Atualizações pelo app:** quando sai uma versão nova, uma faixa avisa no topo. Instalar é só no seu clique, e o instalador é conferido antes de abrir.",
+        "Suas conversas, ajustes e modelos continuam onde estão depois de atualizar."
+      ]
+    },
+    "en": {
+      "titulo": "Update from inside AuGPT",
+      "itens": [
+        "**Updates from the app:** when a new version comes out, a bar at the top tells you. It only installs when you click, and the installer is verified before it runs.",
+        "Your chats, settings and models stay where they are after updating."
+      ]
+    }
+  }
+]

@@ -141,7 +141,7 @@
   <span class="faixa-ollama-texto" id="faixaAtualizacaoTexto"></span>
   <div class="faixa-ollama-botoes">
     <button class="btn-primario" id="btnFaixaAtualizar" type="button">Atualizar agora</button>
-    <a class="btn-secundario" id="lnkFaixaNovidades" target="_blank" rel="noopener">Novidades</a>
+    <button class="btn-secundario" id="btnFaixaNovidades" type="button">Novidades</button>
     <button class="btn-secundario" id="btnFaixaAtualizarDepois" type="button">Depois</button>
     <button class="btn-secundario" id="btnFaixaPularVersao" type="button">Pular esta versão</button>
   </div>
@@ -779,7 +779,8 @@
           <div class="linha"><span>Mais recente</span><span class="situacao" id="compAuDisponivel">—</span></div>
           <div class="linha-botoes">
             <button class="btn-primario" id="btnCompAuAtualizar" hidden>Atualizar o AuGPT</button>
-            <a class="btn-secundario" id="lnkCompAuNovidades" target="_blank" rel="noopener" hidden>Novidades</a>
+            <button class="btn-secundario" id="btnCompAuNovidades" type="button" hidden>Novidades da versão nova</button>
+            <button class="btn-secundario" id="btnCompAuHistorico" type="button">Ver novidades</button>
           </div>
           <label class="linha"><span>Procurar atualizações ao abrir o AuGPT</span>
             <input type="checkbox" id="cfgProcurarAtualizacoes" class="caixa" />
@@ -975,6 +976,25 @@
     </div>
   </aside>
 </main>
+
+<!-- Novidades (23/10): o que mudou — abre sozinha depois de atualizar, e pelo botão "Novidades" antes -->
+<dialog id="dlgNovidades">
+  <div class="dialogo dialogo-novidades">
+    <div class="novidades-topo">
+      <span class="tile" aria-hidden="true"><span class="sym">Au</span></span>
+      <div>
+        <h2 id="dlgNovidadesTitulo">Novidades do AuGPT</h2>
+        <p class="dica" id="dlgNovidadesSub"></p>
+      </div>
+    </div>
+    <div class="novidades-corpo" id="dlgNovidadesCorpo" data-sem-traducao></div>
+    <footer>
+      <button class="btn-secundario" id="btnNovidadesGithub" type="button" hidden>Ver no GitHub</button>
+      <button class="btn-primario" id="btnNovidadesAtualizar" type="button" hidden>Atualizar agora</button>
+      <button class="btn-primario" id="btnFecharNovidades" type="button" autofocus>Fechar</button>
+    </footer>
+  </div>
+</dialog>
 
 <dialog id="dlgModelos">
   <div class="dialogo dialogo-modelos">

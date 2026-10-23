@@ -60,4 +60,36 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'novidades: cada versão do package.json tem a sua entrada em dados/novidades.json, em português e inglês, da mais nova para a mais antiga',
+    tipo: 'unidade',
+    executar() {
+      const lista = JSON.parse(fs.readFileSync(path.join(__dirname, '../../dados/novidades.json'), 'utf8'));
+      const versao = require('../../package.json').version;
+      const ordem = lista.every((n, i) => i === 0 || a.maisNova(lista[i - 1].versao, n.versao));
+      return [
+        lista[0]?.versao === versao || `falta a entrada da ${versao} (a mais nova é a ${lista[0]?.versao})`,
+        ordem || 'fora de ordem',
+        ...lista.map((n) => (n.pt?.titulo && n.en?.titulo && n.pt.itens?.length && n.pt.itens.length === n.en?.itens?.length && /^\d{4}-\d{2}-\d{2}$/.test(n.data)) || `entrada ${n.versao}`),
+      ];
+    },
+  },
+  {
+    nome: 'novidades: depois de atualizar mostra as versões puladas até a instalada; vindo de versão sem a janela, só a atual; a da faixa vem da tag no GitHub',
+    tipo: 'unidade',
+    async executar() {
+      const lista = ['0.36.0', '0.35.0', '0.34.0', '0.30.0'].map((versao) => ({ versao }));
+      const v = (l) => l.map((n) => n.versao).join(',');
+      let pedido = '';
+      const remotas = await a.novidadesRemotas('0.35.0', { buscar: async (url) => ((pedido = url), { ok: true, json: async () => lista }) });
+      const fora = await a.novidadesRemotas('0.35.0', { buscar: async () => ({ ok: false, status: 404 }) }).catch((e) => e.message);
+      return [
+        v(a.novidadesEntre(lista, '0.30.0', '0.35.0')) === '0.35.0,0.34.0' || 'puladas',
+        v(a.novidadesEntre(lista, null, '0.34.0')) === '0.34.0' || 'sem a anterior',
+        v(a.novidadesEntre(lista, '0', '0.34.0')) === '0.34.0,0.30.0' || 'histórico',
+        pedido === 'https://raw.githubusercontent.com/D4v1K1ngg/augpt/v0.35.0/dados/novidades.json' && remotas.length === 4 || pedido,
+        /404/.test(fora) || fora,
+      ];
+    },
+  },
 ];

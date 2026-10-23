@@ -701,15 +701,13 @@ function pintarAtualizacao() {
   $('compAuDisponivel').textContent = !a.ok ? (a.error ? `não consegui consultar (${a.error})` : '—') : !a.versao ? a.motivo || '—' : a.disponivel ? `${a.versao} — atualização disponível` : `${a.versao} · em dia ✓`;
   $('btnCompAuAtualizar').hidden = !a.disponivel;
   $('btnCompAuAtualizar').textContent = `Atualizar para a ${a.versao || ''}`;
-  $('lnkCompAuNovidades').hidden = !a.disponivel;
-  $('lnkCompAuNovidades').href = a.pagina || '#';
+  $('btnCompAuNovidades').hidden = !a.disponivel;
   $('cfgProcurarAtualizacoes').checked = config.procurarAtualizacoes !== false;
 }
 
 function mostrarFaixaAtualizacao(info) {
   atualizacao = { ok: true, ...info };
   $('faixaAtualizacaoTexto').textContent = tr('AuGPT {versao} disponível (você está na {atual}).', { versao: info.versao, atual: info.atual });
-  $('lnkFaixaNovidades').href = info.pagina || '#';
   $('faixaAtualizacao').hidden = false;
 }
 
@@ -721,6 +719,60 @@ async function instalarAtualizacao(botao, status) {
   botao.disabled = false;
   status.textContent = r.ok ? 'abrindo o instalador…' : `erro: ${r.error}`;
 }
+
+/* ---------- Novidades (23/10, pedido do Davi): o que mudou, numa janela do próprio AuGPT ---------- */
+const ingles = () => window.i18n?.idioma === 'en';
+
+function pintarNovidades(notas, { titulo, sub, vazio = 'Esta versão não trouxe notas.' }) {
+  const data = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString(window.i18n?.locale?.() || 'pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+  const negrito = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  $('dlgNovidadesTitulo').textContent = titulo;
+  $('dlgNovidadesSub').textContent = sub;
+  $('dlgNovidadesCorpo').innerHTML = notas.length
+    ? notas.map((n) => {
+      const t = (ingles() && n.en) || n.pt || {};
+      return `<section class="novidades-versao"><h3><span class="versao">${esc(n.versao)}</span>${esc(t.titulo || '')}<span class="data">${esc(data(n.data))}</span></h3>
+        <ul>${(t.itens || []).map((i) => `<li>${negrito(i)}</li>`).join('')}</ul></section>`;
+    }).join('')
+    : `<p class="novidades-vazio">${esc(tr(vazio))}</p>`;
+  if (!$('dlgNovidades').open) $('dlgNovidades').showModal();
+  $('dlgNovidadesCorpo').scrollTop = 0;
+}
+
+// sem versão: o que mudou na instalada (e antes); com a versão nova da faixa: as notas dela, antes de atualizar
+async function abrirNovidades(versao) {
+  const nova = versao && versao !== atualizacao?.atual;
+  $('btnNovidadesAtualizar').hidden = !nova;
+  $('btnNovidadesGithub').hidden = true;
+  const r = await api.novidades.ler(nova ? versao : undefined);
+  if (!r.ok) {
+    // GitHub fora ou versão publicada sem o arquivo: o link da Release continua
+    pintarNovidades([], { titulo: tr('Novidades do AuGPT {versao}', { versao }), sub: tr('Não consegui ler as novidades desta versão ({erro}).', { erro: r.error }), vazio: 'As notas desta versão estão na página dela no GitHub.' });
+    $('btnNovidadesGithub').hidden = !atualizacao?.pagina;
+    return;
+  }
+  pintarNovidades(r.notas, nova
+    ? { titulo: tr('Novidades do AuGPT {versao}', { versao }), sub: tr('Você está na {atual}. Isto chega quando você atualizar.', { atual: r.atual }) }
+    : { titulo: tr('Novidades do AuGPT'), sub: tr('Você está na versão {atual}.', { atual: r.atual }) });
+}
+
+// primeira abertura de uma versão nova: a janela abre sozinha
+async function mostrarNovidadesPendentes() {
+  const p = await api.novidades.pendentes().catch(() => null);
+  if (!p?.notas?.length) return;
+  pintarNovidades(p.notas, { titulo: tr('O AuGPT foi atualizado'), sub: tr('Bem-vindo à versão {atual}. Veja o que mudou:', { atual: p.atual }) });
+}
+
+$('btnFaixaNovidades').addEventListener('click', () => abrirNovidades(atualizacao?.versao));
+$('btnCompAuNovidades').addEventListener('click', () => abrirNovidades(atualizacao?.versao));
+$('btnCompAuHistorico').addEventListener('click', () => abrirNovidades());
+$('btnFecharNovidades').addEventListener('click', () => $('dlgNovidades').close());
+$('btnNovidadesGithub').addEventListener('click', () => window.open(atualizacao?.pagina, '_blank'));
+$('btnNovidadesAtualizar').addEventListener('click', () => {
+  $('dlgNovidades').close();
+  instalarAtualizacao($('btnFaixaAtualizar'), $('faixaAtualizacao').hidden ? $('compAuStatus') : $('faixaAtualizacaoTexto'));
+});
+setTimeout(mostrarNovidadesPendentes, 1200);
 
 $('btnCompAuAtualizar').addEventListener('click', () => instalarAtualizacao($('btnCompAuAtualizar'), $('compAuStatus')));
 $('btnFaixaAtualizar').addEventListener('click', () => instalarAtualizacao($('btnFaixaAtualizar'), $('faixaAtualizacaoTexto')));

@@ -1272,6 +1272,40 @@ ipcMain.handle('atualizacao:instalar', async () => {
     return { ok: false, error: err.message };
   }
 });
+
+/* Novidades (23/10, pedido do Davi): na primeira abertura de uma versão nova, a janela "Novidades"
+   abre sozinha com o que mudou (dados/novidades.json). Instalação nova não: lá abre a de boas-vindas. */
+let novidadesPendentes = null;
+function conferirVersaoNova() {
+  const atual = app.getVersion();
+  const anterior = config.data.ultimaVersaoVista || '';
+  if (anterior === atual) return;
+  config.save({ ultimaVersaoVista: atual });
+  // sem `anterior`: veio de uma versão sem esta janela (mostra só a atual) ou é instalação nova
+  if (!config.novo && (anterior || config.data.boasVindasConcluida)) novidadesPendentes = { de: anterior || null };
+}
+function lerNovidades() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'dados', 'novidades.json'), 'utf8'));
+  } catch {
+    return [];
+  }
+}
+ipcMain.handle('novidades:pendentes', () => {
+  const p = novidadesPendentes;
+  novidadesPendentes = null;
+  return p && { atual: app.getVersion(), notas: atualizador.novidadesEntre(lerNovidades(), p.de, app.getVersion()) };
+});
+// sem versão: o histórico da instalada; com a versão nova da faixa: as notas dela, lidas da tag no GitHub
+ipcMain.handle('novidades:ler', async (_e, { versao } = {}) => {
+  const atual = app.getVersion();
+  if (!versao || versao === atual) return { ok: true, atual, notas: atualizador.novidadesEntre(lerNovidades(), '0', atual) };
+  try {
+    return { ok: true, atual, versao, notas: atualizador.novidadesEntre(await atualizador.novidadesRemotas(versao), atual, versao) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
 function procurarAtualizacaoAoAbrir() {
   if (!app.isPackaged || config.data.procurarAtualizacoes === false) return;
   setTimeout(async () => {
@@ -1550,6 +1584,7 @@ app.whenReady().then(() => {
     responder({ requestHeaders: { ...detalhes.requestHeaders, Referer: detalhes.requestHeaders.Referer || 'https://augpt.app/' } });
   });
   config = new Config(app.getPath('userData'));
+  conferirVersaoNova();
   aplicarCalibracoes(); // a placa calibrada (19/10): o num_gpu medido vale desde a primeira chamada
   // Fase 2: instalação nova (config.json ainda não existia) em computador com
   // pouca memória já começa com padrões mais leves — nunca mexe em quem já
