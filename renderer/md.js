@@ -59,8 +59,9 @@
         return `\u0000BLOCO${blocos.length - 1}\u0000`;
       }
       // ```calendario (23/10): o JSON vai escapado no atributo e vira o calendário em montarGraficos
-      if (String(lang).toLowerCase() === 'calendario') {
-        blocos.push(`<div class="calendario-lugar" data-cal="${codigo.trim()}"></div>`);
+      // ```clima (23/10): idem, vira o cartão do clima
+      if (['calendario', 'clima'].includes(String(lang).toLowerCase())) {
+        blocos.push(`<div class="cartao-lugar" data-tipo="${String(lang).toLowerCase()}" data-cal="${codigo.trim()}"></div>`);
         return `\u0000BLOCO${blocos.length - 1}\u0000`;
       }
       if (String(lang).toLowerCase() === 'chart') {
@@ -298,9 +299,12 @@
 
   function montarGraficos(elemento) {
     montarCaixas(elemento);
-    for (const lugar of global.calendario ? elemento.querySelectorAll('.calendario-lugar[data-cal]') : []) {
+    // calendário e clima (23/10): quem desenha é renderer/calendario.js e renderer/clima.js
+    for (const lugar of elemento.querySelectorAll('.cartao-lugar[data-cal]')) {
+      const desenhista = global[lugar.dataset.tipo];
+      if (!desenhista?.criar) continue;
       try {
-        lugar.replaceWith(global.calendario.criar(lugar.dataset.cal));
+        lugar.replaceWith(desenhista.criar(lugar.dataset.cal));
       } catch {
         lugar.remove(); // JSON quebrado: o texto da resposta continua
       }

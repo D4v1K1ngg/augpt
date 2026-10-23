@@ -88,7 +88,7 @@ module.exports = [
         natal.ano === 2026 && natal.mes === 12 && natal.marcar === '2026-12-25' && natal.hoje === '2026-10-23' || JSON.stringify({ ano: natal.ano, mes: natal.mes, marcar: natal.marcar }),
         hoje.mes === 10 && hoje.marcar === null || 'hoje sem marca',
         Object.keys(hoje.datas).some((k) => k.startsWith('2025-')) && Object.keys(hoje.datas).some((k) => k.startsWith('2027-')) || 'um ano antes e depois',
-        /<div class="calendario-lugar" data-cal="\{&quot;ano&quot;/.test(html) && !/<img/.test(html) || html,
+        /<div class="cartao-lugar" data-tipo="calendario" data-cal="\{&quot;ano&quot;/.test(html) && !/<img/.test(html) || html,
       ];
     },
   },

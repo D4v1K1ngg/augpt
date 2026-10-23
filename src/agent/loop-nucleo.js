@@ -56,8 +56,8 @@ function imagemParaOModelo(arquivo) {
  * resposta final, ou null quando falhou (quem chama segue pelo caminho antigo).
  */
 async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: anexadas = [] }) {
-  // o JSON do calendário (23/10) é para a tela desenhar; para o modelo, só ruído
-  const conversa = (Array.isArray(conversaCrua) ? conversaCrua : []).map((m) => (typeof m?.content === 'string' && m.content.includes('```calendario') ? { ...m, content: m.content.replace(/\n*```calendario\n[\s\S]*?```/g, '') } : m));
+  // o JSON do calendário e do clima (23/10) é para a tela desenhar; para o modelo, só ruído
+  const conversa = (Array.isArray(conversaCrua) ? conversaCrua : []).map((m) => (typeof m?.content === 'string' && /```(calendario|clima)\n/.test(m.content) ? { ...m, content: m.content.replace(/\n*```(calendario|clima)\n[\s\S]*?```/g, '') } : m));
   // prova com várias questões (18/10): ~700 tokens por questão resolvida; o
   // padrão de 3.072 cortava a resposta na 4ª de 10
   const questoes = new Set((String(objetivo).match(/\bquest(?:ão|ao)\s*(\d+)/gi) || []).map((q) => q.replace(/\D/g, ''))).size;

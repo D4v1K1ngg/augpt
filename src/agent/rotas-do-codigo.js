@@ -19,6 +19,7 @@ const pc = require('./pc-no-chat');
 const imagensNoChat = require('./imagens-no-chat');
 const memoria = require('./memoria-no-chat');
 const calendario = require('./calendario-no-chat');
+const clima = require('./clima-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -35,6 +36,13 @@ const ROTAS = [
     id: 'calendario',
     detecta: ({ objetivo }) => calendario.pedidoDeCalendario(objetivo),
     responde: ({ objetivo, deps, config }, pedido) => calendario.responderCalendario({ pergunta: objetivo, deps, config, ...(pedido ? { pedido } : {}) }),
+  },
+  {
+    // "como está o tempo em Campinas?", "vai chover amanhã?" (23/10): Open-Meteo e o cartão do clima;
+    // sem resposta do Open-Meteo, a rota devolve e a pesquisa responde
+    id: 'clima',
+    detecta: ({ objetivo }) => clima.pedidoDeClima(objetivo),
+    responde: ({ objetivo, deps, config, pasta }, pedido) => clima.responderClima({ pergunta: objetivo, deps, config, pasta, ...(pedido ? { pedido } : {}) }),
   },
   {
     // "o que você pode fazer?": a mesma lista da aba Utilitários, montada pelo código
