@@ -18,6 +18,7 @@ const rede = require('./rede-no-chat');
 const pc = require('./pc-no-chat');
 const imagensNoChat = require('./imagens-no-chat');
 const memoria = require('./memoria-no-chat');
+const calendario = require('./calendario-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -27,6 +28,13 @@ const ROTAS = [
     id: 'memoria',
     detecta: ({ objetivo }) => memoria.pedidoDeMemoria(objetivo),
     responde: ({ objetivo, deps, pasta, config }, pedido) => memoria.responderMemoria({ pergunta: objetivo, deps, pasta, config, ...(pedido ? { acao: pedido } : {}) }),
+  },
+  {
+    // "que dia é hoje?", "quais feriados temos este mês?", "quantos dias faltam pro Natal?" (23/10):
+    // o código responde, com o calendário interativo na resposta
+    id: 'calendario',
+    detecta: ({ objetivo }) => calendario.pedidoDeCalendario(objetivo),
+    responde: ({ objetivo, deps, config }, pedido) => calendario.responderCalendario({ pergunta: objetivo, deps, config, ...(pedido ? { pedido } : {}) }),
   },
   {
     // "o que você pode fazer?": a mesma lista da aba Utilitários, montada pelo código

@@ -1,5 +1,23 @@
 [
   {
+    "versao": "0.35.0",
+    "data": "2026-10-23",
+    "pt": {
+      "titulo": "Calendário no chat",
+      "itens": [
+        "**Calendário interativo nas respostas:** pergunte \"que dia é hoje?\", \"quais feriados temos este mês?\", \"quantos dias faltam pro Natal?\" ou \"que dia da semana cai 25/12?\" e a resposta vem na hora, com um calendário para navegar entre os meses.",
+        "Os feriados nacionais (inclusive Carnaval, Sexta-feira Santa e Corpus Christi, que mudam todo ano) são calculados no seu PC, sem internet. Feriados estaduais e municipais ainda não entram."
+      ]
+    },
+    "en": {
+      "titulo": "Calendar in the chat",
+      "itens": [
+        "**Interactive calendar in answers:** ask \"what day is today?\", \"which holidays are there this month?\", \"how many days until Christmas?\" or \"what day of the week is 12/25?\" and the answer comes right away, with a calendar you can browse month by month.",
+        "Brazil's national holidays (including Carnival, Good Friday and Corpus Christi, which move every year) are calculated on your PC, offline. State and city holidays are not included yet."
+      ]
+    }
+  },
+  {
     "versao": "0.34.1",
     "data": "2026-10-23",
     "pt": {

@@ -448,6 +448,41 @@ body:not(.mostrar-tecnico) .tecnico { display: none !important; }
 /* Cartão de produto: cada "#### N. Nome" de uma recomendação (renderer/md.js) */
 /* Imagem da resposta (`![…](augpt-img://…)`, src/tools/imagens.js) */
 .md-figura { margin: 0 0 16px; }
+/* calendário das respostas (23/10, renderer/calendario.js) */
+.cal { width: min(100%, 420px); margin: 4px 0 16px; padding: 14px 14px 12px; border: 1px solid var(--line-forte); border-radius: 14px; background: var(--panel); }
+.cal-topo { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.cal-titulo { flex: 1; text-align: center; font-size: 14px; font-weight: 500; }
+.cal-seta, .cal-hoje { border: 1px solid var(--line); background: none; color: var(--text); border-radius: 8px; cursor: pointer; font: inherit; }
+.cal-seta { width: 30px; height: 30px; font-size: 16px; line-height: 1; }
+.cal-hoje { height: 30px; padding: 0 10px; font-size: 12px; }
+.cal-seta:hover, .cal-hoje:hover { border-color: var(--gold); }
+.cal-grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-semana { text-align: center; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 2px 0 6px; }
+.cal-dia { position: relative; height: 38px; border: 1px solid transparent; border-radius: 9px; background: none; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.cal-dia:hover { background: var(--line); }
+.cal-fds { color: var(--muted); }
+.cal-fora { opacity: 0.35; }
+.cal-e-hoje { border-color: var(--gold); color: var(--gold); font-weight: 700; }
+.cal-marcado { background: var(--gold); color: #1a1406; font-weight: 700; }
+.cal-marcado:hover { background: var(--gold-hi); }
+.cal-dia[class*="cal-tem-"]::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; }
+.cal-tem-feriado { color: var(--red); }
+.cal-tem-feriado::after { background: var(--red); }
+.cal-tem-facultativo::after { background: var(--amber); }
+.cal-tem-comemorativa::after { background: var(--muted); }
+.cal-marcado.cal-tem-feriado { color: #1a1406; }
+.cal-detalhe { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12.5px; }
+.cal-escolhido { margin-bottom: 8px; }
+.cal-escolhido b::first-letter { text-transform: uppercase; }
+.cal-quando { color: var(--muted); }
+.cal-nome { margin-top: 2px; }
+.cal-nome.cal-feriado { color: var(--red); }
+.cal-lista { list-style: none; margin: 0; padding: 0; }
+.cal-lista li { display: flex; gap: 10px; padding: 3px 0; cursor: pointer; }
+.cal-lista li:hover span:last-child { text-decoration: underline; }
+.cal-lista-dia { min-width: 62px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cal-lista .cal-feriado .cal-lista-dia { color: var(--red); }
+.cal-lista .cal-vazio { color: var(--muted); cursor: default; }
 /* imagens das respostas (23/10): clicar abre; o botão no canto aparece no hover */
 .md-figura { position: relative; }
 .md-figura:not(.md-destaque) { width: fit-content; }

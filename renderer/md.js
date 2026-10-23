@@ -58,6 +58,11 @@
         caixas[blocos.length - 1] = desescapar(codigo);
         return `\u0000BLOCO${blocos.length - 1}\u0000`;
       }
+      // ```calendario (23/10): o JSON vai escapado no atributo e vira o calendário em montarGraficos
+      if (String(lang).toLowerCase() === 'calendario') {
+        blocos.push(`<div class="calendario-lugar" data-cal="${codigo.trim()}"></div>`);
+        return `\u0000BLOCO${blocos.length - 1}\u0000`;
+      }
       if (String(lang).toLowerCase() === 'chart') {
         blocos.push(`<div class="grafico-lugar" data-grafico="${blocos.length}"></div>`);
         graficos[blocos.length - 1] = desescapar(codigo);
@@ -293,6 +298,13 @@
 
   function montarGraficos(elemento) {
     montarCaixas(elemento);
+    for (const lugar of global.calendario ? elemento.querySelectorAll('.calendario-lugar[data-cal]') : []) {
+      try {
+        lugar.replaceWith(global.calendario.criar(lugar.dataset.cal));
+      } catch {
+        lugar.remove(); // JSON quebrado: o texto da resposta continua
+      }
+    }
     if (!global.grafico) return;
     for (const lugar of elemento.querySelectorAll('.grafico-lugar[data-grafico]')) {
       const spec = graficos[lugar.dataset.grafico];
