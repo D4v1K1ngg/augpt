@@ -147,6 +147,7 @@ const PISTA_DA_ACAO = {
   buscar_imagens: /fotos?|imagens?|ver como|aparencia|aparência/i,
   ajustes_de_rede: /\bdns\b|placa de rede|economia de energia|5 ?ghz|cache|ajust|otimiz|configur/i,
   diagnostico_da_rede: /roteador|modem|wi-?fi|\brede\b|cabo|aparelho|dispositivo|ipconfig|\bdns\b|gateway|sinal|conex|internet|lag|ping/i,
+  agenda: /lembr|agenda|avis[ae]|anot|compromisso|marqu?e|agend|lembrete|remind|notify|schedule|let me know/i,
   calendario: /\b(dia|data|datas|feriados?|calend[áa]rio|semana|m[eê]s|ano|faltam?|hoje|amanh[ãa]|ontem|cai|caiu|today|date|holidays?|calendar|weekday|days? until)\b/i,
   clima: /clima|tempo|chov|chuv|temperatura|graus|frio|calor|quente|\bsol\b|previs|umidade|vento|weather|rain|forecast|temperature|hot|cold|sunny/i,
   mapa: /onde fica|onde est[áa]|onde (é|e) (a|o)|mapa|globo|localiza|rota|dist[âa]ncia|quanto tempo|chegar|chego|caminho|trajeto|\bkm\b|quil[ôo]metros|fica (em|no|na)|where|map|route|distance|how (far|long)|directions/i,

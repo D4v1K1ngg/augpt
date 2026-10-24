@@ -15,6 +15,7 @@ const { consultasNaComunidade } = require('../tools/comunidade');
 const { preferenciasParaEscrever } = require('./memoria-no-chat');
 const traducao = require('./traducao');
 const lugares = require('./lugares');
+const agendaNoChat = require('./agenda-no-chat');
 const imagens = require('../tools/imagens');
 const search = require('../tools/search');
 const { lerComCache } = require('../tools/web');
@@ -278,7 +279,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // a ação que o entendimento escolheu dentro da pesquisa (23/10: "onde fica iconha?" → mapa) fica com o nome dela no registro
     const pelaPesquisa = async () => ({ rota: 'pesquisa', ...(await nucleo.responder({ pergunta: aceitou?.id === 'pesquisa' ? aceitou.pergunta : objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido })) });
     const r = aceitou && aceitou.id !== 'pesquisa'
-      ? (await deps.executarAcao(aceitou.id, { pergunta: objetivo, modo: aceitou.modo, confirmado: true })) || (await pelaPesquisa())
+      ? (await deps.executarAcao(aceitou.id, { pergunta: aceitou.pergunta || objetivo, modo: aceitou.modo, confirmado: true })) || (await pelaPesquisa())
       : investigando
       ? { ...(await investigar({ pergunta: objetivo, conversa, minutos: Number(cfg.minutosDeInvestigacao) || 10, tamanho: cfg.modoResposta || 'normal', deps })), rota: 'investigacao' }
       : escolha
@@ -391,7 +392,11 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     const comRelatorio = r.relatorio
       ? `${comVideos}\n\n${relatorioPdf ? `**Relatório completo em PDF:** \`${relatorioPdf}\` — ${r.secoes.length} partes, ${r.fontes.length} fontes, ${Math.max(1, Math.round(r.gastoS / 60))} min de pesquisa${r.interrompida ? ' (interrompida antes do fim)' : ''}.` : ''}`
       : comVideos;
-    const final = r.fontes.length ? `${comRelatorio}\n\n---\n**${cfg.idiomaEfetivo === 'en' ? 'Sources' : 'Fontes'}**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comRelatorio;
+    // 23/10 (agenda): pesquisa sobre algo que ainda vai acontecer ("quando sai a RTX 60?") termina
+    // oferecendo acompanhar; o "sim" vira um item da agenda (aceitouOferta → rota agenda)
+    const assuntoDoEvento = (r.rota || 'pesquisa') === 'pesquisa' && agendaNoChat.pedeAcompanhar(objetivo) ? (r.assuntos || r.entendimento?.assuntos || [])[0] : null;
+    const comOferta = assuntoDoEvento ? `${comRelatorio}\n\n${agendaNoChat.ofertaDeAcompanhar(assuntoDoEvento, emIngles ? 'en' : 'pt')}` : comRelatorio;
+    const final = r.fontes.length ? `${comOferta}\n\n---\n**${cfg.idiomaEfetivo === 'en' ? 'Sources' : 'Fontes'}**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comOferta;
     this.emit('nucleo-fim', { modo, rota: r.rota || 'pesquisa', ms: Date.now() - inicio, fontes: r.fontes.length, entendimento: r.entendimento });
     await this.fotografarModelos();
     this.emit('concluido', { resumo: final, resposta: true, iteracoes: 0, uso: this.uso, verificacao: null, confianca: null });

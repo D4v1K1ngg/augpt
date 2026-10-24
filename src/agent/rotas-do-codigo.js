@@ -21,10 +21,18 @@ const memoria = require('./memoria-no-chat');
 const calendario = require('./calendario-no-chat');
 const clima = require('./clima-no-chat');
 const mapa = require('./mapa-no-chat');
+const agenda = require('./agenda-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
 const ROTAS = [
+  {
+    // "me lembra sexta às 15h de ligar pro banco", "me avise quando a RTX 60 for lançada", "o que
+    // eu tenho amanhã?" (23/10): antes da memória ("lembre QUE…" é memória; "me lembra DE…" é agenda)
+    id: 'agenda',
+    detecta: ({ objetivo }) => agenda.pedidoDeAgenda(objetivo),
+    responde: ({ objetivo, deps, config, pasta }, pedido) => agenda.responderAgenda({ pergunta: objetivo, deps, config, pasta, ...(pedido ? { pedido } : {}) }),
+  },
   {
     // "lembre que eu prefiro respostas curtas", "esqueça que…", "o que você sabe sobre mim?" (22/10)
     id: 'memoria',

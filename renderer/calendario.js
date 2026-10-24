@@ -18,7 +18,8 @@
     en: { hoje: 'Today', anterior: 'Previous month', proximo: 'Next month', semDatas: 'No national holidays this month.', facultativo: 'optional day off', comemorativa: 'not a holiday', dias: (n) => (n === 0 ? 'today' : n === 1 ? 'tomorrow' : n === -1 ? 'yesterday' : n > 0 ? `in ${n} days` : `${-n} days ago`) },
   };
 
-  function criar(spec) {
+  // opcoes.aoEscolher(chave 'AAAA-MM-DD'): a Agenda filtra a lista pelo dia clicado
+  function criar(spec, opcoes = {}) {
     const s = typeof spec === 'string' ? JSON.parse(spec) : spec;
     const en = s.idioma === 'en';
     const T = TEXTOS[en ? 'en' : 'pt'];
@@ -88,11 +89,12 @@
           li.addEventListener('click', () => {
             escolhido = k;
             pintar();
+            opcoes.aoEscolher?.(k);
           });
           lista.append(li);
         }
       }
-      if (!doMes.some((k) => datas[k].some((i) => i[1] !== 'comemorativa'))) lista.prepend(el('li', 'cal-vazio', T.semDatas));
+      if (!doMes.some((k) => datas[k].some((i) => !['comemorativa', 'agenda'].includes(i[1])))) lista.prepend(el('li', 'cal-vazio', T.semDatas));
       detalhe.append(lista);
     }
 
@@ -118,11 +120,12 @@
         if (d.getDay() === 0 || d.getDay() === 6) b.classList.add('cal-fds');
         if (chave === s.hoje) b.classList.add('cal-e-hoje');
         if (chave === escolhido) b.classList.add('cal-marcado');
-        const principal = itens.find((i) => i[1] === 'feriado') || itens.find((i) => i[1] === 'facultativo') || itens[0];
-        if (principal) {
-          b.classList.add(`cal-tem-${principal[1]}`);
-          b.title = itens.map((i) => nomeDe(i) + tipoDe(i)).join(' · ');
-        }
+        const datasDoDia = itens.filter((i) => i[1] !== 'agenda');
+        const principal = datasDoDia.find((i) => i[1] === 'feriado') || datasDoDia.find((i) => i[1] === 'facultativo') || datasDoDia[0];
+        if (principal) b.classList.add(`cal-tem-${principal[1]}`);
+        // item da agenda (23/10): um ponto dourado no canto, além do feriado
+        if (itens.some((i) => i[1] === 'agenda')) b.classList.add('cal-com-agenda');
+        if (itens.length) b.title = itens.map((i) => nomeDe(i) + tipoDe(i)).join(' · ');
         b.addEventListener('click', () => {
           escolhido = chave;
           if (d.getMonth() !== mes - 1) {
@@ -130,6 +133,7 @@
             mes = d.getMonth() + 1;
           }
           pintar();
+          opcoes.aoEscolher?.(chave);
         });
         grade.append(b);
       }

@@ -87,6 +87,8 @@ const EVENTOS = [
   // até promove domínios de verdade, mas sem estar nesta lista o evento
   // nunca chega no renderer (nem ao vivo, nem gravado no registro).
   'autoridade-descoberta',
+  // a agenda mudou pelo chat (23/10): a tela da Agenda se atualiza
+  'agenda-mudou',
   // Pedido de Davi 2026-09-23, mesma rodada: instrumentação por-chamada
   // (tipo/tokens/duração) pra alimentar o gráfico "qual parte do raciocínio
   // levou mais tempo/custou mais tokens" da nova janela "Visualizar
@@ -894,6 +896,7 @@ ipcMain.handle('skills:preview', async (_e, texto) => {
 
 ipcMain.handle('agent:start', async (_e, { objetivo, conversa, idConversa } = {}) => {
   if (agent?.rodando) return { ok: false, error: 'Já existe uma execução em andamento.' };
+  pararConferencia(); // a checagem da agenda em segundo plano não disputa o modelo com você
   criarAgente(idConversa);
   // Peça "resumo de conversa" 2026-09-21: o resumo acumulado (se esta
   // conversa já tiver um, de uma fusão anterior) mora no próprio JSON da
@@ -974,8 +977,131 @@ function verificarAgendamentos() {
 
 function iniciarAgendador() {
   if (verificadorDeAgendamentos) clearInterval(verificadorDeAgendamentos);
-  verificadorDeAgendamentos = setInterval(verificarAgendamentos, 60000);
+  verificadorDeAgendamentos = setInterval(() => {
+    verificarAgendamentos();
+    verificarAgenda();
+  }, 60000);
+  setTimeout(verificarAgenda, 5000); // o que venceu com o app fechado (até 12 h) avisa logo ao abrir
 }
+
+/* ------------------------------ agenda (23/10, bloco 2) ------------------------------ */
+// Lembretes avisam pelo Windows na hora (com o AuGPT aberto); assuntos acompanhados são conferidos
+// uma vez por dia, em segundo plano, por um agente separado que não aparece no chat — só com o
+// agente parado, e para assim que você manda uma mensagem.
+const { Agenda, conferirAssunto } = require('../src/agenda');
+const calendarioNoChat = require('../src/agent/calendario-no-chat');
+let agenda = null;
+let conferindo = null; // o agente da checagem em andamento
+const inicioDoApp = Date.now();
+
+function avisar(titulo, corpo, item) {
+  try {
+    const { Notification } = require('electron');
+    if (!Notification.isSupported()) return;
+    const n = new Notification({ title: titulo, body: corpo, silent: false });
+    n.on('click', () => {
+      const janela = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('index.html'));
+      if (janela) {
+        if (janela.isMinimized()) janela.restore();
+        janela.show();
+        janela.focus();
+      }
+      enviar('agenda-abrir', { id: item?.id });
+    });
+    n.show();
+  } catch (err) {
+    console.warn('aviso da agenda:', err.message);
+  }
+}
+
+function verificarAgenda() {
+  if (!agenda) return;
+  const en = idiomaEfetivo() === 'en';
+  for (const item of agenda.paraAvisar(new Date())) {
+    agenda.atualizar(item.id, { avisado: true });
+    const quando = item.diaInteiro ? (en ? 'today' : 'hoje') : String(item.quando).slice(11, 16);
+    avisar(en ? `AuGPT reminder · ${quando}` : `Lembrete do AuGPT · ${quando}`, item.titulo, item);
+    enviar('agenda-mudou', { avisado: item.id });
+  }
+  // um assunto por vez, com o agente parado e o app aberto há 3 min (não disputa a abertura)
+  if (conferindo || agent?.rodando || disparandoAgendamento || Date.now() - inicioDoApp < 3 * 60000) return;
+  const [proximo] = agenda.paraConferir(Date.now());
+  if (proximo) conferirAcompanhamento(proximo).catch((err) => console.warn('acompanhamento:', err.message));
+}
+
+async function conferirAcompanhamento(item) {
+  const assunto = item.acompanhar?.assunto || item.titulo;
+  const cfg = { ...configParaAgente(), modoDePesquisa: 'normal', imagensNasRespostas: false, ondeComprar: false };
+  const silencioso = new Agent({ config: cfg, userDataPath: app.getPath('userData'), render: null, navegador: null, skills });
+  conferindo = silencioso;
+  enviar('agenda-conferindo', { id: item.id, conferindo: true });
+  let texto = '';
+  let falha = '';
+  silencioso.on('concluido', (d) => (texto = d?.resumo || ''));
+  silencioso.on('erro', (d) => (falha = d?.mensagem || 'erro'));
+  silencioso.on('interrompido', () => (falha ||= 'interrompida'));
+  try {
+    const r = await conferirAssunto(assunto, {
+      pesquisar: async (pergunta) => {
+        await silencioso.run(pergunta, []);
+        if (!texto && falha) throw new Error(falha);
+        return texto;
+      },
+      // pensar: false — fora da execução do agente, o qwen3.5 gastava os 300 tokens pensando e não respondia
+      julgar: async (prompt) => (await ollama.chat({ host: cfg.host, model: cfg.model, messages: [{ role: 'user', content: prompt }], json: true, pensar: false, temperature: 0.1, numPredict: 300, numCtx: 8192 })).content,
+      hoje: new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
+    }).catch((err) => ({ erro: err.message }));
+    if (conferindo !== silencioso) return; // interrompida: tenta de novo na próxima
+    const mudancas = { acompanhar: { ultimaVerificacao: Date.now(), erro: r.erro || null, ...(r.erro ? {} : { resumo: r.resumo, data: r.data }) } };
+    if (r?.aconteceu) mudancas.acompanhar.status = 'aconteceu';
+    const antes = item.acompanhar || {};
+    agenda.atualizar(item.id, mudancas);
+    const en = idiomaEfetivo() === 'en';
+    if (r?.aconteceu) avisar(en ? `News: ${assunto}` : `Novidade: ${assunto}`, r.resumo || (en ? 'It happened.' : 'Aconteceu.'), item);
+    else if (r?.data && r.data !== antes.data) avisar(en ? `Date confirmed: ${assunto}` : `Data confirmada: ${assunto}`, `${r.data.split('-').reverse().join('/')} — ${r.resumo}`, item);
+  } finally {
+    if (conferindo === silencioso) conferindo = null;
+    enviar('agenda-conferindo', { id: item.id, conferindo: false });
+    enviar('agenda-mudou', {});
+  }
+}
+/** Mensagem nova do usuário: a checagem em segundo plano sai da frente (volta na próxima vez). */
+function pararConferencia() {
+  if (!conferindo) return;
+  const a = conferindo;
+  conferindo = null;
+  try {
+    a.parar();
+  } catch {
+    /* já parou */
+  }
+}
+
+ipcMain.handle('agenda:listar', () => {
+  const ano = new Date().getFullYear();
+  const feriados = {};
+  for (let a = ano - 1; a <= ano + 1; a += 1) for (const d of calendarioNoChat.datasDoAno(a)) (feriados[d.iso] ||= []).push([d.nome, d.tipo, d.en]);
+  return { itens: agenda ? agenda.listar() : [], feriados, conferindo: conferindo ? true : false };
+});
+ipcMain.handle('agenda:adicionar', (_e, dados) => {
+  const item = agenda?.adicionar(dados || {});
+  return item ? { ok: true, item } : { ok: false, error: 'Escreva o que anotar.' };
+});
+ipcMain.handle('agenda:atualizar', (_e, { id, mudancas } = {}) => {
+  // só os campos que a tela muda
+  const permitido = {};
+  for (const k of ['titulo', 'quando', 'diaInteiro', 'avisarAntes', 'feito']) if (mudancas && k in mudancas) permitido[k] = mudancas[k];
+  if (mudancas?.status && ['ativo', 'pausado'].includes(mudancas.status)) permitido.acompanhar = { status: mudancas.status };
+  return { ok: Boolean(agenda?.atualizar(id, permitido)) };
+});
+ipcMain.handle('agenda:remover', (_e, id) => ({ ok: Boolean(agenda?.remover(id)) }));
+ipcMain.handle('agenda:conferirAgora', async (_e, id) => {
+  const item = agenda?.listar().find((i) => i.id === id && i.tipo === 'acompanhar');
+  if (!item) return { ok: false, error: 'item não encontrado' };
+  if (conferindo || agent?.rodando) return { ok: false, error: idiomaEfetivo() === 'en' ? 'busy — try again in a moment' : 'ocupado — tente daqui a pouco' };
+  conferirAcompanhamento(item).catch(() => {});
+  return { ok: true };
+});
 
 ipcMain.handle('agendamentos:list', () => config.data.agendamentos || []);
 
@@ -1627,6 +1753,9 @@ app.whenReady().then(() => {
     dirUsuario: path.join(app.getPath('userData'), 'ferramentas'),
   };
   conversas = new Conversas(path.join(app.getPath('userData'), 'conversas'));
+  agenda = new Agenda(app.getPath('userData'));
+  // os avisos do Windows saem com o nome do AuGPT (sem isto, no Windows não aparecem fora do instalador)
+  if (process.platform === 'win32') app.setAppUserModelId('com.davi.augpt');
   registros = new Registros(path.join(app.getPath('userData'), 'execucoes'));
   const carga = tools.recarregar(pastasDeFerramentas);
   if (carga.problemas.length) console.warn('Ferramentas com problema:', carga.problemas);

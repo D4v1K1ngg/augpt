@@ -79,6 +79,7 @@ for (const alvo of [el.aMensagens, el.aAbertura]) {
 const ROTULOS_ABAS = {
   agente: 'Agente',
   conversa: 'Conversa',
+  agenda: 'Agenda',
   skills: 'Skills',
   utilitarios: 'Utilitários',
   execucoes: 'Execuções',
@@ -92,6 +93,7 @@ const ROTULOS_ABAS = {
 const ABAS = {
   agente: { view: 'viewAgente', aba: 'navAgente' },
   conversa: { view: 'viewConversa', aba: 'navConversa' },
+  agenda: { view: 'viewAgenda', aba: 'navAgenda' },
   skills: { view: 'viewSkills', aba: 'navSkills' },
   utilitarios: { view: 'viewUtilitarios', aba: 'navUtilitarios' },
   execucoes: { view: 'viewExecucoes', aba: 'navExecucoes' },
@@ -138,6 +140,8 @@ function trocarAba(qual) {
     else carregarSkills();
   } else if (qual === 'utilitarios') {
     carregarUtilitarios();
+  } else if (qual === 'agenda') {
+    window.carregarAgenda?.();
   } else if (qual === 'execucoes') {
     carregarExecucoes();
   } else if (qual === 'config') {
@@ -156,6 +160,7 @@ function trocarAba(qual) {
 
 $('navAgente').addEventListener('click', () => trocarAba('agente'));
 $('navConversa').addEventListener('click', () => trocarAba('conversa'));
+$('navAgenda').addEventListener('click', () => trocarAba('agenda'));
 $('navSkills').addEventListener('click', () => trocarAba('skills'));
 $('navUtilitarios').addEventListener('click', () => trocarAba('utilitarios'));
 
@@ -163,6 +168,7 @@ $('navUtilitarios').addEventListener('click', () => trocarAba('utilitarios'));
 
 // Ícones dos cartões (traço de 1.6, como os da lateral); a lista vem do catálogo do agente.
 const ICONES_UTIL = {
+  sino: '<path d="M5 14V9a5 5 0 0 1 10 0v5l1.5 2h-13Z"/><path d="M8.5 17.5a1.6 1.6 0 0 0 3 0"/>',
   calendario: '<rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14M7 2.5v3M13 2.5v3M6.5 11h1M9.5 11h1M12.5 11h1M6.5 14h1M9.5 14h1"/>',
   nuvem: '<path d="M6 15.5h8.5a3.5 3.5 0 0 0 .4-7A5 5 0 0 0 5.3 9 3.3 3.3 0 0 0 6 15.5Z"/>',
   mapa: '<path d="M7 3.5 2.5 5.5v11l4.5-2 6 2 4.5-2v-11l-4.5 2-6-2Z"/><path d="M7 3.5v11M13 5.5v11"/>',

@@ -32,6 +32,13 @@ contextBridge.exposeInMainWorld('augpt', {
     salvar: (nome, sugestao) => ipcRenderer.invoke('imagem:salvar', { nome, sugestao }),
     mostrarNaPasta: (caminho) => ipcRenderer.invoke('imagem:mostrarNaPasta', { caminho }),
   },
+  agenda: {
+    listar: () => ipcRenderer.invoke('agenda:listar'),
+    adicionar: (dados) => ipcRenderer.invoke('agenda:adicionar', dados),
+    atualizar: (id, mudancas) => ipcRenderer.invoke('agenda:atualizar', { id, mudancas }),
+    remover: (id) => ipcRenderer.invoke('agenda:remover', id),
+    conferirAgora: (id) => ipcRenderer.invoke('agenda:conferirAgora', id),
+  },
   novidades: { pendentes: () => ipcRenderer.invoke('novidades:pendentes'), ler: (versao) => ipcRenderer.invoke('novidades:ler', { versao }) },
   componentes: {
     estado: () => ipcRenderer.invoke('componentes:estado'),

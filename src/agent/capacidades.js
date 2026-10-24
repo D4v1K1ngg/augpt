@@ -83,6 +83,12 @@ const CAPACIDADES = [
     faz: 'mostra um lugar no mapa e no globo (cidade, país, endereço, ponto turístico) e calcula a rota, a distância e o tempo entre dois lugares de carro, a pé e de bicicleta',
     quando: 'onde fica um lugar, ver no mapa, distância, quanto tempo leva para ir de um lugar a outro, como chegar',
   },
+  {
+    id: 'agenda',
+    executa: true,
+    faz: 'anota lembretes com aviso na hora (dia e hora), ideias e planos, e acompanha um assunto e avisa quando houver novidade (lançamento, estreia); lista e cancela o que está na agenda',
+    quando: 'o usuário pede para ser lembrado ou avisado de algo, anotar um compromisso, ver ou cancelar a agenda',
+  },
   { id: 'grafico', faz: 'monta gráficos interativos na resposta (colunas, linhas, área, pizza, projeção com estimativas) com dados pesquisados ou dados que o usuário der', quando: 'comparar números, evolução no tempo, partes de um total', comoUsar: 'peça "monte um gráfico com…"' },
   { id: 'visual', faz: 'cria uma página interativa que roda na resposta (calculadora, simulação, animação, quiz, painel)', quando: 'o usuário quer uma ferramenta interativa', comoUsar: 'peça "crie uma calculadora/simulação de…"' },
   { id: 'criar_imagem', precisa: 'gerarImagem', faz: 'cria e edita imagens no computador do usuário (FLUX.2 Klein)', quando: 'o usuário quer uma imagem, ilustração, logo ou edição de foto', comoUsar: 'peça "crie uma imagem de…" ou anexe a foto e peça a edição' },
@@ -167,6 +173,9 @@ function aceitouOferta(texto, conversa = []) {
   const t = String(texto || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   const pesquisa = /(?:Quer que eu pesquise|Want me to research) \*\*(.+?)\*\*\? (?:É só responder|Just reply)/.exec(String(ultima.content || ''));
   if (pesquisa && SIM.test(t) && t.length <= 60) return { id: 'pesquisa', pergunta: `pesquise ${pesquisa[1]}` };
+  // a oferta da agenda no fim da pesquisa (23/10): "Quer que eu acompanhe **RTX 60** …?" + "sim"
+  const acompanhar = /(?:Quer que eu acompanhe|Want me to keep an eye on) \*\*(.+?)\*\*/.exec(String(ultima.content || ''));
+  if (acompanhar && SIM.test(t) && t.length <= 60) return { id: 'agenda', pergunta: `acompanhe ${acompanhar[1]}` };
   const oferecida = CAPACIDADES.find((c) => c.executa && [c.oferta, OFERTAS_EN[c.id]].some((o) => o && String(ultima.content || '').includes(o.slice(0, 40))));
   if (!oferecida) return null;
   if (oferecida.id === 'teste_de_rede' && /\bso (o )?(ping|latencia)\b|\bjust (the )?ping\b|\bonly (the )?ping\b/.test(t)) return { id: oferecida.id, modo: 'ping' };
@@ -315,6 +324,7 @@ const UTILITARIOS = [
   { id: 'ver_imagem', grupo: 'Criar', icone: 'olho', nome: 'Ler fotos e prints', descricao: 'Olha a foto ou o print que você anexar e lê o texto dele.', dica: 'Anexe a imagem pelo + da caixa de mensagem e faça a pergunta.' },
   { id: 'navegador', grupo: 'Sites e arquivos', icone: 'globo', nome: 'Navegar em sites', descricao: 'Abre sites no navegador do AuGPT, faz login, clica, preenche formulários e baixa arquivos.', exemplo: 'acesse https://www.kabum.com.br e procure monitores de 144 Hz' },
   { id: 'arquivos', grupo: 'Sites e arquivos', icone: 'arquivo', nome: 'Ler e criar arquivos', descricao: 'Lê e cria planilhas, documentos, PDFs e código na sua pasta de trabalho.', exemplo: 'crie uma planilha para eu anotar meus gastos do mês' },
+  { id: 'agenda', rota: 'agenda', grupo: 'Dia a dia', icone: 'sino', nome: 'Agenda e lembretes', descricao: 'Lembretes com aviso na hora, ideias e planos, e assuntos que o AuGPT acompanha para você (lançamentos, estreias).', exemplo: 'me lembra amanhã às 9h de pagar a conta' },
   { id: 'calendario', rota: 'calendario', grupo: 'Dia a dia', icone: 'calendario', nome: 'Calendário e feriados', descricao: 'A data de hoje, os feriados nacionais, quantos dias faltam e em que dia da semana cai, num calendário para navegar.', exemplo: 'quais feriados temos este mês?' },
   { id: 'clima', rota: 'clima', grupo: 'Dia a dia', icone: 'nuvem', nome: 'Clima e previsão', descricao: 'O tempo agora, as próximas horas e os 7 dias de qualquer cidade (Open-Meteo).', exemplo: 'vai chover amanhã em Campinas?' },
   { id: 'mapa', rota: 'mapa', grupo: 'Dia a dia', icone: 'mapa', nome: 'Mapa e rotas', descricao: 'Mostra o lugar num globo e calcula a rota, a distância e o tempo de carro, a pé e de bicicleta (OpenStreetMap).', exemplo: 'quanto tempo de Campinas até São Paulo?' },
