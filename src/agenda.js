@@ -15,6 +15,7 @@ const path = require('path');
 
 const HORA_DO_AVISO_DO_DIA = '09:00'; // lembrete sem hora: avisa às 9h do dia
 const INTERVALO_DO_ACOMPANHAMENTO = 20 * 3600 * 1000; // uma checagem por dia (com folga)
+const INTERVALO_DO_PRECO = 6 * 3600 * 1000; // alerta de preço: só consulta as lojas, é leve
 
 /** "2026-10-24T15:00" → Date na hora local. */
 const paraData = (quando) => {
@@ -66,7 +67,8 @@ class Agenda {
       feito: false,
       avisado: false,
       criado: new Date().toISOString(),
-      ...(tipo === 'acompanhar' ? { acompanhar: { assunto: String(dados.assunto || titulo).trim().slice(0, 120), status: 'ativo', ultimaVerificacao: 0, resumo: '', data: null } } : {}),
+      // `limite` (24/10): alerta de preço — confere as lojas (sem modelo) e avisa abaixo do valor
+      ...(tipo === 'acompanhar' ? { acompanhar: { assunto: String(dados.assunto || titulo).trim().slice(0, 120), status: 'ativo', ultimaVerificacao: 0, resumo: '', data: null, ...(Number(dados.limite) > 0 ? { limite: Number(dados.limite), menor: null, link: null } : {}) } } : {}),
     };
     if (item.tipo === 'lembrete' && !item.quando) item.tipo = 'ideia';
     this.gravar([...this.listar(), item]);
@@ -102,9 +104,9 @@ class Agenda {
     });
   }
 
-  /** Assuntos acompanhados que não foram conferidos nas últimas ~20 h. */
+  /** Assuntos acompanhados que não foram conferidos nas últimas ~20 h (alerta de preço: 6 h — não usa o modelo). */
   paraConferir(agora = Date.now()) {
-    return this.listar().filter((i) => i.tipo === 'acompanhar' && i.acompanhar?.status === 'ativo' && agora - (Number(i.acompanhar.ultimaVerificacao) || 0) >= INTERVALO_DO_ACOMPANHAMENTO);
+    return this.listar().filter((i) => i.tipo === 'acompanhar' && i.acompanhar?.status === 'ativo' && agora - (Number(i.acompanhar.ultimaVerificacao) || 0) >= (i.acompanhar.limite ? INTERVALO_DO_PRECO : INTERVALO_DO_ACOMPANHAMENTO));
   }
 }
 

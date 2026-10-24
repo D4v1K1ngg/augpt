@@ -16,6 +16,8 @@ const A_VISTA = /^(priceWithDiscount|pixPrice|priceWithPix|cashPrice|precoAVista
 const URL_CAMPO = /^(url|link|href|productUrl|seoUrl|permalink|canonicalUrl)$/i;
 const LOJA = /^(sellerName|seller|storeName|loja|vendedor)$/i;
 const LOJAS = /^(storeCount|stores|numberOfStores|offersCount)$/i;
+// a foto do produto (24/10, cartão de compras)
+const IMAGEM = /^(image|imagem|imageUrl|imageURL|thumbnail|thumbnailUrl|thumb|img|photo|foto)$/i;
 
 const numero = (v) => {
   if (typeof v === 'number') return v;
@@ -49,6 +51,9 @@ function comoOferta(o, base) {
   const url = kUrl ? absoluta(o[kUrl], base) : o.friendlyName && o.code ? absoluta(`/produto/${o.code}/${o.friendlyName}`, base) : ofertaLd?.url ? absoluta(ofertaLd.url, base) : null;
   const kLoja = chaves.find((k) => LOJA.test(k) && typeof o[k] === 'string' && o[k].trim());
   const kLojas = chaves.find((k) => LOJAS.test(k) && numero(o[k]) > 1);
+  const kImagem = chaves.find((k) => IMAGEM.test(k) && (typeof o[k] === 'string' || Array.isArray(o[k]) || (o[k] && typeof o[k] === 'object')));
+  const imagemBruta = kImagem ? (Array.isArray(o[kImagem]) ? o[kImagem][0] : o[kImagem]) : null;
+  const imagem = imagemBruta && absoluta(typeof imagemBruta === 'string' ? imagemBruta : imagemBruta.url || imagemBruta.contentUrl || '', base);
   const avista = kAvista ? numero(o[kAvista]) : NaN;
   return {
     nome: String(o[kNome]).replace(/\s+/g, ' ').trim().slice(0, 160),
@@ -58,6 +63,7 @@ function comoOferta(o, base) {
     url,
     vendedor: kLoja ? String(o[kLoja]).trim().slice(0, 60) : null,
     lojas: kLojas ? numero(o[kLojas]) : null,
+    imagem: imagem && /^https?:/.test(imagem) ? imagem : null,
   };
 }
 

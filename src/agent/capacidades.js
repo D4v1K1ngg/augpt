@@ -84,6 +84,13 @@ const CAPACIDADES = [
     quando: 'onde fica um lugar, ver no mapa, distância, quanto tempo leva para ir de um lugar a outro, como chegar',
   },
   {
+    id: 'compras',
+    executa: true,
+    responde: true,
+    faz: 'mostra o preço de hoje de um produto específico em várias lojas (Zoom, Buscapé, KaBuM!, Americanas), com foto, loja e link de compra, do menor para o maior, num cartão',
+    quando: 'quanto custa, preço, onde comprar ou menor preço de um produto que o usuário já escolheu (não recomendação nem comparação)',
+  },
+  {
     id: 'agenda',
     executa: true,
     faz: 'anota lembretes com aviso na hora (dia e hora), ideias e planos, e acompanha um assunto e avisa quando houver novidade (lançamento, estreia); lista e cancela o que está na agenda',
@@ -324,6 +331,7 @@ const UTILITARIOS = [
   { id: 'ver_imagem', grupo: 'Criar', icone: 'olho', nome: 'Ler fotos e prints', descricao: 'Olha a foto ou o print que você anexar e lê o texto dele.', dica: 'Anexe a imagem pelo + da caixa de mensagem e faça a pergunta.' },
   { id: 'navegador', grupo: 'Sites e arquivos', icone: 'globo', nome: 'Navegar em sites', descricao: 'Abre sites no navegador do AuGPT, faz login, clica, preenche formulários e baixa arquivos.', exemplo: 'acesse https://www.kabum.com.br e procure monitores de 144 Hz' },
   { id: 'arquivos', grupo: 'Sites e arquivos', icone: 'arquivo', nome: 'Ler e criar arquivos', descricao: 'Lê e cria planilhas, documentos, PDFs e código na sua pasta de trabalho.', exemplo: 'crie uma planilha para eu anotar meus gastos do mês' },
+  { id: 'compras', rota: 'compras', grupo: 'Pesquisa', icone: 'carrinho', nome: 'Preços nas lojas', descricao: 'O preço de hoje de um produto em várias lojas, do menor para o maior, com foto e link — e aviso de preço suspeito.', exemplo: 'quanto está a rtx 5080?' },
   { id: 'agenda', rota: 'agenda', grupo: 'Dia a dia', icone: 'sino', nome: 'Agenda e lembretes', descricao: 'Lembretes com aviso na hora, ideias e planos, e assuntos que o AuGPT acompanha para você (lançamentos, estreias).', exemplo: 'me lembra amanhã às 9h de pagar a conta' },
   { id: 'calendario', rota: 'calendario', grupo: 'Dia a dia', icone: 'calendario', nome: 'Calendário e feriados', descricao: 'A data de hoje, os feriados nacionais, quantos dias faltam e em que dia da semana cai, num calendário para navegar.', exemplo: 'quais feriados temos este mês?' },
   { id: 'clima', rota: 'clima', grupo: 'Dia a dia', icone: 'nuvem', nome: 'Clima e previsão', descricao: 'O tempo agora, as próximas horas e os 7 dias de qualquer cidade (Open-Meteo).', exemplo: 'vai chover amanhã em Campinas?' },

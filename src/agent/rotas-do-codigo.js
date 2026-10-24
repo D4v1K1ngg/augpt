@@ -22,6 +22,7 @@ const calendario = require('./calendario-no-chat');
 const clima = require('./clima-no-chat');
 const mapa = require('./mapa-no-chat');
 const agenda = require('./agenda-no-chat');
+const compras = require('./compras-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -61,6 +62,14 @@ const ROTAS = [
     detecta: ({ objetivo }) => mapa.pedidoDeMapa(objetivo),
     intencao: (objetivo) => mapa.intencaoDeMapa(objetivo),
     responde: ({ objetivo, conversa, deps, config, pasta, ent }, pedido) => mapa.responderMapa({ pergunta: objetivo, conversa, deps, config, pasta, lugares: ent?.lugares, ...(pedido ? { pedido } : {}) }),
+  },
+  {
+    // "quanto está a RTX 5080?", "preço do PS5 Slim", "onde comprar o G Pro X Superlight 2" (24/10):
+    // as ofertas de Zoom, Buscapé, KaBuM! e Americanas num cartão; sem o produto exato, a pesquisa responde
+    id: 'compras',
+    detecta: ({ objetivo }) => compras.pedidoDeCompras(objetivo),
+    intencao: (objetivo) => compras.intencaoDeCompras(objetivo),
+    responde: ({ objetivo, deps, config, dirImagens, ent }, pedido) => compras.responderCompras({ pergunta: objetivo, deps, config, dirImagens, ...(pedido ? { pedido } : ent?.assuntos?.[0] ? { pedido: { produto: ent.assuntos[0] } } : {}) }),
   },
   {
     // "o que você pode fazer?": a mesma lista da aba Utilitários, montada pelo código

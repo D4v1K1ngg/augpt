@@ -305,6 +305,10 @@
     "Captando som ✓ — {nome}": "Picking up sound ✓ — {nome}",
     "Nenhum som em {nome}. Escolha outro microfone na lista e teste de novo.": "No sound on {nome}. Pick another microphone from the list and test again.",
     "Não consegui abrir o microfone ({erro}).": "I couldn't open the microphone ({erro}).",
+    "Ver oferta": "See offer",
+    "Preços nas lojas": "Store prices",
+    "O preço de hoje de um produto em várias lojas, do menor para o maior, com foto e link — e aviso de preço suspeito.": "Today's price of a product in several stores, from lowest to highest, with photo and link — and a warning for suspicious prices.",
+    "quanto está a rtx 5080?": "how much is the rtx 5080?",
     // Agenda (23/10)
     "Agenda": "Agenda",
     "Lembretes com aviso na hora, ideias e planos, e assuntos que o AuGPT acompanha para você. Também dá para pedir no chat:": "Reminders that notify you on time, ideas and plans, and topics AuGPT keeps an eye on for you. You can also ask in the chat:",

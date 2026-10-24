@@ -486,6 +486,37 @@ body:not(.mostrar-tecnico) .tecnico { display: none !important; }
 .cal-com-agenda::before { content: ""; position: absolute; top: 4px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
 .cal-lista .cal-agenda .cal-lista-dia { color: var(--gold); }
 
+/* =============================== compras (24/10, renderer/compras.js) =============================== */
+.compras { width: min(100%, 860px); margin: 4px 0 16px; padding: 14px; border: 1px solid var(--line-forte); border-radius: 14px; background: var(--panel); }
+.compras-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.compras-titulo { font-size: 14px; }
+.compras-titulo b { font-weight: 600; }
+.compras-fontes { font-size: 11px; color: var(--muted); }
+.compras-filtros { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.compras-ordem { height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel-2); color: var(--text); font: inherit; font-size: 12px; }
+.compras-chip { height: 28px; padding: 0 12px; border: 1px solid var(--line); border-radius: 14px; background: none; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.compras-chip:hover { border-color: var(--gold); }
+.compras-chip-ativo { background: rgba(224, 176, 79, 0.15); border-color: var(--gold); color: var(--gold); }
+.compras-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.compras-oferta { display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--text); text-decoration: none; transition: border-color 0.15s, transform 0.15s; }
+.compras-oferta:hover { border-color: var(--gold); transform: translateY(-1px); }
+.compras-parecida { opacity: 0.75; }
+.compras-suspeita { border-color: rgba(234, 107, 94, 0.6); }
+.compras-foto { position: relative; height: 130px; border-radius: 8px; background: #fff; display: grid; place-items: center; overflow: hidden; margin-bottom: 4px; }
+.compras-foto img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.compras-selo { position: absolute; top: 6px; left: 6px; padding: 2px 7px; border-radius: 6px; background: #3b82f6; color: #fff; font-size: 10.5px; font-weight: 600; }
+.compras-nome { font-size: 12px; line-height: 1.35; color: #8ab4f8; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; min-height: 48px; }
+:root[data-theme="light"] .compras-nome { color: #1a5dc8; }
+.compras-preco { font-size: 15px; font-weight: 700; color: var(--text-forte); }
+.compras-parcelas { font-size: 11px; color: var(--muted); }
+.compras-loja { font-size: 12px; color: var(--muted); }
+.compras-aviso { font-size: 11px; color: var(--red); }
+.compras-nada { grid-column: 1 / -1; padding: 16px; text-align: center; color: var(--muted); font-size: 12.5px; }
+.compras-mais { display: block; margin: 12px auto 0; height: 30px; padding: 0 14px; border: 1px solid var(--line); border-radius: 15px; background: none; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.compras-mais:hover { border-color: var(--gold); }
+.compras-mais[hidden] { display: none; }
+.compras-rodape { margin-top: 10px; font-size: 10.5px; color: var(--muted); }
+
 /* =============================== agenda (23/10) =============================== */
 .nav-contador { margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--gold); color: #1a1406; font-size: 10.5px; font-weight: 700; display: grid; place-items: center; }
 .nav-contador[hidden] { display: none; }

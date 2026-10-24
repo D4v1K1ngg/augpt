@@ -1058,7 +1058,39 @@ function verificarAgenda() {
   if (proximo) conferirAcompanhamento(proximo).catch((err) => console.warn('acompanhamento:', err.message));
 }
 
+/** Alerta de preço (24/10): só as lojas (src/tools/precos.js), sem modelo; avisa abaixo do valor. */
+async function conferirPreco(item) {
+  const assunto = item.acompanhar.assunto;
+  const marcador = { parar() {} };
+  conferindo = marcador;
+  enviar('agenda-conferindo', { id: item.id, conferindo: true });
+  const en = idiomaEfetivo() === 'en';
+  const reais = (v) => `R$ ${Number(v).toLocaleString(en ? 'en-US' : 'pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  try {
+    const precos = require('../src/tools/precos');
+    const r = await precos.buscarOfertas(assunto).catch((err) => ({ erro: err.message, ofertas: [] }));
+    const menor = precos.menorConfiavel(r.ofertas || []);
+    const aconteceu = Boolean(menor && menor.preco <= item.acompanhar.limite);
+    agenda.atualizar(item.id, {
+      acompanhar: {
+        ultimaVerificacao: Date.now(),
+        erro: r.erro || (menor ? null : en ? 'no offer for this exact product' : 'nenhuma oferta do produto exato'),
+        menor: menor?.preco ?? null,
+        link: menor?.link ?? null,
+        resumo: menor ? (en ? `lowest today: ${reais(menor.preco)} at ${menor.loja}` : `menor hoje: ${reais(menor.preco)} na ${menor.loja}`) : '',
+        ...(aconteceu ? { status: 'aconteceu' } : {}),
+      },
+    });
+    if (aconteceu) avisar(en ? `Price drop: ${assunto}` : `Baixou: ${assunto}`, `${reais(menor.preco)} — ${menor.loja}`, item);
+  } finally {
+    if (conferindo === marcador) conferindo = null;
+    enviar('agenda-conferindo', { id: item.id, conferindo: false });
+    enviar('agenda-mudou', {});
+  }
+}
+
 async function conferirAcompanhamento(item) {
+  if (item.acompanhar?.limite) return conferirPreco(item);
   const assunto = item.acompanhar?.assunto || item.titulo;
   const cfg = { ...configParaAgente(), modoDePesquisa: 'normal', imagensNasRespostas: false, ondeComprar: false };
   const silencioso = new Agent({ config: cfg, userDataPath: app.getPath('userData'), render: null, navegador: null, skills });

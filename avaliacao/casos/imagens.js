@@ -62,6 +62,7 @@ module.exports = [
           'https://a.com/foto.jpg': { tipo: 'image/jpeg', buffer: JPEG },
           'https://a.com/disfarce.jpg': { tipo: 'image/jpeg', buffer: Buffer.from('<html><script>alert(1)</script></html>') },
           'https://a.com/troca.jpg': { tipo: 'image/jpeg', buffer: PNG },
+          'https://a.com/rotulo.jpg': { tipo: 'text/html', buffer: JPEG },
           'https://a.com/grande.jpg': { tipo: 'image/jpeg', buffer: Buffer.concat([JPEG, Buffer.alloc(imagens.MAX_BYTES + 1, 2)]) },
         },
       });
@@ -74,7 +75,9 @@ module.exports = [
         !/\d/.test(nome) || 'nome com dígito: o verificador leria como número da resposta',
         (nome && fs.existsSync(path.join(dir, nome))) || 'o arquivo deveria estar gravado',
         (await imagens.guardarImagem('https://a.com/disfarce.jpg', opcoes)) === null || 'HTML disfarçado de imagem entrou',
-        (await imagens.guardarImagem('https://a.com/troca.jpg', opcoes)) === null || 'tipo declarado diferente dos bytes entrou',
+        // 24/10: rótulo de outro formato de imagem não barra (o Zoom rotula JPEG como webp); vale o que os bytes são
+        /\.png$/.test(String(await imagens.guardarImagem('https://a.com/troca.jpg', opcoes))) || 'imagem com rótulo de outro formato de imagem: grava pelo formato real',
+        (await imagens.guardarImagem('https://a.com/rotulo.jpg', opcoes)) === null || 'rótulo que não é de imagem entrou',
         (await imagens.guardarImagem('https://a.com/grande.jpg', opcoes)) === null || 'imagem acima do limite entrou',
         (await imagens.guardarImagem('https://a.com/sumiu.jpg', opcoes)) === null || '404 não é imagem',
         (await imagens.guardarImagem('file:///C:/Windows/win.ini', opcoes)) === null || 'só http(s)',

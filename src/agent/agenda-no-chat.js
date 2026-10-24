@@ -135,11 +135,26 @@ function assuntoDe(texto) {
   return s ? s[0].toUpperCase() + s.slice(1) : '';
 }
 
+const ALERTA_DE_PRECO = re(`${L}(?:me avis(?:a|e)|avis[ae]-me|me notifiqu?e|let me know|notify me|tell me)\\s+(?:quando|se|assim que|when|if|once)\\s+(.+?)\\s+(?:ficar|estiver|baixar|cair|chegar|custar|for|sair|goes|drops|falls|is|gets)\\s+(?:(?:para|pra|a|por|to)\\s+)?(?:abaixo de|menos de|por menos de|at[ée]|em|a|below|under|less than)?\\s*(?:r\\$\\s*)?(\\d[\\d.,]*)\\s*(mil|k)?${R}`);
+/** "10.000", "9.999,90", "10 mil", "10k", "10000" → número. */
+function valorEmReais(texto, mil) {
+  const t = String(texto || '');
+  const n = /,\d{1,2}$/.test(t) ? Number(t.replace(/\./g, '').replace(',', '.')) : Number(t.replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? (mil ? n * 1000 : n) : 0;
+}
+
 /** O pedido de agenda: { acao: 'criar'|'acompanhar'|'listar'|'cancelar', ... } ou null. */
 function pedidoDeAgenda(pergunta, agora = new Date()) {
   const original = String(pergunta || '').replace(/\s+/g, ' ').trim();
   if (!original || original.length > 220) return null;
   const t = original.toLowerCase();
+  // alerta de preço (24/10): "me avise quando a RTX 5080 ficar abaixo de R$ 10.000"
+  const alerta = ALERTA_DE_PRECO.exec(original);
+  if (alerta) {
+    const limite = valorEmReais(alerta[2], alerta[3]);
+    const produto = assuntoDe(alerta[1]);
+    if (limite > 0 && produto.length >= 2) return { acao: 'acompanhar', assunto: produto, limite };
+  }
   const acomp = ACOMPANHAR.exec(t);
   if (acomp) {
     const q = quandoNoTexto(original, agora);
@@ -197,6 +212,14 @@ function responderAgenda({ pergunta, deps = {}, config = {}, pasta, agora = new 
   };
   const ONDE = en ? 'You can see it in **Agenda**, on the left bar.' : 'Está em **Agenda**, na barra da esquerda.';
 
+  if (p.acao === 'acompanhar' && p.limite) {
+    const reais = (v) => `R$ ${v.toLocaleString(en ? 'en-US' : 'pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const titulo = en ? `${p.assunto} below ${reais(p.limite)}` : `${p.assunto} abaixo de ${reais(p.limite)}`;
+    agenda.adicionar({ tipo: 'acompanhar', titulo, assunto: p.assunto, limite: p.limite });
+    return fim(en
+      ? `Done ✓ I'll check the price of **${p.assunto}** in the stores every 6 hours (while AuGPT is open) and let you know when it's below **${reais(p.limite)}**. ${ONDE}`
+      : `Combinado ✓ Vou conferir o preço de **${p.assunto}** nas lojas a cada 6 horas (com o AuGPT aberto) e te aviso quando ficar abaixo de **${reais(p.limite)}**. ${ONDE}`);
+  }
   if (p.acao === 'acompanhar') {
     const item = agenda.adicionar({ tipo: 'acompanhar', titulo: p.assunto, assunto: p.assunto });
     return fim(en

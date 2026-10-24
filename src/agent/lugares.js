@@ -77,6 +77,10 @@ function rastroDoCartao(tipo, json) {
     if (tipo === 'mapa') return j.tipo === 'rota' ? `[cartão de mapa: ${curto(j.origem)} → ${curto(j.destino)}]` : `[cartão de mapa: ${curto(j.lugar)}]`;
     if (tipo === 'clima') return `[cartão de clima: ${j.local}]`;
     if (tipo === 'calendario') return `[cartão de calendário: ${j.mes}/${j.ano}]`;
+    if (tipo === 'compras') {
+      const menor = (j.ofertas || []).filter((o) => o.exato && !o.suspeito).sort((x, y) => x.preco - y.preco)[0];
+      return `[cartão de compras: ${j.produto}${menor ? ` — menor preço R$ ${menor.preco} na ${menor.loja}` : ''}]`;
+    }
   } catch {
     // JSON quebrado: sem rastro
   }

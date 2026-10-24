@@ -61,7 +61,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
   // o JSON dos cartões (calendário, clima, mapa; 23/10) é para a tela desenhar: no histórico, fica
   // só um rastro curto do que o cartão mostrou ("[cartão de mapa: Iconha, Espírito Santo]"), para o
   // modelo e as rotas entenderem "e o clima lá?"
-  const conversa = (Array.isArray(conversaCrua) ? conversaCrua : []).map((m) => (typeof m?.content === 'string' && /```(calendario|clima|mapa)\n/.test(m.content) ? { ...m, content: m.content.replace(/\n*```(calendario|clima|mapa)\n([\s\S]*?)```/g, (_, tipo, json) => `\n${lugares.rastroDoCartao(tipo, json)}`) } : m));
+  const conversa = (Array.isArray(conversaCrua) ? conversaCrua : []).map((m) => (typeof m?.content === 'string' && /```(calendario|clima|mapa|compras)\n/.test(m.content) ? { ...m, content: m.content.replace(/\n*```(calendario|clima|mapa|compras)\n([\s\S]*?)```/g, (_, tipo, json) => `\n${lugares.rastroDoCartao(tipo, json)}`) } : m));
   // prova com várias questões (18/10): ~700 tokens por questão resolvida; o
   // padrão de 3.072 cortava a resposta na 4ª de 10
   const questoes = new Set((String(objetivo).match(/\bquest(?:ão|ao)\s*(\d+)/gi) || []).map((q) => q.replace(/\D/g, ''))).size;

@@ -93,8 +93,10 @@ async function guardarImagem(url, { dir, config = {}, deps = {}, pagina = null }
     });
     if (!r?.ok || !r.buffer?.length || r.buffer.length > MAX_BYTES) return null;
     const ext = extensaoPelosBytes(r.buffer);
-    const declarado = TIPOS[String(r.tipo || '').split(';')[0].trim().toLowerCase()];
-    if (!ext || (declarado && declarado !== ext)) return null;
+    // o que vale são os bytes (JPEG, PNG ou WebP de verdade). O rótulo só barra o que não diz ser
+    // imagem (24/10: o servidor de fotos do Zoom rotula JPEG como "image/webp" — eram recusadas)
+    const declarado = String(r.tipo || '').split(';')[0].trim().toLowerCase();
+    if (!ext || (declarado && !declarado.startsWith('image/') && declarado !== 'application/octet-stream')) return null;
     const nome = nomeDoArquivo(url, ext);
     fs.mkdirSync(dir, { recursive: true });
     const destino = path.join(dir, nome);

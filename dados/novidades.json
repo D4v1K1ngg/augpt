@@ -1,5 +1,25 @@
 [
   {
+    "versao": "0.37.0",
+    "data": "2026-10-24",
+    "pt": {
+      "titulo": "Preços nas lojas, no estilo do Google Shopping",
+      "itens": [
+        "**Pergunte o preço:** \"quanto está a RTX 5080?\", \"preço do PS5 Slim\", \"onde comprar o G Pro X Superlight 2\". O AuGPT junta as ofertas de Zoom, Buscapé, KaBuM! e Americanas (que cobrem Magazine Luiza, Amazon, Terabyte e outras) num cartão com foto, preço, parcelas, loja e link — do menor para o maior, com filtros de loja e de novo/usado.",
+        "**Aviso de preço suspeito:** oferta muito abaixo das outras (como uma RTX 5080 por R$ 3.964 entre outras de R$ 10 mil) ganha um alerta de possível golpe. Modelo vizinho, notebook e acessório ficam separados do produto que você pediu.",
+        "**Alerta de preço na Agenda:** \"me avise quando a RTX 5080 ficar abaixo de R$ 10.000\" — o AuGPT confere as lojas a cada 6 horas e avisa no Windows quando baixar, com o link da oferta."
+      ]
+    },
+    "en": {
+      "titulo": "Store prices, Google Shopping style",
+      "itens": [
+        "**Ask for the price:** \"how much is the RTX 5080?\", \"PS5 Slim price\", \"where to buy the G Pro X Superlight 2\". AuGPT gathers offers from Zoom, Buscapé, KaBuM! and Americanas (which cover Magazine Luiza, Amazon, Terabyte and others) into a card with photo, price, installments, store and link — from lowest to highest, with store and new/used filters.",
+        "**Suspicious price warning:** an offer far below the others (like an RTX 5080 for R$ 3,964 among others at R$ 10k) gets a possible-scam warning. Neighbouring models, laptops and accessories are kept apart from the product you asked for.",
+        "**Price alert in the Agenda:** \"let me know when the RTX 5080 goes below R$ 10,000\" — AuGPT checks the stores every 6 hours and notifies you in Windows when it drops, with the offer link."
+      ]
+    }
+  },
+  {
     "versao": "0.36.0",
     "data": "2026-10-24",
     "pt": {

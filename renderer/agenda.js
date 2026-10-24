@@ -116,9 +116,12 @@
       const meta = a.status === 'aconteceu'
         ? `${tr('Aconteceu')} — ${a.resumo || ''}`
         : [quando ? tr('conferido em {quando}', { quando }) : tr('ainda não conferido (a primeira checagem sai em alguns minutos, com o agente parado)'), a.erro ? tr('não deu para conferir: {erro}', { erro: a.erro }) : '', a.data ? tr('data confirmada: {data}', { data: paraData(a.data).toLocaleDateString(locale()) }) : '', a.resumo].filter(Boolean).join(' — ');
+      // alerta de preço: "Ver oferta" abre a loja do menor preço (link da última checagem)
+      const verOferta = a.link ? [{ rotulo: tr('Ver oferta'), fazer: () => window.open(a.link, '_blank') }] : [];
       acomp.append(linha(i, {
         meta,
-        acoes: a.status === 'aconteceu' ? [] : [
+        acoes: a.status === 'aconteceu' ? verOferta : [
+          ...verOferta,
           { rotulo: estado.conferindo === i.id ? tr('conferindo…') : tr('Conferir agora'), desligado: Boolean(estado.conferindo), fazer: async () => {
             const r = await api.agenda.conferirAgora(i.id);
             $('agendaNota').textContent = r.ok ? tr('Conferindo {titulo} em segundo plano…', { titulo: i.titulo }) : r.error;
