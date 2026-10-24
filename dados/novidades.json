@@ -1,5 +1,25 @@
 [
   {
+    "versao": "0.36.0",
+    "data": "2026-10-24",
+    "pt": {
+      "titulo": "Ditado por voz",
+      "itens": [
+        "**Fale em vez de digitar:** o botão de microfone na caixa de mensagem (ou Ctrl+Shift+Espaço). Ele para sozinho quando você para de falar e o texto aparece na caixa para você revisar — ou é enviado direto, se você ligar \"enviar sozinho\" em Ajustes → Geral.",
+        "Roda 100% no seu computador, no processador (a placa de vídeo fica com o modelo de texto), com o Whisper large-v3-turbo: a voz não sai do PC. Uma frase de 8 segundos vira texto em cerca de 2 segundos.",
+        "Para usar, instale **Ditado por voz** em Ajustes → Componentes (cerca de 580 MB, com o SHA-256 conferido). O AuGPT só usa o microfone enquanto o botão está gravando."
+      ]
+    },
+    "en": {
+      "titulo": "Voice dictation",
+      "itens": [
+        "**Speak instead of typing:** the microphone button in the message box (or Ctrl+Shift+Space). It stops by itself when you stop talking and the text appears in the box for you to review — or is sent right away, if you turn on \"send automatically\" in Settings → General.",
+        "Runs 100% on your computer, on the processor (the graphics card stays with the text model), with Whisper large-v3-turbo: your voice never leaves the PC. An 8-second sentence becomes text in about 2 seconds.",
+        "To use it, install **Voice dictation** in Settings → Components (about 580 MB, SHA-256 checked). AuGPT only uses the microphone while the button is recording."
+      ]
+    }
+  },
+  {
     "versao": "0.35.0",
     "data": "2026-10-23",
     "pt": {

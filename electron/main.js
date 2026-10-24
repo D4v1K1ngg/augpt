@@ -15,7 +15,7 @@ const { Sandbox, podeAbrirComAppPadrao } = require('../src/tools/sandbox');
 const { Memory } = require('../src/agent/memory');
 const { renderizar } = require('./render');
 const { SessaoNavegador } = require('./navegador');
-const { negarPermissoes } = require('./sessao-segura');
+const { negarPermissoes, soMicrofoneDe } = require('./sessao-segura');
 const { Skills } = require('../src/skills');
 const tools = require('../src/tools');
 const { Conversas } = require('../src/conversas');
@@ -984,6 +984,35 @@ function iniciarAgendador() {
   setTimeout(verificarAgenda, 5000); // o que venceu com o app fechado (até 12 h) avisa logo ao abrir
 }
 
+/* ------------------------------ ditado por voz (24/10) ------------------------------ */
+// O Whisper roda no processador (src/ditado.js); a tela grava, converte para WAV 16 kHz e manda os
+// bytes; o arquivo temporário é apagado logo depois. Instala só no clique (Ajustes → Componentes).
+const { Ditado } = require('../src/ditado');
+let ditado = null;
+ipcMain.handle('ditado:estado', () => (ditado ? ditado.estado() : { instalado: false }));
+ipcMain.handle('ditado:instalar', async () => {
+  try {
+    return { ok: true, estado: await ditado.instalar({ emitir: (p) => enviar('ditado-progresso', p) }) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('ditado:transcrever', async (_e, bytes) => {
+  if (!ditado?.instalado()) return { ok: false, error: 'nao-instalado' };
+  const audio = Buffer.from(bytes || []);
+  // só WAV, até 3 minutos (16 kHz × 16 bits × mono)
+  if (audio.length < 1000 || audio.length > 44 + 32000 * 180 || audio.toString('latin1', 0, 4) !== 'RIFF' || audio.toString('latin1', 8, 12) !== 'WAVE') return { ok: false, error: 'áudio inválido' };
+  const arquivo = path.join(app.getPath('temp'), `augpt-ditado-${Date.now()}.wav`);
+  try {
+    fs.writeFileSync(arquivo, audio);
+    return { ok: true, ...(await ditado.transcrever(arquivo, { idioma: idiomaEfetivo() })) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  } finally {
+    fs.rmSync(arquivo, { force: true });
+  }
+});
+
 /* ------------------------------ agenda (23/10, bloco 2) ------------------------------ */
 // Lembretes avisam pelo Windows na hora (com o AuGPT aberto); assuntos acompanhados são conferidos
 // uma vez por dia, em segundo plano, por um agente separado que não aparece no chat — só com o
@@ -1727,7 +1756,8 @@ app.whenReady().then(() => {
   // Fase 1 de segurança (2026-09-23): a sessão padrão (janela principal e a
   // de Execuções) não precisa de câmera, microfone, notificação nem nada do
   // tipo — o Electron concede tudo por padrão se ninguém disser o contrário.
-  negarPermissoes(session.defaultSession);
+  // 24/10: a exceção é o microfone da janela principal (só áudio), para o ditado por voz
+  negarPermissoes(session.defaultSession, { permitir: soMicrofoneDe(() => win?.webContents, () => ditado?.instalado()) });
   // Fase 3 (16/10): o player do youtube-nocookie.com (só no clique na miniatura) exige Referer —
   // sem ele, "Erro 153". Vale só para esse endereço.
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/*'] }, (detalhes, responder) => {
@@ -1754,6 +1784,7 @@ app.whenReady().then(() => {
   };
   conversas = new Conversas(path.join(app.getPath('userData'), 'conversas'));
   agenda = new Agenda(app.getPath('userData'));
+  ditado = new Ditado(path.join(app.getPath('userData'), 'componentes'));
   // os avisos do Windows saem com o nome do AuGPT (sem isto, no Windows não aparecem fora do instalador)
   if (process.platform === 'win32') app.setAppUserModelId('com.davi.augpt');
   registros = new Registros(path.join(app.getPath('userData'), 'execucoes'));

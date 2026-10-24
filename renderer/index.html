@@ -598,6 +598,9 @@
           <label class="linha"><span class="linha-texto"><span>Como você quer ser chamado?</span><small>O AuGPT usa o nome para falar com você. Fica só neste computador.</small></span>
             <input type="text" id="ajNome" maxlength="60" placeholder="Seu nome" />
           </label>
+          <label class="linha"><span class="linha-texto"><span>Ditado por voz: enviar sozinho</span><small>Desligado, o texto falado fica na caixa para você revisar antes de enviar.</small></span>
+            <input type="checkbox" id="cfgDitadoEnviar" class="caixa" />
+          </label>
         </section>
         <section class="grupo">
           <h2>Respostas</h2>
@@ -873,6 +876,13 @@
           <label class="linha"><span>Usar a busca embutida</span>
             <input type="checkbox" id="cfgUsarSxEmbutido" class="caixa" disabled />
           </label>
+        </section>
+        <section class="grupo">
+          <h2>Ditado por voz (Whisper)</h2>
+          <p class="dica">Você fala, o AuGPT escreve: o botão de microfone na caixa de mensagem (ou Ctrl+Shift+Espaço). Roda no seu processador, sem internet — a voz não sai do computador. Usa o whisper.cpp com o modelo Whisper large-v3-turbo (o small em processador com menos de 6 núcleos); tudo baixado tem o SHA-256 conferido.</p>
+          <div class="linha"><span>Instalado</span><span class="situacao" id="compDitadoInstalado">—</span></div>
+          <div class="linha-botoes"><button class="btn-primario" id="btnCompDitadoInstalar" hidden>Instalar</button></div>
+          <div class="teste-resultado" id="compDitadoStatus"></div>
         </section>
         <section class="grupo">
           <h2>YouTube (yt-dlp)</h2>
@@ -1217,5 +1227,6 @@
 <script src="abertura-deck.js"></script>
 <script src="boas-vindas.js"></script>
 <script src="agenda.js"></script>
+<script src="ditado.js"></script>
 </body>
 </html>

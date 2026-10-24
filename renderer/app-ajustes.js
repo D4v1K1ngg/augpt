@@ -785,6 +785,28 @@ $('cfgProcurarAtualizacoes').addEventListener('change', async (e) => {
   config = await api.config.set({ procurarAtualizacoes: e.target.checked });
 });
 
+/* ---------- ditado por voz (24/10): o componente e o "enviar sozinho" ---------- */
+async function pintarDitado() {
+  const d = await api.ditado.estado().catch(() => ({ instalado: false }));
+  $('compDitadoInstalado').textContent = d.instalado ? `${d.modelo} · whisper.cpp ${d.versao}` : tr('não instalado ({tamanho} para baixar)', { tamanho: d.tamanho || '~600 MB' });
+  $('btnCompDitadoInstalar').hidden = Boolean(d.instalado);
+  $('cfgDitadoEnviar').checked = config.ditadoEnviarSozinho === true;
+}
+$('btnCompDitadoInstalar').addEventListener('click', async () => {
+  $('btnCompDitadoInstalar').disabled = true;
+  $('compDitadoStatus').textContent = tr('começando…');
+  const r = await api.ditado.instalar();
+  $('btnCompDitadoInstalar').disabled = false;
+  $('compDitadoStatus').textContent = r.ok ? tr('Instalado ✓ — use o microfone da caixa de mensagem.') : tr('erro: {erro}', { erro: r.error });
+  pintarDitado();
+});
+$('cfgDitadoEnviar').addEventListener('change', async (e) => {
+  config = await api.config.set({ ditadoEnviarSozinho: e.target.checked });
+});
+manipuladores['ditado-progresso'] = ({ texto }) => {
+  if (texto) $('compDitadoStatus').textContent = texto;
+};
+
 async function carregarModelosEComponentes() {
   api.atualizacao.verificar().then((r) => ((atualizacao = r), pintarAtualizacao()));
   const [v, c] = await Promise.all([api.boasVindas.verificar().catch(() => null), api.componentes.estado().catch(() => null)]);
@@ -793,6 +815,7 @@ async function carregarModelosEComponentes() {
   pintarSugestoesModelos();
   pintarModelosInstalados();
   pintarComponentes();
+  pintarDitado();
 }
 
 function pintarSugestoesModelos() {

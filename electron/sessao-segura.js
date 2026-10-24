@@ -25,10 +25,20 @@ const { hostClaramenteInterno, redeLocalLiberada } = require('../src/tools/rede'
 
 const protegidas = new WeakSet();
 
-function negarPermissoes(ses) {
-  ses.setPermissionRequestHandler((_webContents, _permissao, responder) => responder(false));
-  ses.setPermissionCheckHandler(() => false);
+/**
+ * Nega tudo, menos o que `permitir(webContents, permissao, tiposDeMidia)` liberar (24/10: o
+ * microfone da janela principal, para o ditado por voz — e só áudio, nunca câmera).
+ */
+function negarPermissoes(ses, { permitir = null } = {}) {
+  const tipos = (d) => (Array.isArray(d?.mediaTypes) && d.mediaTypes.length ? d.mediaTypes : d?.mediaType ? [d.mediaType] : []);
+  const liberado = (wc, permissao, detalhes) => Boolean(permitir && permitir(wc, permissao, tipos(detalhes)));
+  ses.setPermissionRequestHandler((wc, permissao, responder, detalhes) => responder(liberado(wc, permissao, detalhes)));
+  ses.setPermissionCheckHandler((wc, permissao, _origem, detalhes) => liberado(wc, permissao, detalhes));
 }
+
+/** Só o microfone (áudio, sem vídeo) de um webContents. */
+const soMicrofoneDe = (obterAlvo, ligado = () => true) => (wc, permissao, tipos) =>
+  permissao === 'media' && ligado() && !!wc && wc === obterAlvo() && tipos.length > 0 && tipos.every((t) => t === 'audio');
 
 /**
  * Aplica as duas proteções numa sessão (uma vez só por sessão).
@@ -54,4 +64,4 @@ function protegerSessaoWeb(ses, { obterConfig = () => ({}) } = {}) {
   return ses;
 }
 
-module.exports = { protegerSessaoWeb, negarPermissoes };
+module.exports = { protegerSessaoWeb, negarPermissoes, soMicrofoneDe };

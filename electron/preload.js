@@ -32,6 +32,11 @@ contextBridge.exposeInMainWorld('augpt', {
     salvar: (nome, sugestao) => ipcRenderer.invoke('imagem:salvar', { nome, sugestao }),
     mostrarNaPasta: (caminho) => ipcRenderer.invoke('imagem:mostrarNaPasta', { caminho }),
   },
+  ditado: {
+    estado: () => ipcRenderer.invoke('ditado:estado'),
+    instalar: () => ipcRenderer.invoke('ditado:instalar'),
+    transcrever: (bytes) => ipcRenderer.invoke('ditado:transcrever', bytes),
+  },
   agenda: {
     listar: () => ipcRenderer.invoke('agenda:listar'),
     adicionar: (dados) => ipcRenderer.invoke('agenda:adicionar', dados),

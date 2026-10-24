@@ -874,6 +874,19 @@ body:not(.mostrar-tecnico) .tecnico { display: none !important; }
 }
 .btn-enviar:hover { background: var(--gold-hi, #f2b054); }
 .btn-enviar.parando { background: var(--red); color: #1b0c0a; }
+/* ditado por voz (24/10, renderer/ditado.js) */
+.composer-caixa { position: relative; }
+.btn-microfone {
+  flex: none; position: relative; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line);
+  background: none; color: var(--muted); cursor: pointer; display: grid; place-items: center; transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.btn-microfone:hover { color: var(--amber); border-color: var(--amber); }
+.btn-microfone.gravando { color: #fff; background: var(--red); border-color: var(--red); box-shadow: 0 0 0 calc(2px + var(--nivel, 0) * 8px) rgba(234, 107, 94, 0.25); }
+.btn-microfone.transcrevendo { color: var(--amber); border-color: var(--amber); cursor: progress; }
+.btn-microfone.transcrevendo svg { animation: ditado-pulso 1s ease-in-out infinite; }
+@keyframes ditado-pulso { 50% { opacity: 0.35; } }
+.ditado-aviso { position: absolute; left: 14px; bottom: calc(100% + 8px); max-width: calc(100% - 28px); padding: 6px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line-forte); color: var(--text); font-size: 12px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); pointer-events: none; }
+.ditado-aviso[hidden] { display: none; }
 .composer-rodape {
   max-width: var(--coluna); margin: 9px auto 0; display: flex; justify-content: space-between;
   gap: 16px; font-size: 10.5px; color: var(--muted);

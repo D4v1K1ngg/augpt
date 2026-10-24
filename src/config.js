@@ -144,6 +144,8 @@ const DEFAULTS = {
   atualizacaoIgnorada: '',
   // a versão que já mostrou a janela "Novidades" (23/10)
   ultimaVersaoVista: '',
+  // ditado por voz (24/10): false = o texto falado fica na caixa para revisar
+  ditadoEnviarSozinho: false,
   preBuscaConcorrencia: 2,
   // Modo AUTO (auto.js, 2026-10-10): cada pedido ganha um nível —
   // 0 direto (conversa), 1 conversa com pesquisa rápida, 2 pesquisa padrão,
