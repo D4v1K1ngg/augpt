@@ -11,6 +11,7 @@
 
 const { baixar } = require('../tools/http');
 const { cidadeDaMemoria, ALIASES } = require('./clima-no-chat');
+const { normalizarLugar, porRelacao, naoResolveu, tentativas, ehDeitico, escolherLugar } = require('./lugares');
 
 const semAcento = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
 const VERSAO = (() => {
@@ -31,7 +32,7 @@ const MODOS = [
   ['carro', /\b(de carro|dirigindo|de moto|by car|driving|drive)\b/],
 ];
 const MODO_TEXTO = /(?<!\p{L})(de carro|dirigindo|de moto|a p[ée]|andando|caminhando|de bicicleta|de bike|pedalando|by car|driving|on foot|walking|by bike|cycling)(?!\p{L})/giu;
-const ROTA = /\b(quanto tempo (eu )?(levo|leva|levaria|levarei|demora|demoro|demoraria|gasto|gasta|da|e)|qual (e )?a distancia|distancia (entre|de|daqui|ate|do|da)|quantos (km|quilometros)|rota (de|para|pra|ate|entre|do|da)|como (chego|chegar|ir|vou|faco para chegar) (a|ao|na|no|em|para|pra|ate|aa)|trajeto (de|para|ate)|how (long|far)|distance (from|between|to)|route (from|to)|directions (to|from))\b/;
+const ROTA = /\b(quanto tempo (eu )?(levo|leva|levaria|levarei|demora|demoro|demoraria|gasto|gasta|da|e|de|daqui|do|da)|qual (e )?a distancia|distancia (entre|de|daqui|ate|do|da)|quantos (km|quilometros)|rota (de|para|pra|ate|entre|do|da)|como (chego|chegar|ir|vou|faco para chegar) (a|ao|na|no|em|para|pra|ate|aa)|trajeto (de|para|ate)|how (long|far)|distance (from|between|to)|route (from|to)|directions (to|from))\b/;
 const LUGAR = /\b(onde fica|onde e que fica|onde esta localizad[oa]|onde (e|eh) (a|o) (cidade|pais|estado)|mostre?( me)? .{1,60} no mapa|no mapa|^mapa (de|do|da)|mostre?( me)? o mapa (de|do|da)|localizacao (de|do|da)|where is|show .{1,60} on (the )?map|map of)\b/;
 // o que não é lugar no mundo: PC, apps, jogos, corpo
 const FORA = /\b(pasta|arquivo|configurac|opcao|botao|menu|ajuste|driver|bios|tecla|windows|aplicativo|app|site|pagina|celular|programa|jogo|game|pubg|erangel|miramar|sanhok|vikendi|minecraft|gta|fortnite|valorant|warzone|lol|cs2?|figado|rim|cerebro|coracao|pancreas|apendice|no corpo|na placa|no pc|no computador|no notebook|na tela|da terra|a lua|ao sol|marte|jupiter|saturno|planeta|galaxia|estrela|the moon|the sun|mars)\b/;
@@ -63,19 +64,22 @@ function pedidoDeMapa(pergunta) {
     origem = limpar(origem || '');
     if (/^(daqui|aqui|minha casa|casa|here|home)$/i.test(origem)) origem = '';
     destino = limpar(destino);
-    if (!destino || destino.length < 2) return null;
+    if (!destino || destino.length < 2 || porRelacao(destino) || porRelacao(origem)) return null;
     // só o destino, sem nome próprio nem geografia, não é lugar ("quanto tempo leva pra ferver um ovo")
-    if (!origem && !/[A-ZÀ-Ú]/.test(destino) && !GEO.test(semAcento(destino))) return null;
-    return { tipo: 'rota', origem: origem ? apelido(origem) : null, destino: apelido(destino), modo };
+    if (!origem && !/[A-ZÀ-Ú]/.test(destino) && !GEO.test(semAcento(destino)) && !ehDeitico(destino)) return null;
+    return { tipo: 'rota', origem: origem ? apelido(normalizarLugar(origem)) : null, destino: apelido(normalizarLugar(destino)), modo };
   }
   if (LUGAR.test(t)) {
-    const x = /(?:onde (?:e que )?fica|onde est[áa] localizad[oa]|onde (?:é|e|eh) (?:a|o)|localiza[çc][ãa]o (?:de|do|da)|mapa (?:de|do|da)|mostre?(?: me)?|where is|show(?: me)?|map of)\s+(.+?)(?:\s+no mapa|\s+on (?:the )?map)?\s*[?!.]*$/i.exec(original);
-    const lugar = limpar(x?.[1] || '');
-    if (!lugar || lugar.length < 2) return null;
+    // o gatilho mais específico primeiro: em "Me mostre onde fica a cidade de X", vale o "onde fica"
+    const GATILHOS = [/onde (?:é que )?fica/i, /onde est[áa] localizad[oa]/i, /localiza[çc][ãa]o (?:de|do|da)/i, /onde (?:é|e|eh) (?:a|o)(?= (?:cidade|pa[íi]s|estado))/i, /where is/i, /map of/i, /mapa (?:de|do|da)/i, /mostr[ea](?: me)?(?: o mapa (?:de|do|da))?/i, /show(?: me)?/i];
+    const gatilho = GATILHOS.map((g) => g.exec(original)).find(Boolean);
+    const resto = gatilho ? original.slice(gatilho.index + gatilho[0].length).replace(/\s+(?:no mapa|on (?:the )?map)\s*[?!.]*$/i, '') : '';
+    const lugar = limpar(resto);
+    if (!lugar || lugar.length < 2 || porRelacao(lugar)) return null; // "a capital da Bahia": o entendimento resolve
     // "onde fica …" sem nome próprio nem palavra de geografia não é lugar ("onde fica o fígado")
     const explicito = /\b(no mapa|mapa|on (the )?map|map of|localizacao)\b/.test(t);
     if (!explicito && !/[A-ZÀ-Ú]/.test(lugar) && !GEO.test(semAcento(lugar))) return null;
-    return { tipo: 'lugar', lugar: apelido(lugar.replace(/^(a|o|as|os|the)\s+/i, '')) };
+    return { tipo: 'lugar', lugar: apelido(normalizarLugar(lugar.replace(/^(a|o|as|os|the)\s+/i, ''))) };
   }
   return null;
 }
@@ -97,13 +101,19 @@ async function pedirJson(url, deps) {
 }
 
 /** "Torre Eiffel", "Campinas", "Av. Paulista, 1000" → { nome, onde, lat, lon, bbox } ou null. */
-async function acharLugar(nome, { idioma = 'pt', deps = {} } = {}) {
+// `perto` (23/10): numa rota, o nome ambíguo vale o candidato mais perto do outro ponto ("de Vitória
+// até Iconha" ia para uma Vitória de outro continente, mais famosa que a do Espírito Santo)
+async function acharLugar(nome, { idioma = 'pt', deps = {}, perto = null } = {}) {
   if (!deps.baixar) await esperarVez();
   const lista = await pedirJson(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(nome)}&format=jsonv2&limit=5&addressdetails=1&accept-language=${idioma === 'en' ? 'en' : 'pt-BR'}`, deps);
   if (!Array.isArray(lista) || !lista.length) return null;
-  // sem país na pergunta: o resultado do Brasil, se for um dos mais relevantes
-  const br = lista.slice(0, 3).find((x) => x.address?.country_code === 'br' && Number(x.importance || 0) >= Number(lista[0].importance || 0) * 0.9);
-  const x = br || lista[0];
+  const relevancia = (x) => Number(x.importance || 0);
+  const maior = Math.max(...lista.map(relevancia));
+  const vizinho = perto && lista.filter((x) => relevancia(x) >= maior * 0.25).sort((a, b) => emLinhaReta(perto, { lat: Number(a.lat), lon: Number(a.lon) }) - emLinhaReta(perto, { lat: Number(b.lat), lon: Number(b.lon) }))[0];
+  // sem o outro ponto: o resultado do Brasil, se tiver pelo menos metade da relevância do primeiro
+  // ("Vitória" é a do ES, não o estado australiano; "Lisboa" continua a de Portugal)
+  const br = lista.find((x) => x.address?.country_code === 'br' && relevancia(x) >= relevancia(lista[0]) * 0.5);
+  const x = vizinho || br || lista[0];
   const a = x.address || {};
   const cidade = a.city || a.town || a.village || a.municipality || a.county;
   const nomeCurto = x.name || String(x.display_name).split(',')[0];
@@ -144,10 +154,38 @@ const duracao = (min, en) => {
 };
 const km = (v, en) => `${v < 10 ? v.toLocaleString(en ? 'en-US' : 'pt-BR', { maximumFractionDigits: 1 }) : Math.round(v).toLocaleString(en ? 'en-US' : 'pt-BR')} km`;
 
-async function responderMapa({ pergunta, deps = {}, config = {}, pasta, pedido } = {}) {
-  const p = pedido || pedidoDeMapa(pergunta);
+/**
+ * O pedido a partir dos lugares que o entendimento leu (23/10): quando os padrões não reconhecem a
+ * pergunta ("onde fica iconha?"), o modelo escolhe a ação "mapa" e diz os lugares. Dois lugares ou
+ * palavra de rota → rota; um → o lugar.
+ */
+function pedidoPelosLugares(pergunta, lugares = []) {
+  const l = (Array.isArray(lugares) ? lugares : []).map(normalizarLugar).filter(Boolean);
+  if (!l.length) return null;
+  const t = semAcento(pergunta);
+  const modo = (MODOS.find(([, re]) => re.test(t)) || ['carro'])[0];
+  const deRota = /\b(quanto tempo|distancia|rota|chegar|chego|caminho|trajeto|km|quilometros|how long|how far|distance|route|directions)\b/.test(t);
+  if (l.length >= 2) return { tipo: 'rota', origem: apelido(l[0]), destino: apelido(l[1]), modo };
+  return deRota ? { tipo: 'rota', origem: null, destino: apelido(l[0]), modo } : { tipo: 'lugar', lugar: apelido(l[0]) };
+}
+
+/** Acha o lugar tentando o nome limpo, sem o complemento e os nomes de reserva, nessa ordem. */
+async function acharComReserva(nome, reservas, opcoes) {
+  for (const tentativa of tentativas(nome, reservas)) {
+    const achado = await acharLugar(tentativa, opcoes);
+    if (achado) return achado;
+  }
+  return null;
+}
+
+// `lugares` indefinido = primeira tentativa (pelos padrões): faltando a origem, devolve para o
+// entendimento completar pela conversa; com ele (array, mesmo vazio), pergunta
+async function responderMapa({ pergunta, deps = {}, config = {}, pasta, pedido, lugares, conversa = [] } = {}) {
+  const achado = pedido || pedidoDeMapa(pergunta) || (!naoResolveu(pergunta, lugares) && pedidoPelosLugares(pergunta, lugares));
+  const p = achado && { ...achado };
   if (!p) return null;
   const en = config.idiomaEfetivo === 'en';
+  const reservas = (Array.isArray(lugares) ? lugares : []).filter(Boolean);
   const fim = (texto, bloco) => {
     const completo = bloco ? `${texto}\n\n\`\`\`mapa\n${JSON.stringify({ idioma: en ? 'en' : 'pt', ...bloco })}\n\`\`\`` : texto;
     deps.emit?.('resposta-token', { pedaco: completo, noIdioma: en });
@@ -155,7 +193,10 @@ async function responderMapa({ pergunta, deps = {}, config = {}, pasta, pedido }
   };
   try {
     if (p.tipo === 'lugar') {
-      const l = await acharLugar(p.lugar, { idioma: en ? 'en' : 'pt', deps });
+      // "mostre lá no mapa": o lugar da conversa; nunca se procura "lá" no mapa
+      const alvo = escolherLugar({ doTexto: p.lugar, reservas, conversa, pergunta });
+      if (!alvo) return null;
+      const l = await acharComReserva(alvo, reservas, { idioma: en ? 'en' : 'pt', deps });
       if (!l) return null; // o mapa não conhece: a pesquisa responde
       const texto = l.onde
         ? en ? `**${l.nome}** is in ${l.onde}.` : `**${l.nome}** fica em ${l.onde}.`
@@ -163,16 +204,27 @@ async function responderMapa({ pergunta, deps = {}, config = {}, pasta, pedido }
       return fim(texto, { tipo: 'lugar', lugar: l });
     }
 
-    const nomeDaOrigem = p.origem || cidadeDaMemoria(pasta);
+    // destino: o do texto, o do entendimento ou, se for "lá", o da conversa. Origem: a do texto ("saindo
+    // de lá" → a conversa), a do entendimento ou a da memória — a conversa não vira origem sem o "lá"
+    const nomeDoDestino = escolherLugar({ doTexto: p.destino, reservas: reservas.slice(-1), conversa, pergunta });
+    if (!nomeDoDestino) {
+      if (lugares === undefined) return null;
+      return fim(en ? 'Where to? Ask, for example, **"how long from Campinas to Santos"**.' : 'Para onde? Pergunte, por exemplo, **"quanto tempo de Campinas até Santos"**.');
+    }
+    p.destino = nomeDoDestino;
+    const nomeDaOrigem = escolherLugar({ doTexto: p.origem, reservas: reservas.length >= 2 ? [reservas[0]] : [], conversa: ehDeitico(p.origem) ? conversa : [], memoria: cidadeDaMemoria(pasta) });
     if (!nomeDaOrigem) {
+      if (lugares === undefined) return null;
       return fim(en
         ? `From where? Ask, for example, **"how long from Campinas to ${p.destino}"**, or say **"remember that I live in Campinas"** and I'll use it as the starting point.`
         : `Saindo de onde? Pergunte, por exemplo, **"quanto tempo de Campinas até ${p.destino}"**, ou diga **"lembre que moro em Campinas"** e eu uso como ponto de partida.`);
     }
-    const origem = await acharLugar(nomeDaOrigem, { idioma: en ? 'en' : 'pt', deps });
-    const destino = origem && (await acharLugar(p.destino, { idioma: en ? 'en' : 'pt', deps }));
+    // reserva do destino: o último lugar que o entendimento leu (o primeiro costuma ser a origem)
+    // o destino primeiro; a origem, entre os homônimos, a mais perto dele
+    const destino = await acharComReserva(p.destino, reservas.slice(-1), { idioma: en ? 'en' : 'pt', deps });
+    const origem = destino && (await acharComReserva(nomeDaOrigem, reservas.length >= 2 ? [reservas[0]] : [], { idioma: en ? 'en' : 'pt', deps, perto: destino }));
     if (!origem || !destino) {
-      const faltou = !origem ? nomeDaOrigem : p.destino;
+      const faltou = !destino ? p.destino : nomeDaOrigem;
       return fim(en ? `I couldn't find **"${faltou}"** on the map. Try a fuller name, like "Campinas, SP".` : `Não achei **"${faltou}"** no mapa. Tente um nome mais completo, como "Campinas, SP".`);
     }
     const modos = ['carro', 'pe', 'bike'];
@@ -201,4 +253,10 @@ async function responderMapa({ pergunta, deps = {}, config = {}, pasta, pedido }
   }
 }
 
-module.exports = { pedidoDeMapa, acharLugar, responderMapa, emLinhaReta };
+/** A intenção sem o lugar (23/10): é pedido de mapa, mesmo que o lugar só o modelo resolva ("a capital da Bahia"). */
+const intencaoDeMapa = (pergunta) => {
+  const t = semAcento(pergunta);
+  return t.length <= 180 && !FORA.test(t) && (LUGAR.test(t) || ROTA.test(t));
+};
+
+module.exports = { pedidoDeMapa, pedidoPelosLugares, intencaoDeMapa, acharLugar, responderMapa, emLinhaReta };

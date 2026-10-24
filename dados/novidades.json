@@ -8,7 +8,8 @@
         "**Calendário interativo nas respostas:** pergunte \"que dia é hoje?\", \"quais feriados temos este mês?\", \"quantos dias faltam pro Natal?\" ou \"que dia da semana cai 25/12?\" e a resposta vem na hora, com um calendário para navegar entre os meses.",
         "Os feriados nacionais (inclusive Carnaval, Sexta-feira Santa e Corpus Christi, que mudam todo ano) são calculados no seu PC, sem internet. Feriados estaduais e municipais ainda não entram.",
         "**Cartão do clima:** pergunte \"como está o tempo em Campinas?\", \"vai chover amanhã?\" ou \"previsão para o fim de semana\" e veja o agora, as próximas horas e os 7 dias (clique num dia para ver as horas dele). Diga \"lembre que moro em Campinas\" e o AuGPT usa a sua cidade sempre. Os dados vêm do Open-Meteo: só o nome da cidade sai do seu PC.",
-        "**Mapa e globo:** pergunte \"onde fica a Torre Eiffel?\" e a resposta abre um globo que gira até o lugar; pergunte \"quanto tempo de Campinas até São Paulo?\" e veja a rota desenhada, com o tempo de carro, a pé e de bicicleta (sem contar o trânsito). Dá para trocar para satélite e ampliar o mapa. Mapas do OpenStreetMap; só os nomes dos lugares saem do seu PC."
+        "**Mapa e globo:** pergunte \"onde fica a Torre Eiffel?\" e a resposta abre um globo que gira até o lugar; pergunte \"quanto tempo de Campinas até São Paulo?\" e veja a rota desenhada, com o tempo de carro, a pé e de bicicleta (sem contar o trânsito). Dá para trocar para satélite e ampliar o mapa. Mapas do OpenStreetMap; só os nomes dos lugares saem do seu PC.",
+        "**Os recursos entendem mais jeitos de perguntar:** \"onde fica iconha?\", \"a cidade de Iconha-ES\", \"a capital da Bahia\" e \"e o clima lá amanhã?\" (com o lugar da conversa) abrem o mapa ou o clima certo. Nomes repetidos, como Vitória, ficam com o do Brasil ou o mais perto do outro ponto da rota."
       ]
     },
     "en": {
@@ -17,7 +18,8 @@
         "**Interactive calendar in answers:** ask \"what day is today?\", \"which holidays are there this month?\", \"how many days until Christmas?\" or \"what day of the week is 12/25?\" and the answer comes right away, with a calendar you can browse month by month.",
         "Brazil's national holidays (including Carnival, Good Friday and Corpus Christi, which move every year) are calculated on your PC, offline. State and city holidays are not included yet.",
         "**Weather card:** ask \"what's the weather in Campinas?\", \"will it rain tomorrow?\" or \"weekend forecast\" and see the current conditions, the next hours and 7 days (click a day to see its hours). Say \"remember that I live in Campinas\" and AuGPT always uses your city. Data comes from Open-Meteo: only the city name leaves your PC.",
-        "**Map and globe:** ask \"where is the Eiffel Tower?\" and the answer opens a globe that spins to the place; ask \"how long from Campinas to São Paulo?\" and see the route drawn, with the time by car, on foot and by bike (traffic not included). You can switch to satellite and expand the map. Maps from OpenStreetMap; only place names leave your PC."
+        "**Map and globe:** ask \"where is the Eiffel Tower?\" and the answer opens a globe that spins to the place; ask \"how long from Campinas to São Paulo?\" and see the route drawn, with the time by car, on foot and by bike (traffic not included). You can switch to satellite and expand the map. Maps from OpenStreetMap; only place names leave your PC.",
+        "**Features understand more ways of asking:** \"where is iconha?\", \"the city of Iconha-ES\", \"the capital of Bahia\" and \"and the weather there tomorrow?\" (using the place from the chat) open the right map or weather. Repeated names, like Vitória, go to the one in Brazil or the one closest to the other end of the route."
       ]
     }
   },

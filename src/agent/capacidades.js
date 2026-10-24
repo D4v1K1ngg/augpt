@@ -59,6 +59,30 @@ const CAPACIDADES = [
     quando: 'o que está usando ou consumindo a internet, programa suspeito usando a rede, internet lenta sem motivo',
     oferta: 'Posso **ver agora o que está usando a sua internet**: o tráfego da placa de rede e os programas conectados. Quer? É só responder **"sim"**.',
   },
+  // 23/10 (revisão de como os recursos são chamados): o código responde estes três na hora, com o
+  // cartão; estão aqui para o entendimento pegar o que os padrões de texto deixam passar ("onde fica
+  // iconha?"). `responde`: a ação É a resposta — "sugerir" vira "acao" (ver lerEntendimento).
+  {
+    id: 'calendario',
+    executa: true,
+    responde: true,
+    faz: 'mostra a data de hoje, os feriados nacionais do mês ou do ano, quantos dias faltam para uma data e em que dia da semana ela cai, num calendário interativo',
+    quando: 'data de hoje, feriados, dia da semana de uma data, contagem de dias até uma data, ver o calendário de um mês',
+  },
+  {
+    id: 'clima',
+    executa: true,
+    responde: true,
+    faz: 'mostra o tempo agora e a previsão de 7 dias de uma cidade (temperatura, chuva, vento), num cartão',
+    quando: 'clima, tempo, temperatura, previsão, se vai chover, frio ou calor numa cidade',
+  },
+  {
+    id: 'mapa',
+    executa: true,
+    responde: true,
+    faz: 'mostra um lugar no mapa e no globo (cidade, país, endereço, ponto turístico) e calcula a rota, a distância e o tempo entre dois lugares de carro, a pé e de bicicleta',
+    quando: 'onde fica um lugar, ver no mapa, distância, quanto tempo leva para ir de um lugar a outro, como chegar',
+  },
   { id: 'grafico', faz: 'monta gráficos interativos na resposta (colunas, linhas, área, pizza, projeção com estimativas) com dados pesquisados ou dados que o usuário der', quando: 'comparar números, evolução no tempo, partes de um total', comoUsar: 'peça "monte um gráfico com…"' },
   { id: 'visual', faz: 'cria uma página interativa que roda na resposta (calculadora, simulação, animação, quiz, painel)', quando: 'o usuário quer uma ferramenta interativa', comoUsar: 'peça "crie uma calculadora/simulação de…"' },
   { id: 'criar_imagem', precisa: 'gerarImagem', faz: 'cria e edita imagens no computador do usuário (FLUX.2 Klein)', quando: 'o usuário quer uma imagem, ilustração, logo ou edição de foto', comoUsar: 'peça "crie uma imagem de…" ou anexe a foto e peça a edição' },
@@ -291,6 +315,9 @@ const UTILITARIOS = [
   { id: 'ver_imagem', grupo: 'Criar', icone: 'olho', nome: 'Ler fotos e prints', descricao: 'Olha a foto ou o print que você anexar e lê o texto dele.', dica: 'Anexe a imagem pelo + da caixa de mensagem e faça a pergunta.' },
   { id: 'navegador', grupo: 'Sites e arquivos', icone: 'globo', nome: 'Navegar em sites', descricao: 'Abre sites no navegador do AuGPT, faz login, clica, preenche formulários e baixa arquivos.', exemplo: 'acesse https://www.kabum.com.br e procure monitores de 144 Hz' },
   { id: 'arquivos', grupo: 'Sites e arquivos', icone: 'arquivo', nome: 'Ler e criar arquivos', descricao: 'Lê e cria planilhas, documentos, PDFs e código na sua pasta de trabalho.', exemplo: 'crie uma planilha para eu anotar meus gastos do mês' },
+  { id: 'calendario', rota: 'calendario', grupo: 'Dia a dia', icone: 'calendario', nome: 'Calendário e feriados', descricao: 'A data de hoje, os feriados nacionais, quantos dias faltam e em que dia da semana cai, num calendário para navegar.', exemplo: 'quais feriados temos este mês?' },
+  { id: 'clima', rota: 'clima', grupo: 'Dia a dia', icone: 'nuvem', nome: 'Clima e previsão', descricao: 'O tempo agora, as próximas horas e os 7 dias de qualquer cidade (Open-Meteo).', exemplo: 'vai chover amanhã em Campinas?' },
+  { id: 'mapa', rota: 'mapa', grupo: 'Dia a dia', icone: 'mapa', nome: 'Mapa e rotas', descricao: 'Mostra o lugar num globo e calcula a rota, a distância e o tempo de carro, a pé e de bicicleta (OpenStreetMap).', exemplo: 'quanto tempo de Campinas até São Paulo?' },
   { id: 'memoria', rota: 'memoria', grupo: 'Você', icone: 'relatorio', nome: 'Memória sobre você', descricao: 'Guarda o que você pedir (nome, cidade, como prefere as respostas) e usa em todas as conversas. "Esqueça que…" apaga.', exemplo: 'lembre que eu prefiro respostas curtas e diretas' },
 ];
 

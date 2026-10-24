@@ -73,7 +73,10 @@ module.exports = [
       const amanha = await r('vai chover amanhã em Curitiba, PR?');
       const fds = await r('previsão do tempo para o fim de semana em Campinas');
       const ingles = await c.responderClima({ pergunta: 'weather in London', deps, config: { idiomaEfetivo: 'en' } });
-      const semCidade = await r('previsão do tempo');
+      // sem cidade: pelos padrões devolve (o entendimento lê a conversa); depois do entendimento, pergunta
+      const semCidadePrimeiro = await r('previsão do tempo');
+      const semCidade = await r('previsão do tempo', { lugares: [] });
+      const peloEntendimento = await r('e lá amanhã, vai chover?', { lugares: ['a cidade de Curitiba-PR'] });
       const pasta = fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-clima-'));
       new MemoriaCentral(pasta).definir({ chave: 'cidade', valor: 'Moro em Campinas' });
       const daMemoria = await r('vai chover hoje?', { pasta });
@@ -85,7 +88,9 @@ module.exports = [
         /^Sim, deve chover amanhã em \*\*Curitiba, PR\*\*: trovoadas, 91% de chance de chuva \(25,6 mm\)\. Mínima de 16 °C e máxima de 22 °C\./.test(amanha.texto) || amanha.texto.slice(0, 200),
         /Fim de semana em \*\*Campinas, SP\*\*:\n\n- \*\*sábado\*\*: ⛈️ trovoadas.*\n- \*\*domingo\*\*: 🌦️ chuva fraca/.test(fds.texto) || fds.texto.slice(0, 250),
         /^Right now in \*\*London, England, United Kingdom\*\*: \*\*24 °C\*\*, partly cloudy/.test(ingles.texto) && ingles.noIdioma === true || ingles.texto.slice(0, 120),
+        semCidadePrimeiro === null || 'sem cidade, os padrões devolvem para o entendimento',
         /^De qual cidade\?/.test(semCidade.texto) && !semCidade.texto.includes('```') || semCidade.texto,
+        /^Sim, deve chover amanhã em \*\*Curitiba, PR\*\*/.test(peloEntendimento?.texto || '') || peloEntendimento?.texto?.slice(0, 120),
         /^Provavelmente não hoje em \*\*Campinas, SP\*\* \(até 20% nas próximas horas\)/.test(daMemoria?.texto || '') || daMemoria?.texto?.slice(0, 160),
         bloco.local === 'Campinas, SP' && bloco.dias.length === 7 && bloco.horas.t.length === 168 && bloco.agora.t === 24 && bloco.dias[1].ico === '⛈️' || JSON.stringify(bloco).slice(0, 200),
         pedidos.some((u) => u.includes('api.open-meteo.com/v1/forecast') && u.includes('latitude=-22.9')) || 'a previsão é da Campinas de SP',

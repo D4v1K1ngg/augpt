@@ -43,14 +43,16 @@ const ROTAS = [
     // sem resposta do Open-Meteo, a rota devolve e a pesquisa responde
     id: 'clima',
     detecta: ({ objetivo }) => clima.pedidoDeClima(objetivo),
-    responde: ({ objetivo, deps, config, pasta }, pedido) => clima.responderClima({ pergunta: objetivo, deps, config, pasta, ...(pedido ? { pedido } : {}) }),
+    intencao: (objetivo) => clima.intencaoDeClima(objetivo),
+    responde: ({ objetivo, conversa, deps, config, pasta, ent }, pedido) => clima.responderClima({ pergunta: objetivo, conversa, deps, config, pasta, lugares: ent?.lugares, ...(pedido ? { pedido } : {}) }),
   },
   {
     // "onde fica a Torre Eiffel?", "quanto tempo de Campinas até São Paulo?" (23/10): Nominatim, OSRM
     // e o globo na resposta; lugar que o mapa não conhece ou serviço fora, a pesquisa responde
     id: 'mapa',
     detecta: ({ objetivo }) => mapa.pedidoDeMapa(objetivo),
-    responde: ({ objetivo, deps, config, pasta }, pedido) => mapa.responderMapa({ pergunta: objetivo, deps, config, pasta, ...(pedido ? { pedido } : {}) }),
+    intencao: (objetivo) => mapa.intencaoDeMapa(objetivo),
+    responde: ({ objetivo, conversa, deps, config, pasta, ent }, pedido) => mapa.responderMapa({ pergunta: objetivo, conversa, deps, config, pasta, lugares: ent?.lugares, ...(pedido ? { pedido } : {}) }),
   },
   {
     // "o que você pode fazer?": a mesma lista da aba Utilitários, montada pelo código
@@ -129,10 +131,19 @@ async function responderPelaRota(ctx, escolha) {
   return r ? { ...r, rota: escolha.rota.id, doCodigo: true } : null;
 }
 
+/**
+ * A intenção que o código reconhece mesmo sem conseguir montar o pedido (23/10: "onde fica a capital
+ * da Bahia?" é mapa, mas o lugar só o modelo resolve). O entendimento completa os lugares e esta
+ * ação vale se ele não escolher outra.
+ */
+function intencao(objetivo) {
+  return ROTAS.find((r) => r.intencao?.(objetivo))?.id || null;
+}
+
 /** Ação pelo id (entendimento ou "sim" a uma oferta), sem passar pela detecção. */
 function executar(id, ctx) {
   const rota = ROTAS.find((r) => r.id === id);
   return rota ? responderPelaRota(ctx, { rota, pedido: null }) : Promise.resolve(null);
 }
 
-module.exports = { ROTAS, escolherRota, responderPelaRota, executar };
+module.exports = { ROTAS, escolherRota, responderPelaRota, executar, intencao };

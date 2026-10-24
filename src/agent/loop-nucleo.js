@@ -14,6 +14,7 @@ const { Sandbox } = require('../tools/sandbox');
 const { consultasNaComunidade } = require('../tools/comunidade');
 const { preferenciasParaEscrever } = require('./memoria-no-chat');
 const traducao = require('./traducao');
+const lugares = require('./lugares');
 const imagens = require('../tools/imagens');
 const search = require('../tools/search');
 const { lerComCache } = require('../tools/web');
@@ -56,8 +57,10 @@ function imagemParaOModelo(arquivo) {
  * resposta final, ou null quando falhou (quem chama segue pelo caminho antigo).
  */
 async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: anexadas = [] }) {
-  // o JSON do calendário e do clima (23/10) é para a tela desenhar; para o modelo, só ruído
-  const conversa = (Array.isArray(conversaCrua) ? conversaCrua : []).map((m) => (typeof m?.content === 'string' && /```(calendario|clima|mapa)\n/.test(m.content) ? { ...m, content: m.content.replace(/\n*```(calendario|clima|mapa)\n[\s\S]*?```/g, '') } : m));
+  // o JSON dos cartões (calendário, clima, mapa; 23/10) é para a tela desenhar: no histórico, fica
+  // só um rastro curto do que o cartão mostrou ("[cartão de mapa: Iconha, Espírito Santo]"), para o
+  // modelo e as rotas entenderem "e o clima lá?"
+  const conversa = (Array.isArray(conversaCrua) ? conversaCrua : []).map((m) => (typeof m?.content === 'string' && /```(calendario|clima|mapa)\n/.test(m.content) ? { ...m, content: m.content.replace(/\n*```(calendario|clima|mapa)\n([\s\S]*?)```/g, (_, tipo, json) => `\n${lugares.rastroDoCartao(tipo, json)}`) } : m));
   // prova com várias questões (18/10): ~700 tokens por questão resolvida; o
   // padrão de 3.072 cortava a resposta na 4ª de 10
   const questoes = new Set((String(objetivo).match(/\bquest(?:ão|ao)\s*(\d+)/gi) || []).map((q) => q.replace(/\D/g, ''))).size;
@@ -259,7 +262,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     const depsDasRotas = emIngles ? { ...deps, emit: (e, d) => (e === 'resposta-token' && !d?.noIdioma ? undefined : deps.emit(e, d)) } : deps;
     const emPortugues = async (texto) => (emIngles && traducao.pareceIngles(texto) ? (await traducao.paraPortugues(texto, deps.chamar)) || texto : texto);
     const contexto = (extra = {}) => ({ objetivo, conversa, deps: depsDasRotas, signal, pasta: this.userDataPath, jogo: jogoDaConversa(), dirImagens: this.dirImagens(), config: cfg, ...extra });
-    deps.executarAcao = async (id, { pergunta, modo: modoDoTeste = null, confirmado = false } = {}) => rotas.executar(id, contexto({ objetivo: await emPortugues(pergunta), modo: modoDoTeste, confirmado }));
+    // `ent` (23/10): o que o entendimento leu — os lugares servem de reserva ao mapa e ao clima
+    deps.executarAcao = async (id, { pergunta, modo: modoDoTeste = null, confirmado = false, ent = null } = {}) => rotas.executar(id, contexto({ objetivo: await emPortugues(pergunta), modo: modoDoTeste, confirmado, ent }));
     const aceitou = !investigando && !imagensDoPedido.length && catalogo.aceitouOferta(objetivo, conversa);
     let escolha = !investigando && !aceitou && !imagensDoPedido.length ? rotas.escolherRota(contexto()) : null;
     let objetivoDaRota = objetivo;
@@ -268,7 +272,11 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
       const achada = pt !== objetivo && rotas.escolherRota(contexto({ objetivo: pt }));
       if (achada) [escolha, objetivoDaRota] = [achada, pt];
     }
-    const pelaPesquisa = async () => ({ ...(await nucleo.responder({ pergunta: aceitou?.id === 'pesquisa' ? aceitou.pergunta : objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido })), rota: 'pesquisa' });
+    // a intenção que o código reconhece sem montar o pedido (23/10): o entendimento completa os lugares
+    // (também quando a rota reconheceu e não achou: a segunda tentativa leva os lugares do modelo)
+    deps.intencaoDoCodigo = !investigando && !aceitou ? rotas.intencao(objetivoDaRota) : null;
+    // a ação que o entendimento escolheu dentro da pesquisa (23/10: "onde fica iconha?" → mapa) fica com o nome dela no registro
+    const pelaPesquisa = async () => ({ rota: 'pesquisa', ...(await nucleo.responder({ pergunta: aceitou?.id === 'pesquisa' ? aceitou.pergunta : objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido })) });
     const r = aceitou && aceitou.id !== 'pesquisa'
       ? (await deps.executarAcao(aceitou.id, { pergunta: objetivo, modo: aceitou.modo, confirmado: true })) || (await pelaPesquisa())
       : investigando

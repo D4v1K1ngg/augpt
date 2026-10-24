@@ -275,6 +275,12 @@
     'crie uma imagem de um gato astronauta': 'create an image of an astronaut cat', 'instale o Criar imagens em Ajustes → Componentes': 'install Create images in Settings → Components',
     'Ler fotos e prints': 'Read photos and screenshots', 'Olha a foto ou o print que você anexar e lê o texto dele.': 'Looks at the photo or screenshot you attach and reads its text.',
     'Anexe a imagem pelo + da caixa de mensagem e faça a pergunta.': 'Attach the image with the + in the message box and ask your question.',
+    // cartões do "Dia a dia" (23/10)
+    'Dia a dia': 'Everyday', 'Calendário e feriados': 'Calendar and holidays', 'Clima e previsão': 'Weather and forecast', 'Mapa e rotas': 'Map and routes',
+    'A data de hoje, os feriados nacionais, quantos dias faltam e em que dia da semana cai, num calendário para navegar.': "Today's date, national holidays, how many days are left and what day of the week a date falls on, in a calendar you can browse.",
+    'O tempo agora, as próximas horas e os 7 dias de qualquer cidade (Open-Meteo).': 'The weather now, the next hours and 7 days for any city (Open-Meteo).',
+    'Mostra o lugar num globo e calcula a rota, a distância e o tempo de carro, a pé e de bicicleta (OpenStreetMap).': 'Shows the place on a globe and works out the route, distance and time by car, on foot and by bike (OpenStreetMap).',
+    'quais feriados temos este mês?': 'which holidays are there this month?', 'vai chover amanhã em Campinas?': 'will it rain tomorrow in Campinas?', 'quanto tempo de Campinas até São Paulo?': 'how long from Campinas to São Paulo?',
     'Sites e arquivos': 'Sites and files', 'Navegar em sites': 'Browse sites', 'Abre sites no navegador do AuGPT, faz login, clica, preenche formulários e baixa arquivos.': 'Opens sites in the AuGPT browser, logs in, clicks, fills forms and downloads files.',
     'acesse https://www.kabum.com.br e procure monitores de 144 Hz': 'go to https://www.bestbuy.com and look for 144 Hz monitors',
     'Ler e criar arquivos': 'Read and create files', 'Lê e cria planilhas, documentos, PDFs e código na sua pasta de trabalho.': 'Reads and creates spreadsheets, documents, PDFs and code in your work folder.',

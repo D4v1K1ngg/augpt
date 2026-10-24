@@ -163,6 +163,9 @@ $('navUtilitarios').addEventListener('click', () => trocarAba('utilitarios'));
 
 // Ícones dos cartões (traço de 1.6, como os da lateral); a lista vem do catálogo do agente.
 const ICONES_UTIL = {
+  calendario: '<rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14M7 2.5v3M13 2.5v3M6.5 11h1M9.5 11h1M12.5 11h1M6.5 14h1M9.5 14h1"/>',
+  nuvem: '<path d="M6 15.5h8.5a3.5 3.5 0 0 0 .4-7A5 5 0 0 0 5.3 9 3.3 3.3 0 0 0 6 15.5Z"/>',
+  mapa: '<path d="M7 3.5 2.5 5.5v11l4.5-2 6 2 4.5-2v-11l-4.5 2-6-2Z"/><path d="M7 3.5v11M13 5.5v11"/>',
   velocidade: '<path d="M3.5 14a6.5 6.5 0 1 1 13 0"/><path d="M10 14l3-4.5"/>',
   pulso: '<path d="M2 10h4l2-5 4 10 2-5h4"/>',
   jogo: '<rect x="2" y="6" width="16" height="9" rx="4"/><path d="M6 9v3M4.5 10.5h3"/><circle cx="13.5" cy="9.5" r=".6"/><circle cx="15" cy="11.5" r=".6"/>',

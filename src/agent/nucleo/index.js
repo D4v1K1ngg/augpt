@@ -95,12 +95,14 @@ ${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}
 ÚLTIMA MENSAGEM: ${String(pergunta).slice(0, 1500)}
 
 Responda SÓ com um JSON:
-{"precisa_buscar": true ou false, "produto": true ou false, "criar_imagem": true ou false, "muda_com_o_tempo": true ou false, "sobre_o_usuario": true ou false, "imagem_ajuda": true ou false, "acao": "", "sugerir": "", "assuntos": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
+{"precisa_buscar": true ou false, "produto": true ou false, "criar_imagem": true ou false, "muda_com_o_tempo": true ou false, "sobre_o_usuario": true ou false, "imagem_ajuda": true ou false, "acao": "", "sugerir": "", "assuntos": ["..."], "lugares": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
 
 - O AuGPT roda no computador do usuário e EXECUTA estas ações:
 ${capacidades.listaParaEntender()}
 - "acao": o nome de uma dessas ações quando o usuário pede que o AuGPT a faça agora, mesmo como pergunta ("você consegue ver como está a minha internet?", "mede meu ping no PUBG", "o que está usando minha rede?"). Senão, "".
 - "sugerir": quando o usuário NÃO pediu a ação, mas ela ajudaria muito no que ele quer (ex.: "como melhorar minha internet para jogar?" → "teste_de_rede"), o nome dela. Senão, "".
+- "calendario", "clima" e "mapa" respondem a pergunta com um cartão: data ou feriado → "acao": "calendario"; tempo, chuva ou temperatura de uma cidade → "acao": "clima"; onde fica um lugar, distância, rota ou quanto tempo leva de um lugar a outro → "acao": "mapa" (ex.: "onde fica iconha?" → "mapa"; "e amanhã, chove lá?" depois de falar de Recife → "clima").
+- "lugares": as cidades, países, endereços e pontos citados ou que a conversa deixou claros, com o estado ou país quando o usuário disse, na ordem em que aparecem (origem antes do destino), já resolvidos: o nome do lugar em si, nunca a descrição. Ex.: "onde fica a cidade de Iconha-ES?" → ["Iconha, ES"]; "quanto tempo de Campinas até Santos?" → ["Campinas", "Santos"]; "onde fica a capital da Bahia?" → ["Salvador, BA"] (não "Bahia"); "e o clima lá?" depois de falar de Recife → ["Recife"]. Sem lugar, [].
 
 - "muda_com_o_tempo" é true quando a resposta certa hoje pode ser diferente da de alguns meses atrás: notícia, resultado, placar, eleição, cotação, preço, previsão, lançamento, versão mais nova, quem ocupa um cargo, situação atual de algo. Fato histórico, definição, ciência e como algo funciona: false.
 - "sobre_o_usuario" é true quando a resposta depende de algo do próprio usuário: o computador, o celular, o carro, a cidade, o curso, a rotina ou o que ele já tem ("meu PC", "no meu celular", "pra minha cidade").
@@ -145,7 +147,12 @@ const PISTA_DA_ACAO = {
   buscar_imagens: /fotos?|imagens?|ver como|aparencia|aparência/i,
   ajustes_de_rede: /\bdns\b|placa de rede|economia de energia|5 ?ghz|cache|ajust|otimiz|configur/i,
   diagnostico_da_rede: /roteador|modem|wi-?fi|\brede\b|cabo|aparelho|dispositivo|ipconfig|\bdns\b|gateway|sinal|conex|internet|lag|ping/i,
+  calendario: /\b(dia|data|datas|feriados?|calend[áa]rio|semana|m[eê]s|ano|faltam?|hoje|amanh[ãa]|ontem|cai|caiu|today|date|holidays?|calendar|weekday|days? until)\b/i,
+  clima: /clima|tempo|chov|chuv|temperatura|graus|frio|calor|quente|\bsol\b|previs|umidade|vento|weather|rain|forecast|temperature|hot|cold|sunny/i,
+  mapa: /onde fica|onde est[áa]|onde (é|e) (a|o)|mapa|globo|localiza|rota|dist[âa]ncia|quanto tempo|chegar|chego|caminho|trajeto|\bkm\b|quil[ôo]metros|fica (em|no|na)|where|map|route|distance|how (far|long)|directions/i,
 };
+// estes respondem a pergunta (o cartão é a resposta): "sugerir" também vale como "acao"
+const RESPONDEM = new Set(capacidades.CAPACIDADES.filter((c) => c.responde).map((c) => c.id));
 const acaoValida = (id, texto) => (capacidades.EXECUTAVEIS.includes(id) && PISTA_DA_ACAO[id]?.test(String(texto || '')) ? id : null);
 // a mensagem pede que o AuGPT FAÇA algo (18/10, 4B: "você consegue ver como está a qualidade da minha
 // conexão?" veio como "sugerir", não "acao" — e virou pesquisa): aí a capacidade apontada é a ação
@@ -179,9 +186,11 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
       atual: precisaBuscar && (j.muda_com_o_tempo === true || PISTA_DE_ATUAL.test(pergunta)),
       sobreOUsuario: j.sobre_o_usuario === true || PISTA_DO_USUARIO.test(pergunta),
       imagemAjuda: !exatas && j.imagem_ajuda !== false,
-      acao: acaoValida(j.acao, pergunta) || (PEDE_QUE_FACA.test(String(pergunta || '')) ? acaoValida(j.sugerir, pergunta) : null),
-      sugerir: acaoValida(j.acao, pergunta) || PEDE_QUE_FACA.test(String(pergunta || '')) ? null : acaoValida(j.sugerir, pergunta),
+      acao: acaoValida(j.acao, pergunta) || ((PEDE_QUE_FACA.test(String(pergunta || '')) || RESPONDEM.has(j.sugerir)) ? acaoValida(j.sugerir, pergunta) : null),
+      sugerir: acaoValida(j.acao, pergunta) || PEDE_QUE_FACA.test(String(pergunta || '')) || RESPONDEM.has(j.sugerir) ? null : acaoValida(j.sugerir, pergunta),
       assuntos,
+      // os lugares que o modelo leu (23/10): reserva do mapa e do clima quando os padrões não acham
+      lugares: (Array.isArray(j.lugares) ? j.lugares : []).map((l) => String(l || '').trim()).filter((l) => l.length >= 2 && l.length <= 80).slice(0, 4),
       pergunta: String(j.pergunta || '').trim() || pergunta,
     };
   } catch {
@@ -1168,6 +1177,9 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   }
   // o usuário pediu uma ação que o AuGPT executa (18/10: "você consegue ver como está a minha conexão?"
   // virou pesquisa e a resposta disse "não consigo medir") — quem executa é o app (deps.executarAcao)
+  // a intenção que o código já reconheceu ("onde fica a capital da Bahia?" é mapa) vale quando o
+  // modelo não escolhe ação: ele só completa os lugares (23/10)
+  if (!ent.acao && !ent.criarImagem && deps.intencaoDoCodigo) ent.acao = deps.intencaoDoCodigo;
   if (ent.acao && !ent.criarImagem && typeof deps.executarAcao === 'function') {
     emit('nucleo-entendimento', { ...ent, modo: 'acao' });
     const feita = await deps.executarAcao(ent.acao, { pergunta, ent });

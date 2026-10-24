@@ -10,6 +10,7 @@
 
 const { baixar } = require('../tools/http');
 const { MemoriaCentral } = require('./memoria-central');
+const { normalizarLugar, porRelacao, naoResolveu, tentativas, escolherLugar } = require('./lugares');
 
 const semAcento = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
 
@@ -18,14 +19,20 @@ const semAcento = (t) => String(t || '').toLowerCase().normalize('NFD').replace(
 const CLIMA = /\b(previsao do tempo|previsao para (hoje|amanha|o fim de semana|a semana)|como (esta|ta|vai estar|vai ficar|fica|sera|estara) o (tempo|clima)|(o )?clima (em|no|na|de|do|da|hoje|amanha|agora|pra|para|la fora|a noite|a tarde|de manha|neste|nesse|desta|dessa)|tempo (em|no|na|hoje|amanha|agora|la fora)\b|vai chover|vai fazer (frio|calor|sol)|vai ter (chuva|sol|frio|calor)|(esta|ta) chovendo|chance de chuva|chovendo (em|no|na)|temperatura (em|no|na|de|hoje|amanha|agora|atual|la fora|maxima|minima)|qual (e )?a temperatura|quantos graus|(esta|ta|vai estar) (frio|quente|calor)|weather|forecast|will it rain|is it raining|chance of rain|temperature (in|today|tomorrow|now|outside)|how (hot|cold) is it)\b/;
 const FORA = /\b(clima (organizacional|politico|economico|de tensao|tenso|entre|do jogo|da partida|no trabalho|na empresa)|mudancas? climaticas?|aquecimento global|historia|por que|porque|tempo de (execucao|resposta|carregamento|espera|entrega|uso|tela|jogo)|quanto tempo|cpu|gpu|placa|processador|ssd|nvme|hd|computador|pc|notebook|celular|motor|agua do|forno|febre|corpo|bebe)\b/;
 
-function pedidoDeClima(pergunta) {
+/** Quando e se é sobre chuva — vale também quando quem chama é o entendimento (a pergunta não bateu nos padrões). */
+function partesDoPedido(pergunta) {
   const t = semAcento(pergunta).replace(/\s+/g, ' ').trim();
-  if (!t || t.length > 160 || !CLIMA.test(t) || FORA.test(t)) return null;
   const quando = /\b(amanha|tomorrow)\b/.test(t) ? 'amanha'
     : /\b(fim de semana|final de semana|weekend|sabado|domingo|saturday|sunday)\b/.test(t) ? 'fim_de_semana'
     : /\b(semana|proximos dias|next days|this week|7 dias)\b/.test(t) ? 'semana'
     : 'hoje';
   return { quando, chuva: /\b(chov|chuva|rain|guarda-chuva|umbrella)/.test(t), cidade: cidadeNaPergunta(pergunta) };
+}
+
+function pedidoDeClima(pergunta) {
+  const t = semAcento(pergunta).replace(/\s+/g, ' ').trim();
+  if (!t || t.length > 160 || !CLIMA.test(t) || FORA.test(t)) return null;
+  return partesDoPedido(pergunta);
 }
 
 /* ------------------------------ a cidade ------------------------------ */
@@ -123,15 +130,23 @@ const graus = (v) => `${Math.round(v)} °C`;
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
-async function responderClima({ pergunta, deps = {}, config = {}, pasta, pedido } = {}) {
-  const p = pedido || pedidoDeClima(pergunta) || { quando: 'hoje', chuva: false, cidade: cidadeNaPergunta(pergunta) };
+// `lugares`: o que o entendimento leu na pergunta (reserva quando a cidade não sai dos padrões ou não é achada)
+// `lugares` indefinido = primeira tentativa (pelos padrões, sem o entendimento): faltando a cidade,
+// devolve (null) para o entendimento, que lê a conversa ("e o clima lá amanhã?"), completar
+async function responderClima({ pergunta, deps = {}, config = {}, pasta, pedido, lugares, conversa = [] } = {}) {
+  const p = pedido || pedidoDeClima(pergunta) || partesDoPedido(pergunta);
+  const reservas = (Array.isArray(lugares) ? lugares : []).filter(Boolean);
   const en = config.idiomaEfetivo === 'en';
   const fim = (texto, extra = {}) => {
     deps.emit?.('resposta-token', { pedaco: texto, noIdioma: en });
     return { ...SEM_PESQUISA, texto, modo: 'clima', noIdioma: en, ...extra };
   };
-  const nome = p.cidade || cidadeDaMemoria(pasta);
+  // "o tempo na capital da Bahia": a cidade pede conhecimento — o entendimento resolve (não a memória)
+  if (porRelacao(pergunta) && (lugares === undefined || naoResolveu(pergunta, lugares))) return null;
+  // a cidade: a do texto, a que o entendimento leu, a da conversa ("e o clima lá?") ou a da memória
+  const nome = normalizarLugar(escolherLugar({ doTexto: p.cidade, reservas, conversa, pergunta, memoria: cidadeDaMemoria(pasta) }) || '');
   if (!nome) {
+    if (lugares === undefined) return null;
     return fim(en
       ? 'Which city? Ask, for example, **"weather in Campinas"**, or say **"remember that I live in Campinas"** and I\'ll use it every time.'
       : 'De qual cidade? Pergunte, por exemplo, **"clima em Campinas"**, ou diga **"lembre que moro em Campinas"** e eu uso sempre.');
@@ -139,7 +154,10 @@ async function responderClima({ pergunta, deps = {}, config = {}, pasta, pedido 
   let lugar;
   let j;
   try {
-    lugar = await acharCidade(nome, { idioma: en ? 'en' : 'pt', deps });
+    for (const tentativa of tentativas(nome, reservas)) {
+      lugar = await acharCidade(tentativa, { idioma: en ? 'en' : 'pt', deps });
+      if (lugar) break;
+    }
     if (!lugar) return fim(en ? `I couldn't find the city **"${nome}"**. Try the full name, like "Curitiba, PR".` : `Não achei a cidade **"${nome}"**. Tente o nome completo, como "Curitiba, PR".`);
     j = await previsao(lugar, deps);
   } catch (err) {
@@ -197,4 +215,4 @@ async function responderClima({ pergunta, deps = {}, config = {}, pasta, pedido 
   return fim(`${texto}\n\n\`\`\`clima\n${JSON.stringify(bloco)}\n\`\`\``);
 }
 
-module.exports = { pedidoDeClima, cidadeNaPergunta, cidadeDaMemoria, acharCidade, responderClima, descricao, ALIASES };
+module.exports = { pedidoDeClima, intencaoDeClima: (p) => Boolean(pedidoDeClima(p)), cidadeNaPergunta, cidadeDaMemoria, acharCidade, responderClima, descricao, ALIASES };

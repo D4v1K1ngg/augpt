@@ -77,7 +77,11 @@ module.exports = [
       const ape = await r('quanto tempo levo de Campinas até São Paulo a pé?');
       const lisboa = await m.acharLugar('Lisboa', { deps });
       const ilha = await r('qual a distância de Campinas até Ilha da Madeira?');
-      const semOrigem = await r('quanto tempo leva até São Paulo?');
+      const semOrigemPrimeiro = await r('quanto tempo leva até São Paulo?');
+      const semOrigem = await r('quanto tempo leva até São Paulo?', { lugares: ['São Paulo'] });
+      // "onde fica iconha?": os padrões não pegam; o entendimento escolhe "mapa" e diz o lugar
+      const peloEntendimento = await r('onde fica torre eiffel', { lugares: ['a Torre Eiffel'] });
+      const comPrefixo = m.pedidoDeMapa('Me mostre onde fica a cidade de Iconha-ES');
       const pasta = fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-mapa-'));
       new MemoriaCentral(pasta).definir({ chave: 'cidade', valor: 'Moro em Campinas' });
       const daMemoria = await r('quanto tempo leva até São Paulo?', { pasta });
@@ -91,7 +95,10 @@ module.exports = [
         /a pé: \*\*23 h 14 min\*\* \(104 km\)\. Outras formas: de carro 1 h 16 min/.test(ape.texto) || ape.texto.slice(0, 200),
         lisboa.onde === 'Portugal' || `Lisboa: ${lisboa.onde}`,
         /Não há rota por estrada entre \*\*Campinas\*\* e \*\*Madeira\*\*\. Em linha reta, são \*\*[\d.]+ km\*\*/.test(ilha.texto) || ilha.texto.slice(0, 160),
+        semOrigemPrimeiro === null || 'sem origem, os padrões devolvem para o entendimento',
         /^Saindo de onde\?/.test(semOrigem.texto) || semOrigem.texto.slice(0, 100),
+        /^\*\*Torre Eiffel\*\* fica em Paris/.test(peloEntendimento?.texto || '') || peloEntendimento?.texto?.slice(0, 100),
+        comPrefixo?.lugar === 'Iconha, ES' || JSON.stringify(comPrefixo),
         /^De \*\*Campinas\*\* até \*\*São Paulo\*\*/.test(daMemoria.texto) || daMemoria.texto.slice(0, 100),
         /^\*\*Torre Eiffel\*\* is in Paris/.test(ingles.texto) && ingles.noIdioma === true || ingles.texto.slice(0, 100),
         bloco.tipo === 'rota' && bloco.modo === 'carro' && bloco.rotas.carro.linha.length <= 601 && bloco.rotas.pe.min === 1394 && bloco.reta > 60 || JSON.stringify(bloco).slice(0, 200),
