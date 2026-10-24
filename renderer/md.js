@@ -60,7 +60,7 @@
       }
       // ```calendario (23/10): o JSON vai escapado no atributo e vira o calendário em montarGraficos
       // ```clima (23/10): idem, vira o cartão do clima
-      if (['calendario', 'clima'].includes(String(lang).toLowerCase())) {
+      if (['calendario', 'clima', 'mapa'].includes(String(lang).toLowerCase())) {
         blocos.push(`<div class="cartao-lugar" data-tipo="${String(lang).toLowerCase()}" data-cal="${codigo.trim()}"></div>`);
         return `\u0000BLOCO${blocos.length - 1}\u0000`;
       }

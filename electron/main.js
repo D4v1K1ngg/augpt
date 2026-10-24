@@ -1582,9 +1582,12 @@ ipcMain.handle('chat:stop', () => {
 // Caixa isolada (18/10, item 4): o HTML/JS que o modelo escreve num bloco ```visual roda num
 // iframe com sandbox servido por augpt-caixa://, com CSP própria (sem rede) — ver src/caixa.js
 const caixa = require('../src/caixa');
+// Mapa do chat (23/10): os pedaços do mapa vêm por augpt-mapa://, servidos por src/mapa-tiles.js
+const mapaTiles = require('../src/mapa-tiles');
 protocol.registerSchemesAsPrivileged([
   { scheme: imagens.ESQUEMA, privileges: { standard: true, secure: true } },
   { scheme: caixa.ESQUEMA, privileges: { standard: true, secure: true } },
+  { scheme: mapaTiles.ESQUEMA, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
 ]);
 
 app.whenReady().then(() => {
@@ -1594,6 +1597,7 @@ app.whenReady().then(() => {
     if (!imagens.NOME_VALIDO.test(nome)) return new Response('', { status: 404 });
     return net.fetch(pathToFileURL(path.join(app.getPath('userData'), 'imagens', nome)).toString());
   });
+  protocol.handle(mapaTiles.ESQUEMA, (pedido) => mapaTiles.servir(pedido.url, { dir: path.join(app.getPath('userData'), 'mapa'), agente: `AuGPT/${app.getVersion()} (+https://github.com/D4v1K1ngg/augpt)` }));
   // Fase 1 de segurança (2026-09-23): a sessão padrão (janela principal e a
   // de Execuções) não precisa de câmera, microfone, notificação nem nada do
   // tipo — o Electron concede tudo por padrão se ninguém disser o contrário.

@@ -2,8 +2,9 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: augpt-img:; frame-src 'self' data: augpt-caixa: https://www.youtube-nocookie.com" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: blob: augpt-img: augpt-mapa:; connect-src 'self' augpt-mapa:; worker-src 'self'; frame-src 'self' data: augpt-caixa: https://www.youtube-nocookie.com" />
 <title>AuGPT</title>
+<link rel="stylesheet" href="vendor/maplibre-gl-5.24.0/maplibre-gl.css" />
 <link rel="stylesheet" href="styles.css" />
 <link rel="stylesheet" href="tema.css" />
 <script src="tema.js"></script>
@@ -1144,6 +1145,8 @@
 <script src="grafico.js"></script>
 <script src="calendario.js"></script>
 <script src="clima.js"></script>
+<script src="vendor/maplibre-gl-5.24.0/maplibre-gl-csp.js"></script>
+<script src="mapa.js"></script>
 <script src="md.js"></script>
 <script src="app.js"></script>
 <script src="app-eventos.js"></script>

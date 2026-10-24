@@ -197,4 +197,4 @@ async function responderClima({ pergunta, deps = {}, config = {}, pasta, pedido 
   return fim(`${texto}\n\n\`\`\`clima\n${JSON.stringify(bloco)}\n\`\`\``);
 }
 
-module.exports = { pedidoDeClima, cidadeNaPergunta, cidadeDaMemoria, acharCidade, responderClima, descricao };
+module.exports = { pedidoDeClima, cidadeNaPergunta, cidadeDaMemoria, acharCidade, responderClima, descricao, ALIASES };

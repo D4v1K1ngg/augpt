@@ -20,6 +20,7 @@ const imagensNoChat = require('./imagens-no-chat');
 const memoria = require('./memoria-no-chat');
 const calendario = require('./calendario-no-chat');
 const clima = require('./clima-no-chat');
+const mapa = require('./mapa-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -43,6 +44,13 @@ const ROTAS = [
     id: 'clima',
     detecta: ({ objetivo }) => clima.pedidoDeClima(objetivo),
     responde: ({ objetivo, deps, config, pasta }, pedido) => clima.responderClima({ pergunta: objetivo, deps, config, pasta, ...(pedido ? { pedido } : {}) }),
+  },
+  {
+    // "onde fica a Torre Eiffel?", "quanto tempo de Campinas até São Paulo?" (23/10): Nominatim, OSRM
+    // e o globo na resposta; lugar que o mapa não conhece ou serviço fora, a pesquisa responde
+    id: 'mapa',
+    detecta: ({ objetivo }) => mapa.pedidoDeMapa(objetivo),
+    responde: ({ objetivo, deps, config, pasta }, pedido) => mapa.responderMapa({ pergunta: objetivo, deps, config, pasta, ...(pedido ? { pedido } : {}) }),
   },
   {
     // "o que você pode fazer?": a mesma lista da aba Utilitários, montada pelo código

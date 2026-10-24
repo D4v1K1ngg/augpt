@@ -515,6 +515,32 @@ body:not(.mostrar-tecnico) .tecnico { display: none !important; }
 .clima-barra { position: relative; height: 5px; border-radius: 3px; background: var(--line); }
 .clima-barra-cheia { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, #6aa9f0, var(--gold), #ea6b5e); }
 .clima-fonte { margin-top: 6px; font-size: 10.5px; color: var(--muted); text-align: right; }
+/* mapa e globo (23/10, renderer/mapa.js) */
+.mapa-cartao { width: min(100%, 720px); margin: 4px 0 16px; border: 1px solid var(--line-forte); border-radius: 14px; background: var(--panel); overflow: hidden; }
+.mapa-topo { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.mapa-titulo { flex: 1; min-width: 0; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mapa-titulo b { font-weight: 500; }
+.mapa-onde, .mapa-seta { color: var(--muted); }
+.mapa-botoes { display: flex; gap: 6px; flex: none; }
+.mapa-botao { height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: none; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.mapa-botao:hover { border-color: var(--gold); }
+.mapa-area { height: 380px; background: radial-gradient(circle at 50% 45%, #0f1a2a, #05070b 70%); }
+.mapa-erro { display: grid; place-items: center; color: var(--muted); font-size: 12.5px; padding: 20px; text-align: center; }
+.mapa-modos { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.mapa-modo { display: flex; align-items: center; gap: 7px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; background: none; color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; }
+.mapa-modo:hover:not(:disabled) { border-color: var(--gold); }
+.mapa-modo:disabled { opacity: 0.45; cursor: default; }
+.mapa-modo-ativo { border-color: var(--gold); background: rgba(224, 176, 79, 0.1); }
+.mapa-modo-ico { font-size: 15px; }
+.mapa-modo-nome, .mapa-modo-km { color: var(--muted); }
+.mapa-modo b { font-weight: 600; }
+.mapa-reta { margin-left: auto; font-size: 11.5px; color: var(--muted); }
+.mapa-pino { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-size: 12px; font-weight: 700; color: #1a1406; background: var(--gold); border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45); }
+.mapa-pino-b { background: #ea6b5e; color: #fff; }
+.mapa-cartao.mapa-grande { position: fixed; inset: 4vh 4vw; z-index: 950; width: auto; margin: 0; display: flex; flex-direction: column; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6); }
+.mapa-grande .mapa-area { flex: 1; height: auto; }
+.mapa-fundo { position: fixed; inset: 0; z-index: 940; background: rgba(5, 7, 11, 0.72); }
+.mapa-cartao .maplibregl-ctrl-attrib { font-size: 10px; }
 /* imagens das respostas (23/10): clicar abre; o botão no canto aparece no hover */
 .md-figura { position: relative; }
 .md-figura:not(.md-destaque) { width: fit-content; }
