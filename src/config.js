@@ -146,6 +146,8 @@ const DEFAULTS = {
   ultimaVersaoVista: '',
   // ditado por voz (24/10): false = o texto falado fica na caixa para revisar
   ditadoEnviarSozinho: false,
+  // o microfone do ditado (deviceId); '' = automático (o padrão do Windows, pulando os virtuais)
+  ditadoMicrofone: '',
   preBuscaConcorrencia: 2,
   // Modo AUTO (auto.js, 2026-10-10): cada pedido ganha um nível —
   // 0 direto (conversa), 1 conversa com pesquisa rápida, 2 pesquisa padrão,

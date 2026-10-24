@@ -791,7 +791,38 @@ async function pintarDitado() {
   $('compDitadoInstalado').textContent = d.instalado ? `${d.modelo} · whisper.cpp ${d.versao}` : tr('não instalado ({tamanho} para baixar)', { tamanho: d.tamanho || '~600 MB' });
   $('btnCompDitadoInstalar').hidden = Boolean(d.instalado);
   $('cfgDitadoEnviar').checked = config.ditadoEnviarSozinho === true;
+  // a escolha do microfone só com o ditado instalado (antes disso o AuGPT não abre o microfone)
+  $('linhaMicrofone').hidden = !d.instalado;
+  if (d.instalado && window.ditadoPorVoz) {
+    const { padrao, microfones } = await window.ditadoPorVoz.listarMicrofones();
+    const sel = $('ajMicrofone');
+    sel.textContent = '';
+    sel.append(new Option(padrao ? tr('Automático (agora: {nome})', { nome: padrao }) : tr('Automático'), ''));
+    for (const m of microfones) sel.append(new Option(m.virtual ? `${m.nome} (virtual)` : m.nome, m.id));
+    sel.value = microfones.some((m) => m.id === config.ditadoMicrofone) ? config.ditadoMicrofone : '';
+  }
 }
+$('ajMicrofone').addEventListener('change', async (e) => {
+  config = await api.config.set({ ditadoMicrofone: e.target.value });
+});
+$('btnTestarMicrofone').addEventListener('click', async () => {
+  const botao = $('btnTestarMicrofone');
+  botao.disabled = true;
+  $('microfoneTeste').hidden = false;
+  $('microfoneResultado').textContent = tr('Fale alguma coisa…');
+  try {
+    const r = await window.ditadoPorVoz.testarMicrofone($('ajMicrofone').value, (nivel, nome) => {
+      $('microfoneNivel').style.width = `${Math.round(nivel * 100)}%`;
+      $('microfoneResultado').textContent = tr('Fale alguma coisa… ({nome})', { nome });
+    });
+    $('microfoneResultado').textContent = r.ouviu ? tr('Captando som ✓ — {nome}', { nome: r.nome }) : tr('Nenhum som em {nome}. Escolha outro microfone na lista e teste de novo.', { nome: r.nome });
+  } catch (err) {
+    $('microfoneResultado').textContent = tr('Não consegui abrir o microfone ({erro}).', { erro: err.name || err.message });
+  } finally {
+    $('microfoneNivel').style.width = '0';
+    botao.disabled = false;
+  }
+});
 $('btnCompDitadoInstalar').addEventListener('click', async () => {
   $('btnCompDitadoInstalar').disabled = true;
   $('compDitadoStatus').textContent = tr('começando…');

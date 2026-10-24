@@ -887,6 +887,12 @@ body:not(.mostrar-tecnico) .tecnico { display: none !important; }
 @keyframes ditado-pulso { 50% { opacity: 0.35; } }
 .ditado-aviso { position: absolute; left: 14px; bottom: calc(100% + 8px); max-width: calc(100% - 28px); padding: 6px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line-forte); color: var(--text); font-size: 12px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); pointer-events: none; }
 .ditado-aviso[hidden] { display: none; }
+.microfone-escolha { display: flex; gap: 8px; align-items: center; flex: none; }
+.microfone-escolha select { max-width: 280px; }
+.microfone-teste { display: flex; align-items: center; gap: 12px; padding: 4px 0 10px; font-size: 12px; color: var(--muted); }
+.microfone-teste[hidden] { display: none; }
+.microfone-barra { flex: none; width: 160px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.microfone-barra span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--green), var(--gold), var(--red)); transition: width 0.08s linear; }
 .composer-rodape {
   max-width: var(--coluna); margin: 9px auto 0; display: flex; justify-content: space-between;
   gap: 16px; font-size: 10.5px; color: var(--muted);

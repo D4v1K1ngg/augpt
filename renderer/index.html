@@ -601,6 +601,13 @@
           <label class="linha"><span class="linha-texto"><span>Ditado por voz: enviar sozinho</span><small>Desligado, o texto falado fica na caixa para você revisar antes de enviar.</small></span>
             <input type="checkbox" id="cfgDitadoEnviar" class="caixa" />
           </label>
+          <div class="linha" id="linhaMicrofone" hidden><span class="linha-texto"><span>Microfone do ditado</span><small id="ajMicrofoneDica">Automático usa o padrão do Windows e pula as entradas virtuais (Steam, "What U Hear", mixagem estéreo).</small></span>
+            <span class="microfone-escolha">
+              <select id="ajMicrofone"><option value="">Automático</option></select>
+              <button type="button" class="btn-secundario" id="btnTestarMicrofone">Testar</button>
+            </span>
+          </div>
+          <div class="microfone-teste" id="microfoneTeste" hidden><span class="microfone-barra"><span id="microfoneNivel"></span></span><span id="microfoneResultado"></span></div>
         </section>
         <section class="grupo">
           <h2>Respostas</h2>

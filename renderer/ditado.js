@@ -65,6 +65,115 @@
     caixa.setSelectionRange(caixa.value.length, caixa.value.length);
   }
 
+  /* ---------- qual microfone (24/10: no PC do Davi, o padrão pode ser um virtual que não capta nada) ---------- */
+  // entradas que não são microfone: o som do próprio PC ou de outro programa
+  const VIRTUAL = /steam streaming|what u hear|stereo mix|mixagem est|virtual|voicemeeter|cable output|vb-audio|wave out mix|sa[íi]da/i;
+  const RESTRICOES = { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+  const pedir = (deviceId) => navigator.mediaDevices.getUserMedia({ audio: { ...RESTRICOES, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) } });
+  const nomeDoMicrofone = (fluxo) => (fluxo?.getAudioTracks?.()[0]?.label || '').replace(/^(Padrão|Default|Comunicações|Communications)\s*-\s*/i, '');
+
+  /** O maior nível em `ms` (0 exato = silêncio digital: entrada sem nada conectado). */
+  async function sondar(fluxo, ms = 400) {
+    const contexto = new AudioContext();
+    const analisador = contexto.createAnalyser();
+    contexto.createMediaStreamSource(fluxo).connect(analisador);
+    const dados = new Float32Array(analisador.fftSize);
+    let pico = 0;
+    const fim = Date.now() + ms;
+    while (Date.now() < fim) {
+      await new Promise((ok) => setTimeout(ok, 50));
+      analisador.getFloatTimeDomainData(dados);
+      for (const v of dados) pico = Math.max(pico, Math.abs(v));
+    }
+    contexto.close();
+    return pico;
+  }
+
+  let achadoNoAutomatico = null; // o microfone que o automático achou nesta sessão
+  /**
+   * O escolhido em Ajustes; senão o padrão do Windows. No automático, se o padrão for virtual ou estiver
+   * em silêncio absoluto (24/10, PC do Davi: o padrão era o "External Mic" da G6, sem nada ligado; o
+   * microfone de verdade era o fifine), tenta os outros microfones reais e fica com o que tem sinal.
+   */
+  async function abrirMicrofone(escolhido = config.ditadoMicrofone || '') {
+    if (escolhido) {
+      try {
+        return await pedir(escolhido);
+      } catch {
+        // o escolhido foi desconectado: segue no automático
+      }
+    }
+    if (achadoNoAutomatico) {
+      try {
+        return await pedir(achadoNoAutomatico);
+      } catch {
+        achadoNoAutomatico = null;
+      }
+    }
+    const padrao = await pedir(null);
+    if (!VIRTUAL.test(nomeDoMicrofone(padrao)) && (await sondar(padrao)) > 0) return padrao;
+    const nomeDoPadrao = nomeDoMicrofone(padrao);
+    padrao.getTracks().forEach((t) => t.stop());
+    const candidatos = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput' && !['default', 'communications'].includes(d.deviceId) && d.label && !VIRTUAL.test(d.label) && d.label !== nomeDoPadrao);
+    for (const c of candidatos) {
+      let fluxo = null;
+      try {
+        fluxo = await pedir(c.deviceId);
+        if ((await sondar(fluxo)) > 0) {
+          achadoNoAutomatico = c.deviceId;
+          return fluxo;
+        }
+      } catch {
+        // este não abriu: o próximo
+      }
+      fluxo?.getTracks().forEach((t) => t.stop());
+    }
+    return pedir(null); // nenhum com sinal: o padrão, e o aviso diz qual é e onde trocar
+  }
+
+  /** Os microfones do PC (para Ajustes): os nomes só aparecem depois de abrir o microfone uma vez. */
+  async function listarMicrofones() {
+    let temporario = null;
+    try {
+      temporario = await pedir(null);
+    } catch {
+      // sem permissão: a lista vem sem nomes
+    }
+    const lista = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput' && !['default', 'communications'].includes(d.deviceId));
+    const padrao = nomeDoMicrofone(temporario);
+    temporario?.getTracks().forEach((t) => t.stop());
+    return { padrao, microfones: lista.map((d) => ({ id: d.deviceId, nome: d.label || tr('Microfone'), virtual: VIRTUAL.test(d.label) })) };
+  }
+
+  /** "Testar" em Ajustes: abre o microfone por `ms` e chama `aoMedir(nivel 0–1, nome)`; devolve o maior nível. */
+  async function testarMicrofone(deviceId, aoMedir, ms = 5000) {
+    const fluxo = await abrirMicrofone(deviceId);
+    const nome = nomeDoMicrofone(fluxo);
+    const contexto = new AudioContext();
+    const analisador = contexto.createAnalyser();
+    analisador.fftSize = 2048;
+    contexto.createMediaStreamSource(fluxo).connect(analisador);
+    const dados = new Float32Array(analisador.fftSize);
+    let pico = 0;
+    const fim = Date.now() + ms;
+    await new Promise((ok) => {
+      const passo = () => {
+        analisador.getFloatTimeDomainData(dados);
+        let soma = 0;
+        for (const v of dados) soma += v * v;
+        const nivel = Math.sqrt(soma / dados.length);
+        pico = Math.max(pico, nivel);
+        aoMedir(Math.min(1, nivel * 10), nome);
+        if (Date.now() < fim) setTimeout(passo, 80);
+        else ok();
+      };
+      passo();
+    });
+    fluxo.getTracks().forEach((t) => t.stop());
+    contexto.close();
+    return { pico, nome, ouviu: pico > 0.006 };
+  }
+
   async function comecar(caixa, botao, enviar) {
     const estado = await api.ditado.estado().catch(() => ({ instalado: false }));
     if (!estado.instalado) {
@@ -76,7 +185,7 @@
     }
     let fluxo;
     try {
-      fluxo = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      fluxo = await abrirMicrofone();
     } catch (err) {
       aviso(botao, tr('Não consegui abrir o microfone ({erro}). Confira se há um microfone ligado e se o Windows permite o acesso (Configurações → Privacidade → Microfone).', { erro: err.name || err.message }));
       setTimeout(() => aviso(botao, ''), 9000);
@@ -86,7 +195,7 @@
     const entrada = contexto.createMediaStreamSource(fluxo);
     const processador = contexto.createScriptProcessor(4096, 1, 1);
     const amostras = [];
-    const g = { caixa, botao, enviar, fluxo, contexto, processador, amostras, inicio: Date.now(), falou: false, ultimaFala: 0, ruido: 0.004, timer: null };
+    const g = { caixa, botao, enviar, fluxo, contexto, processador, amostras, inicio: Date.now(), falou: false, ultimaFala: 0, ruido: 0.004, nivel: 0, microfone: nomeDoMicrofone(fluxo), timer: null };
     atual = g;
     processador.onaudioprocess = (e) => {
       const dados = new Float32Array(e.inputBuffer.getChannelData(0));
@@ -97,10 +206,12 @@
       // o piso de ruído segue o nível mais baixo do ambiente e sobe devagar; fala é bem acima dele
       // (medir só o começo falhava quando a pessoa já começa falando: a voz virava o "ruído")
       g.ruido = nivel < g.ruido ? nivel : g.ruido * 1.01;
-      if (nivel > Math.max(0.012, g.ruido * 3)) {
+      // 24/10: o limite baixou (0,012 → 0,006) — microfone de mesa longe da boca fica abaixo
+      if (nivel > Math.max(0.006, g.ruido * 3)) {
         g.falou = true;
         g.ultimaFala = Date.now();
       }
+      g.nivel = Math.max(nivel, g.nivel * 0.85);
       botao.style.setProperty('--nivel', String(Math.min(1, nivel * 8)));
     };
     entrada.connect(processador);
@@ -110,9 +221,11 @@
     g.timer = setInterval(() => {
       const passou = Date.now() - g.inicio;
       const s = Math.floor(passou / 1000);
-      aviso(botao, tr('Ouvindo… {tempo} — pare de falar ou clique para terminar', { tempo: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }));
+      // qual microfone e o nível do som (uma barrinha): sem nível nenhum, é o microfone errado
+      const barras = Math.min(8, Math.round(g.nivel * 80));
+      aviso(botao, `${tr('Ouvindo pelo {microfone}… {tempo}', { microfone: g.microfone || tr('microfone padrão'), tempo: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}  ${'▮'.repeat(barras)}${'▯'.repeat(8 - barras)}`);
       if ((g.falou && Date.now() - g.ultimaFala > SILENCIO_PARA_PARAR) || passou > MAXIMO) parar();
-      else if (!g.falou && passou > SEM_FALA_DESISTE) parar({ descartar: tr('Não ouvi nada — tente de novo mais perto do microfone.') });
+      else if (!g.falou && passou > SEM_FALA_DESISTE) parar({ descartar: tr('Não ouvi nada pelo {microfone}. Escolha outro microfone em Ajustes → Geral (dá para testar lá).', { microfone: g.microfone || tr('microfone padrão') }) });
     }, 200);
   }
 
@@ -191,5 +304,5 @@
     alternar(alvo.caixa, alvo.botao, alvo.enviar);
   });
 
-  window.ditadoPorVoz = { parar, paraWav };
+  window.ditadoPorVoz = { parar, paraWav, abrirMicrofone, listarMicrofones, testarMicrofone };
 })();
