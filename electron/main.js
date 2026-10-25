@@ -1029,7 +1029,7 @@ function iniciarAgendador() {
 // bytes; o arquivo temporário é apagado logo depois. Instala só no clique (Ajustes → Componentes).
 const { Ditado } = require('../src/ditado');
 let ditado = null;
-ipcMain.handle('ditado:estado', () => (ditado ? ditado.estado() : { instalado: false }));
+ipcMain.handle('ditado:estado', () => (ditado ? { ...ditado.estado(), escutaEmUso: ditado.modeloDaEscuta(config.data.escutaModelo) } : { instalado: false }));
 ipcMain.handle('ditado:instalar', async () => {
   try {
     return { ok: true, estado: await ditado.instalar({ emitir: (p) => enviar('ditado-progresso', p) }) };
@@ -1038,27 +1038,60 @@ ipcMain.handle('ditado:instalar', async () => {
   }
 });
 // "Ei GPT" (25/10): o modelo pequeno da escuta, a checagem de cada frase curta e a correção do texto
-ipcMain.handle('ditado:instalarEscuta', async () => {
+ipcMain.handle('ditado:instalarEscuta', async (_e, { modelo } = {}) => {
   try {
-    return { ok: true, estado: await ditado.instalarEscuta({ emitir: (p) => enviar('ditado-progresso', p) }) };
+    return { ok: true, estado: await ditado.instalarEscuta({ modelo: modelo === 'base' ? 'base' : 'small', emitir: (p) => enviar('ditado-progresso', p) }) };
   } catch (err) {
     return { ok: false, error: err.message };
   }
 });
 const ehWav = (audio, maxSegundos) => audio.length >= 1000 && audio.length <= 44 + 32000 * maxSegundos && audio.toString('latin1', 0, 4) === 'RIFF' && audio.toString('latin1', 8, 12) === 'WAVE';
-ipcMain.handle('ditado:chamada', async (_e, bytes) => {
-  if (!config.data.ouvirChamada || !ditado?.escutaInstalada()) return { ok: false, error: 'escuta desligada' };
+// as últimas frases que a escuta ouviu (só na memória, até fechar o app): quando o "Ei GPT" não
+// reage, Ajustes mostra o que o Whisper escreveu no lugar
+const registroDaEscuta = [];
+async function ouvirFrase(bytes, { variantes = config.data.escutaVariantes || [] } = {}) {
   const audio = Buffer.from(bytes || []);
   if (!ehWav(audio, 8)) return { ok: false, error: 'áudio inválido' };
   const arquivo = path.join(app.getPath('temp'), `augpt-chamada-${Date.now()}.wav`);
   try {
     fs.writeFileSync(arquivo, audio);
-    return { ok: true, ...(await ditado.ouvirChamada(arquivo, { idioma: idiomaEfetivo() })) };
+    return { ok: true, ...(await ditado.ouvirChamada(arquivo, { idioma: idiomaEfetivo(), modelo: config.data.escutaModelo, variantes })) };
   } catch (err) {
     return { ok: false, error: err.message };
   } finally {
     fs.rmSync(arquivo, { force: true });
   }
+}
+ipcMain.handle('ditado:chamada', async (_e, bytes) => {
+  if (!config.data.ouvirChamada || !ditado?.escutaInstalada()) return { ok: false, error: 'escuta desligada' };
+  const r = await ouvirFrase(bytes);
+  if (r.ok && r.texto) {
+    registroDaEscuta.unshift({ em: Date.now(), texto: r.texto.slice(0, 200), chamou: r.chamou, ms: r.ms, modelo: r.modelo });
+    registroDaEscuta.length = Math.min(registroDaEscuta.length, 40);
+  }
+  return r;
+});
+ipcMain.handle('ditado:registroDaEscuta', () => registroDaEscuta);
+ipcMain.handle('ditado:limparRegistroDaEscuta', () => {
+  registroDaEscuta.length = 0;
+  return true;
+});
+// o treino da voz (Ajustes → Geral): cada "Ei GPT" gravado passa pelo modelo da escuta SEM as variantes
+// já aprendidas (o resultado mostra se o modelo sozinho reconheceu); no fim, guarda as variantes e a sensibilidade
+ipcMain.handle('ditado:treinarFrase', async (_e, bytes) => {
+  if (!ditado?.escutaInstalada()) return { ok: false, error: 'escuta não instalada' };
+  return ouvirFrase(bytes, { variantes: [] });
+});
+ipcMain.handle('ditado:salvarTreino', (_e, { textos = [], niveis = [] } = {}) => {
+  const { variantesDoTreino, sensibilidadeDoTreino } = require('../src/ditado');
+  const { variantes, recusadas } = variantesDoTreino((Array.isArray(textos) ? textos : []).map((t) => String(t || '').slice(0, 200)).slice(0, 12));
+  const sensibilidade = sensibilidadeDoTreino((Array.isArray(niveis) ? niveis : []).map(Number).slice(0, 12));
+  config.save({ escutaVariantes: variantes, ...(sensibilidade ? { escutaSensibilidade: sensibilidade } : {}) });
+  return { ok: true, variantes, recusadas, sensibilidade, config: config.data };
+});
+ipcMain.handle('ditado:apagarTreino', () => {
+  config.save({ escutaVariantes: [], escutaSensibilidade: null });
+  return config.data;
 });
 // o pedido depois do "Ei GPT": o turbo transcreve tudo, a chamada sai do começo e os comandos diretos
 // ("nova conversa", "para") são reconhecidos aqui
@@ -1071,7 +1104,7 @@ ipcMain.handle('ditado:pedidoDeVoz', async (_e, bytes) => {
     fs.writeFileSync(arquivo, audio);
     const { semChamada, comandoDeVoz } = require('../src/ditado');
     const r = await ditado.transcrever(arquivo, { idioma: idiomaEfetivo() });
-    const pedido = semChamada(r.texto);
+    const pedido = semChamada(r.texto, config.data.escutaVariantes || []);
     return { ok: true, texto: r.texto, pedido, comando: comandoDeVoz(pedido), ms: r.ms };
   } catch (err) {
     return { ok: false, error: err.message };

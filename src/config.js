@@ -152,6 +152,11 @@ const DEFAULTS = {
   // do texto falado pelo modelo (ortografia e palavras ouvidas errado) antes de enviar
   ouvirChamada: false,
   ditadoCorrigir: true,
+  // o modelo da escuta ('small', 190 MB, mais certo no português; 'base', 60 MB, mais leve), o que o
+  // treino da voz aprendeu (como o Whisper escreve o seu "Ei GPT") e o limite de fala medido nele
+  escutaModelo: 'small',
+  escutaVariantes: [],
+  escutaSensibilidade: null,
   preBuscaConcorrencia: 2,
   // Modo AUTO (auto.js, 2026-10-10): cada pedido ganha um nível —
   // 0 direto (conversa), 1 conversa com pesquisa rápida, 2 pesquisa padrão,

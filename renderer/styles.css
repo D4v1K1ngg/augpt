@@ -1824,3 +1824,15 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .ollama-rede { display: flex; gap: 8px; flex-wrap: wrap; }
 .aviso-exposto { margin: 8px 0; padding: 10px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, #e0a030 55%, transparent); background: color-mix(in srgb, #e0a030 10%, transparent); font-size: 13px; line-height: 1.5; }
 .ollama-achado { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 0; }
+
+/* treino da voz e o que a escuta ouviu (25/10, Ajustes → Geral) */
+.treino-voz { margin: 4px 0 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; display: grid; gap: 10px; }
+.treino-voz[hidden] { display: none; }
+.treino-voz p { margin: 0; }
+#treinoInstrucao { font-weight: 600; }
+.treino-voz ol, .registro-escuta { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.registro-escuta { margin: 0 0 12px; max-height: 260px; overflow: auto; }
+.registro-escuta[hidden] { display: none; }
+.treino-voz .ok, .registro-escuta .ok { color: var(--green); }
+.treino-voz .nao, .registro-escuta .nao { color: var(--red); }
+.btn-link { background: none; border: none; padding: 0; font: inherit; color: var(--amber); text-decoration: underline; cursor: pointer; }

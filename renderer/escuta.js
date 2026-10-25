@@ -105,7 +105,9 @@
     // o mesmo detector de fala do ditado: piso de ruído que acompanha o ambiente
     e.ruido = nivel < e.ruido ? nivel : e.ruido * 1.01;
     const t = Date.now();
-    const fala = t > e.surdoAte && nivel > Math.max(0.006, e.ruido * 3);
+    // o limite de fala vem do treino da voz (Ajustes → Geral); sem treino, 0,006 — o mesmo do ditado
+    const limite = Number(config?.escutaSensibilidade) > 0 ? Number(config.escutaSensibilidade) : 0.006;
+    const fala = t > e.surdoAte && nivel > Math.max(limite, e.ruido * 3);
     if (fala) e.ultimaFala = t;
     // o botão do microfone está gravando: ele manda
     if (window.ditadoPorVoz.gravando()) {

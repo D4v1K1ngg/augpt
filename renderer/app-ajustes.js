@@ -799,6 +799,7 @@ async function pintarDitado() {
     $('cfgOuvirChamada').checked = config.ouvirChamada === true && Boolean(d.escuta);
     $('ouvirChamadaStatus').textContent = $('cfgOuvirChamada').checked ? tr('Ouvindo — diga "Ei GPT" e o seu pedido.') : '';
   }
+  pintarEscuta(d);
   // a escolha do microfone só com o ditado instalado (antes disso o AuGPT não abre o microfone)
   $('linhaMicrofone').hidden = !d.instalado;
   if (d.instalado && window.ditadoPorVoz) {
@@ -857,8 +858,9 @@ $('cfgOuvirChamada').addEventListener('change', async (e) => {
     if (!d.escuta) {
       caixa.disabled = true;
       status.dataset.ocupado = '1';
-      status.textContent = tr('baixando o modelo da escuta ({tamanho})…', { tamanho: d.tamanhoDaEscuta || '60 MB' });
-      const r = await api.ditado.instalarEscuta();
+      const modelo = config.escutaModelo === 'base' ? 'base' : 'small';
+      status.textContent = tr('baixando o modelo da escuta ({tamanho})…', { tamanho: d.tamanhosDaEscuta?.[modelo] || d.tamanhoDaEscuta || '190 MB' });
+      const r = await api.ditado.instalarEscuta(modelo);
       caixa.disabled = false;
       delete status.dataset.ocupado;
       if (!r.ok) {
@@ -880,6 +882,170 @@ $('cfgOuvirChamada').addEventListener('change', async (e) => {
 });
 $('cfgDitadoCorrigir').addEventListener('change', async (e) => {
   config = await api.config.set({ ditadoCorrigir: e.target.checked });
+});
+
+/* ---------- o modelo da escuta, o treino da voz e o que a escuta ouviu (25/10) ---------- */
+const NOME_DO_MODELO = { small: 'Whisper small', base: 'Whisper base' };
+function pintarEscuta(d) {
+  const escolhido = config.escutaModelo === 'base' ? 'base' : 'small';
+  $('cfgEscutaModelo').value = escolhido;
+  const status = $('escutaModeloStatus');
+  if (status.dataset.ocupado) return;
+  status.textContent = '';
+  // o escolhido ainda não foi baixado: a escuta usa o outro até você baixar
+  if (d.instalado && !d.escutaModelos?.[escolhido]) {
+    status.append(d.escutaEmUso ? tr('O {modelo} ainda não foi baixado — a escuta está usando o {outro}. ', { modelo: NOME_DO_MODELO[escolhido], outro: NOME_DO_MODELO[d.escutaEmUso] }) : tr('O {modelo} ainda não foi baixado. ', { modelo: NOME_DO_MODELO[escolhido] }));
+    const baixar = document.createElement('button');
+    baixar.type = 'button';
+    baixar.className = 'btn-link';
+    baixar.textContent = tr('Baixar ({tamanho})', { tamanho: d.tamanhosDaEscuta?.[escolhido] || '' });
+    baixar.addEventListener('click', () => baixarModeloDaEscuta(escolhido));
+    status.append(baixar);
+  }
+  const variantes = config.escutaVariantes || [];
+  $('treinoResumo').textContent = variantes.length || config.escutaSensibilidade
+    ? tr('Treinado: {n} jeito(s) da sua pronúncia{sens}.', { n: variantes.length, sens: config.escutaSensibilidade ? tr(' · sensibilidade ajustada ao seu microfone') : '' })
+    : '';
+  $('btnApagarTreino').hidden = !(variantes.length || config.escutaSensibilidade);
+}
+
+async function baixarModeloDaEscuta(modelo) {
+  const status = $('escutaModeloStatus');
+  status.dataset.ocupado = '1';
+  status.textContent = tr('baixando o modelo da escuta ({tamanho})…', { tamanho: '' });
+  $('cfgEscutaModelo').disabled = true;
+  const r = await api.ditado.instalarEscuta(modelo);
+  $('cfgEscutaModelo').disabled = false;
+  delete status.dataset.ocupado;
+  status.textContent = r.ok ? tr('{modelo} pronto ✓ — a escuta já usa ele.', { modelo: NOME_DO_MODELO[modelo] }) : tr('erro: {erro}', { erro: r.error });
+  return r.ok;
+}
+
+$('cfgEscutaModelo').addEventListener('change', async (e) => {
+  const modelo = e.target.value === 'base' ? 'base' : 'small';
+  config = await api.config.set({ escutaModelo: modelo });
+  const d = await api.ditado.estado().catch(() => ({}));
+  // trocar para um modelo ainda não baixado, com o ditado instalado: baixa já
+  if (d.instalado && !d.escutaModelos?.[modelo]) await baixarModeloDaEscuta(modelo);
+  else pintarEscuta(d);
+});
+
+// o treino: "Ei GPT" 6 vezes, de jeitos diferentes; cada uma passa pelo modelo da escuta SEM o treino anterior
+const JEITOS = ['do seu jeito normal', 'um pouco mais baixo', 'mais rápido', 'mais devagar', 'um pouco mais longe do microfone', 'como se estivesse do outro lado da mesa'];
+let treinoParado = false;
+$('btnTreinoParar').addEventListener('click', () => {
+  treinoParado = true;
+  $('btnTreinoParar').disabled = true;
+});
+$('btnTreinarVoz').addEventListener('click', async () => {
+  const botao = $('btnTreinarVoz');
+  const d = await api.ditado.estado().catch(() => ({}));
+  if (!d.instalado) {
+    $('treinoResumo').textContent = tr('Instale antes o ditado por voz em Ajustes → Componentes.');
+    return;
+  }
+  const modelo = config.escutaModelo === 'base' ? 'base' : 'small';
+  if (!d.escutaModelos?.[modelo] && !(await baixarModeloDaEscuta(modelo))) return;
+  botao.disabled = true;
+  treinoParado = false;
+  $('btnTreinoParar').onclick = null; // o "Fechar" do treino anterior
+  $('btnTreinoParar').disabled = false;
+  $('btnTreinoParar').textContent = tr('Parar');
+  // a escuta fica desligada durante o treino (senão ela mesma ouviria os "Ei GPT")
+  const escutava = window.escutaPorVoz?.ligada();
+  window.escutaPorVoz?.desligar();
+  const lista = $('treinoLista');
+  lista.textContent = '';
+  $('treinoFim').hidden = true;
+  $('treinoVoz').hidden = false;
+  const textos = [];
+  const niveis = [];
+  let sozinho = 0;
+  try {
+    for (let i = 0, tentativas = 0; i < JEITOS.length && tentativas < 10 && !treinoParado; tentativas += 1) {
+      $('treinoInstrucao').textContent = tr('{n} de {total} — diga "Ei GPT" {jeito}', { n: i + 1, total: JEITOS.length, jeito: tr(JEITOS[i]) });
+      const frase = await window.ditadoPorVoz.gravarFrase({ aoNivel: (n) => ($('treinoNivel').style.width = `${Math.round(n * 100)}%`) });
+      if (treinoParado) break;
+      if (!frase) {
+        $('treinoInstrucao').textContent = tr('Não ouvi nada — fale um pouco mais alto.');
+        await new Promise((ok) => setTimeout(ok, 1200));
+        continue;
+      }
+      $('treinoInstrucao').textContent = tr('Conferindo…');
+      const r = await api.ditado.treinarFrase(frase.wav);
+      const li = document.createElement('li');
+      if (!r.ok) {
+        li.className = 'nao';
+        li.textContent = tr('erro: {erro}', { erro: r.error });
+      } else {
+        textos.push(r.texto);
+        niveis.push(frase.nivel);
+        if (r.chamou) sozinho += 1;
+        li.className = r.chamou ? 'ok' : 'nao';
+        li.textContent = r.chamou ? tr('✓ reconheceu: "{texto}"', { texto: r.texto }) : tr('✗ escreveu: "{texto}"', { texto: r.texto || '(nada)' });
+      }
+      lista.append(li);
+      i += 1;
+    }
+    $('treinoInstrucao').textContent = '';
+    if (textos.length) {
+      const s = await api.ditado.salvarTreino({ textos, niveis });
+      config = s.config;
+      const partes = [tr('O modelo reconheceu {n} de {total} sozinho.', { n: sozinho, total: textos.length })];
+      if (s.variantes.length) partes.push(tr('Aprendi {n} jeito(s) novo(s) da sua pronúncia: agora eles também chamam o AuGPT.', { n: s.variantes.length }));
+      if (s.recusadas.length) partes.push(tr('Estas não viraram chamada, porque parecem começo de frase comum ou frase longa: {lista}.', { lista: s.recusadas.map((t) => `"${t}"`).join(', ') }));
+      if (s.sensibilidade) partes.push(tr('Sensibilidade do microfone ajustada à sua voz.'));
+      if (modelo === 'base' && sozinho <= textos.length / 2) partes.push(tr('Dica: o Whisper small entende melhor o português — troque em "Modelo da escuta" e treine de novo.'));
+      $('treinoFim').textContent = partes.join(' ');
+      $('treinoFim').hidden = false;
+    } else {
+      $('treinoVoz').hidden = true;
+    }
+  } catch (err) {
+    $('treinoInstrucao').textContent = tr('O treino falhou: {erro}', { erro: err.name || err.message });
+  } finally {
+    $('treinoNivel').style.width = '0';
+    $('btnTreinoParar').textContent = tr('Fechar');
+    $('btnTreinoParar').disabled = false;
+    $('btnTreinoParar').onclick = () => {
+      $('treinoVoz').hidden = true;
+      $('btnTreinoParar').onclick = null;
+    };
+    botao.disabled = false;
+    if (escutava || config.ouvirChamada === true) window.escutaPorVoz?.ligar();
+    pintarEscuta(await api.ditado.estado().catch(() => ({})));
+  }
+});
+$('btnApagarTreino').addEventListener('click', async () => {
+  config = await api.ditado.apagarTreino();
+  pintarEscuta(await api.ditado.estado().catch(() => ({})));
+});
+
+// o que a escuta ouviu: as últimas frases e como o Whisper escreveu cada uma
+async function pintarRegistroDaEscuta() {
+  const lista = $('registroEscuta');
+  const itens = await api.ditado.registroDaEscuta().catch(() => []);
+  lista.textContent = '';
+  if (!itens.length) {
+    const li = document.createElement('li');
+    li.textContent = config.ouvirChamada ? tr('Nada ainda — fale perto do microfone e clique em "Mostrar" de novo.') : tr('Nada ainda — ligue "Chamar com "Ei GPT"" acima.');
+    lista.append(li);
+  }
+  for (const it of itens) {
+    const li = document.createElement('li');
+    li.className = it.chamou ? 'ok' : 'nao';
+    const hora = new Date(it.em).toLocaleTimeString(window.i18n?.idioma === 'en' ? 'en-US' : 'pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    li.textContent = `${hora} · ${it.chamou ? '✓' : '✗'} "${it.texto}" · ${it.modelo || ''} · ${it.ms} ms`;
+    lista.append(li);
+  }
+  lista.hidden = false;
+  $('btnLimparRegistroEscuta').hidden = false;
+  $('btnRegistroEscuta').textContent = tr('Atualizar');
+}
+$('btnRegistroEscuta').addEventListener('click', pintarRegistroDaEscuta);
+$('btnLimparRegistroEscuta').addEventListener('click', async () => {
+  await api.ditado.limparRegistroDaEscuta();
+  pintarRegistroDaEscuta();
 });
 manipuladores['ditado-progresso'] = ({ texto }) => {
   if (!texto) return;

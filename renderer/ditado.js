@@ -310,7 +310,67 @@
     alternar(alvo.caixa, alvo.botao, alvo.enviar);
   });
 
+  /**
+   * O treino da voz (25/10): grava UMA frase — espera você começar a falar (até `esperar` ms), para em
+   * 0,6 s de silêncio (ou em `maximo` ms). → { wav, nivel } (nivel: o volume da fala, percentil 90) ou
+   * null se ninguém falou. O limite aqui é baixo de propósito: é ele que mede a voz baixa.
+   */
+  async function gravarFrase({ aoNivel = () => {}, esperar = 8000, maximo = 4000 } = {}) {
+    const fluxo = await abrirMicrofone();
+    const contexto = new AudioContext();
+    const processador = contexto.createScriptProcessor(4096, 1, 1);
+    contexto.createMediaStreamSource(fluxo).connect(processador);
+    processador.connect(contexto.destination);
+    const antes = [];
+    const trecho = [];
+    const niveis = [];
+    let ruido = 0.004;
+    let comeco = 0;
+    let ultima = 0;
+    const inicio = Date.now();
+    try {
+      await new Promise((ok) => {
+        processador.onaudioprocess = (ev) => {
+          const dados = new Float32Array(ev.inputBuffer.getChannelData(0));
+          let soma = 0;
+          for (let i = 0; i < dados.length; i += 1) soma += dados[i] * dados[i];
+          const nivel = Math.sqrt(soma / dados.length);
+          ruido = nivel < ruido ? nivel : ruido * 1.01;
+          const fala = nivel > Math.max(0.003, ruido * 3);
+          aoNivel(Math.min(1, nivel * 8));
+          const t = Date.now();
+          if (!comeco) {
+            antes.push(dados);
+            if (antes.length > 4) antes.shift();
+            if (fala) {
+              comeco = t;
+              ultima = t;
+              trecho.push(...antes);
+              niveis.push(nivel);
+            } else if (t - inicio > esperar) ok();
+            return;
+          }
+          trecho.push(dados);
+          if (fala) {
+            ultima = t;
+            niveis.push(nivel);
+          }
+          if (t - ultima > 600 || t - comeco > maximo) ok();
+        };
+      });
+    } finally {
+      processador.disconnect();
+      fluxo.getTracks().forEach((t) => t.stop());
+    }
+    const taxa = contexto.sampleRate;
+    contexto.close();
+    aoNivel(0);
+    if (!comeco) return null;
+    niveis.sort((a, b) => a - b);
+    return { wav: await paraWav(trecho, taxa), nivel: niveis[Math.floor(niveis.length * 0.9)] || 0 };
+  }
+
   // a escuta do "Ei GPT" (escuta.js) usa a caixa do Agente, o aviso dela e sabe quando o botão está gravando
   const doAgente = () => caixas.find((c) => c.caixa.id === 'entradaAgente') || null;
-  window.ditadoPorVoz = { parar, paraWav, abrirMicrofone, listarMicrofones, testarMicrofone, aviso, doAgente, gravando: () => Boolean(atual), botoes: () => caixas.map((c) => c.botao) };
+  window.ditadoPorVoz = { parar, paraWav, abrirMicrofone, listarMicrofones, testarMicrofone, gravarFrase, aviso, doAgente, gravando: () => Boolean(atual), botoes: () => caixas.map((c) => c.botao) };
 })();

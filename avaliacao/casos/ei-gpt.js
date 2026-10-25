@@ -27,6 +27,54 @@ module.exports = [
     },
   },
   {
+    nome: 'treino da voz: guarda como o Whisper escreve a SUA pronúncia (sem o começo comum de frase nem frase longa); depois, a mesma pronúncia escrita de outro jeito chama ("Juppetti" × "Geppetti", com enchimento antes) e o parecido não ("Hey, pretty", "Ei, já pedi"); a sensibilidade vem do volume, entre 0,002 e 0,012',
+    tipo: 'unidade',
+    executar() {
+      const t = d.variantesDoTreino(['Hey Geppetti!', 'Ei GPT.', 'E aí.', 'Hey Geppetti', 'hoje eu vou ao mercado comprar pão']);
+      const v = t.variantes;
+      return [
+        JSON.stringify(v) === '["heygeppetti"]' || JSON.stringify(t),
+        t.recusadas.length === 2 || `recusadas: ${t.recusadas}`,
+        ['Hey, hey, Juppetti!', 'Hey Jeppetti!', 'Hey Geppetti, what time is it?'].every((x) => d.ehChamada(x, v)) || 'variações da pronúncia treinada',
+        d.semChamada('Hey, hey, Juppetti, what time is it?', v) === 'What time is it?' || d.semChamada('Hey, hey, Juppetti, what time is it?', v),
+        !['Hey, pretty', 'Hey there', 'Hey, Peppa'].some((x) => d.ehChamada(x, v)) || 'parecido não chama',
+        !['Ei, depois', 'Ei, já pedi', 'Ei, gente bonita'].some((x) => d.ehChamada(x, ['eijepete'])) || 'parecido não chama (pt)',
+        d.ehChamada('Ei, Jepetê') && d.ehChamada('Hei Gepeto') || 'chave de som na lista de sempre',
+        d.sensibilidadeDoTreino([0.03, 0.02, 0.025]) === 0.0088 && d.sensibilidadeDoTreino([0.2]) === 0.012 && d.sensibilidadeDoTreino([0.001]) === 0.002 && d.sensibilidadeDoTreino([]) === null || 'sensibilidade',
+      ];
+    },
+  },
+  {
+    nome: 'modelo da escuta: small por padrão, base como alternativa; sem o escolhido baixado, usa o outro; o registro do que a escuta ouviu fica só na memória (até 40) e o treino confere sem as variantes antigas',
+    tipo: 'unidade',
+    executar() {
+      const fs2 = require('fs');
+      const os = require('os');
+      const dir = fs2.mkdtempSync(path.join(os.tmpdir(), 'augpt-escuta-'));
+      const x = new d.Ditado(dir);
+      const mod = (n) => path.join(dir, 'ditado', 'modelos', n);
+      fs2.mkdirSync(path.join(dir, 'ditado', 'bin'), { recursive: true });
+      fs2.mkdirSync(path.join(dir, 'ditado', 'modelos'), { recursive: true });
+      fs2.writeFileSync(path.join(dir, 'ditado', 'bin', 'whisper-cli.exe'), '');
+      fs2.writeFileSync(mod(d.MODELOS.turbo.arquivo), '');
+      const nenhum = x.modeloDaEscuta('small');
+      fs2.writeFileSync(mod(d.MODELOS_DA_ESCUTA.base.arquivo), '');
+      const soBase = [x.modeloDaEscuta('small'), x.modeloDaEscuta('base')];
+      fs2.writeFileSync(mod(d.MODELOS_DA_ESCUTA.small.arquivo), '');
+      const ambos = [x.modeloDaEscuta('small'), x.modeloDaEscuta('base')];
+      fs2.rmSync(dir, { recursive: true, force: true });
+      const main = fs.readFileSync(path.join(__dirname, '../../electron/main.js'), 'utf8');
+      const cfg = fs.readFileSync(path.join(__dirname, '../../src/config.js'), 'utf8');
+      return [
+        nenhum === null && JSON.stringify(soBase) === '["base","base"]' && JSON.stringify(ambos) === '["small","base"]' || JSON.stringify({ nenhum, soBase, ambos }),
+        d.MODELOS_DA_ESCUTA.small.sha256 === d.MODELOS.pequeno.sha256 || 'o small é o mesmo arquivo do ditado',
+        /escutaModelo: 'small'/.test(cfg) && /escutaVariantes: \[\]/.test(cfg) || 'padrões',
+        /registroDaEscuta\.length = Math\.min\(registroDaEscuta\.length, 40\)/.test(main) || 'registro limitado',
+        /'ditado:treinarFrase'[\s\S]{0,200}variantes: \[\]/.test(main) || 'treino sem as variantes antigas',
+      ];
+    },
+  },
+  {
     nome: '"Ei GPT": "nova conversa" e "para" são comandos diretos (pt e en); pedido comum não é',
     tipo: 'unidade',
     executar() {
