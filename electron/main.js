@@ -1082,6 +1082,7 @@ const variantesDaEscuta = () => require('../src/ditado').variantesValidas(config
 // aprender com o uso (25/10, "quanto mais eu treinar, melhor"): a chamada que virou pedido de verdade
 // ensina como o Whisper escreve a sua pronúncia; e o "Era eu" no registro ensina a que ele não pegou
 let ultimaChamada = null;
+let tentativaPerdida = null;
 function aprenderChamada(junto) {
   const { varianteValida, juntarVariantes, ehChamada } = require('../src/ditado');
   if (!junto || !varianteValida(junto) || ehChamada(junto) || variantesDaEscuta().includes(junto)) return false;
@@ -1105,6 +1106,13 @@ ipcMain.handle('ditado:chamada', async (_e, bytes) => {
   if (!config.data.ouvirChamada || !ditado?.escutaInstalada()) return { ok: false, error: 'escuta desligada' };
   const r = await ouvirFrase(bytes);
   if (r.ok && r.chamou) ultimaChamada = { junto: require('../src/ditado').chamadaEscrita(r.texto, variantesDaEscuta()), em: Date.now() };
+  // aprender com a repetição (25/10): você falou, a escuta não pegou, você repetiu e pegou — a 1ª era você
+  // chamando ("e jepeite" ✗ e logo depois "E aí, jepeta!" ✓, no registro real)
+  if (r.ok && !r.chamou && r.texto) tentativaPerdida = { junto: require('../src/ditado').chamadaEscrita(r.texto), em: Date.now() };
+  else if (r.ok && r.chamou && tentativaPerdida?.junto && Date.now() - tentativaPerdida.em < 15000) {
+    aprenderChamada(tentativaPerdida.junto);
+    tentativaPerdida = null;
+  }
   if (r.ok && r.texto) {
     anotarNaEscuta({ texto: r.texto, chamou: r.chamou, ms: r.ms, modelo: r.modelo });
   }

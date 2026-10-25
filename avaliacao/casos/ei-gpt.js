@@ -119,6 +119,25 @@ module.exports = [
     },
   },
   {
+    nome: 'registro real do Davi (25/10): o formato do som de "gê-pê-tê" reconhece a chamada escrita de 16 jeitos sem treino ("jepeite", "Egypte", "e a CPT", "Jepetinho", "EJPT"…); "Ei, já pedi", "Ei, gente", "Ei, Pedro", "hey Peter" não; "[Som de futebol]" não é fala; a repetição que pegou ensina a que não pegou',
+    tipo: 'unidade',
+    executar() {
+      const dele = ['E aí, jepeta!', 'e jepeite', 'e GPT', 'E aí, jepeti!', 'eee, jepeti', 'Ei, chepe de...', 'Ei, jipete!', 'Ei, GPT!', 'EJPT', 'Egypte', 'e a CPT', 'Ei, Jepetinho!', 'e jpte', 'Hey, hey, Juppetti!', 'Hey Gepetti.'];
+      const fala = ['Ei, já pedi', 'Ei, gente', 'E aí, tudo bem?', 'A gaveta', 'Ei, depois', 'Ei, cheguei', 'E aí, chefe', 'O Egito é lindo', 'Ei, pato', 'Ei, peteca', 'jeito de fazer', 'japonês', 'Ei, pode ir', 'aceite o pedido', 'O GPT é bom', 'e depois a gente vê', 'Ei, Pedro', 'Ei, Jéssica', 'hey Peter', 'Ei, Pietro'];
+      const main = fs.readFileSync(path.join(__dirname, '../../electron/main.js'), 'utf8');
+      const ditado = fs.readFileSync(path.join(__dirname, '../../src/ditado.js'), 'utf8');
+      return [
+        dele.filter((t) => !d.ehChamada(t)).length === 0 || `não chamaram: ${dele.filter((t) => !d.ehChamada(t))}`,
+        fala.filter((t) => d.ehChamada(t)).length === 0 || `chamaram: ${fala.filter((t) => d.ehChamada(t))}`,
+        d.semChamada('Ei, jepeite, vai chover amanhã?') === 'Vai chover amanhã?' || d.semChamada('Ei, jepeite, vai chover amanhã?'),
+        d.limparTranscricao('[Som de futebol]') === '' && d.limparTranscricao('[Toc, toc, toc]') === '' && d.limparTranscricao('Ei GPT, que horas são? [Aplausos]') === 'Ei GPT, que horas são?' || 'ruído entre colchetes',
+        // com "Ei GPT." de prompt, o Whisper tirava o "Hey GPT" da frase ("what time is it in Tokyo?"): medido no app
+        !/'--prompt'/.test(ditado) || 'sem prompt na escuta',
+        /tentativaPerdida\?\.junto && Date\.now\(\) - tentativaPerdida\.em < 15000\)[\s\S]{0,60}aprenderChamada\(tentativaPerdida\.junto\)/.test(main) || 'aprende com a repetição',
+      ];
+    },
+  },
+  {
     nome: '"Ei GPT": "nova conversa" e "para" são comandos diretos (pt e en); pedido comum não é',
     tipo: 'unidade',
     executar() {

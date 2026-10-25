@@ -88,6 +88,19 @@ function bateVariante(junto, variantes) {
 // palavra de enchimento que pode vir antes da chamada ("Hey, hey, Juppetti", "Ah, ei GPT")
 const ENCHIMENTO = /^(e|ei|eh|ah|ai|oi|hey|hei|ei|ok|entao|bom|olha)$/;
 
+/**
+ * O FORMATO do som de "gê-pê-tê" (25/10, pelo registro real do Davi: o Whisper escreveu a mesma chamada
+ * como "jepeite", "jipete", "Egypte", "e a CPT", "Jepetinho", "EJPT", "jepeta"): sem o "ei/e aí" da frente,
+ * um som de j/g/ch, vogal, p, vogal(is), t, vogal — ou j/g/ch + p + t juntos ("gpt", "cpt").
+ * "Ei, já pedi" (g-a-p-e-d), "gente", "gaveta", "depois" não têm esse formato. D no lugar do T só
+ * depois de "e/i" ("chepe de"), nunca de "a" ("já pedi").
+ */
+const SOM_DE_GPT = /^(?:[gx][aeiou]{1,2}p[aeiou]{0,2}t[aeiou]{0,2}(?:n[aeiou]{1,2})?|[gx][ei][aeiou]?p[aeiou]{0,2}d[aeiou]{1,2}|[gcx]p[aeiou]?t[aeiou]{0,2})$/;
+const temSomDeGPT = (junto) => {
+  const k = miolo(chaveDeSom(junto));
+  return k.length >= 3 && k.length <= 10 && SOM_DE_GPT.test(k);
+};
+
 /** Quantas palavras do começo do texto são a chamada (0 = não chamou). Olha até as 4 primeiras (5 com enchimento). */
 function palavrasDaChamada(texto, variantes = []) {
   const palavras = compacto(texto).split(' ').filter(Boolean);
@@ -95,7 +108,7 @@ function palavrasDaChamada(texto, variantes = []) {
     let junto = '';
     for (let i = de; i < Math.min(de + 4, palavras.length); i += 1) {
       junto += palavras[i];
-      if (CHAMADA.test(junto) || CHAMADA.test(chaveDeSom(junto)) || bateVariante(junto, variantes)) return i + 1;
+      if (CHAMADA.test(junto) || CHAMADA.test(chaveDeSom(junto)) || temSomDeGPT(junto) || bateVariante(junto, variantes)) return i + 1;
     }
     return 0;
   };
@@ -253,7 +266,10 @@ function limparMarcacoes(saida) {
     .map((l) => l.replace(/^\s*\[[\d:.\s>-]+\]\s*/, '').trim())
     .filter(Boolean)
     .join(' ')
-    .replace(/\[(?:BLANK_AUDIO|MUSIC|silence|música|musica|aplausos|risos)[^\]]*\]|\((?:música|musica|music|silêncio|silence|aplausos|risos)[^)]*\)/gi, '')
+    // tudo entre colchetes é o Whisper descrevendo som, não fala (25/10, no PC do Davi: "[Som de futebol]",
+    // "[Toc, toc, toc]", "[Tocando]" — a TV e o teclado)
+    .replace(/\[[^\]]{0,80}\]/g, '')
+    .replace(/\((?:música|musica|music|silêncio|silence|aplausos|risos|som|sons|barulho)[^)]*\)/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -390,4 +406,4 @@ class Ditado {
   }
 }
 
-module.exports = { Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel };
+module.exports = { temSomDeGPT, Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel };
