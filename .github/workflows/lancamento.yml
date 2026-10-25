@@ -21,6 +21,27 @@ jobs:
           node-version: 22
       - run: node avaliacao/executar.js
       - run: npm ci
+      # 25/10 (v0.38.0): o electron-builder 26 envia os arquivos em paralelo e, sem a Release criada,
+      # cada envio criou a sua — duas Releases v0.38.0, o .exe numa e o resto na outra. Criada antes,
+      # todos os envios caem nela.
+      - name: Cria a Release
+        shell: bash
+        run: gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes ""
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # sem o .exe e o latest.yml na Release, o atualizador do app não acha a versão: falha aqui, não em silêncio
+      - name: Confere os arquivos da Release
+        shell: bash
+        run: |
+          versao="${GITHUB_REF_NAME#v}"
+          arquivos=$(gh release view "$GITHUB_REF_NAME" --json assets -q '.assets[].name')
+          echo "$arquivos"
+          for f in "AuGPT-Setup-$versao.exe" "AuGPT-Setup-$versao.exe.blockmap" latest.yml; do
+            echo "$arquivos" | grep -qx "$f" || { echo "faltou $f na Release"; exit 1; }
+          done
+          [ "$(gh release list --limit 20 --json tagName -q "[.[] | select(.tagName == \"$GITHUB_REF_NAME\")] | length")" = 1 ] || { echo "mais de uma Release $GITHUB_REF_NAME"; exit 1; }
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
