@@ -42,6 +42,39 @@ const { GeradorDeImagens, recomendar: recomendarGerador, pastaPadrao: pastaDoGer
 const gerador = () => new GeradorDeImagens(pastaDoGerador(app.getPath('userData')));
 
 let win = null;
+
+// Revisão de 25/10: uma instância só. Duas (o atalho e o "npm start", ou dois cliques) usavam a mesma
+// pasta de dados e disputavam a configuração, a agenda e os avisos (o lembrete saía duas vezes).
+// Abrir de novo traz a janela que já está aberta para a frente.
+if (!app.requestSingleInstanceLock()) {
+  console.log('O AuGPT já está aberto — a janela dele foi trazida para a frente.');
+  app.exit(0);
+} else {
+  app.on('second-instance', () => {
+    if (!win || win.isDestroyed()) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  });
+}
+
+// Revisão de 25/10: erro que ninguém tratou no processo principal fica registrado (antes: só no
+// terminal, ou a caixa de erro do Electron). userData/diagnostico/erros.log, até 512 KB (+ um .1).
+function registrarErro(tipo, erro) {
+  console.error(tipo, erro);
+  try {
+    const dir = path.join(app.getPath('userData'), 'diagnostico');
+    const arquivo = path.join(dir, 'erros.log');
+    fs.mkdirSync(dir, { recursive: true });
+    if (fs.existsSync(arquivo) && fs.statSync(arquivo).size > 512 * 1024) fs.renameSync(arquivo, `${arquivo}.1`);
+    fs.appendFileSync(arquivo, `${new Date().toISOString()} ${tipo}: ${erro?.stack || erro}\n`);
+  } catch {
+    // sem disco: fica só no terminal
+  }
+}
+process.on('unhandledRejection', (erro) => registrarErro('promessa sem tratamento', erro));
+process.on('uncaughtException', (erro) => registrarErro('exceção sem tratamento', erro));
+
 let janelaExecucoes = null; // pedido de Davi 2026-09-23: "Visualizar Execuções" ganhou janela própria
 let config = null;
 let agent = null;
@@ -1495,6 +1528,7 @@ ipcMain.handle('novidades:ler', async (_e, { versao } = {}) => {
 });
 /* Imagens das respostas (23/10, pedido do Davi): baixar uma cópia e abrir a fonte original. */
 const dirImagens = () => path.join(app.getPath('userData'), 'imagens');
+const salvasPeloApp = new Set(); // os arquivos que o "Salvar como" gravou nesta sessão
 ipcMain.handle('imagem:origem', (_e, { nome } = {}) => imagens.origemDe(dirImagens(), nome));
 ipcMain.handle('imagem:salvar', async (e, { nome, sugestao } = {}) => {
   if (!imagens.NOME_VALIDO.test(String(nome))) return { ok: false, error: 'imagem inválida' };
@@ -1507,12 +1541,14 @@ ipcMain.handle('imagem:salvar', async (e, { nome, sugestao } = {}) => {
   if (r.canceled || !r.filePath) return { ok: false, cancelado: true };
   try {
     await fsp.copyFile(path.join(dirImagens(), nome), r.filePath);
+    salvasPeloApp.add(r.filePath);
     return { ok: true, caminho: r.filePath };
   } catch (err) {
     return { ok: false, error: err.message };
   }
 });
-ipcMain.handle('imagem:mostrarNaPasta', (_e, { caminho } = {}) => caminho && shell.showItemInFolder(caminho));
+// revisão de 25/10: só mostra o arquivo que o próprio "Salvar como" acabou de gravar (antes, qualquer caminho)
+ipcMain.handle('imagem:mostrarNaPasta', (_e, { caminho } = {}) => (caminho && salvasPeloApp.has(caminho) ? (shell.showItemInFolder(caminho), true) : false));
 function procurarAtualizacaoAoAbrir() {
   if (!app.isPackaged || config.data.procurarAtualizacoes === false) return;
   setTimeout(async () => {
@@ -1816,6 +1852,13 @@ app.whenReady().then(() => {
   };
   conversas = new Conversas(path.join(app.getPath('userData'), 'conversas'));
   agenda = new Agenda(app.getPath('userData'));
+  // revisão de 25/10: a faxina dos caches (mapa e fotos sem uso), 2 min depois de abrir, em segundo plano
+  setTimeout(() => {
+    require('../src/faxina')
+      .faxina({ userData: app.getPath('userData') })
+      .then((r) => r.mapa + r.imagens && console.log(`faxina: ${r.mapa} pedaços de mapa e ${r.imagens} fotos sem uso, ${Math.round(r.bytes / 1e6)} MB`))
+      .catch((err) => registrarErro('faxina', err));
+  }, 2 * 60000);
   ditado = new Ditado(path.join(app.getPath('userData'), 'componentes'));
   // os avisos do Windows saem com o nome do AuGPT (sem isto, no Windows não aparecem fora do instalador)
   if (process.platform === 'win32') app.setAppUserModelId('com.davi.augpt');

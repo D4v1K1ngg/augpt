@@ -191,7 +191,8 @@
     }
     bAmpliar.addEventListener('click', () => ampliar(!raiz.classList.contains('mapa-grande')));
     fundo.addEventListener('click', () => ampliar(false));
-    document.addEventListener('keydown', (e) => e.key === 'Escape' && raiz.classList.contains('mapa-grande') && ampliar(false));
+    // Esc fecha o ampliado: um ouvinte só para a tela toda (revisão de 25/10 — antes, um por cartão, que nunca saía)
+    raiz.fecharAmpliado = () => ampliar(false);
 
     // o mapa só existe perto da tela (contexto WebGL é limitado)
     const vigia = new IntersectionObserver((itens) => {
@@ -212,6 +213,10 @@
     vigia.observe(raiz);
     return raiz;
   }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') document.querySelector('.mapa-cartao.mapa-grande')?.fecharAmpliado?.();
+  });
 
   global.mapa = { criar };
 })(window);

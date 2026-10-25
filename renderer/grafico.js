@@ -541,7 +541,9 @@
     if (spec.tipo === 'pie' || spec.tipo === 'doughnut') {
       const s = spec.series[0];
       const v = s.valores[j] || 0;
-      return `<b>${escapar(spec.rotulos[j])}</b><br>${escapar(exato(v, spec.unidade))} — ${((v / (geo.soma || 1)) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%${s.estimados[j] ? '<br><i>estimativa</i>' : ''}`;
+      // unidade já em % (40% Chrome): a parte do total repetiria o número ("35% — 35%")
+      const parte = String(spec.unidade || '').trim() === '%' ? '' : ` — ${((v / (geo.soma || 1)) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+      return `<b>${escapar(spec.rotulos[j])}</b><br>${escapar(exato(v, spec.unidade))}${parte}${s.estimados[j] ? '<br><i>estimativa</i>' : ''}`;
     }
     linhas.push(`<b>${escapar(spec.rotulos[j])}</b>`);
     spec.series.forEach((s, i) => {

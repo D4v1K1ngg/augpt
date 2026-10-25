@@ -53,7 +53,7 @@ function renderizar(url, { timeout = 25000, esperaExtra = 1200, obterConfig = ()
     janela.webContents.setAudioMuted(true);
     // Fase 1 de segurança: mesma proteção do navegador do agente — sem
     // permissões e sem requisição pra rede local (ver electron/sessao-segura.js).
-    protegerSessaoWeb(janela.webContents.session, { obterConfig });
+    protegerSessaoWeb(janela.webContents.session, { obterConfig, soLeitura: true }); // sem anúncio, rastreador, vídeo e fonte (25/10)
 
     // link que vira download (19/10, print do Davi: "Estatistica-Notas-de-Aula.pdf/at_download/file"
     // abria a janela "Salvar como" do Windows no meio da pesquisa). PDF: baixa calado numa pasta

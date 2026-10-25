@@ -30,7 +30,7 @@
     "atualizar-dominios": "node ferramentas/_atualizar-dominios.js"
   },
   "devDependencies": {
-    "electron": "^44.4.5",
+    "electron": "^44.9.3",
     "electron-builder": "^25.1.8"
   },
   "build": {

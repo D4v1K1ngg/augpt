@@ -45,7 +45,22 @@ const soMicrofoneDe = (obterAlvo, ligado = () => true) => (wc, permissao, tipos)
  * `obterConfig` devolve a config atual — lida a cada requisição, pra mudança
  * em Ajustes valer sem reiniciar o app.
  */
-function protegerSessaoWeb(ses, { obterConfig = () => ({}) } = {}) {
+/**
+ * Revisão de 25/10: na LEITURA em segundo plano (render.js), anúncio, rastreador, vídeo e fonte não
+ * ajudam a ler o texto — só pesam e mandam dados para fora (o "tracookiepixel.xyz" no terminal).
+ * O navegador do agente (onde o usuário faz login) não usa isto.
+ */
+const RASTREADOR = /(^|\.)(doubleclick\.net|googlesyndication\.com|google-analytics\.com|googletagmanager\.com|googleadservices\.com|adservice\.google\.\w+|facebook\.net|connect\.facebook\.net|hotjar\.com|criteo\.(com|net)|taboola\.com|outbrain\.com|adnxs\.com|amazon-adsystem\.com|scorecardresearch\.com|quantserve\.com|pubmatic\.com|rubiconproject\.com|openx\.net|casalemedia\.com|moatads\.com|chartbeat\.(com|net)|clarity\.ms|bat\.bing\.com|analytics\.tiktok\.com|ads-twitter\.com|hs-analytics\.net|newrelic\.com|nr-data\.net|segment\.(io|com)|mixpanel\.com|branch\.io|onesignal\.com|pushnews\.com\.br|navdmp\.com|tail\.digital)$|(^|[.-])(ads?|adserver|pixel|tracking|tracker|analytics|metrics)[.-]|pixel\.\w+$|cookiepixel/i;
+function bloqueavelNaLeitura(url, tipo) {
+  if (tipo === 'media' || tipo === 'font' || tipo === 'image') return true;
+  try {
+    return RASTREADOR.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+function protegerSessaoWeb(ses, { obterConfig = () => ({}), soLeitura = false } = {}) {
   if (!ses || protegidas.has(ses)) return ses;
   protegidas.add(ses);
   negarPermissoes(ses);
@@ -53,6 +68,10 @@ function protegerSessaoWeb(ses, { obterConfig = () => ({}) } = {}) {
     try {
       const alvo = new URL(detalhes.url);
       if (/^(https?|wss?):$/.test(alvo.protocol) && !redeLocalLiberada(obterConfig()) && hostClaramenteInterno(alvo.hostname)) {
+        responder({ cancel: true });
+        return;
+      }
+      if (soLeitura && detalhes.resourceType !== 'mainFrame' && bloqueavelNaLeitura(detalhes.url, detalhes.resourceType)) {
         responder({ cancel: true });
         return;
       }
@@ -64,4 +83,4 @@ function protegerSessaoWeb(ses, { obterConfig = () => ({}) } = {}) {
   return ses;
 }
 
-module.exports = { protegerSessaoWeb, negarPermissoes, soMicrofoneDe };
+module.exports = { protegerSessaoWeb, negarPermissoes, soMicrofoneDe, bloqueavelNaLeitura };
