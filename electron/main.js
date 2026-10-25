@@ -538,9 +538,11 @@ ipcMain.handle('config:restaurar', () => {
 });
 
 ipcMain.handle('config:set', (_e, patch) => {
+  const nomeAntesDoPatch = String(config.data.nomeDaChamada || '');
   const dados = config.save(filtrarPatchDeConfig(patch));
   if (patch && 'nomeDoUsuario' in patch) gravarNomeNaMemoria(patch.nomeDoUsuario);
   if (patch && 'atalhoDaTela' in patch) estadoDoAtalho = aplicarAtalhoDaTela();
+  if (patch && 'nomeDaChamada' in patch) aplicarNomeDaChamada({ zerar: String(patch.nomeDaChamada || '') !== nomeAntesDoPatch });
   if (agent) Object.assign(agent.config, configParaAgente());
   return dados;
 });
@@ -1102,9 +1104,15 @@ async function ouvirFrase(bytes, { variantes = variantesDaEscuta() } = {}) {
     fs.rmSync(arquivo, { force: true });
   }
 }
-ipcMain.handle('ditado:chamada', async (_e, bytes) => {
+ipcMain.handle('ditado:chamada', async (_e, bytes, pelaVoz = null) => {
   if (!config.data.ouvirChamada || !ditado?.escutaInstalada()) return { ok: false, error: 'escuta desligada' };
   const r = await ouvirFrase(bytes);
+  // a decisão com dois sinais (25/10): pelo texto, como antes; OU pelo som da voz (as gravações do treino,
+  // renderer/voz.js) quando o começo do texto ao menos lembra o nome — a TV falando outra coisa não passa
+  if (r.ok && !r.chamou && pelaVoz?.chamou === true && r.parecido) {
+    r.chamou = true;
+    r.pelaVoz = true;
+  }
   if (r.ok && r.chamou) ultimaChamada = { junto: require('../src/ditado').chamadaEscrita(r.texto, variantesDaEscuta()), em: Date.now() };
   // aprender com a repetição (25/10): você falou, a escuta não pegou, você repetiu e pegou — a 1ª era você
   // chamando ("e jepeite" ✗ e logo depois "E aí, jepeta!" ✓, no registro real)
@@ -1114,7 +1122,7 @@ ipcMain.handle('ditado:chamada', async (_e, bytes) => {
     tentativaPerdida = null;
   }
   if (r.ok && r.texto) {
-    anotarNaEscuta({ texto: r.texto, chamou: r.chamou, ms: r.ms, modelo: r.modelo });
+    anotarNaEscuta({ texto: r.texto, chamou: r.chamou, pelaVoz: Boolean(r.pelaVoz), custo: Number.isFinite(pelaVoz?.custo) ? Math.round(pelaVoz.custo * 10) / 10 : undefined, ms: r.ms, modelo: r.modelo });
   }
   return r;
 });
@@ -1130,6 +1138,26 @@ ipcMain.handle('ditado:limparRegistroDaEscuta', () => {
   fs.rmSync(arquivoDoRegistro(), { force: true });
   return true;
 });
+// a impressão do som das gravações do treino (renderer/voz.js): números, nunca o áudio; até 12, as mais novas
+const arquivoDaVoz = () => path.join(app.getPath('userData'), 'escuta-voz.json');
+function lerVoz() {
+  try {
+    const v = JSON.parse(fs.readFileSync(arquivoDaVoz(), 'utf8'));
+    return v && Array.isArray(v.modelos) ? v : { modelos: [] };
+  } catch {
+    return { modelos: [] };
+  }
+}
+const quadrosValidos = (q) => Array.isArray(q) && q.length >= 15 && q.length <= 400 && q.every((f) => Array.isArray(f) && f.length === 12 && f.every(Number.isFinite));
+ipcMain.handle('ditado:vozDoUsuario', () => lerVoz().modelos);
+// trocar o nome do assistente (25/10): as gravações e as grafias aprendidas eram de OUTRA palavra — zeram
+function aplicarNomeDaChamada({ zerar = false } = {}) {
+  require('../src/ditado').definirNome(config.data.nomeDaChamada || 'GPT');
+  if (zerar) {
+    config.save({ escutaVariantes: [] });
+    fs.rmSync(arquivoDaVoz(), { force: true });
+  }
+}
 // o que o treino aprendeu, e tirar um jeito que não devia estar lá (Ajustes → Geral)
 ipcMain.handle('ditado:esquecerVariante', (_e, variante) => {
   config.save({ escutaVariantes: (config.data.escutaVariantes || []).filter((v) => v !== String(variante || '')) });
@@ -1145,7 +1173,15 @@ ipcMain.handle('ditado:treinarFrase', async (_e, bytes) => {
 });
 // o treino SOMA (25/10): as variantes novas entram junto das que já havia (até 24) e a sensibilidade sai
 // do volume de todos os treinos (os últimos 30 "Ei GPT")
-ipcMain.handle('ditado:salvarTreino', (_e, { textos = [], niveis = [] } = {}) => {
+ipcMain.handle('ditado:salvarTreino', (_e, { textos = [], niveis = [], amostras = [] } = {}) => {
+  const novas = (Array.isArray(amostras) ? amostras : []).filter(quadrosValidos).slice(0, 12);
+  if (novas.length) {
+    try {
+      fs.writeFileSync(arquivoDaVoz(), JSON.stringify({ nome: config.data.nomeDaChamada || 'GPT', modelos: [...novas, ...lerVoz().modelos].slice(0, 12) }));
+    } catch {
+      // sem gravar: a escuta segue só pelo texto
+    }
+  }
   const { variantesDoTreino, sensibilidadeDoTreino, juntarVariantes } = require('../src/ditado');
   const { variantes, recusadas } = variantesDoTreino((Array.isArray(textos) ? textos : []).map((t) => String(t || '').slice(0, 200)).slice(0, 12));
   const antes = variantesDaEscuta().length;
@@ -1153,10 +1189,11 @@ ipcMain.handle('ditado:salvarTreino', (_e, { textos = [], niveis = [] } = {}) =>
   const todosOsNiveis = [...(Array.isArray(niveis) ? niveis : []).map(Number).filter((n) => n > 0).slice(0, 12), ...(config.data.escutaNiveis || [])].slice(0, 30);
   const sensibilidade = sensibilidadeDoTreino(todosOsNiveis);
   config.save({ escutaVariantes: todas, escutaNiveis: todosOsNiveis, ...(sensibilidade ? { escutaSensibilidade: sensibilidade } : {}) });
-  return { ok: true, variantes, novas: todas.length - antes, total: todas.length, treinos: todosOsNiveis.length, recusadas, sensibilidade, config: config.data };
+  return { ok: true, variantes, novas: todas.length - antes, total: todas.length, treinos: todosOsNiveis.length, recusadas, sensibilidade, gravacoes: lerVoz().modelos.length, config: config.data };
 });
 ipcMain.handle('ditado:apagarTreino', () => {
   config.save({ escutaVariantes: [], escutaSensibilidade: null, escutaNiveis: [] });
+  fs.rmSync(arquivoDaVoz(), { force: true });
   return config.data;
 });
 // o pedido depois do "Ei GPT": o turbo transcreve tudo, a chamada sai do começo e os comandos diretos
@@ -2157,6 +2194,7 @@ app.whenReady().then(() => {
   }, 2 * 60000);
   ditado = new Ditado(path.join(app.getPath('userData'), 'componentes'));
   carregarRegistroDaEscuta();
+  aplicarNomeDaChamada();
   // 25/10: sai do treino o que não soa como "GPT" ("somdebarulho" — o teclado — chamava o AuGPT)
   const variantesLimpas = require('../src/ditado').variantesValidas(config.data.escutaVariantes);
   if (variantesLimpas.length !== (config.data.escutaVariantes || []).length) config.save({ escutaVariantes: variantesLimpas });

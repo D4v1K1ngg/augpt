@@ -101,6 +101,47 @@ const temSomDeGPT = (junto) => {
   return k.length >= 3 && k.length <= 10 && SOM_DE_GPT.test(k);
 };
 
+/*
+ * O NOME que chama o assistente (25/10, pedido do Davi: "Ei GPT fica difícil para a identificação" —
+ * escolhido na boas-vindas e em Ajustes; sugestões fáceis de reconhecer, como "Jarvis"). "GPT" (o padrão)
+ * mantém as regras próprias acima; outro nome é comparado pela chave de som, com ~1 letra de diferença a
+ * cada 4. O "ei/ok/hey" da frente é opcional ("Jarvis" e "Ei Jarvis" chamam).
+ */
+let NOME = { ehGpt: true, chave: '', texto: 'Ei GPT' };
+function definirNome(nome) {
+  const t = compacto(nome).replace(/^(ei|hey|ok|oi|ola)\s+/, '');
+  const junto = t.replace(/\s+/g, '');
+  const ehGpt = !junto || /^(gpt|augpt|chatgpt|eigpt)$/.test(junto);
+  NOME = { ehGpt, chave: ehGpt ? '' : miolo(chaveDeSom(junto)), texto: ehGpt ? 'Ei GPT' : String(nome).trim() };
+  return NOME;
+}
+const nomeAtual = () => NOME;
+const toleranciaDoNome = () => (NOME.chave.length >= 4 ? Math.max(1, Math.floor(NOME.chave.length / 4)) : 0);
+function temSomDoNome(junto) {
+  if (NOME.ehGpt) return temSomDeGPT(junto);
+  const k = miolo(chaveDeSom(junto));
+  if (!k) return false;
+  if (k === NOME.chave) return true;
+  const tol = toleranciaDoNome();
+  return tol > 0 && Math.abs(k.length - NOME.chave.length) <= tol && distancia(k, NOME.chave) <= tol;
+}
+/**
+ * O começo do texto LEMBRA o nome (bem mais folgado que reconhecer): para a decisão junto com o som da
+ * voz (renderer/voz.js) — "Hay-ey-ja petty" lembra "GPT"; "o jogo foi bom" não lembra "Jarvis".
+ */
+function lembraONome(texto) {
+  const palavras = compacto(texto).split(' ').filter(Boolean);
+  for (let de = 0; de <= Math.min(1, palavras.length - 1); de += 1) {
+    let junto = '';
+    for (let i = de; i < Math.min(de + 3, palavras.length); i += 1) {
+      junto += palavras[i];
+      const k = miolo(chaveDeSom(junto));
+      if (NOME.ehGpt ? /p.*t/.test(k) && k.length <= 12 : k && Math.abs(k.length - NOME.chave.length) <= Math.max(2, Math.floor(NOME.chave.length / 2)) && distancia(k, NOME.chave) <= Math.max(2, Math.floor(NOME.chave.length / 2))) return true;
+    }
+  }
+  return false;
+}
+
 /** Quantas palavras do começo do texto são a chamada (0 = não chamou). Olha até as 4 primeiras (5 com enchimento). */
 function palavrasDaChamada(texto, variantes = []) {
   const palavras = compacto(texto).split(' ').filter(Boolean);
@@ -108,7 +149,7 @@ function palavrasDaChamada(texto, variantes = []) {
     let junto = '';
     for (let i = de; i < Math.min(de + 4, palavras.length); i += 1) {
       junto += palavras[i];
-      if (CHAMADA.test(junto) || CHAMADA.test(chaveDeSom(junto)) || temSomDeGPT(junto) || bateVariante(junto, variantes)) return i + 1;
+      if ((NOME.ehGpt && (CHAMADA.test(junto) || CHAMADA.test(chaveDeSom(junto)))) || temSomDoNome(junto) || bateVariante(junto, variantes)) return i + 1;
     }
     return 0;
   };
@@ -129,7 +170,7 @@ function variantesDoTreino(textos) {
   for (const t of textos) {
     const palavras = compacto(t).split(' ').filter(Boolean);
     const junto = palavras.join('');
-    if (!junto || CHAMADA.test(junto) || CHAMADA.test(chaveDeSom(junto))) continue; // vazio, ou já reconhecida sem treino
+    if (!junto || (NOME.ehGpt && (CHAMADA.test(junto) || CHAMADA.test(chaveDeSom(junto)))) || temSomDoNome(junto)) continue; // vazio, ou já reconhecida sem treino
     if (palavras.length > 4 || !varianteValida(junto)) recusadas.push(t);
     else if (!variantes.includes(junto)) variantes.push(junto);
   }
@@ -143,7 +184,13 @@ function variantesDoTreino(textos) {
  */
 function varianteValida(junto) {
   const k = String(junto || '');
-  return k.length >= 5 && k.length <= 16 && !COMUM.test(k) && !ALUCINACAO.test(k) && /p.*t/.test(chaveDeSom(k));
+  if (k.length < 4 || k.length > 18 || COMUM.test(k) || ALUCINACAO.test(k)) return false;
+  // "GPT": um p e depois um t; outro nome: a variante tem que lembrar o nome escolhido
+  if (NOME.ehGpt) return k.length >= 5 && /p.*t/.test(chaveDeSom(k));
+  // outro nome: perto dele (até 1 letra a cada 3) — "Jarves" serve para "Jarvis"; "Javier" não
+  const m = miolo(chaveDeSom(k));
+  const tol = Math.max(1, Math.floor(NOME.chave.length / 3));
+  return Math.abs(m.length - NOME.chave.length) <= tol && distancia(m, NOME.chave) <= tol;
 }
 const variantesValidas = (lista) => (Array.isArray(lista) ? lista : []).filter((v) => typeof v === 'string' && varianteValida(v));
 
@@ -348,7 +395,8 @@ class Ditado {
     const args = ['-m', this.arquivoDaEscuta(usado), '-f', wav, '-l', idioma === 'en' ? 'en' : 'pt', '-t', String(Math.min(8, nucleosParaUsar())), '-nt', '-np', '-ng', '-bs', '1', '-bo', '1', '-ac', '384'];
     const texto = limparTranscricao(await this.executar(exe, args, { cwd: path.dirname(exe), timeout: 15000 }));
     const chamou = ehChamada(texto, variantes);
-    return { texto, chamou, resto: chamou ? semChamada(texto, variantes) : '', modelo: usado, ms: Date.now() - inicio };
+    // `parecido`: não chamou pelo texto, mas o começo lembra o nome — a escuta decide junto com o som da voz
+    return { texto, chamou, parecido: chamou || lembraONome(texto), resto: chamou ? semChamada(texto, variantes) : '', modelo: usado, ms: Date.now() - inicio };
   }
 
   estado() {
@@ -406,4 +454,4 @@ class Ditado {
   }
 }
 
-module.exports = { temSomDeGPT, Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel };
+module.exports = { definirNome, nomeAtual, lembraONome, temSomDoNome, temSomDeGPT, Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel };

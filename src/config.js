@@ -160,6 +160,8 @@ const DEFAULTS = {
   escutaNiveis: [], // o volume de cada "Ei GPT" dos treinos (até 30)
   // 25/10: Ctrl+Alt+A captura uma área da tela e anexa ao Agente ("o que tem na minha tela?")
   atalhoDaTela: true,
+  // 25/10: o nome que chama o assistente pela voz ("GPT" = "Ei GPT"; escolhido na boas-vindas e em Ajustes)
+  nomeDaChamada: 'GPT',
   preBuscaConcorrencia: 2,
   // Modo AUTO (auto.js, 2026-10-10): cada pedido ganha um nível —
   // 0 direto (conversa), 1 conversa com pesquisa rápida, 2 pesquisa padrão,

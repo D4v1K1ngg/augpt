@@ -349,14 +349,30 @@ async function abrirBoasVindas() {
     const cfg = await api.config.get();
     bv.idioma = cfg.idioma || '';
     $('bvNome').value = cfg.nomeDoUsuario || '';
+    $('bvNomeAssistente').value = cfg.nomeDaChamada && !/^gpt$/i.test(cfg.nomeDaChamada) ? cfg.nomeDaChamada : '';
   } catch {
     /* começa em branco */
   }
+  pintarNomesSugeridos();
   $('boasVindas').hidden = false;
   document.body.classList.add('com-boas-vindas');
   pintarIdioma();
   irPara(1);
   verificar(); // já confere o computador enquanto a pessoa lê o passo 1
+}
+
+/** As sugestões de nome do assistente (renderer/voz.js): um clique preenche o campo. */
+function pintarNomesSugeridos() {
+  const lista = $('bvNomesSugeridos');
+  lista.textContent = '';
+  for (const nome of window.vozDoUsuario?.nomesSugeridos || ['Jarvis', 'Nexus', 'Sexta-feira', 'Aurora']) {
+    const b = h('button', { type: 'button', class: 'chip-nome' }, nome);
+    b.addEventListener('click', () => {
+      $('bvNomeAssistente').value = nome;
+      lista.querySelectorAll('.chip-nome').forEach((x) => x.classList.toggle('ativo', x === b));
+    });
+    lista.append(b);
+  }
 }
 
 function fecharBoasVindas() {
@@ -369,9 +385,12 @@ async function concluir(pedido) {
   const modelo = bv.escolhido || bv.estado?.recomendacao?.principal?.nome;
   const pronto = bv.passo === 3;
   const nome = $('bvNome').value.trim();
+  const nomeAssistente = $('bvNomeAssistente').value.trim().slice(0, 30);
   try {
     if (pronto) await api.boasVindas.concluir({ modelo, nome, idioma: bv.idioma });
     else await api.config.set({ boasVindasConcluida: true, nomeDoUsuario: nome, idioma: bv.idioma });
+    // o nome que chama pela voz: vazio deixa como está
+    if (nomeAssistente) await api.config.set({ nomeDaChamada: /^(ei )?gpt$/i.test(nomeAssistente) ? 'GPT' : nomeAssistente });
   } catch {
     /* abre de novo na próxima vez */
   }

@@ -30,10 +30,13 @@ module.exports = [
     nome: 'treino da voz: guarda como o Whisper escreve a SUA pronúncia (sem o começo comum de frase nem frase longa); depois, a mesma pronúncia escrita de outro jeito chama ("Juppetti" × "Geppetti", com enchimento antes) e o parecido não ("Hey, pretty", "Ei, já pedi"); a sensibilidade vem do volume, entre 0,002 e 0,012',
     tipo: 'unidade',
     executar() {
-      const t = d.variantesDoTreino(['Hey Geppetti!', 'Ei GPT.', 'E aí.', 'Hey Geppetti', 'hoje eu vou ao mercado comprar pão']);
-      const v = t.variantes;
+      // "Hey Geppetti" já chama pelo formato do som (não vira variante); "Ejp tem" (tentativa real que o
+      // formato não pega) vira
+      const t = d.variantesDoTreino(['Hey Geppetti!', 'Ei GPT.', 'E aí.', 'Ejp tem', 'Ejp tem', 'hoje eu vou ao mercado comprar pão']);
+      const v = [...t.variantes, 'heygeppetti'];
       return [
-        JSON.stringify(v) === '["heygeppetti"]' || JSON.stringify(t),
+        JSON.stringify(t.variantes) === '["ejptem"]' || JSON.stringify(t),
+        d.ehChamada('Ejp tem, que horas são?', t.variantes) && !d.ehChamada('Ejp tem, que horas são?') || 'a variante aprendida chama (e só com ela)',
         t.recusadas.length === 2 || `recusadas: ${t.recusadas}`,
         ['Hey, hey, Juppetti!', 'Hey Jeppetti!', 'Hey Geppetti, what time is it?'].every((x) => d.ehChamada(x, v)) || 'variações da pronúncia treinada',
         d.semChamada('Hey, hey, Juppetti, what time is it?', v) === 'What time is it?' || d.semChamada('Hey, hey, Juppetti, what time is it?', v),
@@ -83,7 +86,7 @@ module.exports = [
       return [
         !d.varianteValida('somdebarulho') && d.varianteValida('eijipete') && d.varianteValida('eaichepete') || 'variante válida',
         JSON.stringify(d.variantesValidas(['eijipete', 'somdebarulho', 'eaichepete'])) === '["eijipete","eaichepete"]' || 'limpa as antigas',
-        JSON.stringify(d.variantesDoTreino(['Som de barulho', 'Ei, Jipitê!']).variantes) === '["eijipite"]' || 'treino recusa o ruído',
+        JSON.stringify(d.variantesDoTreino(['Som de barulho', 'Ejp tem']).variantes) === '["ejptem"]' && d.variantesDoTreino(['Som de barulho']).recusadas.length === 1 || 'treino recusa o ruído',
         !d.ehChamada('Som de barulho', d.variantesValidas(['somdebarulho'])) || 'o ruído não chama',
         d.limparTranscricao('Som de barulho.') === '' && d.limparTranscricao('Legendas pela comunidade Amara.org') === '' || 'alucinação sai',
         d.limparTranscricao('Qual a data de hoje? Qual a data de hoje?') === 'Qual a data de hoje?' || 'repetição',
@@ -176,9 +179,9 @@ module.exports = [
         (DEFAULTS ? DEFAULTS.ouvirChamada === false && DEFAULTS.ditadoCorrigir === true : /ouvirChamada: false/.test(fs.readFileSync(path.join(__dirname, '../../src/config.js'), 'utf8'))) || 'padrões',
         /'ditado:chamada'[\s\S]{0,120}config\.data\.ouvirChamada/.test(main) && /ehWav\(audio, 8\)/.test(main) || 'trava da chamada',
         /'ditado:corrigir'[\s\S]{0,200}ditadoCorrigir === false/.test(main) || 'correção respeita o ajuste',
-        /<script src="ditado\.js"><\/script>\s*<script src="escuta\.js"><\/script>/.test(html) || 'escuta.js depois do ditado.js',
+        /<script src="ditado\.js"><\/script>\s*<script src="voz\.js"><\/script>\s*<script src="escuta\.js"><\/script>/.test(html) || 'ditado.js, voz.js e escuta.js, nessa ordem',
         /ouvirChamada === true\) window\.escutaPorVoz\?\.ligar\(\)/.test(ajustes) || 'liga ao abrir',
-        ['Chamar com "Ei GPT"', 'Corrigir o texto falado', 'Pode falar…'].every((k) => i18n.includes(`'${k}'`)) || 'traduções',
+        ['Chamar pela voz', 'Nome do assistente', 'Corrigir o texto falado', 'Pode falar…'].every((k) => i18n.includes(`'${k}'`)) || 'traduções',
         d.MODELO_DA_ESCUTA.sha256.length === 64 || 'SHA do modelo da escuta',
       ];
     },

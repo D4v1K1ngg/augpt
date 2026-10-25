@@ -486,8 +486,8 @@ body.com-boas-vindas { overflow: hidden; }
 .bv-idiomas button { height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 500 14px var(--sans); cursor: pointer; transition: background .2s, color .2s; }
 .bv-idiomas button:hover { color: var(--text-forte); }
 .bv-idiomas button.ativo { background: var(--ingot); color: var(--on-gold); box-shadow: 0 1px 0 rgba(255, 255, 255, .35) inset; }
-#bvNome { height: 48px; border: 1px solid var(--line-forte); border-radius: 14px; padding: 0 16px; background: var(--void); color: var(--text-forte); font: 15px var(--sans); }
-#bvNome:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent); }
+#bvNome, #bvNomeAssistente { height: 48px; border: 1px solid var(--line-forte); border-radius: 14px; padding: 0 16px; background: var(--void); color: var(--text-forte); font: 15px var(--sans); }
+#bvNome:focus, #bvNomeAssistente:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent); }
 
 .bv-pilares { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .bv-pilares li { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--panel) 60%, transparent); }

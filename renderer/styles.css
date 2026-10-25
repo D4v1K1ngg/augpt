@@ -1840,4 +1840,7 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .chip-variante { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px 1px 8px; border: 1px solid var(--line); border-radius: 999px; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
 .chip-variante button { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0 4px; font-size: 11px; }
 .chip-variante button:hover { color: var(--red); }
+.nomes-sugeridos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip-nome { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--text); font-size: 12px; cursor: pointer; }
+.chip-nome:hover, .chip-nome.ativo { border-color: var(--amber); color: var(--amber); }
 .btn-link { background: none; border: none; padding: 0; font: inherit; color: var(--amber); text-decoration: underline; cursor: pointer; }

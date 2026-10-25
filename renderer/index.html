@@ -603,14 +603,17 @@
             <input type="checkbox" id="cfgDitadoEnviar" class="caixa" />
           </label>
           <!-- 25/10: "Ei GPT" e a correção do texto falado -->
-          <label class="linha"><span class="linha-texto"><span>Chamar com "Ei GPT"</span><small>O AuGPT fica ouvindo o microfone e, quando você diz "Ei GPT", grava o pedido e já envia ao agente — por exemplo, "Ei GPT, vai chover amanhã?". "Ei GPT, nova conversa" e "Ei GPT, para" também valem. Tudo no seu computador; enquanto estiver ligado, o Windows mostra o microfone em uso. Na primeira vez baixa o modelo da escuta (o small, 190 MB — dá para trocar pelo base, de 60 MB, logo abaixo).</small><small id="ouvirChamadaStatus" class="ajuste-status"></small></span>
+          <label class="linha"><span class="linha-texto"><span>Chamar pela voz</span><small>O AuGPT fica ouvindo o microfone e, quando você diz o nome do assistente (logo abaixo), grava o pedido e já envia ao agente — por exemplo, "Jarvis, vai chover amanhã?". "…, nova conversa" e "…, para" também valem. Tudo no seu computador; enquanto estiver ligado, o Windows mostra o microfone em uso. Na primeira vez baixa o modelo da escuta (o small, 190 MB — dá para trocar pelo base, de 60 MB, logo abaixo).</small><small id="ouvirChamadaStatus" class="ajuste-status"></small></span>
             <input type="checkbox" id="cfgOuvirChamada" class="caixa" />
           </label>
+          <div class="linha"><span class="linha-texto"><span>Nome do assistente</span><small>O nome que você fala para chamar. Nomes com duas ou mais sílabas e pouco usados na conversa são reconhecidos bem melhor que "Ei GPT" (uma sigla). Trocar o nome apaga o treino de voz, que era de outra palavra.</small><span class="nomes-sugeridos" id="nomesSugeridos"></span></span>
+            <input type="text" id="cfgNomeDaChamada" maxlength="30" placeholder="Jarvis" />
+          </div>
           <!-- 25/10: o modelo da escuta, o treino da voz e o que a escuta ouviu -->
           <div class="linha"><span class="linha-texto"><span>Modelo da escuta</span><small>O small (190 MB) entende melhor o português e leva ~0,6 s por frase; o base (60 MB) é mais leve (~0,2 s), mas erra mais.</small><small id="escutaModeloStatus" class="ajuste-status"></small></span>
             <select id="cfgEscutaModelo"><option value="small">Whisper small (recomendado)</option><option value="base">Whisper base (mais leve)</option></select>
           </div>
-          <div class="linha"><span class="linha-texto"><span>Treinar minha voz</span><small>Você diz "Ei GPT" 6 vezes. O AuGPT aprende como o reconhecimento escreve a sua pronúncia e ajusta a sensibilidade ao volume da sua voz. Cada treino soma ao anterior, e ele também aprende quando você o chama e faz um pedido — quanto mais usar, melhor.</small><small id="treinoResumo" class="ajuste-status"></small><small id="treinoAprendido" class="treino-aprendido" hidden></small></span>
+          <div class="linha"><span class="linha-texto"><span>Treinar minha voz</span><small>Você diz o nome do assistente 6 vezes. O AuGPT aprende como o reconhecimento escreve a sua pronúncia e ajusta a sensibilidade ao volume da sua voz. Cada treino soma ao anterior, e ele também aprende quando você o chama e faz um pedido — quanto mais usar, melhor.</small><small id="treinoResumo" class="ajuste-status"></small><small id="treinoAprendido" class="treino-aprendido" hidden></small></span>
             <span class="microfone-escolha"><button type="button" class="btn-secundario" id="btnTreinarVoz">Treinar</button><button type="button" class="btn-secundario" id="btnApagarTreino" hidden>Apagar treino</button></span>
           </div>
           <div class="treino-voz" id="treinoVoz" hidden>
@@ -1208,6 +1211,13 @@
           <input id="bvNome" type="text" maxlength="60" placeholder="Seu nome" autocomplete="given-name" />
           <small>O AuGPT usa o nome para falar com você. Fica só neste computador.</small>
         </div>
+        <!-- 25/10: o nome que chama o assistente pela voz -->
+        <div class="bv-campo">
+          <label class="bv-rotulo" for="bvNomeAssistente">Nome do assistente <em>para chamar pela voz</em></label>
+          <input id="bvNomeAssistente" type="text" maxlength="30" placeholder="Jarvis" />
+          <span class="nomes-sugeridos" id="bvNomesSugeridos"></span>
+          <small>Você chama o AuGPT falando esse nome — "Jarvis, vai chover amanhã?". Nomes com duas ou mais sílabas e pouco usados na conversa são os mais fáceis de reconhecer. Dá para trocar em Ajustes.</small>
+        </div>
       </div>
       <ul class="bv-pilares">
         <li><b>Privado</b><span>O modelo roda no seu PC; só as buscas na web saem dele.</span></li>
@@ -1267,6 +1277,7 @@
 <script src="boas-vindas.js"></script>
 <script src="agenda.js"></script>
 <script src="ditado.js"></script>
+<script src="voz.js"></script>
 <script src="escuta.js"></script>
 <script src="tela.js"></script>
 </body>
