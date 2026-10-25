@@ -601,6 +601,13 @@
           <label class="linha"><span class="linha-texto"><span>Ditado por voz: enviar sozinho</span><small>Desligado, o texto falado fica na caixa para você revisar antes de enviar.</small></span>
             <input type="checkbox" id="cfgDitadoEnviar" class="caixa" />
           </label>
+          <!-- 25/10: "Ei GPT" e a correção do texto falado -->
+          <label class="linha"><span class="linha-texto"><span>Chamar com "Ei GPT"</span><small>O AuGPT fica ouvindo o microfone e, quando você diz "Ei GPT", grava o pedido e já envia ao agente — por exemplo, "Ei GPT, vai chover amanhã?". "Ei GPT, nova conversa" e "Ei GPT, para" também valem. Tudo no seu computador; enquanto estiver ligado, o Windows mostra o microfone em uso. Na primeira vez baixa um modelo pequeno (60 MB).</small><small id="ouvirChamadaStatus" class="ajuste-status"></small></span>
+            <input type="checkbox" id="cfgOuvirChamada" class="caixa" />
+          </label>
+          <label class="linha"><span class="linha-texto"><span>Corrigir o texto falado</span><small>Antes de usar o que você falou, o modelo do topo corrige a ortografia e as palavras que o reconhecimento de voz ouviu errado (nomes de produtos, acentos). Leva 1 a 3 segundos; na dúvida, fica o texto original.</small></span>
+            <input type="checkbox" id="cfgDitadoCorrigir" class="caixa" />
+          </label>
           <div class="linha" id="linhaMicrofone" hidden><span class="linha-texto"><span>Microfone do ditado</span><small id="ajMicrofoneDica">Automático usa o padrão do Windows e pula as entradas virtuais (Steam, "What U Hear", mixagem estéreo).</small></span>
             <span class="microfone-escolha">
               <select id="ajMicrofone"><option value="">Automático</option></select>
@@ -1237,5 +1244,6 @@
 <script src="boas-vindas.js"></script>
 <script src="agenda.js"></script>
 <script src="ditado.js"></script>
+<script src="escuta.js"></script>
 </body>
 </html>

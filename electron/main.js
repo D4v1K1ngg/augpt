@@ -1037,6 +1037,69 @@ ipcMain.handle('ditado:instalar', async () => {
     return { ok: false, error: err.message };
   }
 });
+// "Ei GPT" (25/10): o modelo pequeno da escuta, a checagem de cada frase curta e a correção do texto
+ipcMain.handle('ditado:instalarEscuta', async () => {
+  try {
+    return { ok: true, estado: await ditado.instalarEscuta({ emitir: (p) => enviar('ditado-progresso', p) }) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+const ehWav = (audio, maxSegundos) => audio.length >= 1000 && audio.length <= 44 + 32000 * maxSegundos && audio.toString('latin1', 0, 4) === 'RIFF' && audio.toString('latin1', 8, 12) === 'WAVE';
+ipcMain.handle('ditado:chamada', async (_e, bytes) => {
+  if (!config.data.ouvirChamada || !ditado?.escutaInstalada()) return { ok: false, error: 'escuta desligada' };
+  const audio = Buffer.from(bytes || []);
+  if (!ehWav(audio, 8)) return { ok: false, error: 'áudio inválido' };
+  const arquivo = path.join(app.getPath('temp'), `augpt-chamada-${Date.now()}.wav`);
+  try {
+    fs.writeFileSync(arquivo, audio);
+    return { ok: true, ...(await ditado.ouvirChamada(arquivo, { idioma: idiomaEfetivo() })) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  } finally {
+    fs.rmSync(arquivo, { force: true });
+  }
+});
+// o pedido depois do "Ei GPT": o turbo transcreve tudo, a chamada sai do começo e os comandos diretos
+// ("nova conversa", "para") são reconhecidos aqui
+ipcMain.handle('ditado:pedidoDeVoz', async (_e, bytes) => {
+  if (!ditado?.instalado()) return { ok: false, error: 'nao-instalado' };
+  const audio = Buffer.from(bytes || []);
+  if (!ehWav(audio, 90)) return { ok: false, error: 'áudio inválido' };
+  const arquivo = path.join(app.getPath('temp'), `augpt-pedido-${Date.now()}.wav`);
+  try {
+    fs.writeFileSync(arquivo, audio);
+    const { semChamada, comandoDeVoz } = require('../src/ditado');
+    const r = await ditado.transcrever(arquivo, { idioma: idiomaEfetivo() });
+    const pedido = semChamada(r.texto);
+    return { ok: true, texto: r.texto, pedido, comando: comandoDeVoz(pedido), ms: r.ms };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  } finally {
+    fs.rmSync(arquivo, { force: true });
+  }
+});
+// a correção pelo modelo (Ajustes → Geral): só ortografia e palavras ouvidas errado; na dúvida, fica o original
+ipcMain.handle('ditado:corrigir', async (_e, texto) => {
+  const original = String(texto || '').slice(0, 2000).trim();
+  if (!original || config.data.ditadoCorrigir === false) return { ok: true, texto: original, corrigiu: false };
+  const { pedidoDeCorrecao, correcaoAceitavel } = require('../src/ditado');
+  try {
+    const cfg = configParaAgente();
+    const r = await ollama.chat({ host: cfg.host, model: cfg.model, messages: [{ role: 'user', content: pedidoDeCorrecao(original, idiomaEfetivo()) }], pensar: false, temperature: 0.1, numPredict: 400, numCtx: 4096, signal: AbortSignal.timeout(20000) });
+    const corrigido = correcaoAceitavel(original, r.content);
+    return { ok: true, texto: corrigido || original, corrigiu: Boolean(corrigido && corrigido !== original) };
+  } catch (err) {
+    return { ok: true, texto: original, corrigiu: false, aviso: err.message };
+  }
+});
+ipcMain.handle('janela:trazer', () => {
+  if (!win || win.isDestroyed()) return false;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+  return true;
+});
 ipcMain.handle('ditado:transcrever', async (_e, bytes) => {
   if (!ditado?.instalado()) return { ok: false, error: 'nao-instalado' };
   const audio = Buffer.from(bytes || []);

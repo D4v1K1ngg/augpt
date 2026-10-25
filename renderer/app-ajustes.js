@@ -25,6 +25,8 @@ async function carregarConfig() {
   // idioma (22/10): o gravado no config manda; a tela abriu com o do localStorage (i18n.js)
   if (window.i18n && (config.idioma || '') !== window.i18n.escolha) window.i18n.definir(config.idioma || '');
   pintarSaudacao();
+  // "Ei GPT" (25/10): liga a escuta ao abrir, se estiver marcada
+  if (config.ouvirChamada === true) window.escutaPorVoz?.ligar();
 }
 
 /** "O que você precisa, Davi?" na tela inicial quando há nome (22/10). */
@@ -791,6 +793,12 @@ async function pintarDitado() {
   $('compDitadoInstalado').textContent = d.instalado ? `${d.modelo} · whisper.cpp ${d.versao}` : tr('não instalado ({tamanho} para baixar)', { tamanho: d.tamanho || '~600 MB' });
   $('btnCompDitadoInstalar').hidden = Boolean(d.instalado);
   $('cfgDitadoEnviar').checked = config.ditadoEnviarSozinho === true;
+  $('cfgDitadoCorrigir').checked = config.ditadoCorrigir !== false;
+  // durante o download do modelo da escuta, quem manda no botão é o clique (este estado é de antes)
+  if (!$('ouvirChamadaStatus').dataset.ocupado) {
+    $('cfgOuvirChamada').checked = config.ouvirChamada === true && Boolean(d.escuta);
+    $('ouvirChamadaStatus').textContent = $('cfgOuvirChamada').checked ? tr('Ouvindo — diga "Ei GPT" e o seu pedido.') : '';
+  }
   // a escolha do microfone só com o ditado instalado (antes disso o AuGPT não abre o microfone)
   $('linhaMicrofone').hidden = !d.instalado;
   if (d.instalado && window.ditadoPorVoz) {
@@ -834,8 +842,49 @@ $('btnCompDitadoInstalar').addEventListener('click', async () => {
 $('cfgDitadoEnviar').addEventListener('change', async (e) => {
   config = await api.config.set({ ditadoEnviarSozinho: e.target.checked });
 });
+// "Ei GPT" (25/10): precisa do ditado instalado; na primeira vez baixa o modelo pequeno da escuta
+$('cfgOuvirChamada').addEventListener('change', async (e) => {
+  const caixa = e.target;
+  const status = $('ouvirChamadaStatus');
+  const ligar = caixa.checked;
+  if (ligar) {
+    const d = await api.ditado.estado().catch(() => ({}));
+    if (!d.instalado) {
+      caixa.checked = false;
+      status.textContent = tr('Instale antes o ditado por voz em Ajustes → Componentes.');
+      return;
+    }
+    if (!d.escuta) {
+      caixa.disabled = true;
+      status.dataset.ocupado = '1';
+      status.textContent = tr('baixando o modelo da escuta ({tamanho})…', { tamanho: d.tamanhoDaEscuta || '60 MB' });
+      const r = await api.ditado.instalarEscuta();
+      caixa.disabled = false;
+      delete status.dataset.ocupado;
+      if (!r.ok) {
+        caixa.checked = false;
+        status.textContent = tr('erro: {erro}', { erro: r.error });
+        return;
+      }
+    }
+  }
+  config = await api.config.set({ ouvirChamada: ligar });
+  caixa.checked = ligar;
+  if (ligar) {
+    const ok = await window.escutaPorVoz?.ligar();
+    status.textContent = ok ? tr('Ouvindo — diga "Ei GPT" e o seu pedido.') : tr('Não consegui abrir o microfone — confira o microfone do ditado aqui embaixo.');
+  } else {
+    window.escutaPorVoz?.desligar();
+    status.textContent = '';
+  }
+});
+$('cfgDitadoCorrigir').addEventListener('change', async (e) => {
+  config = await api.config.set({ ditadoCorrigir: e.target.checked });
+});
 manipuladores['ditado-progresso'] = ({ texto }) => {
-  if (texto) $('compDitadoStatus').textContent = texto;
+  if (!texto) return;
+  $('compDitadoStatus').textContent = texto;
+  if ($('ouvirChamadaStatus').dataset.ocupado) $('ouvirChamadaStatus').textContent = texto;
 };
 
 async function carregarModelosEComponentes() {

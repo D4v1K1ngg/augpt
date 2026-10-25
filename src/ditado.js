@@ -29,7 +29,74 @@ const MODELOS = {
   // para processador fraco (até 4 núcleos): menos preciso, ~3x mais rápido
   pequeno: { nome: 'Whisper small', arquivo: 'ggml-small-q5_1.bin', sha256: 'ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb', bytes: 190085487 },
 };
+// a escuta do "Ei GPT" (25/10): o base confere cada frase em ~0,2 s no processador (o turbo levava
+// ~2 s — quase tudo carregando 574 MB a cada vez); o pedido em si continua com o turbo
+const MODELO_DA_ESCUTA = { nome: 'Whisper base', arquivo: 'ggml-base-q5_1.bin', sha256: '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898', bytes: 59707625 };
 const MB = (b) => `${Math.round(b / 1e6)} MB`;
+
+/* ------------------------------ "Ei GPT" (25/10) ------------------------------ */
+const compacto = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+// como o Whisper escreve "Ei GPT" (medido: "HGPT", "HG PT", "E aí GPT.", "Hey GPT!", "eI GPT,"), sem espaços
+const CHAMADA = /^(ei|eii|hei|hey|hay|ey|ai|eai|e|he|h|a|oi|ok)?(gpt|gepete|gepet|gepte|gpte|gepeto|jipiti|jpt|chatgpt)$/;
+
+/** Quantas palavras do começo do texto são a chamada (0 = não chamou). Olha até as 4 primeiras. */
+function palavrasDaChamada(texto) {
+  const palavras = compacto(texto).split(' ').filter(Boolean);
+  let junto = '';
+  for (let i = 0; i < Math.min(4, palavras.length); i += 1) {
+    junto += palavras[i];
+    if (CHAMADA.test(junto)) return i + 1;
+  }
+  return 0;
+}
+const ehChamada = (texto) => palavrasDaChamada(texto) > 0;
+
+/** O pedido sem a chamada: "Ei GPT, que horas são?" → "que horas são?" (com a primeira letra maiúscula). */
+function semChamada(texto) {
+  const n = palavrasDaChamada(texto);
+  if (!n) return String(texto || '').trim();
+  // anda pelas palavras do texto original (com pontuação) até passar as n da chamada
+  const partes = String(texto).trim().split(/\s+/);
+  let contadas = 0;
+  let i = 0;
+  while (i < partes.length && contadas < n) {
+    contadas += compacto(partes[i]).split(' ').filter(Boolean).length;
+    i += 1;
+  }
+  const resto = partes.slice(i).join(' ').replace(/^[\s,.;:!?…-]+/, '').trim();
+  return resto ? resto[0].toUpperCase() + resto.slice(1) : '';
+}
+
+/** Comando direto, sem passar pelo modelo: 'nova-conversa', 'parar' ou null. */
+function comandoDeVoz(texto) {
+  const t = compacto(texto);
+  if (/^((abr[ae]|abrir|comec[ae]|comecar|inici[ae]|iniciar|nova|uma) )?(uma )?nova conversa( por favor)?$|^(new|start a new) (chat|conversation)$/.test(t)) return 'nova-conversa';
+  if (/^(para|pare|parar|cancela|cancele|cancelar|chega|stop|cancel)( (tudo|isso|a resposta|de responder))?( por favor)?$/.test(t)) return 'parar';
+  return null;
+}
+
+/** O pedido para o modelo corrigir o que o Whisper ouviu. */
+function pedidoDeCorrecao(texto, idioma = 'pt') {
+  return `Você corrige transcrições de fala feitas por reconhecimento de voz${idioma === 'en' ? ' (em inglês)' : ' (em português do Brasil)'}.
+Corrija SÓ: palavras ouvidas errado (pelo sentido da frase), ortografia, acentos, pontuação e nomes de produtos, marcas e termos de tecnologia (ex.: "RTX 5080", "PlayStation 5", "Windows").
+NÃO responda ao que foi dito, NÃO acrescente nem tire informação, NÃO mude o sentido nem o jeito de falar. Se já estiver certo, devolva igual.
+Devolva só o texto corrigido, sem aspas e sem explicação.
+
+Transcrição: ${texto}`;
+}
+
+/** Aceita a correção só se ela parece a mesma frase (nada de resposta, explicação ou texto inventado). */
+function correcaoAceitavel(original, corrigido) {
+  const o = String(original || '').trim();
+  const c = String(corrigido || '').trim().replace(/^["'“”«]+|["'“”»]+$/g, '').trim();
+  if (!c || c.length > o.length * 1.6 + 20 || c.length < o.length * 0.5) return null;
+  if (/\n\s*\n|^(aqui est|claro|a transcri|texto corrigido|corrigido:)/i.test(c)) return null;
+  // metade das palavras do original (de 4+ letras) continuam lá
+  const palavras = compacto(o).split(' ').filter((p) => p.length >= 4);
+  const ficaram = palavras.filter((p) => compacto(c).includes(p)).length;
+  if (palavras.length >= 2 && ficaram / palavras.length < 0.5) return null;
+  return c;
+}
 
 /** O modelo para este PC: o turbo com 6 núcleos ou mais; senão, o pequeno. */
 const modeloRecomendado = (nucleos = os.cpus().length) => (nucleos >= 6 ? 'turbo' : 'pequeno');
@@ -91,10 +158,43 @@ class Ditado {
     return Boolean(this.exe() && this.modeloInstalado());
   }
 
+  arquivoDaEscuta() {
+    return path.join(this.dir, 'modelos', MODELO_DA_ESCUTA.arquivo);
+  }
+
+  escutaInstalada() {
+    return this.instalado() && fs.existsSync(this.arquivoDaEscuta());
+  }
+
+  /** O modelo pequeno do "Ei GPT" (60 MB), só no clique — o ditado já precisa estar instalado. */
+  async instalarEscuta({ emitir = () => {} } = {}) {
+    if (!this.instalado()) throw new Error('instale antes o ditado por voz (Ajustes → Componentes)');
+    if (!fs.existsSync(this.arquivoDaEscuta())) {
+      await baixarConferindo(`${HF}/${MODELO_DA_ESCUTA.arquivo}`, this.arquivoDaEscuta(), { sha256: MODELO_DA_ESCUTA.sha256, buscar: this.buscar, emitir, rotulo: `o modelo ${MODELO_DA_ESCUTA.nome}`, total: MODELO_DA_ESCUTA.bytes });
+    }
+    emitir({ texto: '"Ei GPT" pronto ✓', porcento: 100 });
+    return this.estado();
+  }
+
+  /**
+   * A frase curta (até ~5 s) chamou o AuGPT? Com o modelo pequeno, em ~0,2 s. → { texto, chamou, ms }
+   * Sem prompt de propósito: com "Ei GPT," de prompt inicial o Whisper inventava a chamada e comia palavras.
+   */
+  async ouvirChamada(wav, { idioma = 'pt' } = {}) {
+    const exe = this.exe();
+    if (!exe || !fs.existsSync(this.arquivoDaEscuta())) throw new Error('a escuta do "Ei GPT" não está instalada');
+    const inicio = Date.now();
+    const args = ['-m', this.arquivoDaEscuta(), '-f', wav, '-l', idioma === 'en' ? 'en' : 'pt', '-t', String(Math.min(8, nucleosParaUsar())), '-nt', '-np', '-ng', '-bs', '1', '-bo', '1', '-ac', '384'];
+    const texto = limparTranscricao(await this.executar(exe, args, { cwd: path.dirname(exe), timeout: 15000 }));
+    return { texto, chamou: ehChamada(texto), resto: ehChamada(texto) ? semChamada(texto) : '', ms: Date.now() - inicio };
+  }
+
   estado() {
     const modelo = this.modeloInstalado();
     const recomendado = modeloRecomendado();
     return {
+      escuta: this.escutaInstalada(),
+      tamanhoDaEscuta: MB(MODELO_DA_ESCUTA.bytes),
       instalado: this.instalado(),
       modelo: modelo ? MODELOS[modelo].nome : null,
       versao: this.exe() ? BINARIO.versao : null,
@@ -142,4 +242,4 @@ class Ditado {
   }
 }
 
-module.exports = { Ditado, MODELOS, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar };
+module.exports = { Ditado, MODELOS, MODELO_DA_ESCUTA, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel };

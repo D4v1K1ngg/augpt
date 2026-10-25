@@ -37,6 +37,11 @@ contextBridge.exposeInMainWorld('augpt', {
     estado: () => ipcRenderer.invoke('ditado:estado'),
     instalar: () => ipcRenderer.invoke('ditado:instalar'),
     transcrever: (bytes) => ipcRenderer.invoke('ditado:transcrever', bytes),
+    instalarEscuta: () => ipcRenderer.invoke('ditado:instalarEscuta'),
+    chamada: (bytes) => ipcRenderer.invoke('ditado:chamada', bytes),
+    pedidoDeVoz: (bytes) => ipcRenderer.invoke('ditado:pedidoDeVoz', bytes),
+    corrigir: (texto) => ipcRenderer.invoke('ditado:corrigir', texto),
+    trazerJanela: () => ipcRenderer.invoke('janela:trazer'),
   },
   agenda: {
     listar: () => ipcRenderer.invoke('agenda:listar'),

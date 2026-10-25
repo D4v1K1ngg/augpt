@@ -148,6 +148,10 @@ const DEFAULTS = {
   ditadoEnviarSozinho: false,
   // o microfone do ditado (deviceId); '' = automático (o padrão do Windows, pulando os virtuais)
   ditadoMicrofone: '',
+  // 25/10: "Ei GPT" (o microfone fica aberto ouvindo a chamada; desligado por padrão) e a correção
+  // do texto falado pelo modelo (ortografia e palavras ouvidas errado) antes de enviar
+  ouvirChamada: false,
+  ditadoCorrigir: true,
   preBuscaConcorrencia: 2,
   // Modo AUTO (auto.js, 2026-10-10): cada pedido ganha um nível —
   // 0 direto (conversa), 1 conversa com pesquisa rápida, 2 pesquisa padrão,

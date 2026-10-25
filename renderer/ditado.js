@@ -256,8 +256,14 @@
         setTimeout(() => aviso(g.botao, ''), 5000);
         return;
       }
+      // 25/10: a correção pelo modelo (Ajustes → Geral), se ligada — na dúvida, fica o que o Whisper ouviu
+      let texto = r.texto;
+      if (config.ditadoCorrigir !== false) {
+        aviso(g.botao, tr('Corrigindo o texto…'));
+        texto = (await api.ditado.corrigir(texto).catch(() => null))?.texto || texto;
+      }
       aviso(g.botao, '');
-      colocarTexto(g.caixa, r.texto);
+      colocarTexto(g.caixa, texto);
       // "enviar sozinho" — nunca enquanto o agente responde (o botão vira "parar")
       if (config.ditadoEnviarSozinho === true && !g.enviar.classList.contains('parando')) g.enviar.click();
     } catch (err) {
@@ -304,5 +310,7 @@
     alternar(alvo.caixa, alvo.botao, alvo.enviar);
   });
 
-  window.ditadoPorVoz = { parar, paraWav, abrirMicrofone, listarMicrofones, testarMicrofone };
+  // a escuta do "Ei GPT" (escuta.js) usa a caixa do Agente, o aviso dela e sabe quando o botão está gravando
+  const doAgente = () => caixas.find((c) => c.caixa.id === 'entradaAgente') || null;
+  window.ditadoPorVoz = { parar, paraWav, abrirMicrofone, listarMicrofones, testarMicrofone, aviso, doAgente, gravando: () => Boolean(atual), botoes: () => caixas.map((c) => c.botao) };
 })();

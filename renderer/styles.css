@@ -915,6 +915,10 @@ body:not(.mostrar-tecnico) .tecnico { display: none !important; }
 .btn-microfone.gravando { color: #fff; background: var(--red); border-color: var(--red); box-shadow: 0 0 0 calc(2px + var(--nivel, 0) * 8px) rgba(234, 107, 94, 0.25); }
 .btn-microfone.transcrevendo { color: var(--amber); border-color: var(--amber); cursor: progress; }
 .btn-microfone.transcrevendo svg { animation: ditado-pulso 1s ease-in-out infinite; }
+/* "Ei GPT" ligado (25/10): um ponto verde no canto do microfone */
+.btn-microfone.escutando::after { content: ''; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: #3fbf6f; box-shadow: 0 0 0 2px var(--bg, #111); }
+.ajuste-status:empty { display: none; }
+.ajuste-status { color: var(--amber); }
 @keyframes ditado-pulso { 50% { opacity: 0.35; } }
 .ditado-aviso { position: absolute; left: 14px; bottom: calc(100% + 8px); max-width: calc(100% - 28px); padding: 6px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line-forte); color: var(--text); font-size: 12px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); pointer-events: none; }
 .ditado-aviso[hidden] { display: none; }
