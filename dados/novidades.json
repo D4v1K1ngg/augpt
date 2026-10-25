@@ -1,5 +1,31 @@
 [
   {
+    "versao": "0.38.0",
+    "data": "2026-10-25",
+    "pt": {
+      "titulo": "Ícone novo, mais segurança e pesquisa mais certeira",
+      "itens": [
+        "**Ícone do AuGPT:** o selo dourado \"Au\" agora aparece no instalador, na barra de tarefas, nas janelas e nos avisos do Windows.",
+        "**Pesquisa sem fontes fora do assunto:** páginas que falam de outra coisa (outra geração de placa, outra cidade) ficam de fora da resposta. Quando a pergunta cita um produto e nenhuma página fala dele, o AuGPT diz que não encontrou nas buscas, em vez de responder com a fonte errada.",
+        "**Segurança:** Electron atualizado (corrige duas falhas conhecidas), \"Mostrar na pasta\" só abre o que o próprio app salvou, e a leitura de sites em segundo plano não carrega mais anúncios e rastreadores.",
+        "**Aviso do Ollama aberto na rede:** se o Ollama deste PC estiver acessível para outros aparelhos do Wi-Fi, Ajustes → Avançado mostra o aviso e como desligar.",
+        "**Mais estável e mais leve:** abrir o AuGPT de novo traz a janela que já está aberta (em vez de abrir outra cópia), erros inesperados ficam registrados, e o app limpa sozinho o cache antigo do mapa e as fotos que nenhuma conversa usa.",
+        "**Correções:** links da Wikipédia com parênteses nas citações, o valor repetido na dica do gráfico de pizza (\"35% — 35%\") e gráficos sem informação."
+      ]
+    },
+    "en": {
+      "titulo": "New icon, more security and sharper research",
+      "itens": [
+        "**AuGPT icon:** the gold \"Au\" seal now shows in the installer, the taskbar, the windows and Windows notifications.",
+        "**Research without off-topic sources:** pages about something else (another GPU generation, another city) are left out of the answer. When the question names a product and no page covers it, AuGPT says the searches did not find it instead of answering with the wrong source.",
+        "**Security:** Electron updated (fixes two known flaws), \"Show in folder\" only opens what the app itself saved, and background page reading no longer loads ads and trackers.",
+        "**Ollama open to the network warning:** if this PC's Ollama is reachable by other devices on your Wi-Fi, Settings → Advanced shows a warning and how to turn it off.",
+        "**More stable and lighter:** opening AuGPT again brings up the window that is already open (instead of a second copy), unexpected errors are logged, and the app cleans up old map cache and photos no conversation uses.",
+        "**Fixes:** Wikipedia links with parentheses in citations, the repeated value in the pie chart tooltip (\"35% — 35%\") and charts with no information."
+      ]
+    }
+  },
+  {
     "versao": "0.37.0",
     "data": "2026-10-24",
     "pt": {
