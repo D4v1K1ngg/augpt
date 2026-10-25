@@ -10,6 +10,7 @@ const { Memory } = require('./memory');
 const { Sandbox } = require('../tools/sandbox');
 const { Skills } = require('../skills');
 const verificador = require('./verificador');
+const conferencia = require('./conferencia');
 const serieDePrecos = require('./serie-de-precos');
 const { tipoDeFonte } = require('../tools/comunidade');
 const { destilar, maximoQueCabe } = require('./destilador');
@@ -2134,6 +2135,7 @@ class Agent extends EventEmitter {
     let vetosChecklistFeitos = 0; // teto de vezes que barramos responder/concluir com checklist pendente
     let abandonoChecklistPermitido = false; // após veto explícito, plano novo pode pular itens antigos
     let vetosPreRedacaoFeitos = 0; // teto de vezes que barramos "responder" com material insuficiente (ver gate abaixo)
+    let vetoDaConferenciaFeito = false; // 25/10: a conferência das ações avisa uma vez antes de concluir
     let vetosTarefaEstadoFeitos = 0; // teto de vezes que barramos responder/concluir com a tarefa aguardando/bloqueada (ver gate abaixo)
     const assinaturas = new Map(); // detecta a mesma ação repetida
     const resultadoPorChave = new Map(); // ação de página → a última tentativa idêntica mudou a página?
@@ -3030,6 +3032,25 @@ class Agent extends EventEmitter {
             historico,
           });
           continue;
+        }
+        // Conferência das ações (25/10, src/agent/conferencia.js): antes de concluir, o CÓDIGO confere o
+        // que as ferramentas fizeram — o arquivo existe e não está vazio, o comando terminou com código 0,
+        // a ação no site deu certo. Falhou algo (ou a resposta cita arquivo que não existe): uma chance de
+        // corrigir ou admitir. Fora da cota dos outros vetos: dizer "pronto" sem ter feito é o pior caso.
+        const naoFeitosDoPedido = nome === 'responder' || nome === 'concluir' ? conferencia.pedidoSemAcao(objetivo, tarefa.acoes) : [];
+        if ((nome === 'responder' || nome === 'concluir') && !vetoDaConferenciaFeito && (naoFeitosDoPedido.length || tarefa.acoes.some((a) => conferencia.ehAcao(a.nome)))) {
+          const tamanhoDe = conferencia.tamanhoNaPasta(sandbox);
+          const itensConferidos = conferencia.conferirAcoes(tarefa.acoes, { tamanhoDe });
+          const textoDoFim = `${argumentos?.resumo || ''} ${argumentos?.resposta || ''}`;
+          const faltando = conferencia.arquivosSoNaResposta(textoDoFim, { tamanhoDe, criados: tarefa.acoes.map(conferencia.arquivoDaAcao).filter(Boolean) });
+          const aviso = conferencia.avisoAntesDeConcluir(itensConferidos, faltando, naoFeitosDoPedido);
+          // já admitiu a falha no texto e não cita arquivo inexistente nem deixou de fazer o pedido: segue
+          if (aviso && !(faltando.length === 0 && naoFeitosDoPedido.length === 0 && conferencia.RECONHECE_FALHA.test(textoDoFim))) {
+            vetoDaConferenciaFeito = true;
+            this.emit('conferencia', { itens: itensConferidos, faltando, antesDeConcluir: true });
+            this.vetoDoCopiloto({ gate: 'conferencia', nome, plano, erro: 'a conferência achou o que não deu certo', instrucao: aviso, historico });
+            continue;
+          }
         }
         // Item com ferramenta própria (gráfico, planilha...) não precisa de
         // mais busca: continua valendo mesmo com o teto de buscas atingido ou

@@ -653,6 +653,13 @@ const COBERTURA = {
 - Para o resto, responda com o que você sabe, deixando claro o que é o quê: "as fontes trazem X; sobre Y, que elas não cobrem, o que se sabe é...".
 - Diga em uma linha qual parte a pesquisa não alcançou.`,
 
+  // 25/10: execução que AGIU (arquivo, comando, site) e não pesquisou — o material é o que foi feito
+  acoes: `Este pedido foi uma TAREFA: o agente executou ações de verdade no computador (arquivos, comandos, site). O bloco "O QUE FOI FEITO NESTA EXECUÇÃO" traz o resultado real de cada uma.
+- Relate o que aconteceu com base nesse bloco: o que deu certo (✓) e o que falhou (✗), com a mensagem de erro real quando houver.
+- NÃO diga que pesquisou nem abra com "a busca não retornou". NÃO descreva o que "aconteceria", "seria" ou "retornaria": aconteceu, e o resultado está no bloco.
+- NUNCA diga que foi feito o que aparece com ✗. Se algo falhou, diga com clareza e, se souber, o que o usuário pode fazer.
+- Seja direto e curto: o que foi feito, onde está (nome do arquivo), e o que não deu certo.`,
+
   ausente: `A pesquisa NÃO trouxe material útil para este pedido.
 - NÃO escreva "não há informações suficientes" e pare por aí. Isso não é resposta, é desistência.
 - Responda com o seu próprio conhecimento, abrindo com uma linha honesta: "A busca não retornou material específico sobre isto; o que segue é conhecimento geral."

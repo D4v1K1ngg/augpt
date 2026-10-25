@@ -18,6 +18,7 @@ const verificador = require('./verificador');
 const serieDePrecos = require('./serie-de-precos');
 const { fundir, materialOriginal } = require('./destilador');
 const { ESTADOS: ESTADOS_TAREFA } = require('./tarefa');
+const conferencia = require('./conferencia');
 const { produtosNomeados } = require('./tipo-de-pedido');
 const confronto = require('./confronto');
 const compositor = require('./compositor');
@@ -162,7 +163,11 @@ class Redacao {
     // não recebe a conversa anterior na redação — a resposta da 1ª pergunta
     // não vaza pra 2ª (14º teste real)
     if (conversa?.length && !prompts.referenciaConversa(objetivo, conversa)) conversa = [];
-    const cobertura = medirCobertura(objetivo, dossie);
+    const coberturaDaPesquisa = medirCobertura(objetivo, dossie);
+    // execução que agiu (25/10): o resultado real das ações vai no material; sem pesquisa útil, a
+    // instrução é a de tarefa ("relate o que aconteceu"), não a de "a busca não retornou material"
+    const acoesFeitas = this.acoesDaExecucao || '';
+    const cobertura = acoesFeitas && coberturaDaPesquisa.nivel === 'ausente' ? { ...coberturaDaPesquisa, nivel: 'acoes' } : coberturaDaPesquisa;
     this.emit('cobertura', cobertura);
 
     const skillsRedacao = this.skills
@@ -192,7 +197,8 @@ class Redacao {
     // tira do início) come esse texto bruto primeiro, e os fatos essenciais
     // (mais compactos, e já a prova de corte no fim) sobrevivem.
     const original = materialOriginal(recorte, 12000);
-    const material = [original, fundidos.length ? fundidos.join('\n') : '', ...soltos]
+    // o resultado das ações vai no FIM: o corte por tamanho (abaixo) tira do começo
+    const material = [original, fundidos.length ? fundidos.join('\n') : '', ...soltos, acoesFeitas]
       .filter(Boolean)
       .join('\n\n')
       .slice(-22000);
@@ -283,6 +289,10 @@ class Redacao {
       }
       this.emit('tarefa-atualizada', ctx.tarefa.serializar());
     }
+    // o que as ferramentas fizeram de verdade, para a redação (src/agent/conferencia.js)
+    this.acoesDaExecucao = ctx.tarefa?.acoes?.some((a) => conferencia.ehAcao(a.nome)) && ctx.sandbox
+      ? conferencia.materialDasAcoes(ctx.tarefa.acoes, { tamanhoDe: conferencia.tamanhoNaPasta(ctx.sandbox) })
+      : '';
     // "concluir" depois de pesquisar e sem ter escrito arquivo nenhum é,
     // na prática, uma pergunta não respondida. Redigimos assim mesmo.
     const devePensarEmTexto = forcarRedacao || (ctx.estado.pesquisou && !ctx.estado.escreveu);
@@ -865,6 +875,21 @@ class Redacao {
       const assunto = this.produtoPesquisado || assuntoDoPedido(objetivo);
       const figura = await imagens.comLimite(imagens.imagemDeReferencia(assunto, { config: this.config, dir: this.dirImagens() }), 8000);
       if (figura) final = `${imagens.marcacao(assunto, figura)}\n\n${final}`;
+    }
+
+    // Conferência das ações (25/10): o que as ferramentas fizeram de verdade, conferido pelo código,
+    // no fim da resposta — ✓ arquivo criado (12 KB), ✗ comando terminou com erro… — e o arquivo que a
+    // resposta diz ter criado e não está na pasta.
+    const naoFeitosDoPedido = ctx.tarefa ? conferencia.pedidoSemAcao(objetivo, ctx.tarefa.acoes) : [];
+    if ((naoFeitosDoPedido.length || ctx.tarefa?.acoes?.some((a) => conferencia.ehAcao(a.nome))) && ctx.sandbox) {
+      const tamanhoDe = conferencia.tamanhoNaPasta(ctx.sandbox);
+      const itens = conferencia.conferirAcoes(ctx.tarefa.acoes, { tamanhoDe });
+      const faltando = conferencia.arquivosSoNaResposta(final, { tamanhoDe, criados: ctx.tarefa.acoes.map(conferencia.arquivoDaAcao).filter(Boolean) });
+      const bloco = conferencia.blocoDaConferencia(itens, faltando, { idioma: this.config?.idiomaEfetivo, naoFeitos: naoFeitosDoPedido });
+      if (bloco) {
+        final = `${final}\n\n${bloco}`;
+        this.emit('conferencia', { itens, faltando });
+      }
     }
 
     // Contrato de conclusão (2026-09-27): item do plano que só uma

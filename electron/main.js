@@ -123,6 +123,7 @@ const EVENTOS = [
   // a agenda mudou pelo chat (23/10): a tela da Agenda se atualiza
   'agenda-mudou',
   'tela-capturada',
+  'conferencia',
   // Pedido de Davi 2026-09-23, mesma rodada: instrumentação por-chamada
   // (tipo/tokens/duração) pra alimentar o gráfico "qual parte do raciocínio
   // levou mais tempo/custou mais tokens" da nova janela "Visualizar
