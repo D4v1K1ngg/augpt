@@ -32,17 +32,37 @@ function ipsDestePC() {
 
 /** As redes privadas IPv4 deste PC, como prefixo /24 ("192.168.0."), sem as de VPN/virtuais conhecidas. */
 function redesLocais(interfaces = os.networkInterfaces()) {
-  const prefixos = new Set();
+  return [...new Set(ipsDaRede(interfaces).map((ip) => ip.split('.').slice(0, 3).join('.') + '.'))];
+}
+
+/** Os IPv4 privados deste PC na rede da casa (sem loopback e sem VPN/virtuais conhecidas). */
+function ipsDaRede(interfaces = os.networkInterfaces()) {
+  const ips = [];
   for (const [nome, lista] of Object.entries(interfaces)) {
     if (/vpn|virtual|vmware|vbox|hyper-v|wsl|loopback|radmin|hamachi|zerotier|tailscale/i.test(nome)) continue;
     for (const i of lista || []) {
       if (i.family !== 'IPv4' && i.family !== 4) continue;
       if (i.internal) continue;
       if (!/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(i.address)) continue;
-      prefixos.add(i.address.split('.').slice(0, 3).join('.') + '.');
+      ips.push(i.address);
     }
   }
-  return [...prefixos];
+  return ips;
+}
+
+/**
+ * Revisão de 25/10: o Ollama DESTE PC atende pela rede da casa? (a opção "Expose Ollama to the
+ * network" do app do Ollama, ou OLLAMA_HOST=0.0.0.0). Útil para servir outro PC; fora isso, qualquer
+ * aparelho da rede usa o modelo e lê o que passa por ele. → { exposto, ip }
+ */
+async function expostoNaRede({ fetchImpl = fetch, prazoMs = 800, ips = ipsDaRede() } = {}) {
+  for (const ip of ips) {
+    try {
+      const r = await fetchImpl(`http://${ip}:${PORTA}/api/version`, { signal: comPrazo(prazoMs) });
+      if (r.ok && (await r.json())?.version) return { exposto: true, ip };
+    } catch {}
+  }
+  return { exposto: false, ip: null };
 }
 
 const comPrazo = (ms) => (typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined);
@@ -85,4 +105,4 @@ async function procurarNaRede({ fetchImpl = fetch, prazoMs = 700, prefixos = red
   return { redes: prefixos.map((p) => `${p}0/24`), achados: achados.sort((a, b) => Number(a.estePC) - Number(b.estePC)) };
 }
 
-module.exports = { ehLocal, redesLocais, testar, procurarNaRede, PORTA };
+module.exports = { ehLocal, redesLocais, ipsDaRede, expostoNaRede, testar, procurarNaRede, PORTA };

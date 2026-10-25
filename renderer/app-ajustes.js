@@ -1275,6 +1275,16 @@ $('btnTestarOllama').addEventListener('click', async () => {
   mostrarRedeOllama(`${esc(r.host)} respondeu: Ollama ${esc(r.versao || '?')}, ${r.modelos.length} modelo${r.modelos.length === 1 ? '' : 's'}. Já está em uso.`);
 });
 
+/** Revisão de 25/10: avisa quando o Ollama deste PC atende pela rede da casa. */
+async function conferirExposicaoDoOllama() {
+  const caixa = $('ollamaExposto');
+  const r = await api.ollama.exposicao().catch(() => null);
+  caixa.hidden = !r?.exposto;
+  if (!r?.exposto) return;
+  caixa.innerHTML = `<b>O Ollama deste PC está aberto para a rede da casa</b> (responde em <code>${esc(r.ip)}:11434</code>). Qualquer aparelho conectado ao seu Wi-Fi pode usar o modelo. Se você não serve outro computador com ele, desligue: no Ollama, <b>Settings → Expose Ollama to the network</b> (desmarque) e reinicie o Ollama. Se você criou a variável <code>OLLAMA_HOST=0.0.0.0</code>, apague-a.`;
+}
+conferirExposicaoDoOllama();
+
 $('btnOllamaLocal').addEventListener('click', async () => {
   await usarServidorOllama('http://127.0.0.1:11434');
   mostrarRedeOllama('O AuGPT voltou a usar o Ollama deste computador.');

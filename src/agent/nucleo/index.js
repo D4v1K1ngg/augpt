@@ -19,7 +19,8 @@
  * Tudo que fala com rede ou modelo vem por `deps` — a bancada usa dublês.
  */
 
-const { pedacos, ordenar } = require('./ranking');
+const { pedacos, ordenar, normalizar: normalizarTermos } = require('./ranking');
+const { produtosDoPedido } = require('../serie-de-precos');
 const { qualidadeDoDominio } = require('../../tools/search');
 
 /*
@@ -741,10 +742,54 @@ function safeJson(t) {
 
 /* ------------------------------ 3–4. selecionar e escrever ------------------------------ */
 
+/**
+ * O nome do produto escrito numa fonte (25/10). Número curto ("RTX 60", "Zen 6") exige a linha junto e
+ * aceita a família ("RTX 6090"), mas não "60 fps" nem "RTX 3060"; número de 3+ dígitos ("5080") basta.
+ */
+function padraoDoProduto(nome) {
+  const partes = normalizarTermos(nome).split(' ');
+  const i = partes.findIndex((p) => /\d/.test(p));
+  if (i < 0) return null;
+  if (partes[i].replace(/\D/g, '').length >= 3) return new RegExp(`\\b${partes[i]}\\b`);
+  return i > 0 ? new RegExp(`\\b${partes[i - 1]} ?${partes[i]}(\\d{2})?\\b`) : null;
+}
+
+/**
+ * Fontes fora do assunto não vão para a escrita (25/10). A ordem do `ordenar` é relativa — a pior fonte
+ * de uma lista ruim ainda entrava, e o redator citava ou comentava: "GeForce 30" e "Zen 3" na resposta
+ * sobre a RTX 60, "as fontes falam de Santo André" na maior cidade do Brasil. Medido com o
+ * nomic-embed-text: a fonte certa fica a até ~0,18 da melhor; Zen 3 ficou a 0,31 numa pergunta da RTX 60
+ * e São Paulo a 0,16 em "o que é bufferbloat?" (sem nenhuma palavra da pergunta). Regras:
+ *   - a pergunta nomeia produtos e alguma fonte cita um deles → só as que citam;
+ *   - a 0,25 ou mais da melhor semelhança, ou a 0,12 sem nenhuma palavra da pergunta → fora.
+ * A melhor fonte sempre fica — menos quando a pergunta nomeia um produto que nenhuma fonte cita.
+ */
+function semFontesForaDoAssunto(pergunta, ordenados) {
+  if (ordenados.length < 2) return ordenados;
+  let lista = ordenados;
+  const padroes = produtosDoPedido(pergunta).map((e) => padraoDoProduto(e?.nome || e)).filter(Boolean);
+  if (padroes.length) {
+    // nenhuma cita: as buscas não acharam o produto — melhor nenhuma fonte que a errada (no app, a
+    // RTX 60 respondida com a GeForce 30 e o Zen 3); o redator é avisado em `responder`
+    lista = lista.filter((it) => padroes.some((re) => re.test(normalizarTermos(`${it.f?.titulo || ''} ${it.texto}`))));
+    if (!lista.length) return [];
+  }
+  const melhor = Math.max(...lista.map((it) => (typeof it.semelhanca === 'number' ? it.semelhanca : -Infinity)));
+  if (!Number.isFinite(melhor)) return lista; // sem embeddings: fica a regra do produto
+  return lista.filter((it) => {
+    if (typeof it.semelhanca !== 'number') return true;
+    const distancia = melhor - it.semelhanca;
+    return !(distancia >= 0.25 || (distancia >= 0.12 && !it.palavras));
+  });
+}
+
 /** O material de cada fonte para a escrita: os trechos lidos, ou o resumo do buscador. Até ~`limite` caracteres no total, as mais relevantes primeiro. */
-async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000 } = {}) {
+async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000, emit = () => {} } = {}) {
   const itens = fontes.map((f) => ({ f, texto: f.trechos.length ? f.trechos.join('\n…\n') : f.resumo })).filter((x) => String(x.texto || '').trim());
-  const ordenados = await ordenar(pergunta, itens, { embed });
+  const todos = await ordenar(pergunta, itens, { embed });
+  const ordenados = semFontesForaDoAssunto(pergunta, todos);
+  const fora = todos.filter((it) => !ordenados.includes(it));
+  if (fora.length) emit('aviso', { texto: `fora do assunto, ficaram de fora da resposta: ${fora.map((it) => it.f.titulo || it.f.url).slice(0, 6).join(' · ')}` });
   const usados = [];
   let total = 0;
   for (const it of ordenados) {
@@ -795,6 +840,7 @@ ${
 - Use tabela quando comparar opções ou listar especificações.
 - Quando a pergunta pede escolha, recomendação ou avaliação, diga com clareza o que você recomenda e por quê, com base nas fontes. Nada de conclusão genérica.
 - Diga o que as fontes não responderam, em vez de inventar.
+- Fonte que trata de outro assunto (outra cidade, outro produto, outra geração): ignore em silêncio — não cite, não resuma e não comente que ela fala de outra coisa.
 - Se a pergunta continua a conversa, responda só ao que foi pedido agora e traga o que é novo; não repita a resposta anterior (o usuário já leu).
 - Preço: use o que as fontes trazem, na moeda delas. Não converta moeda nem estime preço em real que as fontes não dão.
 - As anotações do pesquisador (se houver) mostram o que ele já conferiu, como preço atual. Quando uma anotação e uma fonte discordarem, prefira o dado mais recente e diga a diferença.
@@ -1194,12 +1240,12 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const sobreOUsuario = ent.sobreOUsuario && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '';
   const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa, imagemAnexada: vista, atual: ent.atual, sobreOUsuario }) : [];
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
-  const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed }) : [];
+  const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit }) : [];
   // 16/10: sem o yt-dlp, "pesquise vídeos no youtube" saiu como "realizei uma pesquisa no YouTube" — não houve
   const semVideos = /\b(youtube|v[ií]deos?)\b/i.test(pergunta) && !(typeof deps.buscarNoYoutube === 'function');
   emit('redigindo', { fontes: usadas.length });
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: capacidades.blocoParaEscrever(deps), preferencias: typeof deps.preferencias === 'function' ? deps.preferencias() : '', idioma: deps.idioma })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: capacidades.blocoParaEscrever(deps), preferencias: typeof deps.preferencias === 'function' ? deps.preferencias() : '', idioma: deps.idioma })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
@@ -1309,4 +1355,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null };
 }
 
-module.exports = { tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

@@ -89,17 +89,24 @@ const paraUm = (notas) => {
 async function ordenar(consulta, itens, { embed = null, peso = 0.5, maximo = Infinity } = {}) {
   if (!itens.length) return [];
   const textos = itens.map((i) => String(i.texto || ''));
-  const palavra = paraUm(bm25(consulta, textos));
+  const brutas = bm25(consulta, textos);
+  const palavra = paraUm(brutas);
   let sentido = null;
+  let cossenos = null;
   if (embed) {
     try {
       const vetores = await embed([consulta, ...textos.map((t) => t.slice(0, 2000))]);
-      if (vetores?.length === textos.length + 1) sentido = paraUm(textos.map((_, i) => cosseno(vetores[0], vetores[i + 1])));
+      if (vetores?.length === textos.length + 1) {
+        cossenos = textos.map((_, i) => cosseno(vetores[0], vetores[i + 1]));
+        sentido = paraUm(cossenos);
+      }
     } catch {
       sentido = null; // sem embeddings: só a palavra exata
     }
   }
-  const notas = itens.map((it, i) => ({ ...it, nota: sentido ? peso * palavra[i] + (1 - peso) * sentido[i] : palavra[i] }));
+  // `nota` é relativa (o melhor vale 1); `semelhanca` e `palavras` são as brutas — o filtro de assunto
+  // da escrita (25/10) precisa saber o quanto cada um está longe do melhor, não só a ordem
+  const notas = itens.map((it, i) => ({ ...it, nota: sentido ? peso * palavra[i] + (1 - peso) * sentido[i] : palavra[i], palavras: brutas[i], semelhanca: cossenos ? cossenos[i] : null }));
   notas.sort((a, b) => b.nota - a.nota);
   const vistos = new Set();
   return notas

@@ -31,7 +31,7 @@
   },
   "devDependencies": {
     "electron": "^44.9.3",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^26.18.0"
   },
   "build": {
     "appId": "com.davi.augpt",
@@ -45,8 +45,10 @@
       "dados/**/*",
       "package.json"
     ],
+    "icon": "build/icon.png",
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "artifactName": "AuGPT-Setup-${version}.${ext}"

@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('augpt', {
     saudeDaBusca: () => ipcRenderer.invoke('busca:saude'),
     procurarNaRede: () => ipcRenderer.invoke('ollama:procurarNaRede'),
     testarServidor: (host) => ipcRenderer.invoke('ollama:testarServidor', { host }),
+    exposicao: () => ipcRenderer.invoke('ollama:exposicao'),
   },
   // tela de boas-vindas (15/10)
   utilitarios: { listar: () => ipcRenderer.invoke('utilitarios:listar') },

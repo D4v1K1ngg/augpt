@@ -1818,4 +1818,5 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 
 /* Ollama de outro computador (19/10) */
 .ollama-rede { display: flex; gap: 8px; flex-wrap: wrap; }
+.aviso-exposto { margin: 8px 0; padding: 10px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, #e0a030 55%, transparent); background: color-mix(in srgb, #e0a030 10%, transparent); font-size: 13px; line-height: 1.5; }
 .ollama-achado { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 0; }

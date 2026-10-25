@@ -159,6 +159,9 @@ function enviar(canal, dados) {
 
 let aberturaJaRodou = false;
 
+// o ícone do app (25/10): instalado, o .exe já tem o build/icon.ico; isto vale no `npm start` e nos avisos
+const ICONE = path.join(__dirname, '../renderer/icone.png');
+
 function criarJanela() {
   win = new BrowserWindow({
     width: 1380,
@@ -167,6 +170,7 @@ function criarJanela() {
     minHeight: 680,
     backgroundColor: '#0A0D12',
     title: 'AuGPT',
+    icon: ICONE,
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
@@ -238,6 +242,7 @@ function abrirJanelaExecucoes() {
     minWidth: 1000,
     minHeight: 600,
     backgroundColor: '#0B0B0D',
+    icon: ICONE,
     title: 'AuGPT — Execuções',
     show: false,
     autoHideMenuBar: true,
@@ -651,6 +656,8 @@ ipcMain.handle('ollama:pull', async (_e, { nome } = {}) => {
 // procurar e testar um Ollama de outro computador da rede (Ajustes → Avançado → Conexão)
 ipcMain.handle('ollama:procurarNaRede', () => ollamaRemoto.procurarNaRede());
 ipcMain.handle('ollama:testarServidor', (_e, { host } = {}) => ollamaRemoto.testar(host));
+// só faz sentido quando o AuGPT usa o Ollama deste PC (com o de outro PC, quem expõe é aquele)
+ipcMain.handle('ollama:exposicao', () => (ollamaRemoto.ehLocal(config.data.host) ? ollamaRemoto.expostoNaRede() : { exposto: false, ip: null }));
 
 /**
  * Quadro "onde está rodando cada modelo" (2026-10-10): GPU, CPU ou
@@ -1060,7 +1067,7 @@ function avisar(titulo, corpo, item) {
   try {
     const { Notification } = require('electron');
     if (!Notification.isSupported()) return;
-    const n = new Notification({ title: titulo, body: corpo, silent: false });
+    const n = new Notification({ title: titulo, body: corpo, silent: false, icon: ICONE });
     n.on('click', () => {
       const janela = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('index.html'));
       if (janela) {

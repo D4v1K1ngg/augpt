@@ -97,6 +97,12 @@ function separarGraficos(texto, { material = '', pedido = false } = {}) {
       descartados.push(v.erro);
       return '';
     }
+    // 25/10: gráfico que ninguém pediu com todos os valores iguais não mostra nada ("Lançamentos da Nvidia": [1, 1, 1])
+    const valores = v.spec.datasets.flatMap((s) => s.data).filter((x) => x !== null && typeof x !== 'object');
+    if (!pedido && valores.length > 1 && valores.every((x) => x === valores[0])) {
+      descartados.push('todos os valores iguais');
+      return '';
+    }
     if (doMaterial && v.spec.type !== 'scatter') {
       const pontos = v.spec.datasets.flatMap((s, i) => s.data.map((x, j) => ({ i, j, x }))).filter((p) => p.x !== null);
       const achados = pontos.filter((p) => tem(p.x));

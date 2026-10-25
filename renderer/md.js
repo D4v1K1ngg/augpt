@@ -16,7 +16,8 @@
       .replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>')
       .replace(/~~([^~\n]+)~~/g, '<del>$1</del>')
       // a citação "[(17)](url)" vira uma etiqueta com o nome do site (21/10: os "(17)" no meio do texto incomodavam)
-      .replace(/\[\((\d{1,3})\)\]\((https?:\/\/[^\s)]+)\)/g, (m, n, url) => {
+      // endereço com parênteses (Wikipédia: "Santo_André_(São_Paulo)") vai inteiro — antes sobrava um ")" no texto
+      .replace(/\[\((\d{1,3})\)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g, (m, n, url) => {
         let site = '';
         try {
           site = new URL(url.replace(/&amp;/g, '&')).hostname.replace(/^(www|m|pt|br|old)\./, '');
@@ -26,7 +27,7 @@
         const curto = site.split('.').filter((p) => !/^(com|org|net|gov|edu|br|co|io|info|uk|us|pt|ar|blog)$/.test(p)).pop() || site;
         return `<a class="cita" href="${url}" data-externo="1" title="Fonte ${n} · ${site}">${curto}</a>`;
       })
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" data-externo="1">$1</a>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g, '<a href="$2" data-externo="1">$1</a>')
       .replace(/(^|[\s])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" data-externo="1">$2</a>');
   }
 
