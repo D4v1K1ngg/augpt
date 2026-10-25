@@ -800,6 +800,7 @@ async function pintarDitado() {
     $('ouvirChamadaStatus').textContent = $('cfgOuvirChamada').checked ? tr('Ouvindo — diga "Ei GPT" e o seu pedido.') : '';
   }
   pintarEscuta(d);
+  pintarAtalhoDaTela();
   // a escolha do microfone só com o ditado instalado (antes disso o AuGPT não abre o microfone)
   $('linhaMicrofone').hidden = !d.instalado;
   if (d.instalado && window.ditadoPorVoz) {
@@ -882,6 +883,17 @@ $('cfgOuvirChamada').addEventListener('change', async (e) => {
 });
 $('cfgDitadoCorrigir').addEventListener('change', async (e) => {
   config = await api.config.set({ ditadoCorrigir: e.target.checked });
+});
+
+/* ---------- o atalho Ctrl+Alt+A da tela (25/10) ---------- */
+async function pintarAtalhoDaTela() {
+  $('cfgAtalhoDaTela').checked = config.atalhoDaTela !== false;
+  const r = await api.tela.atalho().catch(() => null);
+  $('atalhoDaTelaStatus').textContent = r?.estado === 'ocupado' ? tr('Outro programa já usa o Ctrl+Alt+A — o botão ao lado do + continua funcionando.') : '';
+}
+$('cfgAtalhoDaTela').addEventListener('change', async (e) => {
+  config = await api.config.set({ atalhoDaTela: e.target.checked });
+  pintarAtalhoDaTela();
 });
 
 /* ---------- o modelo da escuta, o treino da voz e o que a escuta ouviu (25/10) ---------- */

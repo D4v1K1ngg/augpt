@@ -211,6 +211,11 @@
           texto = (await api.ditado.corrigir(texto).catch(() => null))?.texto || texto;
         }
         avisar('');
+        // "Ei GPT, o que é isso na tela?": captura a tela inteira e manda junto (renderer/tela.js)
+        if (window.telaPorVoz?.falaDaTela(texto)) {
+          await window.telaPorVoz.capturarEPerguntar(texto);
+          return;
+        }
         trocarAba('agente');
         // o que você tinha digitado volta para a caixa depois do envio
         const rascunho = a.caixa.value;

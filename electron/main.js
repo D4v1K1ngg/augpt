@@ -122,6 +122,7 @@ const EVENTOS = [
   'autoridade-descoberta',
   // a agenda mudou pelo chat (23/10): a tela da Agenda se atualiza
   'agenda-mudou',
+  'tela-capturada',
   // Pedido de Davi 2026-09-23, mesma rodada: instrumentação por-chamada
   // (tipo/tokens/duração) pra alimentar o gráfico "qual parte do raciocínio
   // levou mais tempo/custou mais tokens" da nova janela "Visualizar
@@ -538,6 +539,7 @@ ipcMain.handle('config:restaurar', () => {
 ipcMain.handle('config:set', (_e, patch) => {
   const dados = config.save(filtrarPatchDeConfig(patch));
   if (patch && 'nomeDoUsuario' in patch) gravarNomeNaMemoria(patch.nomeDoUsuario);
+  if (patch && 'atalhoDaTela' in patch) estadoDoAtalho = aplicarAtalhoDaTela();
   if (agent) Object.assign(agent.config, configParaAgente());
   return dados;
 });
@@ -1152,6 +1154,130 @@ ipcMain.handle('ditado:corrigir', async (_e, texto) => {
     return { ok: true, texto: original, corrigiu: false, aviso: err.message };
   }
 });
+/* ------------------------------ "o que tem na minha tela?" (25/10) ------------------------------ */
+// Ctrl+Alt+A (de qualquer lugar do Windows), o botão da caixa do Agente ou "Ei GPT, o que é isso na
+// tela?": o AuGPT sai da frente, fotografa a tela onde está o mouse e você escolhe a área (Enter = a tela
+// inteira; Esc cancela). A imagem vai para a pasta de trabalho como anexo — o mesmo caminho do "+",
+// que o agente já sabe olhar. Nada sai do computador.
+const ATALHO_DA_TELA = 'Control+Alt+A';
+let capturando = false;
+const esperarMs = (ms) => new Promise((ok) => setTimeout(ok, ms));
+
+/** A foto da tela onde está o mouse, com o AuGPT fora da frente. → { imagem, display, voltar } */
+async function fotografarTela() {
+  const { desktopCapturer, screen } = require('electron');
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const estavaNaFrente = Boolean(win && !win.isDestroyed() && win.isVisible() && !win.isMinimized());
+  if (estavaNaFrente) {
+    win.hide();
+    await esperarMs(280); // a janela some de verdade antes da foto
+  }
+  const escala = display.scaleFactor || 1;
+  const fontes = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: Math.round(display.size.width * escala), height: Math.round(display.size.height * escala) } });
+  const fonte = fontes.find((f) => String(f.display_id) === String(display.id)) || fontes[0];
+  if (!fonte || fonte.thumbnail.isEmpty()) throw new Error('o Windows não deixou fotografar a tela');
+  return { imagem: fonte.thumbnail, display, voltar: () => estavaNaFrente && win && !win.isDestroyed() && (win.show(), win.focus()) };
+}
+
+/** A tela congelada por cima de tudo; você arrasta a área. → { x, y, width, height } (em pontos da tela), 'tudo' ou null */
+function escolherArea(imagem, display) {
+  return new Promise((ok) => {
+    const janela = new BrowserWindow({
+      ...display.bounds,
+      frame: false,
+      resizable: false,
+      movable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      show: false,
+      backgroundColor: '#000000',
+      webPreferences: { preload: path.join(__dirname, 'recorte-preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false },
+    });
+    janela.setAlwaysOnTop(true, 'screen-saver');
+    janela.setBounds(display.bounds);
+    let terminou = false;
+    const terminar = (r) => {
+      if (terminou) return;
+      terminou = true;
+      ipcMain.removeHandler('recorte:imagem');
+      ipcMain.removeAllListeners('recorte:escolha');
+      if (!janela.isDestroyed()) janela.close();
+      ok(r);
+    };
+    ipcMain.handle('recorte:imagem', (e) => (e.sender === janela.webContents ? { imagem: imagem.toDataURL(), idioma: idiomaEfetivo() } : null));
+    ipcMain.on('recorte:escolha', (e, r) => {
+      if (e.sender !== janela.webContents) return;
+      const ok2 = r === 'tudo' || (r && [r.x, r.y, r.width, r.height].every(Number.isFinite) && r.width >= 8 && r.height >= 8);
+      terminar(ok2 ? r : null);
+    });
+    janela.on('closed', () => terminar(null));
+    janela.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    janela.webContents.on('will-navigate', (e) => e.preventDefault());
+    janela.loadFile(path.join(__dirname, '../renderer/recorte.html'));
+    janela.once('ready-to-show', () => {
+      janela.show();
+      janela.focus();
+    });
+  });
+}
+
+/** Captura e anexa: com `inteira`, sem escolher área (pela voz). Avisa a tela com 'tela-capturada'. */
+async function capturarParaOChat({ inteira = false, pergunta = '' } = {}) {
+  if (capturando) return { ok: false, error: 'já há uma captura em andamento' };
+  capturando = true;
+  let voltar = () => {};
+  try {
+    const foto = await fotografarTela();
+    voltar = foto.voltar;
+    let imagem = foto.imagem;
+    if (!inteira) {
+      const area = await escolherArea(imagem, foto.display);
+      if (!area) {
+        if (win && !win.isDestroyed()) (win.show(), win.focus());
+        return { ok: false, cancelado: true };
+      }
+      if (area !== 'tudo') {
+        const s = imagem.getSize().width / foto.display.bounds.width;
+        imagem = imagem.crop({ x: Math.round(area.x * s), y: Math.round(area.y * s), width: Math.round(area.width * s), height: Math.round(area.height * s) });
+      }
+    }
+    const sandbox = new Sandbox(config.data.workspace);
+    const agora = new Date();
+    const dois = (n) => String(n).padStart(2, '0');
+    const nome = `captura-${agora.getFullYear()}-${dois(agora.getMonth() + 1)}-${dois(agora.getDate())}-${dois(agora.getHours())}${dois(agora.getMinutes())}${dois(agora.getSeconds())}.png`;
+    const destino = sandbox.resolve(nome);
+    const png = imagem.toPNG();
+    fs.writeFileSync(destino, png);
+    const anexo = { nome, relativo: sandbox.relative(destino), tamanho: png.length, ehTexto: false, texto: null, captura: true };
+    if (win && !win.isDestroyed()) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    }
+    enviar('tela-capturada', { anexo, pergunta: String(pergunta || '').slice(0, 2000) });
+    return { ok: true, anexo };
+  } catch (err) {
+    voltar();
+    return { ok: false, error: err.message };
+  } finally {
+    capturando = false;
+  }
+}
+ipcMain.handle('tela:capturar', (_e, opcoes = {}) => capturarParaOChat({ inteira: opcoes.inteira === true, pergunta: opcoes.pergunta }));
+
+/** O atalho Ctrl+Alt+A, ligado em Ajustes → Geral (padrão: ligado). → true, false, ou 'ocupado' (outro programa já usa) */
+function aplicarAtalhoDaTela() {
+  const { globalShortcut } = require('electron');
+  if (globalShortcut.isRegistered(ATALHO_DA_TELA)) globalShortcut.unregister(ATALHO_DA_TELA);
+  if (config.data.atalhoDaTela === false) return false;
+  return globalShortcut.register(ATALHO_DA_TELA, () => capturarParaOChat()) ? true : 'ocupado';
+}
+let estadoDoAtalho = false;
+ipcMain.handle('tela:atalho', () => ({ atalho: 'Ctrl+Alt+A', estado: estadoDoAtalho }));
+
 ipcMain.handle('janela:trazer', () => {
   if (!win || win.isDestroyed()) return false;
   if (win.isMinimized()) win.restore();
@@ -1992,6 +2118,7 @@ app.whenReady().then(() => {
   // 25/10: sai do treino o que não soa como "GPT" ("somdebarulho" — o teclado — chamava o AuGPT)
   const variantesLimpas = require('../src/ditado').variantesValidas(config.data.escutaVariantes);
   if (variantesLimpas.length !== (config.data.escutaVariantes || []).length) config.save({ escutaVariantes: variantesLimpas });
+  estadoDoAtalho = aplicarAtalhoDaTela();
   // os avisos do Windows saem com o nome do AuGPT (sem isto, no Windows não aparecem fora do instalador)
   if (process.platform === 'win32') app.setAppUserModelId('com.davi.augpt');
   registros = new Registros(path.join(app.getPath('userData'), 'execucoes'));
@@ -2019,6 +2146,8 @@ app.on('window-all-closed', () => {
   searxngRuntime?.parar();
   if (process.platform !== 'darwin') app.quit();
 });
+
+app.on('will-quit', () => require('electron').globalShortcut.unregisterAll());
 
 app.on('before-quit', () => {
   agent?.parar();

@@ -49,6 +49,10 @@ contextBridge.exposeInMainWorld('augpt', {
     corrigir: (texto) => ipcRenderer.invoke('ditado:corrigir', texto),
     trazerJanela: () => ipcRenderer.invoke('janela:trazer'),
   },
+  tela: {
+    capturar: (opcoes) => ipcRenderer.invoke('tela:capturar', opcoes),
+    atalho: () => ipcRenderer.invoke('tela:atalho'),
+  },
   agenda: {
     listar: () => ipcRenderer.invoke('agenda:listar'),
     adicionar: (dados) => ipcRenderer.invoke('agenda:adicionar', dados),

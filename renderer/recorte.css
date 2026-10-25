@@ -1,0 +1,8 @@
+html, body { margin: 0; height: 100%; overflow: hidden; background: #000; cursor: crosshair; user-select: none; font: 13px/1.4 "Segoe UI", system-ui, sans-serif; }
+#foto { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+/* a tela escurece; a área escolhida fica clara (o "buraco" é a sombra enorme em volta dela) */
+#veu { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); }
+#area { position: fixed; border: 2px solid #e0b04f; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45); }
+#area[hidden] { display: none; }
+#medida { position: absolute; right: 0; bottom: -24px; padding: 2px 6px; border-radius: 4px; background: #e0b04f; color: #1b1710; font-size: 11px; white-space: nowrap; }
+#dica { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); padding: 8px 14px; border-radius: 999px; background: rgba(20, 18, 14, 0.92); color: #f3ead6; border: 1px solid rgba(224, 176, 79, 0.6); pointer-events: none; white-space: nowrap; }

@@ -319,6 +319,7 @@
       <div class="anexos" id="anexosAgente"></div>
       <div class="composer-caixa">
         <button class="btn-anexo" id="btnAnexoAgente" title="Anexar arquivos" aria-label="Anexar arquivos">+</button>
+        <button class="btn-anexo btn-tela" id="btnTelaAgente" title="Perguntar sobre a tela (Ctrl+Alt+A)" aria-label="Perguntar sobre a tela"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6V4.5A1.5 1.5 0 0 1 4.5 3H6M14 3h1.5A1.5 1.5 0 0 1 17 4.5V6M17 14v1.5a1.5 1.5 0 0 1-1.5 1.5H14M6 17H4.5A1.5 1.5 0 0 1 3 15.5V14"/><rect x="7" y="7" width="6" height="6" rx="1"/></svg></button>
         <textarea id="entradaAgente" rows="1" placeholder="Peça alguma coisa ao agente…"></textarea>
         <!-- 19/10: o raciocínio troca no meio da conversa (o seletor da abertura some quando ela começa) -->
         <select class="modo-caixa" id="modoNaCaixa" aria-label="Raciocínio da próxima resposta" title="Raciocínio da próxima resposta">
@@ -625,6 +626,10 @@
           <ol class="registro-escuta" id="registroEscuta" hidden></ol>
           <label class="linha"><span class="linha-texto"><span>Corrigir o texto falado</span><small>Antes de usar o que você falou, o modelo do topo corrige a ortografia e as palavras que o reconhecimento de voz ouviu errado (nomes de produtos, acentos). Leva 1 a 3 segundos; na dúvida, fica o texto original.</small></span>
             <input type="checkbox" id="cfgDitadoCorrigir" class="caixa" />
+          </label>
+          <!-- 25/10: "o que tem na minha tela?" -->
+          <label class="linha"><span class="linha-texto"><span>Atalho Ctrl+Alt+A: perguntar sobre a tela</span><small>De qualquer programa, Ctrl+Alt+A congela a tela e você escolhe a área (Enter = a tela inteira, Esc cancela). A imagem vira anexo do Agente, pronta para a pergunta. Também pelo botão ao lado do + ou falando "Ei GPT, o que é isso na tela?".</small><small id="atalhoDaTelaStatus" class="ajuste-status"></small></span>
+            <input type="checkbox" id="cfgAtalhoDaTela" class="caixa" />
           </label>
           <div class="linha" id="linhaMicrofone" hidden><span class="linha-texto"><span>Microfone do ditado</span><small id="ajMicrofoneDica">Automático usa o padrão do Windows e pula as entradas virtuais (Steam, "What U Hear", mixagem estéreo).</small></span>
             <span class="microfone-escolha">
@@ -1263,5 +1268,6 @@
 <script src="agenda.js"></script>
 <script src="ditado.js"></script>
 <script src="escuta.js"></script>
+<script src="tela.js"></script>
 </body>
 </html>
