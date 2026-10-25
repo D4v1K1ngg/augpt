@@ -75,6 +75,48 @@ module.exports = [
     },
   },
   {
+    nome: 'no app (25/10): o teclado chamava o AuGPT — "Som de barulho" tinha virado variante no treino. Variante só se soa como "GPT"; o que o Whisper inventa no ruído sai da transcrição; a frase repetida fica uma vez',
+    tipo: 'unidade',
+    executar() {
+      return [
+        !d.varianteValida('somdebarulho') && d.varianteValida('eijipete') && d.varianteValida('eaichepete') || 'variante válida',
+        JSON.stringify(d.variantesValidas(['eijipete', 'somdebarulho', 'eaichepete'])) === '["eijipete","eaichepete"]' || 'limpa as antigas',
+        JSON.stringify(d.variantesDoTreino(['Som de barulho', 'Ei, Jipitê!']).variantes) === '["eijipite"]' || 'treino recusa o ruído',
+        !d.ehChamada('Som de barulho', d.variantesValidas(['somdebarulho'])) || 'o ruído não chama',
+        d.limparTranscricao('Som de barulho.') === '' && d.limparTranscricao('Legendas pela comunidade Amara.org') === '' || 'alucinação sai',
+        d.limparTranscricao('Qual a data de hoje? Qual a data de hoje?') === 'Qual a data de hoje?' || 'repetição',
+        d.limparTranscricao('Ei GPT, que horas são? Obrigado.') === 'Ei GPT, que horas são? Obrigado.' || 'frase normal fica',
+      ];
+    },
+  },
+  {
+    nome: 'quanto mais treina, melhor (25/10): o treino soma às variantes que já havia (até 24); a chamada que virou pedido ensina como o Whisper escreveu; "Era eu chamando" no registro ensina a que não pegou',
+    tipo: 'unidade',
+    executar() {
+      const main = fs.readFileSync(path.join(__dirname, '../../electron/main.js'), 'utf8');
+      const muitas = Array.from({ length: 30 }, (_, i) => `eigepete${String.fromCharCode(97 + (i % 26))}${i}`).filter(d.varianteValida);
+      return [
+        JSON.stringify(d.juntarVariantes(['novaapete'], ['eijipete', 'somdebarulho'])) === '["novaapete","eijipete"]' || 'soma e limpa',
+        d.juntarVariantes(muitas, muitas).length <= 24 || 'teto',
+        d.chamadaEscrita('Ei, Jipitê, que horas são?', ['eijipete']) === 'eijipite' || d.chamadaEscrita('Ei, Jipitê, que horas são?', ['eijipete']),
+        d.chamadaEscrita('Hey, hey, Juppetti!') === 'heyjuppetti' || d.chamadaEscrita('Hey, hey, Juppetti!'),
+        d.chamadaEscrita('Som de barulho') === null && d.chamadaEscrita('Ontem eu fui ao mercado') === null || 'nada a aprender',
+        /juntarVariantes\(variantes, config\.data\.escutaVariantes\)/.test(main) || 'o treino soma',
+        /ultimaChamada && Date\.now\(\) - ultimaChamada\.em < 120000[\s\S]{0,80}aprenderChamada\(ultimaChamada\.junto\)/.test(main) || 'aprende com o uso',
+        /'ditado:aprenderChamada'/.test(main) || '"Era eu chamando"',
+        /variantesValidas\(config\.data\.escutaVariantes\)[\s\S]{0,120}config\.save\(\{ escutaVariantes: variantesLimpas \}\)/.test(main) || 'limpa ao abrir',
+      ];
+    },
+  },
+  {
+    nome: 'correção do texto falado (25/10): sabe o que o AuGPT faz ("ritmo de rede" → "teste de rede"), não troca palavra certa por sinônimo e tira a frase repetida',
+    tipo: 'unidade',
+    executar() {
+      const p = d.pedidoDeCorrecao('x');
+      return [/teste de rede/.test(p) && /NÃO troque palavra certa por sinônimo/.test(p) && /Frase repetida/.test(p) || 'pedido da correção'];
+    },
+  },
+  {
     nome: '"Ei GPT": "nova conversa" e "para" são comandos diretos (pt e en); pedido comum não é',
     tipo: 'unidade',
     executar() {

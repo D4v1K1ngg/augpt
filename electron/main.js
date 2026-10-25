@@ -1049,7 +1049,18 @@ const ehWav = (audio, maxSegundos) => audio.length >= 1000 && audio.length <= 44
 // as últimas frases que a escuta ouviu (só na memória, até fechar o app): quando o "Ei GPT" não
 // reage, Ajustes mostra o que o Whisper escreveu no lugar
 const registroDaEscuta = [];
-async function ouvirFrase(bytes, { variantes = config.data.escutaVariantes || [] } = {}) {
+// só as variantes que soam como "GPT" (25/10: "somdebarulho" — o teclado — tinha entrado pelo treino)
+const variantesDaEscuta = () => require('../src/ditado').variantesValidas(config.data.escutaVariantes);
+// aprender com o uso (25/10, "quanto mais eu treinar, melhor"): a chamada que virou pedido de verdade
+// ensina como o Whisper escreve a sua pronúncia; e o "Era eu" no registro ensina a que ele não pegou
+let ultimaChamada = null;
+function aprenderChamada(junto) {
+  const { varianteValida, juntarVariantes, ehChamada } = require('../src/ditado');
+  if (!junto || !varianteValida(junto) || ehChamada(junto) || variantesDaEscuta().includes(junto)) return false;
+  config.save({ escutaVariantes: juntarVariantes([junto], config.data.escutaVariantes) });
+  return true;
+}
+async function ouvirFrase(bytes, { variantes = variantesDaEscuta() } = {}) {
   const audio = Buffer.from(bytes || []);
   if (!ehWav(audio, 8)) return { ok: false, error: 'áudio inválido' };
   const arquivo = path.join(app.getPath('temp'), `augpt-chamada-${Date.now()}.wav`);
@@ -1065,6 +1076,7 @@ async function ouvirFrase(bytes, { variantes = config.data.escutaVariantes || []
 ipcMain.handle('ditado:chamada', async (_e, bytes) => {
   if (!config.data.ouvirChamada || !ditado?.escutaInstalada()) return { ok: false, error: 'escuta desligada' };
   const r = await ouvirFrase(bytes);
+  if (r.ok && r.chamou) ultimaChamada = { junto: require('../src/ditado').chamadaEscrita(r.texto, variantesDaEscuta()), em: Date.now() };
   if (r.ok && r.texto) {
     registroDaEscuta.unshift({ em: Date.now(), texto: r.texto.slice(0, 200), chamou: r.chamou, ms: r.ms, modelo: r.modelo });
     registroDaEscuta.length = Math.min(registroDaEscuta.length, 40);
@@ -1072,6 +1084,12 @@ ipcMain.handle('ditado:chamada', async (_e, bytes) => {
   return r;
 });
 ipcMain.handle('ditado:registroDaEscuta', () => registroDaEscuta);
+// "Era eu chamando" numa frase que a escuta não pegou: as primeiras palavras que soam como "GPT" viram variante
+ipcMain.handle('ditado:aprenderChamada', (_e, texto) => {
+  const junto = require('../src/ditado').chamadaEscrita(String(texto || '').slice(0, 200));
+  if (!junto) return { ok: false, error: 'não parece um "Ei GPT" (precisa soar como "gê-pê-tê")' };
+  return { ok: true, aprendeu: aprenderChamada(junto), junto, config: config.data };
+});
 ipcMain.handle('ditado:limparRegistroDaEscuta', () => {
   registroDaEscuta.length = 0;
   return true;
@@ -1082,15 +1100,20 @@ ipcMain.handle('ditado:treinarFrase', async (_e, bytes) => {
   if (!ditado?.escutaInstalada()) return { ok: false, error: 'escuta não instalada' };
   return ouvirFrase(bytes, { variantes: [] });
 });
+// o treino SOMA (25/10): as variantes novas entram junto das que já havia (até 24) e a sensibilidade sai
+// do volume de todos os treinos (os últimos 30 "Ei GPT")
 ipcMain.handle('ditado:salvarTreino', (_e, { textos = [], niveis = [] } = {}) => {
-  const { variantesDoTreino, sensibilidadeDoTreino } = require('../src/ditado');
+  const { variantesDoTreino, sensibilidadeDoTreino, juntarVariantes } = require('../src/ditado');
   const { variantes, recusadas } = variantesDoTreino((Array.isArray(textos) ? textos : []).map((t) => String(t || '').slice(0, 200)).slice(0, 12));
-  const sensibilidade = sensibilidadeDoTreino((Array.isArray(niveis) ? niveis : []).map(Number).slice(0, 12));
-  config.save({ escutaVariantes: variantes, ...(sensibilidade ? { escutaSensibilidade: sensibilidade } : {}) });
-  return { ok: true, variantes, recusadas, sensibilidade, config: config.data };
+  const antes = variantesDaEscuta().length;
+  const todas = juntarVariantes(variantes, config.data.escutaVariantes);
+  const todosOsNiveis = [...(Array.isArray(niveis) ? niveis : []).map(Number).filter((n) => n > 0).slice(0, 12), ...(config.data.escutaNiveis || [])].slice(0, 30);
+  const sensibilidade = sensibilidadeDoTreino(todosOsNiveis);
+  config.save({ escutaVariantes: todas, escutaNiveis: todosOsNiveis, ...(sensibilidade ? { escutaSensibilidade: sensibilidade } : {}) });
+  return { ok: true, variantes, novas: todas.length - antes, total: todas.length, treinos: todosOsNiveis.length, recusadas, sensibilidade, config: config.data };
 });
 ipcMain.handle('ditado:apagarTreino', () => {
-  config.save({ escutaVariantes: [], escutaSensibilidade: null });
+  config.save({ escutaVariantes: [], escutaSensibilidade: null, escutaNiveis: [] });
   return config.data;
 });
 // o pedido depois do "Ei GPT": o turbo transcreve tudo, a chamada sai do começo e os comandos diretos
@@ -1104,7 +1127,10 @@ ipcMain.handle('ditado:pedidoDeVoz', async (_e, bytes) => {
     fs.writeFileSync(arquivo, audio);
     const { semChamada, comandoDeVoz } = require('../src/ditado');
     const r = await ditado.transcrever(arquivo, { idioma: idiomaEfetivo() });
-    const pedido = semChamada(r.texto, config.data.escutaVariantes || []);
+    const pedido = semChamada(r.texto, variantesDaEscuta());
+    // a chamada virou pedido (ou comando): é a sua voz — o jeito que o Whisper escreveu fica aprendido
+    if (ultimaChamada && Date.now() - ultimaChamada.em < 120000 && (pedido || comandoDeVoz(pedido))) aprenderChamada(ultimaChamada.junto);
+    ultimaChamada = null;
     return { ok: true, texto: r.texto, pedido, comando: comandoDeVoz(pedido), ms: r.ms };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -1963,6 +1989,9 @@ app.whenReady().then(() => {
       .catch((err) => registrarErro('faxina', err));
   }, 2 * 60000);
   ditado = new Ditado(path.join(app.getPath('userData'), 'componentes'));
+  // 25/10: sai do treino o que não soa como "GPT" ("somdebarulho" — o teclado — chamava o AuGPT)
+  const variantesLimpas = require('../src/ditado').variantesValidas(config.data.escutaVariantes);
+  if (variantesLimpas.length !== (config.data.escutaVariantes || []).length) config.save({ escutaVariantes: variantesLimpas });
   // os avisos do Windows saem com o nome do AuGPT (sem isto, no Windows não aparecem fora do instalador)
   if (process.platform === 'win32') app.setAppUserModelId('com.davi.augpt');
   registros = new Registros(path.join(app.getPath('userData'), 'execucoes'));

@@ -21,6 +21,7 @@
 
 const { pedacos, ordenar, normalizar: normalizarTermos } = require('./ranking');
 const { produtosDoPedido } = require('../serie-de-precos');
+const { idDoVideo } = require('../../ytdlp');
 const { qualidadeDoDominio } = require('../../tools/search');
 
 /*
@@ -431,14 +432,16 @@ const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || d
  * O laço do pesquisador. Devolve as fontes juntadas (numeradas, com resumo e,
  * quando lidas, os trechos escolhidos da página).
  */
-async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [], imagemAnexada = '', atual = false, sobreOUsuario = '' }) {
+async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [], imagemAnexada = '', atual = false, sobreOUsuario = '', linksDoUsuario = [] }) {
   const { chamar, buscar, lerPagina, embed, emit = () => {}, signal, buscarNaComunidade } = deps;
   // comunidade (15/10, pedido do Davi): em pedido de produto, Reddit e fóruns entram sempre
   const comComunidade = produto && typeof buscarNaComunidade === 'function';
   const comYoutube = typeof deps.buscarNoYoutube === 'function' && typeof deps.verVideo === 'function' && modo !== 'rapido';
   const comImagens = typeof deps.buscarImagensParaVer === 'function' && modo !== 'rapido';
   const ferramentas = [...(comComunidade ? [FERRAMENTA_DA_COMUNIDADE] : []), ...FERRAMENTAS, ...(comYoutube ? FERRAMENTAS_DO_YOUTUBE : []), ...(comImagens ? [FERRAMENTA_DE_IMAGENS] : [])];
-  const regras = regrasDoModo(modo, atual);
+  // com o link na pergunta, o material principal já vem dele: sem mínimo de buscas e leituras (25/10: um
+  // "resumo desse vídeo" levava 176 s cumprindo 2 buscas obrigatórias na web)
+  const regras = linksDoUsuario.length ? { ...regrasDoModo(modo, atual), minBuscas: 0, minLeituras: 0 } : regrasDoModo(modo, atual);
   const total = regras.rodadas;
   let buscasFeitas = 0;
   let leiturasFeitas = 0;
@@ -633,6 +636,20 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   // esgotam ou quando uma rodada inteira não trouxe fonte nem leitura nova.
   let semNovidade = 0;
   let rodadaDosMinimos = null;
+  // 25/10 (no app): o link que o usuário colou ("resumo desse vídeo https://youtube.com/shorts/…") nunca
+  // era lido — o pesquisador só lê o que veio de uma busca, e o Shorts não aparecia em nenhuma. Agora ele
+  // vira a fonte [1] e é lido antes de tudo (vídeo pelo yt-dlp, página pelo leitor).
+  for (const endereco of linksDoUsuario.slice(0, 2)) {
+    const id = idDoVideo(endereco);
+    const url = id ? `https://www.youtube.com/watch?v=${id}` : endereco;
+    if (porUrl.has(url) || (id && !comYoutube)) continue;
+    const f = { n: fontes.length + 1, url, titulo: id ? 'o vídeo do link' : url, resumo: 'o link que o usuário mandou', trechos: [], video: Boolean(id), doUsuario: true };
+    fontes.push(f);
+    porUrl.set(url, f);
+    const lido = await executarLeitura({ fonte: f.n, foco: pergunta }, { garantia: true });
+    historico.push({ role: 'user', content: `O usuário mandou este link na pergunta e ele já foi lido (é a fonte [${f.n}]):\n${String(lido).slice(0, 3500)}` });
+  }
+
   for (let rodada = 1; rodada <= total; rodada += 1) {
     if (signal?.aborted) break;
     const minimos = buscasFeitas >= regras.minBuscas && lidas() >= regras.minLeituras && fontes.length > 0;
@@ -766,6 +783,18 @@ function padraoDoProduto(nome) {
  */
 function semFontesForaDoAssunto(pergunta, ordenados) {
   if (ordenados.length < 2) return ordenados;
+  // 25/10 (no app): "resumo desse vídeo <link>" descartava o próprio vídeo do link — a pergunta não tem
+  // palavras do conteúdo. O que o usuário mandou nunca sai; e quem pede vídeos recebe os vídeos.
+  const fica = (it) => it.f?.doUsuario || (it.f?.video && PEDE_VIDEOS.test(pergunta));
+  const garantidas = ordenados.filter(fica);
+  const referencia = Math.max(...ordenados.map((it) => (typeof it.semelhanca === 'number' ? it.semelhanca : -Infinity)));
+  const resto = semFontesForaDoAssuntoSemGarantia(pergunta, ordenados.filter((it) => !fica(it)), garantidas.length > 0, referencia);
+  return ordenados.filter((it) => garantidas.includes(it) || resto.includes(it));
+}
+const PEDE_VIDEOS = /\b(v[ií]deos?|youtube|shorts?)\b/i;
+
+function semFontesForaDoAssuntoSemGarantia(pergunta, ordenados, temGarantidas = false, referencia = -Infinity) {
+  if (!ordenados.length || (ordenados.length < 2 && !temGarantidas)) return ordenados;
   let lista = ordenados;
   const padroes = produtosDoPedido(pergunta).map((e) => padraoDoProduto(e?.nome || e)).filter(Boolean);
   if (padroes.length) {
@@ -774,7 +803,8 @@ function semFontesForaDoAssunto(pergunta, ordenados) {
     lista = lista.filter((it) => padroes.some((re) => re.test(normalizarTermos(`${it.f?.titulo || ''} ${it.texto}`))));
     if (!lista.length) return [];
   }
-  const melhor = Math.max(...lista.map((it) => (typeof it.semelhanca === 'number' ? it.semelhanca : -Infinity)));
+  // a melhor de TODAS as fontes (as garantidas também): uma página solta não vira "a melhor" só por sobrar
+  const melhor = Math.max(referencia, ...lista.map((it) => (typeof it.semelhanca === 'number' ? it.semelhanca : -Infinity)));
   if (!Number.isFinite(melhor)) return lista; // sem embeddings: fica a regra do produto
   return lista.filter((it) => {
     if (typeof it.semelhanca !== 'number') return true;
@@ -1238,7 +1268,9 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   emit('nucleo-entendimento', { ...ent, modo: modoUsado });
   // a pergunta depende do usuário (18/10, "meu computador"): o que o AuGPT já sabe dele vai junto
   const sobreOUsuario = ent.sobreOUsuario && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '';
-  const fontes = ent.precisaBuscar ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa, imagemAnexada: vista, atual: ent.atual, sobreOUsuario }) : [];
+  // os links que o usuário colou (da pergunta original — a reescrita do entendimento pode perder o endereço)
+  const linksDoUsuario = [...new Set(String(pergunta || '').match(/https?:\/\/[^\s'"<>)\]]+/g) || [])];
+  const fontes = ent.precisaBuscar || linksDoUsuario.length ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa, imagemAnexada: vista, atual: ent.atual, sobreOUsuario, linksDoUsuario }) : [];
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
   const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit }) : [];
   // 16/10: sem o yt-dlp, "pesquise vídeos no youtube" saiu como "realizei uma pesquisa no YouTube" — não houve

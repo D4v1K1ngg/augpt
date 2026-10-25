@@ -69,13 +69,19 @@ const chaveDeSom = (t) => String(t || '').replace(/ch/g, 'x').replace(/h/g, '').
 
 // o treino (25/10) guarda como o Whisper escreve a SUA pronúncia; vale com ~1 letra de diferença a cada 5
 // na chave de som (variante com menos de 5 letras na chave só vale exata)
+// o miolo da chamada, sem o "ei/hey/hay" da frente — é o começo que mais varia na escrita do Whisper
+// ("Hey Geppetti" × "Hay-ey-ja petty": miolo "gepeti" × "gapeti", medido no teste do treino)
+const miolo = (k) => k.replace(/^(ai|ei|e|a|i|oi)+/, '');
 function bateVariante(junto, variantes) {
   const k = chaveDeSom(junto);
+  const parecido = (a, b) => {
+    if (a === b) return true;
+    const tolera = b.length >= 5 ? Math.max(1, Math.floor(b.length / 5)) : 0;
+    return tolera > 0 && Math.abs(b.length - a.length) <= tolera && distancia(b, a) <= tolera;
+  };
   return variantes.some((v) => {
     const kv = chaveDeSom(v);
-    if (kv === k) return true;
-    const tolera = kv.length >= 5 ? Math.max(1, Math.floor(kv.length / 5)) : 0;
-    return tolera > 0 && Math.abs(kv.length - k.length) <= tolera && distancia(kv, k) <= tolera;
+    return parecido(k, kv) || (miolo(kv).length >= 5 && parecido(miolo(k), miolo(kv)));
   });
 }
 
@@ -111,10 +117,39 @@ function variantesDoTreino(textos) {
     const palavras = compacto(t).split(' ').filter(Boolean);
     const junto = palavras.join('');
     if (!junto || CHAMADA.test(junto) || CHAMADA.test(chaveDeSom(junto))) continue; // vazio, ou já reconhecida sem treino
-    if (junto.length < 5 || junto.length > 16 || palavras.length > 4 || COMUM.test(junto)) recusadas.push(t);
+    if (palavras.length > 4 || !varianteValida(junto)) recusadas.push(t);
     else if (!variantes.includes(junto)) variantes.push(junto);
   }
   return { variantes, recusadas };
+}
+
+/**
+ * Pode ser o "Ei GPT" de alguém? 5 a 16 letras, não é começo comum de frase nem o que o Whisper escreve
+ * no ruído, e soa como "GPT": um p e depois um t (25/10: "somdebarulho" — o teclado — tinha virado
+ * variante no treino e o AuGPT passou a ser chamado pela digitação).
+ */
+function varianteValida(junto) {
+  const k = String(junto || '');
+  return k.length >= 5 && k.length <= 16 && !COMUM.test(k) && !ALUCINACAO.test(k) && /p.*t/.test(chaveDeSom(k));
+}
+const variantesValidas = (lista) => (Array.isArray(lista) ? lista : []).filter((v) => typeof v === 'string' && varianteValida(v));
+
+/** O treino soma (25/10, "quanto mais eu treinar, melhor"): as novas na frente, sem repetir, até 24. */
+const juntarVariantes = (novas, antigas) => [...new Set([...novas, ...variantesValidas(antigas)])].filter(varianteValida).slice(0, 24);
+
+/**
+ * Como a chamada foi escrita, para aprender: "Ei Jipitê, que horas são?" → "eijipite". Da frase que
+ * chamou, as palavras da chamada; da frase que NÃO chamou ("era eu chamando" no registro), as primeiras
+ * 1 a 3 palavras que soam como "GPT". null se nada serve.
+ */
+function chamadaEscrita(texto, variantes = []) {
+  let palavras = compacto(texto).split(' ').filter(Boolean);
+  // "Hey, hey, Juppetti" → "hey juppetti": enchimento repetido fica um só
+  while (palavras.length > 2 && ENCHIMENTO.test(palavras[0]) && ENCHIMENTO.test(palavras[1])) palavras = palavras.slice(1);
+  const n = palavrasDaChamada(palavras.join(' '), variantes);
+  const ate = n || [1, 2, 3].find((i) => i <= palavras.length && varianteValida(palavras.slice(0, i).join(''))) || 0;
+  const junto = palavras.slice(0, ate).join('');
+  return ate && varianteValida(junto) ? junto : null;
 }
 
 /**
@@ -155,8 +190,9 @@ function comandoDeVoz(texto) {
 /** O pedido para o modelo corrigir o que o Whisper ouviu. */
 function pedidoDeCorrecao(texto, idioma = 'pt') {
   return `Você corrige transcrições de fala feitas por reconhecimento de voz${idioma === 'en' ? ' (em inglês)' : ' (em português do Brasil)'}.
-Corrija SÓ: palavras ouvidas errado (pelo sentido da frase), ortografia, acentos, pontuação e nomes de produtos, marcas e termos de tecnologia (ex.: "RTX 5080", "PlayStation 5", "Windows").
-NÃO responda ao que foi dito, NÃO acrescente nem tire informação, NÃO mude o sentido nem o jeito de falar. Se já estiver certo, devolva igual.
+São pedidos para o AuGPT, um assistente no computador que pesquisa na web, compara preços em lojas, vê o clima, mostra mapas e rotas, marca lembretes na agenda, faz teste de rede (velocidade, ping), vê vídeos do YouTube e responde sobre o PC.
+Corrija SÓ: palavras ouvidas errado (pelo sentido da frase — ex.: "ritmo de rede" → "teste de rede", "pingue" → "ping"), ortografia, acentos, pontuação e nomes de produtos, marcas e termos de tecnologia (ex.: "RTX 5080", "Ryzen 7 9800X3D", "PlayStation 5", "PUBG").
+NÃO responda ao que foi dito, NÃO acrescente nem tire informação, NÃO troque palavra certa por sinônimo ("quanto está" continua "quanto está"), NÃO mude o sentido nem o jeito de falar. Frase repetida em seguida fica uma vez só. Se já estiver certo, devolva igual.
 Devolva só o texto corrigido, sem aspas e sem explicação.
 
 Transcrição: ${texto}`;
@@ -186,8 +222,32 @@ const nucleosParaUsar = (nucleos = os.cpus().length) => Math.max(2, Math.min(8, 
  */
 const janelaDeAudio = (segundos) => Math.min(1500, Math.max(384, Math.ceil((((Number(segundos) || 0) + 2) / 30) * 1500 / 64) * 64));
 
+// frases que o Whisper escreve com ruído ou silêncio (25/10, no PC do Davi: o teclado virou "Som de barulho")
+const ALUCINACAO = /^(som de barulho|barulho|barulhos|ruido|ruidos|som|sons|som de teclado|digitando|musica|aplausos|risos|silencio|legendas? pela comunidade amara org|legendas? por [a-z ]+|obrigad[oa] por assistir|inscreva se( no canal)?|ate a proxima|tchau tchau)$/;
+const compactoFrase = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+
 /** A saída do whisper-cli sem marcações: junta as linhas, tira "[BLANK_AUDIO]", "(música)" e afins. */
 function limparTranscricao(saida) {
+  return semRepeticao(limparMarcacoes(saida));
+}
+
+/**
+ * Sem as frases inventadas no ruído ("Som de barulho") e sem a frase repetida em seguida (25/10: "Qual a
+ * data de hoje? Qual a data de hoje?" — o Whisper repete o fim quando o áudio acaba em silêncio).
+ */
+function semRepeticao(texto) {
+  const frases = String(texto || '').split(/(?<=[.!?…])\s+/).filter(Boolean);
+  const saida = [];
+  for (const f of frases) {
+    const k = compactoFrase(f);
+    if (!k || ALUCINACAO.test(k)) continue;
+    if (saida.length && compactoFrase(saida[saida.length - 1]) === k) continue;
+    saida.push(f);
+  }
+  return saida.join(' ').trim();
+}
+
+function limparMarcacoes(saida) {
   return String(saida || '')
     .split(/\r?\n/)
     .map((l) => l.replace(/^\s*\[[\d:.\s>-]+\]\s*/, '').trim())
@@ -330,4 +390,4 @@ class Ditado {
   }
 }
 
-module.exports = { Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel };
+module.exports = { Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel };

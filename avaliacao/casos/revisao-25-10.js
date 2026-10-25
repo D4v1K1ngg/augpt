@@ -102,6 +102,24 @@ module.exports = [
     },
   },
   {
+    nome: 'no app (25/10): "resumo desse vídeo <link>" — o link da pergunta vira a fonte [1], lida antes de tudo e sem mínimo de buscas; o filtro de assunto nunca tira o que o usuário mandou, e pedido de vídeos não perde vídeo por semelhança',
+    tipo: 'unidade',
+    executar() {
+      const { semFontesForaDoAssunto } = require('../../src/agent/nucleo');
+      const nucleo = fs.readFileSync(path.join(__dirname, '../../src/agent/nucleo/index.js'), 'utf8');
+      const it = (titulo, semelhanca, palavras, extra = {}) => ({ f: { titulo, ...extra }, texto: titulo, semelhanca, palavras });
+      const doLink = semFontesForaDoAssunto('Poderia me dar um resumo desse video?', [it('busca qualquer', 0.7, 2), it('TP Link Omada ER605', 0.4, 0, { doUsuario: true, video: true })]).map((x) => x.f.titulo);
+      const videos = semFontesForaDoAssunto('pesquise vídeos no youtube sobre a G6', [it('G6 review', 0.75, 2, { video: true }), it('G6 unboxing', 0.45, 0, { video: true }), it('página solta', 0.4, 0)]).map((x) => x.f.titulo);
+      return [
+        doLink.includes('TP Link Omada ER605') || `link: ${doLink}`,
+        videos.includes('G6 unboxing') && !videos.includes('página solta') || `vídeos: ${videos}`,
+        /for \(const endereco of linksDoUsuario\.slice\(0, 2\)\)[\s\S]{0,700}executarLeitura\(\{ fonte: f\.n, foco: pergunta \}, \{ garantia: true \}\)/.test(nucleo) || 'o link é lido antes do laço',
+        /linksDoUsuario\.length \? \{ \.\.\.regrasDoModo\(modo, atual\), minBuscas: 0, minLeituras: 0 \}/.test(nucleo) || 'sem mínimo de buscas com link',
+        /ent\.precisaBuscar \|\| linksDoUsuario\.length/.test(nucleo) || 'link pesquisa mesmo sem "precisa buscar"',
+      ];
+    },
+  },
+  {
     nome: 'Ollama aberto para a rede: detectado pelo IP da casa (só com o Ollama deste PC) e avisado em Ajustes; ícone do app no instalador, nas janelas e nos avisos',
     tipo: 'unidade',
     async executar() {

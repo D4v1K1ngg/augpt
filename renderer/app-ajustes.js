@@ -904,7 +904,7 @@ function pintarEscuta(d) {
   }
   const variantes = config.escutaVariantes || [];
   $('treinoResumo').textContent = variantes.length || config.escutaSensibilidade
-    ? tr('Treinado: {n} jeito(s) da sua pronúncia{sens}.', { n: variantes.length, sens: config.escutaSensibilidade ? tr(' · sensibilidade ajustada ao seu microfone') : '' })
+    ? tr('Treinado: {n} jeito(s) da sua pronúncia{sens}. Aprende também com o uso.', { n: variantes.length, sens: config.escutaSensibilidade ? tr(' · sensibilidade ajustada ao seu microfone') : '' })
     : '';
   $('btnApagarTreino').hidden = !(variantes.length || config.escutaSensibilidade);
 }
@@ -992,7 +992,7 @@ $('btnTreinarVoz').addEventListener('click', async () => {
       const s = await api.ditado.salvarTreino({ textos, niveis });
       config = s.config;
       const partes = [tr('O modelo reconheceu {n} de {total} sozinho.', { n: sozinho, total: textos.length })];
-      if (s.variantes.length) partes.push(tr('Aprendi {n} jeito(s) novo(s) da sua pronúncia: agora eles também chamam o AuGPT.', { n: s.variantes.length }));
+      partes.push(s.novas ? tr('Aprendi {n} jeito(s) novo(s) da sua pronúncia — agora são {total}, de {treinos} "Ei GPT" treinados. Cada treino soma.', { n: s.novas, total: s.total, treinos: s.treinos }) : tr('Nenhum jeito novo desta vez — os que já sei ({total}) continuam valendo.', { total: s.total }));
       if (s.recusadas.length) partes.push(tr('Estas não viraram chamada, porque parecem começo de frase comum ou frase longa: {lista}.', { lista: s.recusadas.map((t) => `"${t}"`).join(', ') }));
       if (s.sensibilidade) partes.push(tr('Sensibilidade do microfone ajustada à sua voz.'));
       if (modelo === 'base' && sozinho <= textos.length / 2) partes.push(tr('Dica: o Whisper small entende melhor o português — troque em "Modelo da escuta" e treine de novo.'));
@@ -1035,7 +1035,21 @@ async function pintarRegistroDaEscuta() {
     const li = document.createElement('li');
     li.className = it.chamou ? 'ok' : 'nao';
     const hora = new Date(it.em).toLocaleTimeString(window.i18n?.idioma === 'en' ? 'en-US' : 'pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    li.textContent = `${hora} · ${it.chamou ? '✓' : '✗'} "${it.texto}" · ${it.modelo || ''} · ${it.ms} ms`;
+    li.textContent = `${hora} · ${it.chamou ? '✓' : '✗'} "${it.texto}" · ${it.modelo || ''} · ${it.ms} ms `;
+    // a escuta não pegou, mas era você chamando: ensina este jeito de escrever
+    if (!it.chamou) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn-link';
+      b.textContent = tr('Era eu chamando');
+      b.addEventListener('click', async () => {
+        const r = await api.ditado.aprenderChamada(it.texto);
+        if (r.config) config = r.config;
+        b.replaceWith(document.createTextNode(r.ok ? (r.aprendeu ? tr('aprendido ✓ ("{junto}")', { junto: r.junto }) : tr('já sabia esse')) : tr('não deu: {erro}', { erro: r.error })));
+        pintarEscuta(await api.ditado.estado().catch(() => ({})));
+      });
+      li.append(b);
+    }
     lista.append(li);
   }
   lista.hidden = false;

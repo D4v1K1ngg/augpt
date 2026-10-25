@@ -157,6 +157,7 @@ const DEFAULTS = {
   escutaModelo: 'small',
   escutaVariantes: [],
   escutaSensibilidade: null,
+  escutaNiveis: [], // o volume de cada "Ei GPT" dos treinos (até 30)
   preBuscaConcorrencia: 2,
   // Modo AUTO (auto.js, 2026-10-10): cada pedido ganha um nível —
   // 0 direto (conversa), 1 conversa com pesquisa rápida, 2 pesquisa padrão,
