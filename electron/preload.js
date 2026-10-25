@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('augpt', {
     salvarTreino: (dados) => ipcRenderer.invoke('ditado:salvarTreino', dados),
     apagarTreino: () => ipcRenderer.invoke('ditado:apagarTreino'),
     aprenderChamada: (texto) => ipcRenderer.invoke('ditado:aprenderChamada', texto),
+    esquecerVariante: (variante) => ipcRenderer.invoke('ditado:esquecerVariante', variante),
     chamada: (bytes) => ipcRenderer.invoke('ditado:chamada', bytes),
     pedidoDeVoz: (bytes) => ipcRenderer.invoke('ditado:pedidoDeVoz', bytes),
     corrigir: (texto) => ipcRenderer.invoke('ditado:corrigir', texto),

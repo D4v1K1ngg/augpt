@@ -45,7 +45,7 @@ module.exports = [
     },
   },
   {
-    nome: 'modelo da escuta: small por padrão, base como alternativa; sem o escolhido baixado, usa o outro; o registro do que a escuta ouviu fica só na memória (até 40) e o treino confere sem as variantes antigas',
+    nome: 'modelo da escuta: small por padrão, base como alternativa; sem o escolhido baixado, usa o outro; o registro do que a escuta ouviu fica salvo (só o texto, até 60, com as frases do treino) e o treino confere sem as variantes antigas',
     tipo: 'unidade',
     executar() {
       const fs2 = require('fs');
@@ -69,7 +69,9 @@ module.exports = [
         nenhum === null && JSON.stringify(soBase) === '["base","base"]' && JSON.stringify(ambos) === '["small","base"]' || JSON.stringify({ nenhum, soBase, ambos }),
         d.MODELOS_DA_ESCUTA.small.sha256 === d.MODELOS.pequeno.sha256 || 'o small é o mesmo arquivo do ditado',
         /escutaModelo: 'small'/.test(cfg) && /escutaVariantes: \[\]/.test(cfg) || 'padrões',
-        /registroDaEscuta\.length = Math\.min\(registroDaEscuta\.length, 40\)/.test(main) || 'registro limitado',
+        /registroDaEscuta\.length = Math\.min\(registroDaEscuta\.length, 60\)/.test(main) && /escuta-registro\.json/.test(main) && /carregarRegistroDaEscuta\(\);/.test(main) || 'registro salvo e limitado',
+        /anotarNaEscuta\(\{ texto: r\.texto \|\| '\(nada\)'[^}]*treino: true \}\)/.test(main) || 'o treino entra no registro',
+        /'ditado:esquecerVariante'/.test(main) || 'esquecer um jeito aprendido',
         /'ditado:treinarFrase'[\s\S]{0,200}variantes: \[\]/.test(main) || 'treino sem as variantes antigas',
       ];
     },

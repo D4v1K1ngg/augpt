@@ -1051,7 +1051,32 @@ ipcMain.handle('ditado:instalarEscuta', async (_e, { modelo } = {}) => {
 const ehWav = (audio, maxSegundos) => audio.length >= 1000 && audio.length <= 44 + 32000 * maxSegundos && audio.toString('latin1', 0, 4) === 'RIFF' && audio.toString('latin1', 8, 12) === 'WAVE';
 // as últimas frases que a escuta ouviu (só na memória, até fechar o app): quando o "Ei GPT" não
 // reage, Ajustes mostra o que o Whisper escreveu no lugar
+// 25/10 (relato do Davi: "não está salvando minhas amostras"): o registro ficava só na memória e sumia
+// ao fechar o app; agora fica em <dados>/escuta-registro.json (só o texto que o Whisper escreveu, nunca o
+// áudio), e as frases do treino entram também
 const registroDaEscuta = [];
+const arquivoDoRegistro = () => path.join(app.getPath('userData'), 'escuta-registro.json');
+function carregarRegistroDaEscuta() {
+  try {
+    const lista = JSON.parse(fs.readFileSync(arquivoDoRegistro(), 'utf8'));
+    if (Array.isArray(lista)) registroDaEscuta.push(...lista.filter((x) => x && typeof x.texto === 'string').slice(0, 60));
+  } catch {
+    // ainda não existe
+  }
+}
+let gravacaoDoRegistro = null;
+function anotarNaEscuta(item) {
+  registroDaEscuta.unshift({ em: Date.now(), ...item, texto: String(item.texto || '').slice(0, 200) });
+  registroDaEscuta.length = Math.min(registroDaEscuta.length, 60);
+  clearTimeout(gravacaoDoRegistro);
+  gravacaoDoRegistro = setTimeout(() => {
+    try {
+      fs.writeFileSync(arquivoDoRegistro(), JSON.stringify(registroDaEscuta));
+    } catch {
+      // disco cheio ou sem permissão: fica só na memória desta vez
+    }
+  }, 1500);
+}
 // só as variantes que soam como "GPT" (25/10: "somdebarulho" — o teclado — tinha entrado pelo treino)
 const variantesDaEscuta = () => require('../src/ditado').variantesValidas(config.data.escutaVariantes);
 // aprender com o uso (25/10, "quanto mais eu treinar, melhor"): a chamada que virou pedido de verdade
@@ -1081,8 +1106,7 @@ ipcMain.handle('ditado:chamada', async (_e, bytes) => {
   const r = await ouvirFrase(bytes);
   if (r.ok && r.chamou) ultimaChamada = { junto: require('../src/ditado').chamadaEscrita(r.texto, variantesDaEscuta()), em: Date.now() };
   if (r.ok && r.texto) {
-    registroDaEscuta.unshift({ em: Date.now(), texto: r.texto.slice(0, 200), chamou: r.chamou, ms: r.ms, modelo: r.modelo });
-    registroDaEscuta.length = Math.min(registroDaEscuta.length, 40);
+    anotarNaEscuta({ texto: r.texto, chamou: r.chamou, ms: r.ms, modelo: r.modelo });
   }
   return r;
 });
@@ -1095,13 +1119,21 @@ ipcMain.handle('ditado:aprenderChamada', (_e, texto) => {
 });
 ipcMain.handle('ditado:limparRegistroDaEscuta', () => {
   registroDaEscuta.length = 0;
+  fs.rmSync(arquivoDoRegistro(), { force: true });
   return true;
+});
+// o que o treino aprendeu, e tirar um jeito que não devia estar lá (Ajustes → Geral)
+ipcMain.handle('ditado:esquecerVariante', (_e, variante) => {
+  config.save({ escutaVariantes: (config.data.escutaVariantes || []).filter((v) => v !== String(variante || '')) });
+  return config.data;
 });
 // o treino da voz (Ajustes → Geral): cada "Ei GPT" gravado passa pelo modelo da escuta SEM as variantes
 // já aprendidas (o resultado mostra se o modelo sozinho reconheceu); no fim, guarda as variantes e a sensibilidade
 ipcMain.handle('ditado:treinarFrase', async (_e, bytes) => {
   if (!ditado?.escutaInstalada()) return { ok: false, error: 'escuta não instalada' };
-  return ouvirFrase(bytes, { variantes: [] });
+  const r = await ouvirFrase(bytes, { variantes: [] });
+  if (r.ok) anotarNaEscuta({ texto: r.texto || '(nada)', chamou: r.chamou, ms: r.ms, modelo: r.modelo, treino: true });
+  return r;
 });
 // o treino SOMA (25/10): as variantes novas entram junto das que já havia (até 24) e a sensibilidade sai
 // do volume de todos os treinos (os últimos 30 "Ei GPT")
@@ -2116,6 +2148,7 @@ app.whenReady().then(() => {
       .catch((err) => registrarErro('faxina', err));
   }, 2 * 60000);
   ditado = new Ditado(path.join(app.getPath('userData'), 'componentes'));
+  carregarRegistroDaEscuta();
   // 25/10: sai do treino o que não soa como "GPT" ("somdebarulho" — o teclado — chamava o AuGPT)
   const variantesLimpas = require('../src/ditado').variantesValidas(config.data.escutaVariantes);
   if (variantesLimpas.length !== (config.data.escutaVariantes || []).length) config.save({ escutaVariantes: variantesLimpas });

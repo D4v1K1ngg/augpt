@@ -801,6 +801,8 @@ async function pintarDitado() {
   }
   pintarEscuta(d);
   pintarAtalhoDaTela();
+  // a lista do que a escuta ouviu já aparece (fica salva entre uma abertura e outra do app)
+  if (d.instalado) pintarRegistroDaEscuta();
   // a escolha do microfone só com o ditado instalado (antes disso o AuGPT não abre o microfone)
   $('linhaMicrofone').hidden = !d.instalado;
   if (d.instalado && window.ditadoPorVoz) {
@@ -919,6 +921,27 @@ function pintarEscuta(d) {
     ? tr('Treinado: {n} jeito(s) da sua pronúncia{sens}. Aprende também com o uso.', { n: variantes.length, sens: config.escutaSensibilidade ? tr(' · sensibilidade ajustada ao seu microfone') : '' })
     : '';
   $('btnApagarTreino').hidden = !(variantes.length || config.escutaSensibilidade);
+  // o que o treino aprendeu (25/10): cada jeito com ✕ para tirar o que não devia estar lá
+  const aprendido = $('treinoAprendido');
+  aprendido.textContent = '';
+  aprendido.hidden = !variantes.length;
+  if (variantes.length) aprendido.append(tr('Jeitos aprendidos ({n} amostras de treino):', { n: (config.escutaNiveis || []).length }), ' ');
+  for (const v of variantes) {
+    const chip = document.createElement('span');
+    chip.className = 'chip-variante';
+    chip.textContent = v;
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.textContent = '✕';
+    x.title = tr('Esquecer este jeito');
+    x.setAttribute('aria-label', tr('Esquecer "{v}"', { v }));
+    x.addEventListener('click', async () => {
+      config = await api.ditado.esquecerVariante(v);
+      pintarEscuta(await api.ditado.estado().catch(() => ({})));
+    });
+    chip.append(x);
+    aprendido.append(chip);
+  }
 }
 
 async function baixarModeloDaEscuta(modelo) {
@@ -1040,16 +1063,17 @@ async function pintarRegistroDaEscuta() {
   lista.textContent = '';
   if (!itens.length) {
     const li = document.createElement('li');
-    li.textContent = config.ouvirChamada ? tr('Nada ainda — fale perto do microfone e clique em "Mostrar" de novo.') : tr('Nada ainda — ligue "Chamar com "Ei GPT"" acima.');
+    li.textContent = config.ouvirChamada ? tr('Nada ainda — fale perto do microfone e clique em "Atualizar".') : tr('Nada ainda — ligue "Chamar com "Ei GPT"" acima.');
     lista.append(li);
   }
   for (const it of itens) {
     const li = document.createElement('li');
     li.className = it.chamou ? 'ok' : 'nao';
     const hora = new Date(it.em).toLocaleTimeString(window.i18n?.idioma === 'en' ? 'en-US' : 'pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    li.textContent = `${hora} · ${it.chamou ? '✓' : '✗'} "${it.texto}" · ${it.modelo || ''} · ${it.ms} ms `;
-    // a escuta não pegou, mas era você chamando: ensina este jeito de escrever
-    if (!it.chamou) {
+    const dia = new Date(it.em).toDateString() === new Date().toDateString() ? '' : `${new Date(it.em).toLocaleDateString(window.i18n?.idioma === 'en' ? 'en-US' : 'pt-BR', { day: '2-digit', month: '2-digit' })} `;
+    li.textContent = `${dia}${hora} · ${it.chamou ? '✓' : '✗'}${it.treino ? ` ${tr('(treino)')}` : ''} "${it.texto}" · ${it.modelo || ''} · ${it.ms} ms `;
+    // a escuta não pegou, mas era você chamando: ensina este jeito de escrever (no treino, ele já aprende)
+    if (!it.chamou && !it.treino) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'btn-link';
