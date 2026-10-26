@@ -1129,7 +1129,10 @@ ipcMain.handle('ditado:chamada', async (_e, bytes, pelaVoz = null) => {
   if (r.ok && r.chamou) ultimaChamada = { junto: require('../src/ditado').chamadaEscrita(r.texto, variantesDaEscuta()), em: Date.now() };
   // aprender com a repetição (25/10): você falou, a escuta não pegou, você repetiu e pegou — a 1ª era você
   // chamando ("e jepeite" ✗ e logo depois "E aí, jepeta!" ✓, no registro real)
-  if (r.ok && !r.chamou && r.texto) tentativaPerdida = { junto: require('../src/ditado').chamadaEscrita(r.texto), em: Date.now() };
+  // 27/10 (registro do Davi): "Correção tudo a hora pega, véi." virou a variante "correcao" de "Ei Jarvis" —
+  // só conta frase curta que ao menos lembra o nome
+  if (r.ok && !r.chamou && r.texto && r.parecido && String(r.texto).trim().split(/\s+/).length <= 4) tentativaPerdida = { junto: require('../src/ditado').chamadaEscrita(r.texto), em: Date.now() };
+  else if (r.ok && !r.chamou && r.texto) tentativaPerdida = null;
   else if (r.ok && r.chamou && tentativaPerdida?.junto && Date.now() - tentativaPerdida.em < 15000) {
     aprenderChamada(tentativaPerdida.junto);
     tentativaPerdida = null;

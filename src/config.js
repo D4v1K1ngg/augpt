@@ -148,6 +148,8 @@ const DEFAULTS = {
   ditadoEnviarSozinho: false,
   // o microfone do ditado (deviceId); '' = automático (o padrão do Windows, pulando os virtuais)
   ditadoMicrofone: '',
+  // o microfone que já ouviu você (treino, ditado ou chamada), quando nenhum foi escolhido (27/10)
+  ditadoMicrofoneQueOuviu: '',
   // 25/10: "Ei GPT" (o microfone fica aberto ouvindo a chamada; desligado por padrão) e a correção
   // do texto falado pelo modelo (ortografia e palavras ouvidas errado) antes de enviar
   ouvirChamada: false,

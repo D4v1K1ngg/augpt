@@ -200,6 +200,7 @@
       g.estado = 'ignorando';
       return;
     }
+    window.ditadoPorVoz.lembrarMicrofone?.(); // a chamada deu certo: este microfone fica lembrado
     g.estado = 'pedido';
     g.chamadaEm = Date.now();
     g.restoNaChamada = Boolean(r.resto);
@@ -277,6 +278,6 @@
     }
   }
 
-  window.escutaPorVoz = { ligar, desligar, ligada: () => Boolean(e), recarregarVoz, nome };
+  window.escutaPorVoz = { ligar, desligar, ligada: () => Boolean(e), recarregarVoz, nome, microfone: () => e?.fluxo.getAudioTracks()[0]?.label || null };
   if (typeof config !== 'undefined' && config?.ouvirChamada === true) ligar();
 })();

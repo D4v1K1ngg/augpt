@@ -1066,6 +1066,8 @@ $('btnTreinarVoz').addEventListener('click', async () => {
     }
     $('treinoInstrucao').textContent = '';
     if (textos.length) {
+      // o microfone do treino ouviu você: vale também quando o app abrir de novo (27/10)
+      window.ditadoPorVoz?.lembrarMicrofone();
       const s = await api.ditado.salvarTreino({ textos, niveis, amostras });
       config = s.config;
       const partes = [tr('O modelo reconheceu {n} de {total} sozinho.', { n: sozinho, total: textos.length })];

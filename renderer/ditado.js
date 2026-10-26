@@ -89,46 +89,64 @@
     return pico;
   }
 
+  // entradas de áudio que quase nunca são o microfone: ficam por último na procura (27/10, PC do Davi: o
+  // "Line In" da G6, sem nada ligado, tem um chiado de 0,0001 e ganhava do fifine na abertura do app)
+  const NAO_MICROFONE = /line in|entrada de linha|spdif|s\/pdif|optical|[óo]ptic/i;
   let achadoNoAutomatico = null; // o microfone que o automático achou nesta sessão
+  let ultimoAberto = null; // o id do microfone aberto por último (para lembrar o que funcionou)
+  const abriu = (fluxo) => ((ultimoAberto = fluxo?.getAudioTracks?.()[0]?.getSettings?.().deviceId || null), fluxo);
   /**
-   * O escolhido em Ajustes; senão o padrão do Windows. No automático, se o padrão for virtual ou estiver
-   * em silêncio absoluto (24/10, PC do Davi: o padrão era o "External Mic" da G6, sem nada ligado; o
-   * microfone de verdade era o fifine), tenta os outros microfones reais e fica com o que tem sinal.
+   * O escolhido em Ajustes; senão o que já ouviu você (lembrado entre aberturas); senão o padrão do
+   * Windows. No automático, se o padrão for virtual ou estiver em silêncio absoluto (24/10, PC do Davi: o
+   * padrão era o "External Mic" da G6, sem nada ligado; o microfone de verdade era o fifine), tenta os
+   * outros e fica com o de sinal mais forte — os de nome de microfone antes de "Line In"/SPDIF.
    */
   async function abrirMicrofone(escolhido = config.ditadoMicrofone || '') {
-    if (escolhido) {
+    for (const id of [escolhido, achadoNoAutomatico, config.ditadoMicrofoneQueOuviu].filter(Boolean)) {
       try {
-        return await pedir(escolhido);
+        return abriu(await pedir(id));
       } catch {
-        // o escolhido foi desconectado: segue no automático
+        // desconectado: o próximo
+        if (id === achadoNoAutomatico) achadoNoAutomatico = null;
       }
     }
-    if (achadoNoAutomatico) {
-      try {
-        return await pedir(achadoNoAutomatico);
-      } catch {
-        achadoNoAutomatico = null;
-      }
-    }
-    const padrao = await pedir(null);
-    if (!VIRTUAL.test(nomeDoMicrofone(padrao)) && (await sondar(padrao)) > 0) return padrao;
-    const nomeDoPadrao = nomeDoMicrofone(padrao);
-    padrao.getTracks().forEach((t) => t.stop());
-    const candidatos = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput' && !['default', 'communications'].includes(d.deviceId) && d.label && !VIRTUAL.test(d.label) && d.label !== nomeDoPadrao);
+    // todos comparados, o padrão junto (27/10: o "External Mic" da G6, sem nada ligado, pode dar um estalo
+    // ao abrir — "tem sinal" não basta; ganha o de sinal mais forte)
+    const permissao = await pedir(null); // os nomes dos microfones só aparecem com um aberto
+    permissao.getTracks().forEach((t) => t.stop());
+    const candidatos = (await navigator.mediaDevices.enumerateDevices())
+      .filter((d) => d.kind === 'audioinput' && !['default', 'communications'].includes(d.deviceId) && d.label && !VIRTUAL.test(d.label))
+      .sort((a, b) => NAO_MICROFONE.test(a.label) - NAO_MICROFONE.test(b.label));
+    let melhor = null; // { id, pico, entrada } — o de mais sinal entre os de nome de microfone
     for (const c of candidatos) {
+      if (melhor && NAO_MICROFONE.test(c.label)) break; // já há um microfone com sinal
       let fluxo = null;
       try {
         fluxo = await pedir(c.deviceId);
-        if ((await sondar(fluxo)) > 0) {
-          achadoNoAutomatico = c.deviceId;
-          return fluxo;
-        }
+        const pico = await sondar(fluxo);
+        if (pico > 0 && pico > (melhor?.pico || 0)) melhor = { id: c.deviceId, pico };
       } catch {
         // este não abriu: o próximo
       }
       fluxo?.getTracks().forEach((t) => t.stop());
     }
-    return pedir(null); // nenhum com sinal: o padrão, e o aviso diz qual é e onde trocar
+    if (melhor) {
+      achadoNoAutomatico = melhor.id;
+      return abriu(await pedir(melhor.id));
+    }
+    return abriu(await pedir(null)); // nenhum com sinal: o padrão, e o aviso diz qual é e onde trocar
+  }
+
+  /**
+   * O microfone que acabou de ouvir você (treino, ditado ou chamada que deu certo) fica lembrado para a
+   * próxima abertura do app (27/10, relato do Davi: "Ei Jarvis" parava ao reabrir e voltava depois de treinar
+   * — a procura da abertura, em silêncio, caía no microfone errado). O escolhido em Ajustes continua mandando.
+   */
+  function lembrarMicrofone() {
+    if (config.ditadoMicrofone || !ultimoAberto || ['default', 'communications'].includes(ultimoAberto)) return;
+    if (ultimoAberto === config.ditadoMicrofoneQueOuviu) return;
+    config.ditadoMicrofoneQueOuviu = ultimoAberto;
+    api.config.set({ ditadoMicrofoneQueOuviu: ultimoAberto }).catch(() => {});
   }
 
   /** Os microfones do PC (para Ajustes): os nomes só aparecem depois de abrir o microfone uma vez. */
@@ -256,6 +274,7 @@
         setTimeout(() => aviso(g.botao, ''), 5000);
         return;
       }
+      lembrarMicrofone(); // ouviu você: este microfone vale também na próxima abertura
       // 25/10: a correção pelo modelo (Ajustes → Geral), se ligada — na dúvida, fica o que o Whisper ouviu
       let texto = r.texto;
       if (config.ditadoCorrigir !== false) {
@@ -378,5 +397,5 @@
 
   // a escuta do "Ei GPT" (escuta.js) usa a caixa do Agente, o aviso dela e sabe quando o botão está gravando
   const doAgente = () => caixas.find((c) => c.caixa.id === 'entradaAgente') || null;
-  window.ditadoPorVoz = { parar, paraWav, abrirMicrofone, listarMicrofones, testarMicrofone, gravarFrase, aviso, doAgente, gravando: () => Boolean(atual), botoes: () => caixas.map((c) => c.botao) };
+  window.ditadoPorVoz = { lembrarMicrofone, parar, paraWav, abrirMicrofone, listarMicrofones, testarMicrofone, gravarFrase, aviso, doAgente, gravando: () => Boolean(atual), botoes: () => caixas.map((c) => c.botao) };
 })();
