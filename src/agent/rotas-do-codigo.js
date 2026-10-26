@@ -18,6 +18,7 @@ const rede = require('./rede-no-chat');
 const pc = require('./pc-no-chat');
 const imagensNoChat = require('./imagens-no-chat');
 const memoria = require('./memoria-no-chat');
+const perfis = require('./perfis-no-chat');
 const calendario = require('./calendario-no-chat');
 const clima = require('./clima-no-chat');
 const mapa = require('./mapa-no-chat');
@@ -39,6 +40,13 @@ const ROTAS = [
     id: 'memoria',
     detecta: ({ objetivo }) => memoria.pedidoDeMemoria(objetivo),
     responde: ({ objetivo, deps, pasta, config }, pedido) => memoria.responderMemoria({ pergunta: objetivo, deps, pasta, config, ...(pedido ? { acao: pedido } : {}) }),
+  },
+  {
+    // "procure o perfil de Fulano no Instagram", "procure pelo nome Fulano de Tal" (27/10): os perfis
+    // públicos e as menções na web, com o link — montado pelo código, sem dossiê
+    id: 'perfis',
+    detecta: ({ objetivo }) => perfis.pedidoDePerfil(objetivo),
+    responde: ({ objetivo, deps, config }, pedido) => perfis.responderPerfis({ pergunta: objetivo, deps, config, ...(pedido ? { pedido } : {}) }),
   },
   {
     // "que dia é hoje?", "quais feriados temos este mês?", "quantos dias faltam pro Natal?" (23/10):
