@@ -12,7 +12,7 @@ const fs = require('fs');
 const ollama = require('../llm/ollama');
 const { Sandbox } = require('../tools/sandbox');
 const { consultasNaComunidade } = require('../tools/comunidade');
-const { preferenciasParaEscrever } = require('./memoria-no-chat');
+const { preferenciasDaPergunta } = require('./memoria-no-chat');
 const traducao = require('./traducao');
 const lugares = require('./lugares');
 const agendaNoChat = require('./agenda-no-chat');
@@ -132,7 +132,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
       return partes.join('\n');
     },
     // o que o usuário pediu para guardar ("lembre que…", 22/10): vai para o escritor em toda resposta
-    preferencias: () => preferenciasParaEscrever(this.userDataPath, cfg),
+    // instrução por assunto (27/10): só as do assunto da pergunta (o modelo decide numa chamada curta)
+    preferencias: (pergunta) => preferenciasDaPergunta(this.userDataPath, cfg, { pergunta, chamar: (m, o) => deps.chamar(m, o) }),
     // o idioma das telas (22/10): 'en' faz o escritor responder em inglês
     idioma: cfg.idiomaEfetivo === 'en' ? 'en' : 'pt',
     lerPagina: (url) => lerComCache(url, ctxWeb),

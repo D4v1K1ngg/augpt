@@ -1869,3 +1869,9 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .fundo-aprovacao { flex-basis: 100%; display: flex; flex-direction: column; gap: 6px; }
 .fundo-aprovacao code { font-size: 11px; word-break: break-all; color: var(--muted); }
 .fundo-aprovacao .acoes { display: flex; gap: 6px; }
+
+/* instrução por assunto (27/10, Ajustes → Memória) */
+.sub-grupo { font-size: 13px; margin: 14px 0 4px; color: var(--text-forte); }
+.instrucao-nova { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
+.instrucao-nova input { flex: 1 1 140px; min-width: 0; }
+.instrucao-nova input#instrucaoTexto { flex-basis: 260px; }

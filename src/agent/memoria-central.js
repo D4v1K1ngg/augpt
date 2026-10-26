@@ -20,7 +20,7 @@ const { cosine, vetorDe } = require('./embeddings');
  */
 
 const LIMITE_ITENS = 40;
-const LIMITE_PROMPT = 900; // caracteres do bloco injetado — precisa ficar pequeno, entra sempre
+const LIMITE_PROMPT = 1500; // caracteres do bloco injetado — precisa ficar pequeno, entra sempre
 
 // Item 7 da análise comparativa (pedido do Davi 2026-09-22, "supressão de fato
 // quase-duplicado"): mesmo limiar já validado em produção por
@@ -178,18 +178,19 @@ class MemoriaCentral {
    * filtrado por relevância ao pedido — é "core memory": pouca coisa, mas
    * sempre visível, porque é sobre quem é o usuário, não sobre a tarefa atual.
    */
-  paraPrompt() {
+  paraPrompt({ instrucoes } = {}) {
     if (!this.itens.length) return '';
     const linhas = [];
     let total = 0;
-    for (const item of this.listar()) {
+    // `instrucoes` (27/10): as instruções por assunto que valem para este pedido; sem a lista, todas
+    for (const item of this.listar().filter((i) => !instrucoes || !i.chave.startsWith('instrucao_') || instrucoes.has(i.chave))) {
       const linha = `- ${item.chave}: ${item.valor}`;
       if (total + linha.length > LIMITE_PROMPT) break;
       linhas.push(linha);
       total += linha.length;
     }
     return linhas.length
-      ? `\nO QUE VOCÊ SABE SOBRE O USUÁRIO (vale para qualquer pasta de trabalho):\n${linhas.join('\n')}\n`
+      ? `\nO QUE VOCÊ SABE SOBRE O USUÁRIO (vale para qualquer pasta de trabalho; uma linha "Quando o assunto for X" vale só se o pedido for sobre X):\n${linhas.join('\n')}\n`
       : '';
   }
 }

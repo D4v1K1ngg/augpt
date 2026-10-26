@@ -858,6 +858,15 @@ ipcMain.handle('memory:centralEsquecer', (_e, chave) => new MemoriaCentral(app.g
 
 ipcMain.handle('memory:centralLimpar', () => new MemoriaCentral(app.getPath('userData')).limpar());
 
+// instrução por assunto pelos Ajustes (27/10): o mesmo formato do chat (src/agent/memoria-no-chat.js)
+ipcMain.handle('memory:centralInstrucao', (_e, { assunto, instrucao } = {}) => {
+  const a = String(assunto || '').trim().slice(0, 60);
+  let t = String(instrucao || '').trim().replace(/\s*[.!]+$/, '').slice(0, 200);
+  if (!a || t.length < 4) return null;
+  t = `${t[0].toUpperCase()}${t.slice(1)}.`;
+  return new MemoriaCentral(app.getPath('userData')).definir({ chave: `instrucao_${a}`, valor: `Quando o assunto for ${a}: ${t}` });
+});
+
 ipcMain.handle('memory:clear', () => {
   try {
     const sandbox = new Sandbox(config.data.workspace);

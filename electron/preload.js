@@ -107,6 +107,7 @@ contextBridge.exposeInMainWorld('augpt', {
     central: () => ipcRenderer.invoke('memory:central'),
     centralEsquecer: (chave) => ipcRenderer.invoke('memory:centralEsquecer', chave),
     centralLimpar: () => ipcRenderer.invoke('memory:centralLimpar'),
+    centralInstrucao: (assunto, instrucao) => ipcRenderer.invoke('memory:centralInstrucao', { assunto, instrucao }),
   },
   agent: {
     // idConversa (Peça 3, "memória curta", 2026-09-19): opcional — null

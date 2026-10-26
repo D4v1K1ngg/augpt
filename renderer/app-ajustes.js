@@ -1402,7 +1402,7 @@ async function carregarCentral() {
         <span class="op-licao"></span>
       </div>
       <button class="btn-linha" title="Esquecer">✕</button>`;
-    li.querySelector('.op-chave').textContent = i.chave;
+    li.querySelector('.op-chave').textContent = i.chave.startsWith('instrucao_') ? tr('instrução · {a}', { a: i.chave.slice(10).replace(/_/g, ' ') }) : i.chave;
     li.querySelector('.op-licao').textContent = i.valor;
     li.querySelector('button').addEventListener('click', async () => {
       await api.memory.centralEsquecer(i.chave);
@@ -1411,6 +1411,20 @@ async function carregarCentral() {
     alvo.appendChild(li);
   }
 }
+
+// instrução por assunto (27/10): a mesma regra que "quando eu falar de X, …" grava pelo chat
+$('btnInstrucaoAdicionar').addEventListener('click', async () => {
+  const assunto = $('instrucaoAssunto').value.trim();
+  const texto = $('instrucaoTexto').value.trim();
+  if (!assunto || texto.length < 4) {
+    (assunto ? $('instrucaoTexto') : $('instrucaoAssunto')).focus();
+    return;
+  }
+  await api.memory.centralInstrucao(assunto, texto);
+  $('instrucaoAssunto').value = '';
+  $('instrucaoTexto').value = '';
+  carregarCentral();
+});
 
 $('btnLimparCentral').addEventListener('click', async () => {
   if (!confirm('Esquecer tudo que o agente sabe sobre você?')) return;

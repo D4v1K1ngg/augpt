@@ -3,6 +3,7 @@
 const { EventEmitter } = require('events');
 const path = require('path');
 const ollama = require('../llm/ollama');
+const { instrucoesQueValem } = require('./memoria-no-chat');
 const { ehModeloDeDecisao, ehModeloQuePensa } = require('../primeiro-uso');
 const tools = require('../tools');
 const prompts = require('./prompts');
@@ -1896,6 +1897,13 @@ class Agent extends EventEmitter {
     // Diferente da operacional e da vetorial, vive em userData — não na pasta
     // de trabalho. Fatos sobre QUEM é o usuário valem em qualquer projeto.
     const memoriaCentral = new MemoriaCentral(this.userDataPath);
+    // instrução por assunto (27/10): só as do assunto do pedido entram no prompt (chamada curta ao
+    // modelo, e só quando há alguma guardada)
+    const regrasDoUsuario = this.config.memoriaCentral === false ? [] : memoriaCentral.listar().filter((i) => i.chave.startsWith('instrucao_'));
+    const regrasQueValem = regrasDoUsuario.length
+      ? new Set((await instrucoesQueValem(objetivo, regrasDoUsuario, (messages, o = {}) =>
+        ollama.chat({ host: this.config.host, model: this.modeloDe('decisao'), messages, json: o.json, temperature: 0.1, numPredict: o.numPredict || 300, numCtx: 4096, signal: this.controller?.signal }))).map((i) => i.chave))
+      : new Set();
 
     const ctx = {
       objetivo,
@@ -2007,7 +2015,7 @@ class Agent extends EventEmitter {
         resumoConversa: resumoConversaAtual,
         skills: Skills.formatar(skillsAtuais),
         aprendizado: this.config.memoriaOperacional === false ? '' : operacional.paraPrompt(textoDoPedido),
-        memoriaCentral: this.config.memoriaCentral === false ? '' : memoriaCentral.paraPrompt(),
+        memoriaCentral: this.config.memoriaCentral === false ? '' : memoriaCentral.paraPrompt({ instrucoes: regrasQueValem }),
         ferramentasDesativadas: ferramentasDesativadasAtual,
         // a skill diz de quais ferramentas a tarefa depende; elas entram no
         // catálogo mesmo que estivessem fora da seleção padrão
