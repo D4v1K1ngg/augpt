@@ -13,6 +13,7 @@
  * - arquivos só de uma lista fechada; CSP só com a própria página; corpo até 64 KB.
  */
 
+const { pedidoDeFundo } = require('./segundo-plano');
 const http = require('http');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -37,7 +38,7 @@ const ARQUIVOS = new Set([
 ]);
 const CSP = "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; worker-src 'self' blob:; frame-src 'self' https://www.youtube-nocookie.com; base-uri 'none'; form-action 'none'";
 // os eventos do agente que interessam ao celular
-const EVENTOS_DO_CELULAR = new Set(['inicio', 'ferramenta', 'fonte', 'redigindo', 'resposta-token', 'resposta-reinicia', 'concluido', 'erro', 'interrompido', 'limite', 'limite-atingido', 'aprovacao', 'aprovacao-resolvida', 'pergunta', 'nucleo-entendimento', 'conversa-salva', 'remoto-respondeu']);
+const EVENTOS_DO_CELULAR = new Set(['inicio', 'ferramenta', 'fonte', 'redigindo', 'resposta-token', 'resposta-reinicia', 'concluido', 'erro', 'interrompido', 'limite', 'limite-atingido', 'aprovacao', 'aprovacao-resolvida', 'pergunta', 'nucleo-entendimento', 'conversa-salva', 'remoto-respondeu', 'fundo-mudou', 'fundo-aviso']);
 
 /** O endereço é da rede local (ou deste PC)? */
 function ehRedeLocal(endereco) {
@@ -189,6 +190,9 @@ class AcessoRemoto {
       if (rota === '/api/enviar') {
         const texto = String(corpo.texto || '').trim().slice(0, 8000);
         if (!texto) return this.json(res, 400, { ok: false, erro: 'pedido vazio' });
+        // "em segundo plano: …" vai para a fila, mesmo com o AuGPT respondendo outra coisa
+        const deFundo = this.o.fundo && pedidoDeFundo(texto);
+        if (deFundo) return this.json(res, 200, { ok: true, fundo: this.o.fundo.adicionar(deFundo) });
         if (this.o.estado().rodando) return this.json(res, 409, { ok: false, erro: 'O AuGPT ainda está respondendo — espere terminar.' });
         const r = await this.o.pedir({ texto, idConversa: typeof corpo.idConversa === 'string' ? corpo.idConversa.slice(0, 80) : null });
         return this.json(res, r?.ok === false ? 503 : 200, r || { ok: true });
@@ -199,6 +203,11 @@ class AcessoRemoto {
         if (!corpo.id || !valor || valor === 'sempre') return this.json(res, 400, { ok: false });
         return this.json(res, 200, { ok: Boolean(await this.o.responder(String(corpo.id), valor)) });
       }
+      if (rota === '/api/fundo/responder' && this.o.fundo) {
+        if (!['aprovar', 'negar'].includes(corpo.valor)) return this.json(res, 400, { ok: false });
+        return this.json(res, 200, { ok: this.o.fundo.responder(String(corpo.id || ''), corpo.valor) });
+      }
+      if (rota === '/api/fundo/remover' && this.o.fundo) return this.json(res, 200, { ok: this.o.fundo.remover(String(corpo.id || '')) });
       if (rota === '/api/parar') {
         await this.o.parar();
         return this.json(res, 200, { ok: true });
@@ -219,6 +228,7 @@ class AcessoRemoto {
       return undefined;
     }
     if (rota === '/api/estado') return this.json(res, 200, this.o.estado());
+    if (rota === '/api/fundo') return this.json(res, 200, this.o.fundo ? this.o.fundo.listar() : []);
     if (rota === '/api/conversas') {
       const lista = (await this.o.listarConversas()) || [];
       return this.json(res, 200, lista.filter((c) => c.modo !== "conversa").slice(0, 60).map(({ id, titulo, atualizadoEm, criadoEm }) => ({ id, titulo, em: atualizadoEm || criadoEm || null })));

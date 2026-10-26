@@ -1394,7 +1394,7 @@ let agenda = null;
 let conferindo = null; // o agente da checagem em andamento
 const inicioDoApp = Date.now();
 
-function avisar(titulo, corpo, item) {
+function avisar(titulo, corpo, item, aoClicar = () => enviar('agenda-abrir', { id: item?.id })) {
   try {
     const { Notification } = require('electron');
     if (!Notification.isSupported()) return;
@@ -1406,7 +1406,7 @@ function avisar(titulo, corpo, item) {
         janela.show();
         janela.focus();
       }
-      enviar('agenda-abrir', { id: item?.id });
+      aoClicar();
     });
     n.show();
   } catch (err) {
@@ -1424,7 +1424,7 @@ function verificarAgenda() {
     enviar('agenda-mudou', { avisado: item.id });
   }
   // um assunto por vez, com o agente parado e o app aberto há 3 min (não disputa a abertura)
-  if (conferindo || agent?.rodando || disparandoAgendamento || Date.now() - inicioDoApp < 3 * 60000) return;
+  if (conferindo || agent?.rodando || fundo?.ocupada || disparandoAgendamento || Date.now() - inicioDoApp < 3 * 60000) return;
   const [proximo] = agenda.paraConferir(Date.now());
   if (proximo) conferirAcompanhamento(proximo).catch((err) => console.warn('acompanhamento:', err.message));
 }
@@ -1596,6 +1596,45 @@ ipcMain.handle('chats:save', (_e, conversa) => {
   return gravada;
 });
 
+/* ------------------------------ tarefas em segundo plano (27/10) ------------------------------ */
+// Uma fila num agente separado (src/segundo-plano.js): você continua usando o AuGPT; no fim, a resposta
+// vira conversa salva e sai o aviso no Windows e no celular. Sem o navegador interativo (é da conversa
+// aberta), e a checagem da agenda espera a fila.
+const { FilaDeFundo, pedidoDeFundo } = require('../src/segundo-plano');
+const fundo = new FilaDeFundo({
+  criarAgente: () => {
+    const a = new Agent({ config: configParaAgente(), userDataPath: app.getPath('userData'), render: config.data.renderizarJs ? (url) => renderizar(url, { obterConfig: () => config.data }) : null, navegador: null, skills });
+    const reg = new Registro({ origem: 'segundo-plano', modelo: config.data.model, host: config.data.host }).acompanhar(a);
+    for (const fim of ['concluido', 'limite', 'interrompido', 'erro']) a.on(fim, () => registros.salvar(reg.dados));
+    a.on('arquivo-criado', () => enviar('arvore-mudou', {}));
+    return a;
+  },
+  salvar: (item, resposta) => {
+    const g = conversas.salvar({ id: null, modo: 'agente', mensagens: [{ role: 'user', content: item.objetivo }, { role: 'assistant', content: resposta }] });
+    enviar('conversas-mudaram', {});
+    if (g?.id) remoto?.transmitir('conversa-salva', { id: g.id, titulo: g.titulo });
+    return g;
+  },
+  avisar: (item) => {
+    const en = idiomaEfetivo() === 'en';
+    const titulo = item.titulo || item.objetivo.slice(0, 60);
+    const [cab, corpo] = item.estado === 'pronta' ? [en ? 'Task done' : 'Tarefa pronta', titulo]
+      : item.estado === 'esperando' ? [en ? 'A task needs your approval' : 'Uma tarefa precisa da sua aprovação', `${titulo} — ${item.aprovacao?.nome || ''}`]
+        : [en ? 'Task failed' : 'A tarefa não terminou', `${titulo} — ${item.erro || ''}`];
+    avisar(`AuGPT · ${cab}`, corpo, item, () => enviar('fundo-abrir', { id: item.id, idConversa: item.idConversa || null }));
+    remoto?.transmitir('fundo-aviso', { id: item.id, estado: item.estado, titulo, idConversa: item.idConversa || null });
+  },
+  mudou: (lista) => {
+    enviar('fundo-mudou', { lista });
+    remoto?.transmitir('fundo-mudou', { lista });
+  },
+});
+ipcMain.handle('fundo:listar', () => fundo.listar());
+ipcMain.handle('fundo:detectar', (_e, texto) => pedidoDeFundo(texto));
+ipcMain.handle('fundo:adicionar', (_e, objetivo) => ({ id: fundo.adicionar(objetivo) }));
+ipcMain.handle('fundo:responder', (_e, { id, valor } = {}) => ({ ok: fundo.responder(id, valor) }));
+ipcMain.handle('fundo:remover', (_e, id) => ({ ok: fundo.remover(id) }));
+
 /* ------------------------------ acesso pelo celular (26/10, fase 1) ------------------------------ */
 // O celular usa o AuGPT pela rede da casa (src/remoto.js): o pedido vai para a tela do PC, que roda como
 // se você tivesse digitado lá; os eventos do agente voltam pelo enviar(). Desligado por padrão.
@@ -1628,6 +1667,7 @@ async function aplicarAcessoCelular() {
       return ok;
     },
     parar: () => agent?.parar(),
+    fundo,
     listarConversas: () => conversas.listar(),
     lerConversa: (id) => conversas.ler(id),
     servirMapa: (url) => mapaTiles.servir(url, { dir: path.join(app.getPath('userData'), 'mapa'), agente: `AuGPT/${app.getVersion()} (+https://github.com/D4v1K1ngg/augpt)` }),
@@ -2296,6 +2336,7 @@ app.on('will-quit', () => require('electron').globalShortcut.unregisterAll());
 
 app.on('before-quit', () => {
   remoto?.desligar();
+  fundo.pararTudo();
   agent?.parar();
   mcp?.desconectar();
   searxngRuntime?.parar();

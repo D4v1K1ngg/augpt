@@ -51,6 +51,13 @@ contextBridge.exposeInMainWorld('augpt', {
     corrigir: (texto) => ipcRenderer.invoke('ditado:corrigir', texto),
     trazerJanela: () => ipcRenderer.invoke('janela:trazer'),
   },
+  fundo: {
+    listar: () => ipcRenderer.invoke('fundo:listar'),
+    detectar: (texto) => ipcRenderer.invoke('fundo:detectar', texto),
+    adicionar: (objetivo) => ipcRenderer.invoke('fundo:adicionar', objetivo),
+    responder: (id, valor) => ipcRenderer.invoke('fundo:responder', { id, valor }),
+    remover: (id) => ipcRenderer.invoke('fundo:remover', id),
+  },
   remoto: {
     estado: () => ipcRenderer.invoke('remoto:estado'),
     novoCodigo: () => ipcRenderer.invoke('remoto:novoCodigo'),

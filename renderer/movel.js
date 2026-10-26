@@ -250,6 +250,17 @@
     novoTurno();
     ocupado(true);
     const r = await post('/api/enviar', { texto, idConversa: s.idConversa });
+    if (r.fundo) {
+      // "em segundo plano: …": foi para a fila do PC; a conversa daqui fica como estava
+      s.turno?.d.previousElementSibling?.remove();
+      s.turno?.d.remove();
+      s.meu = false;
+      s.turno = null;
+      ocupado(false);
+      if (!lista.querySelector('.m-eu, .m-ia')) $('mVazio').hidden = false;
+      aviso(fala('Mandei para o segundo plano — aviso aqui quando terminar.', 'Sent to the background — I will let you know here when it is done.'));
+      return;
+    }
     if (r.ok === false || r.status >= 400) {
       tratar.erro({ mensagem: r.erro || fala('Não deu para enviar.', 'Could not send.') });
       if (r.status === 409) faixa(fala('O AuGPT ainda está respondendo — espere terminar.', 'AuGPT is still answering — wait for it to finish.'));
@@ -273,6 +284,71 @@
       $('mCaixa').requestSubmit();
     }
   });
+
+  /* ---------------- tarefas em segundo plano (27/10) ---------------- */
+  s.fundo = [];
+  let aoTocarAviso = null;
+  function aviso(texto, aoTocar = null) {
+    $('mAviso').hidden = !texto;
+    $('mAviso').textContent = texto || '';
+    aoTocarAviso = aoTocar;
+  }
+  $('mAviso').onclick = () => {
+    const f = aoTocarAviso;
+    aviso('');
+    f?.();
+  };
+  const metaFundo = (t) => ({
+    fila: fala('na fila', 'queued'),
+    rodando: t.passo ? fala(`rodando · passo ${t.passo}`, `running · step ${t.passo}`) : fala('rodando', 'running'),
+    esperando: fala('precisa da sua aprovação', 'needs your approval'),
+    pronta: fala('pronta · toque para abrir', 'done · tap to open'),
+  }[t.estado] || fala(`não terminou: ${t.erro || ''}`, `did not finish: ${t.erro || ''}`));
+  function pintarFundo() {
+    const ul = $('mFundoLista');
+    ul.replaceChildren();
+    $('mFundo').hidden = !s.fundo.length;
+    for (const t of s.fundo) {
+      const li = document.createElement('li');
+      li.className = t.estado;
+      li.textContent = t.titulo || t.objetivo;
+      li.append(Object.assign(document.createElement('small'), { textContent: metaFundo(t) }));
+      if (t.estado === 'pronta' && t.idConversa) {
+        li.onclick = () => {
+          $('mLista').hidden = true;
+          abrirConversa(t.idConversa);
+          post('/api/fundo/remover', { id: t.id });
+        };
+      }
+      if (t.estado === 'esperando' && t.aprovacao) {
+        li.append(Object.assign(document.createElement('code'), { textContent: `${t.aprovacao.nome}(${JSON.stringify(t.aprovacao.argumentos || {}).slice(0, 120)})` }));
+        const acoes = document.createElement('div');
+        acoes.className = 'm-fundo-acoes';
+        for (const [valor, rotulo, classe] of [['aprovar', fala('Executar', 'Run'), 'sim'], ['negar', fala('Recusar', 'Decline'), '']]) {
+          const b = Object.assign(document.createElement('button'), { type: 'button', className: classe, textContent: rotulo });
+          b.onclick = () => post('/api/fundo/responder', { id: t.id, valor });
+          acoes.append(b);
+        }
+        li.append(acoes);
+      }
+      ul.append(li);
+    }
+  }
+  tratar['fundo-mudou'] = ({ lista: itens } = {}) => {
+    s.fundo = Array.isArray(itens) ? itens : [];
+    pintarFundo();
+  };
+  tratar['fundo-aviso'] = ({ id, estado, titulo, idConversa } = {}) => {
+    navigator.vibrate?.(200);
+    const abrir = () => {
+      if (!idConversa) return;
+      abrirConversa(idConversa);
+      post('/api/fundo/remover', { id });
+    };
+    if (estado === 'pronta') aviso(fala(`✓ Tarefa pronta: ${titulo} — toque para abrir`, `✓ Task done: ${titulo} — tap to open`), abrir);
+    else if (estado === 'esperando') aviso(fala(`⚠ Uma tarefa precisa da sua aprovação: ${titulo} — toque para ver`, `⚠ A task needs your approval: ${titulo} — tap to see`), abrirLista);
+    else aviso(fala(`A tarefa não terminou: ${titulo}`, `The task did not finish: ${titulo}`));
+  };
 
   function novaConversa() {
     s.idConversa = null;
@@ -304,6 +380,7 @@
       };
       ul.append(li);
     }
+    pintarFundo();
     if (!conversas.length) ul.append(Object.assign(document.createElement('li'), { textContent: fala('Nenhuma conversa ainda.', 'No chats yet.') }));
     $('mLista').hidden = false;
   }
@@ -318,11 +395,13 @@
       s.en = e.idioma === 'en';
       if (s.en) {
         $('mEntrada').placeholder = 'Ask AuGPT something…';
+        $('mFundo').querySelector('.m-sub').textContent = 'In the background';
         $('mVazio').querySelector('h1').textContent = 'What do you need?';
         $('mVazio').querySelector('p').textContent = "It's the same AuGPT as on your computer — chats, research and cards. To talk, use your phone keyboard's microphone.";
       }
       if (e.rodando) tratar.inicio();
     }
+    tratar['fundo-mudou']({ lista: await get('/api/fundo') });
     conectar();
   })();
 })();

@@ -1852,3 +1852,20 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .celular-texto { flex: 1; min-width: 240px; font-size: 13px; }
 .celular-texto p { margin: 0 0 8px; }
 .celular-endereco code { word-break: break-all; font-size: 12px; }
+
+/* tarefas em segundo plano (27/10, renderer/segundo-plano.js) */
+.fundo-painel { margin: 0 8px 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.fundo-cabeca { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 8px; }
+.fundo-item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 8px; border: 1px solid transparent; }
+.fundo-item.pronta { cursor: pointer; border-color: var(--line-forte); }
+.fundo-item.pronta:hover { background: var(--panel-2); }
+.fundo-item.esperando { border-color: var(--amber); }
+.fundo-item .fundo-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fundo-item .item-titulo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fundo-item.pronta .item-meta { color: var(--amber); }
+.fundo-item.erro .item-meta { color: var(--red); }
+.fundo-item.rodando .item-meta::before { content: '● '; color: var(--amber); animation: fundo-pulsa 1.4s ease-in-out infinite; }
+@keyframes fundo-pulsa { 50% { opacity: 0.25; } }
+.fundo-aprovacao { flex-basis: 100%; display: flex; flex-direction: column; gap: 6px; }
+.fundo-aprovacao code { font-size: 11px; word-break: break-all; color: var(--muted); }
+.fundo-aprovacao .acoes { display: flex; gap: 6px; }

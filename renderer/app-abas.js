@@ -12,6 +12,9 @@ async function enviarPedido() {
   }
   const pedido = el.aEntrada.value.trim();
   if (!pedido) return;
+  // "em segundo plano: …" (27/10): vai para a fila e a caixa fica livre
+  const deFundo = await api.fundo.detectar(pedido).catch(() => null);
+  if (deFundo && (await window.segundoPlano?.mandar(deFundo))) return;
   if (!el.modelo.value) {
     // Fase 2: antes mandava rodar "ollama pull" num terminal — mesmo com o
     // Ollama nem instalado. Agora aponta pro guia de primeira execução, que

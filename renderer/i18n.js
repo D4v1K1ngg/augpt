@@ -323,6 +323,14 @@
     'Era eu chamando': 'That was me calling',
     // acesso pelo celular (26/10)
     'Acesso pelo celular': 'Phone access',
+    // tarefas em segundo plano (27/10)
+    'Em segundo plano': 'In the background', 'na fila': 'queued', 'rodando': 'running', 'rodando · passo {n}': 'running · step {n}',
+    'precisa da sua aprovação': 'needs your approval', 'pronta · clique para abrir': 'done · click to open', 'não terminou: {erro}': 'did not finish: {erro}',
+    'Cancelar a tarefa': 'Cancel the task', 'Tirar da lista': 'Remove from list', 'Executar': 'Run', 'Recusar': 'Decline',
+    'mandei para o segundo plano — aviso quando terminar': 'sent to the background — I will let you know when it is done',
+    'escreva o pedido e clique no relógio para rodar em segundo plano': 'type the request and click the clock to run it in the background',
+    'Rodar em segundo plano: você continua usando o AuGPT e recebe um aviso quando terminar': 'Run in the background: keep using AuGPT and get a notice when it is done',
+    'Rodar em segundo plano': 'Run in the background',
     'Use o AuGPT pelo navegador do celular, na rede da sua casa: as mesmas conversas, a pesquisa e os cartões — o computador continua fazendo o trabalho. Só aparelhos da sua rede, e só com o código do QR. Na primeira vez, o Windows pergunta se libera o AuGPT na rede privada: clique em Permitir.': "Use AuGPT from your phone's browser, on your home network: the same chats, research and cards — the computer still does the work. Only devices on your network, and only with the QR code. The first time, Windows asks whether to allow AuGPT on private networks: click Allow.",
     'Aponte a câmera do celular para o QR code. Depois, no navegador, use "Adicionar à tela inicial" para ele ficar com cara de app.': 'Point your phone camera at the QR code. Then, in the browser, use "Add to Home screen" so it looks like an app.',
     'Ou digite no celular:': 'Or type on your phone:',

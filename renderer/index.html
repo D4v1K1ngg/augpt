@@ -242,6 +242,11 @@
       <button class="btn-linha" id="btnCancelarSelecao">Cancelar</button>
     </div>
 
+    <div class="fundo-painel" id="fundoPainel" hidden>
+      <div class="fundo-cabeca">Em segundo plano</div>
+      <ul class="conversas" id="fundoLista"></ul>
+    </div>
+
     <ul class="conversas" id="listaConversas"></ul>
   </aside>
 
@@ -329,6 +334,7 @@
           <option value="profundo">Profundo</option>
           <option value="investigacao">Investigação</option>
         </select>
+        <button class="btn-microfone btn-fundo" id="btnFundoAgente" title="Rodar em segundo plano: você continua usando o AuGPT e recebe um aviso quando terminar" aria-label="Rodar em segundo plano"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2"/></svg></button>
         <button class="btn-enviar" id="btnEnviarAgente" title="Enviar (Enter)" aria-label="Enviar">↑</button>
       </div>
     </div>
@@ -1295,5 +1301,6 @@
 <script src="tela.js"></script>
 <script src="vendor/qrcode-generator-2.0.4/qrcode.js"></script>
 <script src="celular.js"></script>
+<script src="segundo-plano.js"></script>
 </body>
 </html>
