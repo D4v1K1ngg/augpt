@@ -1,0 +1,4 @@
+qrcode-generator 2.0.4 — Copyright (c) 2009 Kazuhiko Arase — MIT License
+https://github.com/kazuhikoarase/qrcode-generator
+Cópia de dist/qrcode.js do pacote npm (sha256 do .tgz: 02e2e18a99a90b02dad940851f59b7c3c5fd1ab79cbdece8595cb06328878159).
+Usado só para desenhar o QR code do "Acesso pelo celular" (Ajustes).

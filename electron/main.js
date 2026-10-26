@@ -81,6 +81,7 @@ let agent = null;
 let skills = null;
 let pastasDeFerramentas = null;
 let conversas = null;
+let remoto = null; // acesso pelo celular (src/remoto.js), só com a opção ligada
 let mcp = null;
 let navegador = null;
 let registros = null;
@@ -157,6 +158,7 @@ let idConversaEmExecucao = null;
 
 function enviar(canal, dados) {
   if (win && !win.isDestroyed()) win.webContents.send('agent:event', { canal, dados });
+  remoto?.transmitir(canal, dados); // acesso pelo celular (26/10): os mesmos eventos
 }
 
 let aberturaJaRodou = false;
@@ -511,6 +513,7 @@ function filtrarPatchDeConfig(patch) {
   delete seguro.workspace;
   delete seguro.mcpServidores; // só por `mcp:save`, que confirma cada programa novo
   delete seguro.dominiosPersonalizados; // só por `domains:save`
+  delete seguro.acessoCelularCodigo; // só por `remoto:novoCodigo`
   if (seguro.autonomy === 'auto' && config.data.autonomy !== 'auto') {
     const escolha = dialog.showMessageBoxSync(win, {
       type: 'warning',
@@ -542,6 +545,7 @@ ipcMain.handle('config:set', (_e, patch) => {
   const dados = config.save(filtrarPatchDeConfig(patch));
   if (patch && 'nomeDoUsuario' in patch) gravarNomeNaMemoria(patch.nomeDoUsuario);
   if (patch && 'atalhoDaTela' in patch) estadoDoAtalho = aplicarAtalhoDaTela();
+  if (patch && 'acessoCelular' in patch) aplicarAcessoCelular().catch(() => {});
   if (patch && 'nomeDaChamada' in patch) aplicarNomeDaChamada({ zerar: String(patch.nomeDaChamada || '') !== nomeAntesDoPatch });
   if (agent) Object.assign(agent.config, configParaAgente());
   return dados;
@@ -1586,7 +1590,66 @@ ipcMain.handle('runs:export', async (_e, ids) => {
 
 ipcMain.handle('chats:list', () => conversas.listar());
 ipcMain.handle('chats:read', (_e, id) => conversas.ler(id));
-ipcMain.handle('chats:save', (_e, conversa) => conversas.salvar(conversa));
+ipcMain.handle('chats:save', (_e, conversa) => {
+  const gravada = conversas.salvar(conversa);
+  if (gravada?.id) remoto?.transmitir('conversa-salva', { id: gravada.id, titulo: gravada.titulo });
+  return gravada;
+});
+
+/* ------------------------------ acesso pelo celular (26/10, fase 1) ------------------------------ */
+// O celular usa o AuGPT pela rede da casa (src/remoto.js): o pedido vai para a tela do PC, que roda como
+// se você tivesse digitado lá; os eventos do agente voltam pelo enviar(). Desligado por padrão.
+let erroDoRemoto = null;
+async function aplicarAcessoCelular() {
+  const { AcessoRemoto, novoCodigo } = require('../src/remoto');
+  if (!config.data.acessoCelular) {
+    if (remoto) await remoto.desligar();
+    remoto = null;
+    erroDoRemoto = null;
+    return;
+  }
+  if (!config.data.acessoCelularCodigo) config.save({ acessoCelularCodigo: novoCodigo() });
+  if (remoto?.ligado()) return;
+  remoto = new AcessoRemoto({
+    codigo: config.data.acessoCelularCodigo,
+    porta: Number(config.data.acessoCelularPorta) || undefined,
+    dirTela: path.join(__dirname, '../renderer'),
+    dirImagens: path.join(app.getPath('userData'), 'imagens'),
+    estado: () => ({ rodando: Boolean(agent?.rodando), idConversa: idConversaEmExecucao, versao: app.getVersion(), nome: config.data.nomeDaChamada || 'GPT', idioma: idiomaEfetivo() }),
+    pedir: ({ texto, idConversa }) => {
+      if (!win || win.isDestroyed()) return { ok: false, erro: 'Abra o AuGPT no computador.' };
+      enviar('remoto-pedido', { texto, idConversa });
+      return { ok: true };
+    },
+    // respondido pelo celular: o cartão do PC (e de outro celular) fecha
+    responder: (id, valor) => {
+      const ok = Boolean(agent?.responder(id, valor));
+      if (ok) enviar('remoto-respondeu', { id, valor: valor === 'aprovar' || valor === 'negar' ? valor : 'texto' });
+      return ok;
+    },
+    parar: () => agent?.parar(),
+    listarConversas: () => conversas.listar(),
+    lerConversa: (id) => conversas.ler(id),
+    servirMapa: (url) => mapaTiles.servir(url, { dir: path.join(app.getPath('userData'), 'mapa'), agente: `AuGPT/${app.getVersion()} (+https://github.com/D4v1K1ngg/augpt)` }),
+    servirCaixa: (url) => caixa.responderCaixa(url),
+  });
+  try {
+    await remoto.ligar();
+    erroDoRemoto = null;
+  } catch (err) {
+    erroDoRemoto = err.code === 'EADDRINUSE' ? `a porta ${remoto.o.porta} já está em uso por outro programa` : err.message;
+    remoto = null;
+  }
+}
+const estadoDoRemoto = () => ({ ligado: Boolean(remoto?.ligado()), enderecos: remoto?.ligado() ? remoto.enderecos() : [], erro: erroDoRemoto });
+ipcMain.handle('remoto:estado', () => estadoDoRemoto());
+ipcMain.handle('remoto:novoCodigo', () => {
+  const { novoCodigo } = require('../src/remoto');
+  const codigo = novoCodigo();
+  config.save({ acessoCelularCodigo: codigo });
+  remoto?.trocarCodigo(codigo);
+  return estadoDoRemoto();
+});
 ipcMain.handle('chats:rename', (_e, { id, titulo }) => conversas.renomear(id, titulo));
 ipcMain.handle('chats:delete', (_e, ids) =>
   Array.isArray(ids) ? conversas.excluirVarias(ids) : conversas.excluir(ids)
@@ -2200,6 +2263,7 @@ app.whenReady().then(() => {
   const variantesLimpas = require('../src/ditado').variantesValidas(config.data.escutaVariantes);
   if (variantesLimpas.length !== (config.data.escutaVariantes || []).length) config.save({ escutaVariantes: variantesLimpas });
   estadoDoAtalho = aplicarAtalhoDaTela();
+  aplicarAcessoCelular().catch(() => {});
   // os avisos do Windows saem com o nome do AuGPT (sem isto, no Windows não aparecem fora do instalador)
   if (process.platform === 'win32') app.setAppUserModelId('com.davi.augpt');
   registros = new Registros(path.join(app.getPath('userData'), 'execucoes'));
@@ -2231,6 +2295,7 @@ app.on('window-all-closed', () => {
 app.on('will-quit', () => require('electron').globalShortcut.unregisterAll());
 
 app.on('before-quit', () => {
+  remoto?.desligar();
   agent?.parar();
   mcp?.desconectar();
   searxngRuntime?.parar();

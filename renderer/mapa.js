@@ -25,19 +25,21 @@
   const duracao = (min) => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, '0')}` : ''}`);
   const km = (v, locale) => `${v < 10 ? v.toLocaleString(locale, { maximumFractionDigits: 1 }) : Math.round(v).toLocaleString(locale)} km`;
 
-  const ESTILO = {
+  // montado na hora de desenhar (26/10): o celular define AUGPT_MAPA depois deste script carregar
+  const estilo = () => ({
     version: 8,
     projection: { type: 'globe' },
     sky: { 'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0] },
     sources: {
-      osm: { type: 'raster', tiles: ['augpt-mapa://osm/{z}/{x}/{y}'], tileSize: 256, maxzoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' },
-      sat: { type: 'raster', tiles: ['augpt-mapa://sat/{z}/{x}/{y}'], tileSize: 256, maxzoom: 14, attribution: 'Sentinel-2 cloudless — <a href="https://s2maps.eu">s2maps.eu</a> by EOX (Copernicus Sentinel data 2016)' },
+      // a base dos pedaços: no PC, augpt-mapa://; no celular (26/10), a página do AuGPT na rede (AUGPT_MAPA)
+      osm: { type: 'raster', tiles: [`${global.AUGPT_MAPA || 'augpt-mapa://'}osm/{z}/{x}/{y}`], tileSize: 256, maxzoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' },
+      sat: { type: 'raster', tiles: [`${global.AUGPT_MAPA || 'augpt-mapa://'}sat/{z}/{x}/{y}`], tileSize: 256, maxzoom: 14, attribution: 'Sentinel-2 cloudless — <a href="https://s2maps.eu">s2maps.eu</a> by EOX (Copernicus Sentinel data 2016)' },
     },
     layers: [
       { id: 'osm', type: 'raster', source: 'osm' },
       { id: 'sat', type: 'raster', source: 'sat', layout: { visibility: 'none' } },
     ],
-  };
+  });
 
   function marcador(texto, classe) {
     const m = el('div', `mapa-pino ${classe || ''}`, texto);
@@ -120,7 +122,7 @@
         const alvo = ehRota ? [s.origem.lon, s.origem.lat] : [s.lugar.lon, s.lugar.lat];
         mapa = new global.maplibregl.Map({
           container: area,
-          style: JSON.parse(JSON.stringify(ESTILO)),
+          style: estilo(),
           center: alvo,
           zoom: 1.4,
           attributionControl: { compact: true },

@@ -182,6 +182,7 @@ const manipuladores = {
       `<p>${esc(pergunta)}</p>
        <div class="resposta-campo"><input type="text" placeholder="Sua resposta" /><button class="btn-primario">Responder</button></div>`
     );
+    card.dataset.id = id; // respondida pelo celular (26/10): renderer/celular.js fecha este cartão
     const input = card.querySelector('input');
     const enviar = async () => {
       const valor = input.value.trim();

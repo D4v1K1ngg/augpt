@@ -1844,3 +1844,11 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .chip-nome { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--text); font-size: 12px; cursor: pointer; }
 .chip-nome:hover, .chip-nome.ativo { border-color: var(--amber); color: var(--amber); }
 .btn-link { background: none; border: none; padding: 0; font: inherit; color: var(--amber); text-decoration: underline; cursor: pointer; }
+
+/* acesso pelo celular (26/10, Ajustes → Geral) */
+.celular-acesso { display: flex; gap: 18px; align-items: flex-start; padding: 6px 0 14px; flex-wrap: wrap; }
+.celular-acesso[hidden] { display: none; }
+.celular-acesso img { flex: none; width: 196px; height: 196px; border-radius: 12px; background: #fff; padding: 6px; image-rendering: pixelated; }
+.celular-texto { flex: 1; min-width: 240px; font-size: 13px; }
+.celular-texto p { margin: 0 0 8px; }
+.celular-endereco code { word-break: break-all; font-size: 12px; }

@@ -51,6 +51,10 @@ contextBridge.exposeInMainWorld('augpt', {
     corrigir: (texto) => ipcRenderer.invoke('ditado:corrigir', texto),
     trazerJanela: () => ipcRenderer.invoke('janela:trazer'),
   },
+  remoto: {
+    estado: () => ipcRenderer.invoke('remoto:estado'),
+    novoCodigo: () => ipcRenderer.invoke('remoto:novoCodigo'),
+  },
   tela: {
     capturar: (opcoes) => ipcRenderer.invoke('tela:capturar', opcoes),
     atalho: () => ipcRenderer.invoke('tela:atalho'),

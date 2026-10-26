@@ -634,6 +634,19 @@
           <label class="linha"><span class="linha-texto"><span>Atalho Ctrl+Alt+A: perguntar sobre a tela</span><small>De qualquer programa, Ctrl+Alt+A congela a tela e você escolhe a área (Enter = a tela inteira, Esc cancela). A imagem vira anexo do Agente, pronta para a pergunta. Também pelo botão ao lado do + ou falando "Ei GPT, o que é isso na tela?".</small><small id="atalhoDaTelaStatus" class="ajuste-status"></small></span>
             <input type="checkbox" id="cfgAtalhoDaTela" class="caixa" />
           </label>
+          <!-- 26/10: acesso pelo celular na rede da casa (src/remoto.js) -->
+          <label class="linha"><span class="linha-texto"><span>Acesso pelo celular</span><small>Use o AuGPT pelo navegador do celular, na rede da sua casa: as mesmas conversas, a pesquisa e os cartões — o computador continua fazendo o trabalho. Só aparelhos da sua rede, e só com o código do QR. Na primeira vez, o Windows pergunta se libera o AuGPT na rede privada: clique em Permitir.</small><small id="celularStatus" class="ajuste-status"></small></span>
+            <input type="checkbox" id="cfgAcessoCelular" class="caixa" />
+          </label>
+          <div class="celular-acesso" id="celularAcesso" hidden>
+            <img id="celularQr" alt="QR code do acesso pelo celular" width="196" height="196" />
+            <div class="celular-texto">
+              <p>Aponte a câmera do celular para o QR code. Depois, no navegador, use "Adicionar à tela inicial" para ele ficar com cara de app.</p>
+              <p class="celular-endereco"><span>Ou digite no celular:</span> <code id="celularEndereco"></code></p>
+              <p class="dica">Celular e computador precisam estar no mesmo Wi-Fi. Perdeu o celular ou compartilhou o QR sem querer? Gere um código novo — os aparelhos conectados saem.</p>
+              <div class="linha-botoes"><button type="button" class="btn-secundario" id="btnCelularNovoCodigo">Gerar novo código</button></div>
+            </div>
+          </div>
           <div class="linha" id="linhaMicrofone" hidden><span class="linha-texto"><span>Microfone do ditado</span><small id="ajMicrofoneDica">Automático usa o padrão do Windows e pula as entradas virtuais (Steam, "What U Hear", mixagem estéreo).</small></span>
             <span class="microfone-escolha">
               <select id="ajMicrofone"><option value="">Automático</option></select>
@@ -1280,5 +1293,7 @@
 <script src="voz.js"></script>
 <script src="escuta.js"></script>
 <script src="tela.js"></script>
+<script src="vendor/qrcode-generator-2.0.4/qrcode.js"></script>
+<script src="celular.js"></script>
 </body>
 </html>

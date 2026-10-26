@@ -1,0 +1,79 @@
+/* Acesso pelo celular (26/10, fase 1): a página do AuGPT no navegador do celular. Usa as cores do tema
+   (tema.css) e os cartões das respostas (styles.css); aqui só o que é do celular. */
+
+html, body.movel { height: 100%; }
+body.movel {
+  margin: 0; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--void); color: var(--text); font: 15px/1.5 var(--sans, system-ui, sans-serif);
+  -webkit-text-size-adjust: 100%;
+}
+.movel button { font: inherit; }
+
+.m-topo {
+  flex: none; display: flex; align-items: center; gap: 8px; padding: calc(env(safe-area-inset-top) + 8px) 10px 8px;
+  border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--void) 92%, transparent);
+}
+.m-titulo { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; color: var(--text-forte); }
+.m-titulo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-logo { width: 22px; height: 22px; border-radius: 6px; }
+.m-icone { flex: none; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: none; color: var(--text); font-size: 18px; }
+.m-icone:active { background: var(--line); }
+
+.m-faixa { flex: none; padding: 8px 14px; font-size: 13px; background: color-mix(in srgb, var(--gold) 14%, transparent); color: var(--text-forte); border-bottom: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); }
+.m-faixa[hidden] { display: none; }
+.m-faixa.erro { background: color-mix(in srgb, var(--red) 16%, transparent); border-color: color-mix(in srgb, var(--red) 45%, transparent); }
+
+.m-mensagens { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 12px 20px; display: flex; flex-direction: column; gap: 14px; }
+.m-vazio { margin: auto; text-align: center; max-width: 320px; color: var(--muted); }
+.m-vazio img { width: 56px; height: 56px; border-radius: 14px; }
+.m-vazio h1 { font-size: 22px; color: var(--text-forte); margin: 12px 0 6px; font-weight: 600; }
+.m-vazio[hidden] { display: none; }
+
+.m-eu { align-self: flex-end; max-width: 85%; padding: 9px 13px; border-radius: 16px 16px 4px 16px; background: color-mix(in srgb, var(--gold) 16%, var(--void)); color: var(--text-forte); white-space: pre-wrap; word-break: break-word; }
+.m-ia { align-self: stretch; min-width: 0; }
+.m-ia .msg-corpo { overflow-wrap: anywhere; }
+.m-ia .msg-corpo img { max-width: 100%; height: auto; }
+.m-ia .msg-corpo table { display: block; overflow-x: auto; }
+.m-ia .msg-corpo pre { overflow-x: auto; }
+.m-aovivo { white-space: pre-wrap; color: var(--text); }
+.m-situacao { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.m-situacao::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); animation: m-pulso 1.1s ease-in-out infinite; }
+@keyframes m-pulso { 50% { opacity: 0.25; } }
+.m-erro { color: var(--red); font-size: 14px; }
+
+/* aprovação e pergunta do agente */
+.m-cartao { border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--line)); border-radius: 12px; padding: 12px; background: color-mix(in srgb, var(--gold) 6%, transparent); }
+.m-cartao b { color: var(--text-forte); }
+.m-cartao pre { white-space: pre-wrap; word-break: break-word; font-size: 12px; background: var(--line); padding: 8px; border-radius: 8px; max-height: 180px; overflow: auto; }
+.m-cartao .m-acoes { display: flex; gap: 8px; margin-top: 10px; }
+.m-cartao .m-acoes button, .m-cartao .m-campo button { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--line-forte); background: none; color: var(--text); }
+.m-cartao .m-acoes .m-sim, .m-cartao .m-campo button { background: var(--gold); color: #1b1710; border-color: var(--gold); font-weight: 600; }
+.m-cartao .m-campo { display: flex; gap: 8px; margin-top: 10px; }
+.m-cartao .m-campo input { flex: 3; min-width: 0; padding: 10px; border-radius: 10px; border: 1px solid var(--line-forte); background: var(--void); color: var(--text); font: inherit; }
+.m-cartao.resolvido { opacity: 0.6; }
+
+/* a caixa de mensagem */
+.m-caixa {
+  flex: none; display: flex; align-items: flex-end; gap: 8px; padding: 10px 10px calc(env(safe-area-inset-bottom) + 10px);
+  border-top: 1px solid var(--line); background: var(--void);
+}
+.m-caixa textarea {
+  flex: 1; min-width: 0; max-height: 40vh; resize: none; padding: 11px 14px; border-radius: 22px; border: 1px solid var(--line-forte);
+  background: color-mix(in srgb, var(--line) 35%, var(--void)); color: var(--text-forte); font: 16px/1.4 inherit; font-size: 16px; /* 16px: o iPhone não dá zoom */
+}
+.m-caixa textarea:focus { outline: none; border-color: var(--gold); }
+.m-enviar { flex: none; width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--gold); color: #1b1710; font-size: 20px; font-weight: 700; }
+.m-enviar.parando { background: var(--red); color: #fff; }
+.m-enviar:disabled { opacity: 0.5; }
+
+/* a lista de conversas: uma gaveta por cima */
+.m-lista { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; background: var(--void); padding-top: env(safe-area-inset-top); }
+.m-lista[hidden] { display: none; }
+.m-lista-topo { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 16px; color: var(--text-forte); }
+.m-lista ul { list-style: none; margin: 0; padding: 6px 0; overflow-y: auto; flex: 1; }
+.m-lista li { padding: 13px 16px; border-bottom: 1px solid var(--line); }
+.m-lista li small { display: block; color: var(--muted); font-size: 12px; }
+.m-lista li.atual { background: color-mix(in srgb, var(--gold) 10%, transparent); }
+
+/* os cartões das respostas no celular: largura cheia */
+.movel .cartao-lugar, .movel .grafico, .movel .compras-cartao { max-width: 100%; }

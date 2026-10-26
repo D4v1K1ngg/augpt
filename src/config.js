@@ -162,6 +162,10 @@ const DEFAULTS = {
   atalhoDaTela: true,
   // 25/10: o nome que chama o assistente pela voz ("GPT" = "Ei GPT"; escolhido na boas-vindas e em Ajustes)
   nomeDaChamada: 'GPT',
+  // 26/10: acesso pelo celular na rede da casa (src/remoto.js) — desligado por padrão; o código vai no QR
+  acessoCelular: false,
+  acessoCelularCodigo: '',
+  acessoCelularPorta: 8731,
   preBuscaConcorrencia: 2,
   // Modo AUTO (auto.js, 2026-10-10): cada pedido ganha um nível —
   // 0 direto (conversa), 1 conversa com pesquisa rápida, 2 pesquisa padrão,

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+<meta name="theme-color" content="#0f1012" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>AuGPT</title>
+<link rel="manifest" href="movel.webmanifest" />
+<link rel="icon" href="icone.png" />
+<link rel="apple-touch-icon" href="icone.png" />
+<script src="tema.js"></script>
+<link rel="stylesheet" href="vendor/maplibre-gl-5.24.0/maplibre-gl.css" />
+<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="tema.css" />
+<link rel="stylesheet" href="movel.css" />
+</head>
+<body class="movel">
+<header class="m-topo">
+  <button type="button" class="m-icone" id="mAbrirLista" aria-label="Conversas">☰</button>
+  <div class="m-titulo"><img src="icone.png" alt="" class="m-logo" /><span id="mTitulo">AuGPT</span></div>
+  <button type="button" class="m-icone" id="mNova" aria-label="Nova conversa">＋</button>
+</header>
+<div class="m-faixa" id="mFaixa" hidden></div>
+
+<aside class="m-lista" id="mLista" hidden>
+  <div class="m-lista-topo"><b>Conversas</b><button type="button" class="m-icone" id="mFecharLista" aria-label="Fechar">✕</button></div>
+  <ul id="mConversas"></ul>
+</aside>
+
+<main class="m-mensagens" id="mMensagens">
+  <div class="m-vazio" id="mVazio">
+    <img src="icone.png" alt="" />
+    <h1>O que você precisa?</h1>
+    <p>É o mesmo AuGPT do seu computador — as conversas, a pesquisa e os cartões. Para falar, use o microfone do teclado do celular.</p>
+  </div>
+</main>
+
+<form class="m-caixa" id="mCaixa" autocomplete="off">
+  <textarea id="mEntrada" rows="1" placeholder="Peça alguma coisa ao AuGPT…" enterkeyhint="send"></textarea>
+  <button type="submit" class="m-enviar" id="mEnviar" aria-label="Enviar">↑</button>
+</form>
+
+<script src="i18n.js"></script>
+<script src="grafico.js"></script>
+<script src="calendario.js"></script>
+<script src="clima.js"></script>
+<script src="vendor/maplibre-gl-5.24.0/maplibre-gl-csp.js"></script>
+<script src="mapa.js"></script>
+<script src="compras.js"></script>
+<script src="md.js"></script>
+<script src="movel.js"></script>
+</body>
+</html>
