@@ -110,7 +110,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // pergunta que muda com o tempo (18/10): notícias e web do último mês (as notícias na frente,
     // marcadas como recentes); com menos de 3 resultados, a busca de sempre
     buscar: async (q, { recente = false } = {}) => {
-      const opcoes = { searxngUrl: cfg.searxngUrl, marginaliaKey: cfg.marginaliaKey, jinaKey: cfg.jinaKey, idioma: ingles(q) ? 'all' : 'pt-BR' };
+      const opcoes = { searxngUrl: cfg.searxngUrl, marginaliaKey: cfg.marginaliaKey, jinaKey: cfg.jinaKey, ollamaKey: cfg.ollamaKey, idioma: ingles(q) ? 'all' : 'pt-BR' };
       if (recente) {
         const soSearxng = { ...opcoes, periodo: 'month', pular: search.CADEIA.map((p) => p.nome).filter((n) => n !== 'searxng') };
         const [noticias, web] = await Promise.all([
@@ -141,7 +141,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // Reddit e fóruns cadastrados (dados/fontes-da-comunidade.json): "site:reddit.com …", "site:clubedohardware.com.br …"
     buscarNaComunidade: async (q) => {
       const lista = consultasNaComunidade(q, { config: cfg, maximo: 3 });
-      const achados = await Promise.all(lista.map((c) => search.buscar(c.consulta, { searxngUrl: cfg.searxngUrl, marginaliaKey: cfg.marginaliaKey, jinaKey: cfg.jinaKey, idioma: c.idioma }).then((x) => x.resultados).catch(() => [])));
+      const achados = await Promise.all(lista.map((c) => search.buscar(c.consulta, { searxngUrl: cfg.searxngUrl, marginaliaKey: cfg.marginaliaKey, jinaKey: cfg.jinaKey, ollamaKey: cfg.ollamaKey, idioma: c.idioma }).then((x) => x.resultados).catch(() => [])));
       return achados.flat();
     },
   };

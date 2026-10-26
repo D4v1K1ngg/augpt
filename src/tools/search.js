@@ -179,11 +179,18 @@ async function wikipedia(consulta) {
  */
 async function jina(consulta, { jinaKey } = {}) {
   if (!jinaKey) throw new Error('sem chave configurada (Ajustes → Pesquisa na web)');
+  // 27/10: JSON (title/url/description) — no teste, 1–2 s e 10 resultados para "cotação dólar hoje"
   const r = await baixar(`https://s.jina.ai/?q=${encodeURIComponent(consulta)}`, {
-    timeout: 40000,
-    headers: { 'X-Respond-With': 'no-content', Accept: 'text/plain', Authorization: `Bearer ${jinaKey}` },
+    timeout: 15000,
+    headers: { 'X-Respond-With': 'no-content', Accept: 'application/json', Authorization: `Bearer ${jinaKey}` },
   });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  try {
+    const dados = JSON.parse(r.texto)?.data;
+    if (Array.isArray(dados)) return normalizar(dados.map((x) => ({ titulo: x.title, url: x.url, resumo: x.description, data: x.date })), 'jina');
+  } catch {
+    // não veio JSON: lê o texto como antes
+  }
   const itens = [];
   const blocos = r.texto.split(/\n(?=\[\d+\]|\d+\.\s)/);
   for (const bloco of blocos) {
@@ -194,6 +201,23 @@ async function jina(consulta, { jinaKey } = {}) {
     itens.push({ url, titulo: texto(titulo), resumo: texto(resumo) });
   }
   return normalizar(itens, 'jina');
+}
+
+/**
+ * Busca na web do Ollama (27/10, pedido do Davi): roda na nuvem do Ollama e exige a chave da conta
+ * (ollama.com → Settings → Keys), colada em Ajustes → Pesquisa na web. Sem chave: pula na hora.
+ */
+async function ollamaWeb(consulta, { ollamaKey } = {}) {
+  if (!ollamaKey) throw new Error('sem chave configurada (Ajustes → Pesquisa na web)');
+  const r = await baixar('https://ollama.com/api/web_search', {
+    metodo: 'POST',
+    timeout: 15000,
+    headers: { Authorization: `Bearer ${ollamaKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+    corpo: JSON.stringify({ query: consulta, max_results: 10 }),
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const dados = JSON.parse(r.texto);
+  return normalizar((dados.results || []).map((x) => ({ titulo: x.title, url: x.url, resumo: String(x.content || '').slice(0, 400) })), 'ollama');
 }
 
 /* ------------------------------ qualidade da fonte ------------------------------ */
@@ -473,14 +497,39 @@ async function buscarVarias(consultas, opcoes = {}) {
 
 /* ------------------------------ orquestração ------------------------------ */
 
+/*
+ * A ordem (27/10, análise da conversa do Davi): sem o SearXNG, o DuckDuckGo falhava ("fetch failed") e o
+ * Marginalia dava 429 — cada busca esperava ~22 s e acabava na Wikipedia (o dólar "não encontrado"). A
+ * Jina, com a chave dele, estava DEPOIS da Wikipedia e nunca era chamada. Agora: os buscadores da web de
+ * verdade primeiro (SearXNG, Jina, Ollama — os dois últimos só com chave), os gratuitos sem chave depois,
+ * e a Wikipedia por último (enciclopédia não tem cotação, preço nem notícia do dia).
+ */
 const CADEIA = [
   { nome: 'searxng', fn: searxng },
+  { nome: 'jina', fn: jina },
+  { nome: 'ollama', fn: ollamaWeb },
   { nome: 'duckduckgo', fn: duckduckgoHtml },
   { nome: 'duckduckgo-lite', fn: duckduckgoLite },
   { nome: 'marginalia', fn: marginalia },
   { nome: 'wikipedia', fn: wikipedia },
-  { nome: 'jina', fn: jina },
 ];
+
+/*
+ * Desistir rápido (27/10): o buscador que acabou de falhar (rede, bloqueio, 429) fica de fora por alguns
+ * minutos — antes, cada busca da mesma pergunta esperava os mesmos 15–18 s dele de novo. "Sem chave" e
+ * "sem resultados" não pausam (não custam tempo). O SearXNG é local: pausa curta.
+ */
+const pausados = new Map(); // nome → até quando fica de fora
+const PAUSA_MS = { searxng: 30_000, padrao: 5 * 60_000, limite: 10 * 60_000 };
+function pausar(nome, erro) {
+  if (/sem chave/.test(erro)) return;
+  const ms = nome === 'searxng' ? PAUSA_MS.searxng : /\b429\b|limite/.test(erro) ? PAUSA_MS.limite : PAUSA_MS.padrao;
+  pausados.set(nome, Date.now() + ms);
+}
+const pausado = (nome) => (pausados.get(nome) || 0) > Date.now();
+/** Para a tela e os testes: quem está de fora agora, e até quando. */
+const buscadoresPausados = () => Object.fromEntries([...pausados].filter(([, ate]) => ate > Date.now()));
+const limparPausas = () => pausados.clear();
 
 /**
  * Percorre a cadeia até obter resultados suficientes.
@@ -491,6 +540,10 @@ async function buscar(consulta, opcoes = {}) {
   const falhas = [];
   for (const provedor of CADEIA) {
     if (opcoes.pular?.includes(provedor.nome)) continue;
+    if (pausado(provedor.nome)) {
+      falhas.push(`${provedor.nome}: pulado (falhou há pouco)`);
+      continue;
+    }
     try {
       const resultados = await provedor.fn(consulta, opcoes);
       if (resultados.length >= minimo || (resultados.length && provedor.nome === 'searxng')) {
@@ -500,13 +553,14 @@ async function buscar(consulta, opcoes = {}) {
       falhas.push(`${provedor.nome}: sem resultados`);
     } catch (err) {
       falhas.push(`${provedor.nome}: ${err.message}`);
+      pausar(provedor.nome, err.message);
     }
   }
   return { resultados: [], provedor: null, falhas };
 }
 
 module.exports = {
-  buscar, CADEIA, searxng, saudeDaBusca, registrarSaude, duckduckgoHtml, duckduckgoLite, marginalia, wikipedia, jina,
+  buscar, CADEIA, searxng, saudeDaBusca, registrarSaude, duckduckgoHtml, duckduckgoLite, marginalia, wikipedia, jina, ollamaWeb, buscadoresPausados, limparPausas,
   ordenarPorQualidade, qualidadeDoDominio, subconsultas, buscarVarias, estaBloqueado,
   definirPersonalizados,
   estatisticasDeDominios: () => {

@@ -303,7 +303,7 @@ const PULAR_PAGINA = /(youtube\.com|youtu\.be|facebook\.com|instagram\.com|tikto
 async function responderRapido({ objetivo, conversa = [], config, nivel = 1, emit = () => {}, signal, deps = {}, dirImagens = null }) {
   const d = {
     imagem: (assunto, wikis) => imagens.imagemDeReferencia(assunto, { daWikipedia: wikis.map((w) => w.imagem), config, dir: dirImagens }),
-    buscar: (consulta) => buscar(consulta, { searxngUrl: config.searxngUrl, marginaliaKey: config.marginaliaKey, jinaKey: config.jinaKey }),
+    buscar: (consulta) => buscar(consulta, { searxngUrl: config.searxngUrl, marginaliaKey: config.marginaliaKey, jinaKey: config.jinaKey, ollamaKey: config.ollamaKey }),
     wikipedia: (assunto, idioma, resultados) => wikipedia(assunto, idioma, resultados, signal),
     ler: (url) => ler(url, { render: null, permitirExterno: false, conferir: (destino) => conferirDestino(destino, config) }),
     escrever: (opcoes) => ollama.chatStream(opcoes),

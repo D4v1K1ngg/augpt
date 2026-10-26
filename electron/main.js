@@ -393,6 +393,28 @@ function gravarNomeNaMemoria(nome) {
   else memoria.esquecer('nome');
 }
 
+/**
+ * A busca embutida parada (27/10, análise do Davi): sem ela a pesquisa caía nas reservas sem ninguém saber.
+ * Antes de cada execução, se estiver ligada em Ajustes, instalada e parada, religa (espera até 5 s — ela
+ * sobe em ~1 s) e avisa na conversa. Uma tentativa a cada 2 min, para não travar se ela não subir.
+ */
+let ultimaReligada = 0;
+async function garantirBuscaEmbutida() {
+  if (!config.data.usarSearxngEmbutido || !searxngRuntime || searxngRuntime.rodando || !searxngRuntime.estaInstalado()) return;
+  if (Date.now() - ultimaReligada < 2 * 60000) return;
+  ultimaReligada = Date.now();
+  const en = idiomaEfetivo() === 'en';
+  const subiu = await Promise.race([
+    searxngRuntime.iniciar().then(() => true).catch(() => false),
+    new Promise((ok) => setTimeout(() => ok(false), 5000)),
+  ]);
+  enviar('aviso', {
+    texto: subiu
+      ? (en ? 'The built-in search (SearXNG) was stopped — restarted it.' : 'A busca embutida (SearXNG) estava parada — religuei.')
+      : (en ? 'The built-in search (SearXNG) is not running — this search uses Jina and the other providers.' : 'A busca embutida (SearXNG) não está rodando — esta pesquisa usa a Jina e as outras reservas.'),
+  });
+}
+
 function configParaAgente() {
   const base = { ...config.data, idiomaEfetivo: idiomaEfetivo() };
   if (config.data.usarSearxngEmbutido && searxngRuntime?.rodando) base.searxngUrl = `http://127.0.0.1:${searxngRuntime.porta}`;
@@ -955,6 +977,7 @@ ipcMain.handle('skills:preview', async (_e, texto) => {
 ipcMain.handle('agent:start', async (_e, { objetivo, conversa, idConversa } = {}) => {
   if (agent?.rodando) return { ok: false, error: 'Já existe uma execução em andamento.' };
   pararConferencia(); // a checagem da agenda em segundo plano não disputa o modelo com você
+  await garantirBuscaEmbutida();
   criarAgente(idConversa);
   // Peça "resumo de conversa" 2026-09-21: o resumo acumulado (se esta
   // conversa já tiver um, de uma fusão anterior) mora no próprio JSON da

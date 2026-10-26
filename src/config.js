@@ -270,6 +270,8 @@ const DEFAULTS = {
   searxngUrl: '',
   marginaliaKey: 'public',
   jinaKey: '',
+  // busca na web do Ollama (27/10): a chave da conta em ollama.com; vazia = não usa
+  ollamaKey: '',
   usarSearxngEmbutido: false,
   // tela de boas-vindas (15/10) concluída: não abre sozinha de novo (abre por Ajustes)
   boasVindasConcluida: false,

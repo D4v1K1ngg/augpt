@@ -64,6 +64,7 @@ function preencherConfig() {
   $('cfgSearx').value = config.searxngUrl || '';
   $('cfgMarginaliaKey').value = config.marginaliaKey && config.marginaliaKey !== 'public' ? config.marginaliaKey : '';
   $('cfgJinaKey').value = config.jinaKey || '';
+  $('cfgOllamaKey').value = config.ollamaKey || '';
   $('cfgUsarSxEmbutido').checked = config.usarSearxngEmbutido === true;
   $('cfgRenderJs').checked = config.renderizarJs !== false;
   // Padrão desligado desde a Fase 1 de segurança — só marcado com opt-in explícito.
@@ -119,6 +120,7 @@ async function salvarAjustes() {
     searxngUrl: $('cfgSearx').value.trim(),
     marginaliaKey: $('cfgMarginaliaKey').value.trim() || 'public',
     jinaKey: $('cfgJinaKey').value.trim(),
+    ollamaKey: $('cfgOllamaKey').value.trim(),
     usarSearxngEmbutido: $('cfgUsarSxEmbutido').checked,
     renderizarJs: $('cfgRenderJs').checked,
     permitirLeitorExterno: $('cfgLeitorExterno').checked,

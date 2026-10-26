@@ -746,7 +746,7 @@
         <header class="pagina-topo"><div><h1>Pesquisa na web</h1><p>De onde vêm as buscas, quais fóruns contam como opinião de quem usa e em quais sites confiar.</p></div></header>
         <section class="grupo">
           <h2>Buscadores</h2>
-          <p class="dica grupo-sub">A busca tenta vários provedores em cadeia até um responder (busca embutida ou SearXNG → DuckDuckGo → Marginalia → Wikipédia → Jina). A busca embutida se instala na aba Componentes. A chave pública da Marginalia costuma esgotar — pegue a sua de graça em marginalia-search.com/api. A Jina exige chave própria; sem ela, essa reserva fica de fora.</p>
+          <p class="dica grupo-sub">A busca tenta vários provedores em cadeia até um responder (busca embutida ou SearXNG → Jina → Ollama → DuckDuckGo → Marginalia → Wikipédia). Um buscador que acabou de falhar fica de fora por alguns minutos. A busca embutida se instala na aba Componentes. A Jina e o Ollama exigem chave própria; sem ela, ficam de fora. A chave pública da Marginalia costuma esgotar — pegue a sua de graça em marginalia-search.com/api.</p>
           <label class="linha"><span>SearXNG próprio (opcional)</span>
             <input type="text" id="cfgSearx" placeholder="http://localhost:8888" />
           </label>
@@ -755,6 +755,9 @@
           </label>
           <label class="linha"><span>Chave da Jina AI (opcional)</span>
             <input type="text" id="cfgJinaKey" placeholder="jina_..." />
+          </label>
+          <label class="linha"><span>Chave do Ollama — busca na web (opcional)</span>
+            <input type="password" id="cfgOllamaKey" placeholder="crie em ollama.com → Settings → Keys" autocomplete="off" />
           </label>
           <label class="linha linha-bloco"><span>Fontes da comunidade</span>
             <textarea id="cfgFontesComunidade" rows="4" spellcheck="false" placeholder="reddit.com&#10;clubedohardware.com.br&#10;forum.adrenaline.com.br&#10;head-fi.org"></textarea>

@@ -344,6 +344,7 @@ function planoDaBusca({ consulta, idioma, categoria, comunidade }, ctx) {
       searxngUrl: c.config.searxngUrl,
       marginaliaKey: c.config.marginaliaKey,
       jinaKey: c.config.jinaKey,
+      ollamaKey: c.config.ollamaKey,
       pular: provedoresParaPular(c),
       idioma: lingua,
       categoria: categoria || '',
@@ -473,6 +474,7 @@ module.exports = [
         searxngUrl: ctx.config.searxngUrl,
         marginaliaKey: ctx.config.marginaliaKey,
         jinaKey: ctx.config.jinaKey,
+        ollamaKey: ctx.config.ollamaKey,
         pular: provedoresParaPular(ctx),
       });
       registrarFalhas(ctx, falhas);
