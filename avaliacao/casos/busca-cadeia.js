@@ -33,27 +33,27 @@ const tres = (n) => [`https://a.com/${n}`, `https://b.com/${n}`, `https://c.com/
 
 module.exports = [
   {
-    nome: 'busca: a ordem é SearXNG → Jina → Ollama → DuckDuckGo → DuckDuckGo Lite → Marginalia → Wikipedia (a Wikipedia por último)',
+    nome: 'busca: a ordem é SearXNG → Ollama → Jina → DuckDuckGo → DuckDuckGo Lite → Marginalia → Wikipedia (a Wikipedia por último)',
     tipo: 'unidade',
     executar() {
-      return [search.CADEIA.map((p) => p.nome).join(' → ') === 'searxng → jina → ollama → duckduckgo → duckduckgo-lite → marginalia → wikipedia' || search.CADEIA.map((p) => p.nome).join(' → ')];
+      return [search.CADEIA.map((p) => p.nome).join(' → ') === 'searxng → ollama → jina → duckduckgo → duckduckgo-lite → marginalia → wikipedia' || search.CADEIA.map((p) => p.nome).join(' → ')];
     },
   },
   {
-    nome: 'busca: sem SearXNG, a Jina responde antes da Wikipedia; quem falhou (rede, 429) fica de fora nas buscas seguintes; "sem chave" e "sem resultados" não pausam',
+    nome: 'busca: sem SearXNG (e sem a chave do Ollama), a Jina responde antes da Wikipedia; quem falhou (rede, 429) fica de fora nas buscas seguintes; "sem chave" e "sem resultados" não pausam',
     tipo: 'unidade',
     async executar() {
       const r = [];
-      await comFalsos({ jina: tres('j'), wikipedia: tres('w') }, async (chamados) => {
+      await comFalsos({ ollama: new Error('sem chave configurada'), jina: tres('j'), wikipedia: tres('w') }, async (chamados) => {
         const x = await search.buscar('cotação dólar hoje');
-        r.push((x.provedor === 'jina' && chamados.join() === 'searxng,jina') || `${x.provedor} | ${chamados}`);
+        r.push((x.provedor === 'jina' && chamados.join() === 'searxng,ollama,jina') || `${x.provedor} | ${chamados}`);
       });
       await comFalsos({ jina: new Error('sem chave configurada'), ollama: new Error('sem chave configurada'), duckduckgo: new Error('fetch failed'), 'duckduckgo-lite': new Error('fetch failed'), marginalia: new Error('HTTP 429'), wikipedia: tres('w') }, async (chamados) => {
         await search.buscar('primeira');
         const antes = chamados.length;
         const x = await search.buscar('segunda');
         const depois = chamados.slice(antes);
-        r.push((depois.join() === 'searxng,jina,ollama,wikipedia' && x.falhas.some((f) => /duckduckgo: pulado/.test(f))) || `segunda busca chamou: ${depois} | ${JSON.stringify(x.falhas)}`);
+        r.push((depois.join() === 'searxng,ollama,jina,wikipedia' && x.falhas.some((f) => /duckduckgo: pulado/.test(f))) || `segunda busca chamou: ${depois} | ${JSON.stringify(x.falhas)}`);
         const p = search.buscadoresPausados();
         r.push((p.duckduckgo && p.marginalia && !p.jina && p.marginalia - p.duckduckgo > 60_000) || `pausas: ${JSON.stringify(p)}`);
       });

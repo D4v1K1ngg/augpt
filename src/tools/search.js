@@ -501,13 +501,15 @@ async function buscarVarias(consultas, opcoes = {}) {
  * A ordem (27/10, análise da conversa do Davi): sem o SearXNG, o DuckDuckGo falhava ("fetch failed") e o
  * Marginalia dava 429 — cada busca esperava ~22 s e acabava na Wikipedia (o dólar "não encontrado"). A
  * Jina, com a chave dele, estava DEPOIS da Wikipedia e nunca era chamada. Agora: os buscadores da web de
- * verdade primeiro (SearXNG, Jina, Ollama — os dois últimos só com chave), os gratuitos sem chave depois,
+ * verdade primeiro (SearXNG, Ollama, Jina — os dois últimos só com chave), os gratuitos sem chave depois,
  * e a Wikipedia por último (enciclopédia não tem cotação, preço nem notícia do dia).
  */
 const CADEIA = [
   { nome: 'searxng', fn: searxng },
-  { nome: 'jina', fn: jina },
+  // 27/10: com a chave do Davi, o Ollama respondeu em 0,8 s com fontes melhores que a Jina (TI, Corsair,
+  // Banco Central); com limite do plano gratuito (429), fica 10 min de fora e a Jina assume
   { nome: 'ollama', fn: ollamaWeb },
+  { nome: 'jina', fn: jina },
   { nome: 'duckduckgo', fn: duckduckgoHtml },
   { nome: 'duckduckgo-lite', fn: duckduckgoLite },
   { nome: 'marginalia', fn: marginalia },
