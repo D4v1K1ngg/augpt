@@ -321,6 +321,7 @@
     'Nenhum jeito novo desta vez — os que já sei ({total}) continuam valendo.': 'Nothing new this time — the ones I already know ({total}) still apply.',
     'Treinado: {n} jeito(s) da sua pronúncia{sens}. Aprende também com o uso.': 'Trained: {n} way(s) you pronounce it{sens}. It also learns as you use it.',
     'Era eu chamando': 'That was me calling',
+    'Não ouvi o nome — fale de novo, um pouco mais perto do microfone.': "I didn't hear the name — say it again, a little closer to the microphone.",
     // o nome do assistente e a voz do usuário (25/10)
     'Chamar pela voz': 'Wake by voice',
     'O AuGPT fica ouvindo o microfone e, quando você diz o nome do assistente (logo abaixo), grava o pedido e já envia ao agente — por exemplo, "Jarvis, vai chover amanhã?". "…, nova conversa" e "…, para" também valem. Tudo no seu computador; enquanto estiver ligado, o Windows mostra o microfone em uso. Na primeira vez baixa o modelo da escuta (o small, 190 MB — dá para trocar pelo base, de 60 MB, logo abaixo).': 'AuGPT keeps listening to the microphone and, when you say the assistant\'s name (just below), records your request and sends it to the agent right away — for example, "Jarvis, will it rain tomorrow?". "…, new chat" and "…, stop" work too. Everything stays on your computer; while it is on, Windows shows the microphone in use. The first time, it downloads the listening model (small, 190 MB — you can switch to base, 60 MB, just below).',

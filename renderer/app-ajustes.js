@@ -1031,7 +1031,7 @@ $('btnTreinarVoz').addEventListener('click', async () => {
   const niveis = [];
   let sozinho = 0;
   try {
-    for (let i = 0, tentativas = 0; i < JEITOS.length && tentativas < 10 && !treinoParado; tentativas += 1) {
+    for (let i = 0, tentativas = 0; i < JEITOS.length && tentativas < 14 && !treinoParado; tentativas += 1) {
       $('treinoInstrucao').textContent = tr('{n} de {total} — diga "{nome}" {jeito}', { n: i + 1, total: JEITOS.length, nome: window.escutaPorVoz?.nome() || 'Ei GPT', jeito: tr(JEITOS[i]) });
       const frase = await window.ditadoPorVoz.gravarFrase({ aoNivel: (n) => ($('treinoNivel').style.width = `${Math.round(n * 100)}%`) });
       if (treinoParado) break;
@@ -1042,6 +1042,12 @@ $('btnTreinarVoz').addEventListener('click', async () => {
       }
       $('treinoInstrucao').textContent = tr('Conferindo…');
       const r = await api.ditado.treinarFrase(frase.wav);
+      // o Whisper não escreveu nada: era ruído, ou a fala foi curta demais — não conta, pede de novo
+      if (r.ok && !r.ouviu) {
+        $('treinoInstrucao').textContent = tr('Não ouvi o nome — fale de novo, um pouco mais perto do microfone.');
+        await new Promise((ok) => setTimeout(ok, 1400));
+        continue;
+      }
       const li = document.createElement('li');
       if (!r.ok) {
         li.className = 'nao';

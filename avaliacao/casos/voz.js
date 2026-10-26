@@ -53,7 +53,11 @@ module.exports = [
       }
       d.definirNome('Jarvis');
       resultado.push(d.semChamada('Ei Jarvis, que horas são?') === 'Que horas são?' || d.semChamada('Ei Jarvis, que horas são?'));
-      resultado.push(JSON.stringify(d.variantesDoTreino(['Jarves', 'Javier']).variantes) === '[]' && d.varianteValida('jarvys') && !d.varianteValida('javier') || 'variantes de Jarvis');
+      // 26/10 (PC do Davi): no treino, o que o Whisper escreveu quando VOCÊ disse o nome vale ("Ei Jarvis" →
+      // "Age of Elvis"); "Jarves" já chama sozinho (não vira variante); ruído nunca entra, nem sem espaços
+      const treino = d.variantesDoTreino(['Jarves', 'Age of Elvis', 'Som de barulho']);
+      resultado.push(JSON.stringify(treino.variantes) === '["ageofelvis"]' && treino.recusadas.length === 1 && !d.varianteValida('somdebarulho') || `variantes de Jarvis: ${JSON.stringify(treino)}`);
+      resultado.push(d.ehChamada('Age of Elvis, que horas são', treino.variantes) && d.lembraVariante('Age of service.', treino.variantes) && !d.lembraVariante('O jogo foi bom', treino.variantes) || 'a variante chama, e o parecido só "lembra" (para a decisão com a voz)');
       resultado.push(d.lembraONome('Jervys') && !d.lembraONome('o jogo foi bom') || 'lembra o nome');
       d.definirNome('Atlas');
       resultado.push(d.ehChamada('Atrás da porta') || 'Atlas × atrás (se parar de disparar, dá para sugerir de novo)');
@@ -90,7 +94,8 @@ module.exports = [
     tipo: 'unidade',
     executar() {
       const tom = new Float32Array(4096).map((_, i) => 0.3 * Math.sin((2 * Math.PI * 600 * i) / 48000) + 0.15 * Math.sin((2 * Math.PI * 1200 * i) / 48000));
-      const clique = new Float32Array(4096).map((_, i) => (i % 900 < 8 ? (Math.random() * 2 - 1) * 0.8 : 0));
+      // estalos de 1 amostra (espectro plano, como um clique de verdade) — determinístico, sem sorteio
+      const clique = new Float32Array(4096).map((_, i) => (i % 900 === 0 ? 0.8 : 0));
       const chiado = new Float32Array(4096).map(() => (Math.random() * 2 - 1) * 0.2);
       const escuta = fs.readFileSync(path.join(__dirname, '../../renderer/escuta.js'), 'utf8');
       return [

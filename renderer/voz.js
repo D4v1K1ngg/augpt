@@ -192,17 +192,33 @@
    * também LEMBRA o nome (dois sinais fracos juntos; a TV falando outra coisa não passa). Com menos de
    * 4 gravações, não decide (só o texto do Whisper).
    */
-  function limiteDosModelos(modelos) {
+  /**
+   * As gravações que valem (26/10, no PC do Davi: uma das 6 era ruído — 39 a 43 de todas as outras,
+   * que ficavam entre 14 e 21 — e levou o limite a 62): sai a que está a mais de 1,6× da mediana.
+   */
+  function modelosConfiaveis(modelos) {
+    if (modelos.length < 4) return modelos;
+    const melhores = modelos.map((m, i) => Math.min(...modelos.filter((_, k) => k !== i).map((o) => compararComeco(o, m).custo)));
+    const ordem = melhores.filter(Number.isFinite).sort((a, b) => a - b);
+    const mediana = ordem[Math.floor(ordem.length / 2)];
+    return modelos.filter((_, i) => Number.isFinite(melhores[i]) && melhores[i] <= mediana * 1.6);
+  }
+
+  function limiteDosModelos(modelosBrutos) {
+    const modelos = modelosConfiaveis(modelosBrutos);
     if (modelos.length < 4) return null;
     const melhores = modelos.map((m, i) => Math.min(...modelos.filter((_, k) => k !== i).map((o) => compararComeco(o, m).custo)));
     const finitos = melhores.filter(Number.isFinite).sort((a, b) => a - b);
     if (finitos.length < 3) return null;
-    // piso de 6: gravações quase iguais (mesmo tom, mesma velocidade) dariam limite perto de zero
-    return Math.max(6, finitos[finitos.length - 1] * 1.6);
+    // × 1,45: no PC do Davi, as gravações boas ficaram até 18,1 entre si (limite 26,2), as chamadas reais
+    // em 13,7 e 14,8, e uma frase que não era chamada em 30,1. Piso de 6: gravações quase iguais (mesmo
+    // tom, mesma velocidade) dariam limite perto de zero
+    return Math.max(6, finitos[finitos.length - 1] * 1.45);
   }
 
   /** A fala nova (Float32 16 kHz) começa com o nome? → { chamou, custo, limite, corteSegundos } */
-  function reconhecer(amostras, modelos, limite) {
+  function reconhecer(amostras, modelosBrutos, limite) {
+    const modelos = modelosConfiaveis(modelosBrutos || []);
     if (!limite || !modelos.length) return { chamou: false, custo: Infinity, limite };
     const f = impressao(amostras);
     if (f.quadros.length < 15) return { chamou: false, custo: Infinity, limite };
@@ -246,7 +262,7 @@
   // ("Ava", "Zeus", "Lúcio") e palavras do dia a dia ("Computador", "Atlas" × "atrás") disparam à toa.
   const nomesSugeridos = ['Jarvis', 'Nexus', 'Sexta-feira', 'Aurora'];
 
-  const api = { nomesSugeridos, impressao, compararComeco, limiteDosModelos, reconhecer, faixaDeVoz, doWav, TAXA };
+  const api = { nomesSugeridos, modelosConfiaveis, impressao, compararComeco, limiteDosModelos, reconhecer, faixaDeVoz, doWav, TAXA };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.vozDoUsuario = api;
 })(typeof window !== 'undefined' ? window : globalThis);

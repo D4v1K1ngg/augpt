@@ -142,6 +142,23 @@ function lembraONome(texto) {
   return false;
 }
 
+/** O começo do texto lembra uma variante aprendida (folgado: até metade das letras) — para a decisão com o som. */
+function lembraVariante(texto, variantes = []) {
+  if (!variantes.length) return false;
+  const palavras = compacto(texto).split(' ').filter(Boolean);
+  let junto = '';
+  for (let i = 0; i < Math.min(4, palavras.length); i += 1) {
+    junto += palavras[i];
+    const k = miolo(chaveDeSom(junto));
+    if (variantes.some((v) => {
+      const kv = miolo(chaveDeSom(v));
+      const tol = Math.max(2, Math.floor(kv.length / 2));
+      return kv.length >= 4 && Math.abs(kv.length - k.length) <= tol && distancia(kv, k) <= tol;
+    })) return true;
+  }
+  return false;
+}
+
 /** Quantas palavras do começo do texto são a chamada (0 = não chamou). Olha até as 4 primeiras (5 com enchimento). */
 function palavrasDaChamada(texto, variantes = []) {
   const palavras = compacto(texto).split(' ').filter(Boolean);
@@ -184,13 +201,14 @@ function variantesDoTreino(textos) {
  */
 function varianteValida(junto) {
   const k = String(junto || '');
-  if (k.length < 4 || k.length > 18 || COMUM.test(k) || ALUCINACAO.test(k)) return false;
+  // o ruído também chega sem espaços ('somdebarulho'): a lista confere das duas formas
+  if (k.length < 4 || k.length > 18 || COMUM.test(k) || ALUCINACAO.test(k) || ALUCINACAO_JUNTO.test(k)) return false;
   // "GPT": um p e depois um t; outro nome: a variante tem que lembrar o nome escolhido
   if (NOME.ehGpt) return k.length >= 5 && /p.*t/.test(chaveDeSom(k));
-  // outro nome: perto dele (até 1 letra a cada 3) — "Jarves" serve para "Jarvis"; "Javier" não
-  const m = miolo(chaveDeSom(k));
-  const tol = Math.max(1, Math.floor(NOME.chave.length / 3));
-  return Math.abs(m.length - NOME.chave.length) <= tol && distancia(m, NOME.chave) <= tol;
+  // outro nome (26/10): vale o que o Whisper escreveu quando VOCÊ disse o nome — no PC do Davi, "Ei Jarvis"
+  // virou "Age of Elvis" no treino. Variante só entra pelo treino, pela repetição ou pelo "Era eu chamando"
+  // (sempre você chamando), e a escuta ainda confere com o som da voz quando o texto não basta.
+  return true;
 }
 const variantesValidas = (lista) => (Array.isArray(lista) ? lista : []).filter((v) => typeof v === 'string' && varianteValida(v));
 
@@ -284,6 +302,7 @@ const janelaDeAudio = (segundos) => Math.min(1500, Math.max(384, Math.ceil((((Nu
 
 // frases que o Whisper escreve com ruído ou silêncio (25/10, no PC do Davi: o teclado virou "Som de barulho")
 const ALUCINACAO = /^(som de barulho|barulho|barulhos|ruido|ruidos|som|sons|som de teclado|digitando|musica|aplausos|risos|silencio|legendas? pela comunidade amara org|legendas? por [a-z ]+|obrigad[oa] por assistir|inscreva se( no canal)?|ate a proxima|tchau tchau)$/;
+const ALUCINACAO_JUNTO = new RegExp(ALUCINACAO.source.replace(/ /g, ''));
 const compactoFrase = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** A saída do whisper-cli sem marcações: junta as linhas, tira "[BLANK_AUDIO]", "(música)" e afins. */
@@ -396,7 +415,7 @@ class Ditado {
     const texto = limparTranscricao(await this.executar(exe, args, { cwd: path.dirname(exe), timeout: 15000 }));
     const chamou = ehChamada(texto, variantes);
     // `parecido`: não chamou pelo texto, mas o começo lembra o nome — a escuta decide junto com o som da voz
-    return { texto, chamou, parecido: chamou || lembraONome(texto), resto: chamou ? semChamada(texto, variantes) : '', modelo: usado, ms: Date.now() - inicio };
+    return { texto, chamou, parecido: chamou || lembraONome(texto) || lembraVariante(texto, variantes), resto: chamou ? semChamada(texto, variantes) : '', modelo: usado, ms: Date.now() - inicio };
   }
 
   estado() {
@@ -454,4 +473,4 @@ class Ditado {
   }
 }
 
-module.exports = { definirNome, nomeAtual, lembraONome, temSomDoNome, temSomDeGPT, Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel };
+module.exports = { definirNome, nomeAtual, lembraONome, lembraVariante, temSomDoNome, temSomDeGPT, Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel };

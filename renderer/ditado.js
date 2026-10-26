@@ -325,6 +325,7 @@
     const trecho = [];
     const niveis = [];
     let ruido = 0.004;
+    const recentes = [];
     let comeco = 0;
     let ultima = 0;
     const inicio = Date.now();
@@ -336,7 +337,12 @@
           for (let i = 0; i < dados.length; i += 1) soma += dados[i] * dados[i];
           const nivel = Math.sqrt(soma / dados.length);
           ruido = nivel < ruido ? nivel : ruido * 1.01;
-          const fala = nivel > Math.max(0.003, ruido * 3);
+          // voz de verdade (26/10: o treino gravava ruído e o Whisper devolvia nada): alta o bastante, na
+          // faixa da fala (renderer/voz.js) e em 2 dos 3 últimos pedaços
+          const alto = nivel > Math.max(0.003, ruido * 3) && (window.vozDoUsuario?.faixaDeVoz(dados, contexto.sampleRate) ?? 1) >= 0.65;
+          recentes.push(alto);
+          if (recentes.length > 3) recentes.shift();
+          const fala = comeco ? alto : recentes.filter(Boolean).length >= 2;
           aoNivel(Math.min(1, nivel * 8));
           const t = Date.now();
           if (!comeco) {

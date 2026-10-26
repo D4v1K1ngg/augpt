@@ -1169,6 +1169,7 @@ ipcMain.handle('ditado:treinarFrase', async (_e, bytes) => {
   if (!ditado?.escutaInstalada()) return { ok: false, error: 'escuta não instalada' };
   const r = await ouvirFrase(bytes, { variantes: [] });
   if (r.ok) anotarNaEscuta({ texto: r.texto || '(nada)', chamou: r.chamou, ms: r.ms, modelo: r.modelo, treino: true });
+  if (r.ok) r.ouviu = Boolean(String(r.texto || '').trim()); // vazio: ruído ou nada — o treino pede de novo
   return r;
 });
 // o treino SOMA (25/10): as variantes novas entram junto das que já havia (até 24) e a sensibilidade sai
