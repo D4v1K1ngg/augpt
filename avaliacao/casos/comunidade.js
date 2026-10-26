@@ -288,7 +288,7 @@ module.exports = [
     tipo: 'unidade',
     async executar() {
       const { Agent } = require('../../src/agent/loop');
-      const agente = new Agent({ config: { profundidadePesquisa: 'alta' }, userDataPath: require('os').tmpdir() });
+      const agente = new Agent({ config: { profundidadePesquisa: 'alta', destilarComModelo: true }, userDataPath: require('os').tmpdir() });
       let chamou = 0;
       agente._destilarUm = async () => {
         chamou += 1;

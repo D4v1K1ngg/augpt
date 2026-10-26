@@ -1068,6 +1068,21 @@ class Agent extends EventEmitter {
    * de chamadas ao modelo; quando o teto é atingido e ainda sobra texto,
    * emite 'aviso' — antes o corte era mudo, agora pelo menos avisa.
    */
+  /**
+   * Os até 5 trechos da página mais ligados ao pedido (palavras + sentido, src/agent/nucleo/ranking.js),
+   * em ~0,3 s em vez de uma destilação de ~7 s. `trechos: true` marca a origem (não é tópico de comunidade,
+   * que é o `cru`).
+   */
+  async _trechosDaPagina({ objetivo, foco = '', origem, texto, url }) {
+    const { pedacos, ordenar } = require('./nucleo/ranking');
+    const partes = pedacos(texto).map((t) => ({ texto: t }));
+    if (!partes.length) return { origem, url, texto: `(nada relevante ao pedido em ${origem})`, bruto: texto, fatos: 0, destilado: true, pulado: true };
+    const embed = (textos) => ollama.embed({ host: this.config.host, model: this.config.embedModel || 'nomic-embed-text', input: textos, signal: this.controller?.signal });
+    const melhores = (await ordenar(`${foco} ${objetivo}`.trim(), partes, { embed, maximo: 5 })).filter((m, i) => i === 0 || m.nota >= 0.2);
+    this.emit('destilado', { n: this.iteracao, origem, fatos: melhores.length, de: texto.length, para: melhores.reduce((s, m) => s + m.texto.length, 0), modo: 'trechos' });
+    return { origem, url, texto: melhores.map((m) => m.texto).join('\n…\n').slice(0, 5000), bruto: texto, fatos: melhores.length, destilado: true, trechos: true };
+  }
+
   async _destilarGrande({ objetivo, foco = '', opcao = '', origem, texto, url }) {
     const bruto = String(texto || '');
     // `opcao` (motor de pesquisa, 5º teste real, 2026-09-24): leitura feita
@@ -1087,6 +1102,14 @@ class Agent extends EventEmitter {
     // entrega pergunta + respostas limpas; vai cru, com teto de tamanho.
     if (foco && url && tipoDeFonte(url, this.config) === 'comunidade' && /^T[ÓO]PICO (DO REDDIT|DE F[ÓO]RUM)/.test(bruto)) {
       return [{ origem, url, texto: bruto.slice(0, 6000), bruto, fatos: 0, destilado: false, cru: true }];
+    }
+    // Página da web nas tarefas (27/10, análise do Davi: 52 destilações de ~7 s numa tarefa de 2–5 min):
+    // os trechos que mais têm a ver com o pedido, sem chamar o modelo — como a pesquisa do núcleo já faz.
+    // Fica o modelo na pesquisa planejada e nas subtarefas (com `foco`: o motor de pesquisa tira do resumo
+    // os nomes dos candidatos e os fatos da matriz), na investigação de UMA opção e com
+    // "destilarComModelo" ligado em Ajustes.
+    if (url && !foco && !opcao && this.config.destilarComModelo !== true) {
+      return [await this._trechosDaPagina({ objetivo, foco, origem, texto: bruto, url })];
     }
     // pedaço do tamanho que CABE na janela para este material (página de
     // preço/tabela é densa em tokens — ver maximoQueCabe em destilador.js)

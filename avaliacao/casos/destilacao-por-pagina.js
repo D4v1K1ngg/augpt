@@ -48,6 +48,7 @@ function agenteDeTeste({ falso, searxngUrl, configExtra = {} }) {
   return new Agent({
     config: {
       host: `http://127.0.0.1:${falso.porta}`,
+      destilarComModelo: true, // estes casos testam o resumo pelo modelo (o padrão, desde 27/10, são os trechos)
       model: 'falso',
       modelDecisao: '',
       modelRedacao: '',

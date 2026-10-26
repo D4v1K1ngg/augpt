@@ -67,6 +67,7 @@ function preencherConfig() {
   $('cfgOllamaKey').value = config.ollamaKey || '';
   $('cfgUsarSxEmbutido').checked = config.usarSearxngEmbutido === true;
   $('cfgRenderJs').checked = config.renderizarJs !== false;
+  $('cfgDestilarComModelo').checked = config.destilarComModelo === true;
   // Padrão desligado desde a Fase 1 de segurança — só marcado com opt-in explícito.
   $('cfgLeitorExterno').checked = config.permitirLeitorExterno === true;
   $('cfgRedeLocal').checked = config.permitirRedeLocal === true;
@@ -123,6 +124,7 @@ async function salvarAjustes() {
     ollamaKey: $('cfgOllamaKey').value.trim(),
     usarSearxngEmbutido: $('cfgUsarSxEmbutido').checked,
     renderizarJs: $('cfgRenderJs').checked,
+    destilarComModelo: $('cfgDestilarComModelo').checked,
     permitirLeitorExterno: $('cfgLeitorExterno').checked,
     permitirRedeLocal: $('cfgRedeLocal').checked,
     navegacaoInterativa: $('cfgNavegacao').checked,

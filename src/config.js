@@ -133,6 +133,9 @@ const DEFAULTS = {
   // vagas (variável de ambiente OLLAMA_NUM_PARALLEL=2): 1,39x na destilação,
   // +0,6 GB de memória de vídeo. Com 1 vaga não muda nada (os pedidos fazem fila).
   destilacaoParalela: 2,
+  // páginas da web nas tarefas (27/10): false = os trechos mais ligados ao pedido, sem o modelo (~0,3 s);
+  // true = o resumo pelo modelo (~7 s por página), como antes
+  destilarComModelo: false,
   // Imagens nas respostas (src/tools/imagens.js, 11/10): foto de cada produto
   // nos cartões da recomendação e imagem de referência nas explicações.
   imagensNasRespostas: true,

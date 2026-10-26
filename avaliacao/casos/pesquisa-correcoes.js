@@ -127,7 +127,7 @@ module.exports = [
           nome: 'foco da subtarefa na destilação',
           pedido: 'Quais os melhores fones intra-auriculares para jogar PUBG no PC?',
           // a bancada deixa a destilação desligada por padrão
-          config: CONFIG_BASE(srv.porta, { destilarFatos: true }),
+          config: CONFIG_BASE(srv.porta, { destilarFatos: true, destilarComModelo: true }),
           roteiro: [
             { ferramenta: 'pesquisar_e_ler', argumentos: { consulta: 'fones pubg consulta-1' } },
             {
