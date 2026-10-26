@@ -958,7 +958,8 @@ function atividade(canal, d) {
       if (d.tipo === 'busca') {
         t.contagem.buscas += 1;
         t.contagem.resultados = (t.contagem.resultados || 0) + (Number(d.resultados) || 0);
-        etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.consultas?.length ? tr('Busca: {q}', { q: d.consultas[d.consultas.length - 1] }) : '');
+        const busca = d.consultas?.length ? tr('Busca: {q}', { q: d.consultas[d.consultas.length - 1] }) : '';
+        etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.dominios?.length ? `${busca} — ${tr('achou: {s}', { s: d.dominios.slice(0, 4).join(', ') })}` : busca);
       } else if (d.url) {
         siteConsultado(d.url);
         resumoDaAtividade();

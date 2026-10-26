@@ -131,9 +131,17 @@ const QUESTAO_DE_EXATAS = (t) => /\bquest[aã]o\s*\d/i.test(t) && /\\\(|\\\[|\\f
 const SOBRE_O_AUGPT = /^\s*(quem (é|e) (voc[eê]|vc|o augpt)|o que (voc[eê]|vc) (é|e)(?![a-zà-ú])|como (voc[eê]|vc) funciona|quem (te|o) (criou|fez|desenvolveu)|qual (é |e )?(o )?seu nome|voc[eê] (é|e) (uma )?(ia|intelig|rob[oô]))/i;
 const CONTA_DIRETA = /^\s*(resolva|calcule|quanto (é|e|da|dá)|derive|integre|simplifique|fatore)(?![a-zà-ú])[^?]*[\d=+\-*/^√]/i;
 const PERGUNTA_DE_SUPORTE = /(?<![a-zà-ú])(como (atualizar|configurar|ativar|desativar|instalar|desinstalar|resolver|consertar|corrigir|arrumar|habilitar|desabilitar|mudar|trocar|tirar|remover|limpar)|(é|e) poss[ií]vel (usar|ativar|fazer|instalar|configurar)|n[ãa]o (tenho|aparece|acho|encontro) (a )?op[çc][ãa]o|n[ãa]o (funciona|liga|abre|conecta|reconhece)|(d[áa]|deu|est[áa] dando) erro|travando|com (lag|problema|defeito))\b/i;
+// só cumprimento (27/10, análise do Davi: "E aí" pesquisava na web — 15 s, 2 páginas lidas): o  do
+// SEM_BUSCA não fecha depois de letra acentuada ("e aí", "olá"); aqui o texto vem sem acento. Depois do
+// cumprimento, só conversa ("tudo bem", "como vai", o nome) — "e aí, quem ganhou o jogo?" continua buscando.
+const SO_CUMPRIMENTO = /^(oi+|ola|opa|eae|e ai|eai|hey|ei|bom dia|boa tarde|boa noite|tudo bem|tudo bom|como vai|como voce esta|obrigad[oa]|muito obrigad[oa]|valeu|vlw|blz|beleza|show|perfeito|otimo|legal|massa|top|entendi|ok|okay|certo|tchau|ate mais|falou)( (e )?(tudo bem|tudo bom|tudo certo|como vai|como voce esta|como vc ta|como vc esta|beleza|blz|augpt|gpt|jarvis|amigo|cara|mano|pessoal|meu (amigo|chapa)))*$/;
+const soCumprimento = (pergunta) => {
+  const t = require('../tipo-de-pedido').normalizarPedido(pergunta);
+  return t.length > 0 && t.length <= 60 && SO_CUMPRIMENTO.test(t);
+};
 const podeFicarSemBusca = (pergunta) => {
   const t = String(pergunta || '').trim();
-  return SEM_BUSCA.test(t) || QUESTAO_DE_EXATAS(t) || SOBRE_O_AUGPT.test(t) || CONTA_DIRETA.test(t);
+  return SEM_BUSCA.test(t) || soCumprimento(t) || QUESTAO_DE_EXATAS(t) || SOBRE_O_AUGPT.test(t) || CONTA_DIRETA.test(t);
 };
 
 // Travas do código para o modelo pequeno que erra os campos do entendimento (18/10): palavras que
@@ -186,7 +194,7 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     const assuntos = (Array.isArray(j.assuntos) ? j.assuntos : []).map((a) => String(a || '').trim()).filter((a) => a.length >= 2 && a.length <= 80).slice(0, 4);
     // o modelo só decide "sem busca" no que é claramente conversa; um nome solto ("Dragon Ball Super Beerus") pesquisa
     const exatas = QUESTAO_DE_EXATAS(String(pergunta || ''));
-    const semBusca = exatas || SOBRE_O_AUGPT.test(String(pergunta || '')) || CONTA_DIRETA.test(String(pergunta || '')) || (comImagem && soSobreAImagem(pergunta));
+    const semBusca = exatas || soCumprimento(pergunta) || SOBRE_O_AUGPT.test(String(pergunta || '')) || CONTA_DIRETA.test(String(pergunta || '')) || (comImagem && soSobreAImagem(pergunta));
     const precisaBuscar = !semBusca && (j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta)));
     return {
       precisaBuscar,
@@ -486,7 +494,9 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     if (!lista.length) return 'Essas buscas já foram feitas. Leia as fontes mais promissoras com ler_pagina, busque outro ângulo com o nome do assunto, ou chame pronto.';
     emit('ferramenta', { nome: comunidade ? 'buscar_na_comunidade' : 'buscar_na_web', argumentos: { consulta: lista.join(' · ') }, risco: 'leitura' });
     const achados = (await Promise.all(lista.map((q) => (comunidade ? buscarNaComunidade(q) : buscar(q, { recente: atual })).catch(() => [])))).flat();
-    for (const q of lista) emit('fonte', { tipo: 'busca', provedor: 'web', consultas: [q], resultados: Math.round(achados.length / lista.length) });
+    // os sites que a busca trouxe (27/10): a Atividade mostra onde vai procurar, não só quantos achou
+    const dominios = [...new Set(achados.map((r) => { try { return new URL(r.url).hostname.replace(/^www\./, ''); } catch { return ''; } }).filter(Boolean))].slice(0, 6);
+    for (const q of lista) emit('fonte', { tipo: 'busca', provedor: 'web', consultas: [q], resultados: Math.round(achados.length / lista.length), dominios });
     buscou = true;
     buscasFeitas += lista.length;
     // ordena pelo que a pergunta + as buscas pedem; o pesquisador vê os 8 melhores novos
@@ -1394,4 +1404,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null };
 }
 
-module.exports = { soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
