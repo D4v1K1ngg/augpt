@@ -91,13 +91,16 @@ async function acharCidade(nome, { idioma = 'pt', deps = {} } = {}) {
   if (!lista.length) return null;
   const pista = semAcento(dica.join(' '));
   const estado = UF[pista] ? semAcento(UF[pista]) : pista;
-  const escolhida = (pista && lista.find((x) => [x.admin1, x.country, x.country_code].some((v) => semAcento(v) === estado || semAcento(v) === pista)))
+  const daPista = pista && lista.find((x) => [x.admin1, x.country, x.country_code].some((v) => semAcento(v) === estado || semAcento(v) === pista));
+  const escolhida = daPista
     // sem pista: a do Brasil (o AuGPT é usado aqui) com mais gente, senão a primeira da busca
     || (!pista && lista.filter((x) => x.country_code === 'BR').sort((a, b) => (b.population || 0) - (a.population || 0))[0])
     || lista[0];
   const uf = escolhida.country_code === 'BR' ? SIGLA[semAcento(escolhida.admin1)] : null;
   const rotulo = [escolhida.name, uf || escolhida.admin1, escolhida.country_code === 'BR' ? null : escolhida.country].filter((v, i, l) => v && l.indexOf(v) === i).join(', ');
-  return { nome: escolhida.name, rotulo, lat: escolhida.latitude, lon: escolhida.longitude };
+  // 26/10 (no app): "Itanhaém, Espírito Santo" mostrou Itanhaém, SP sem dizer nada — o estado pedido não
+  // tinha cidade com esse nome; a resposta agora avisa
+  return { nome: escolhida.name, rotulo, lat: escolhida.latitude, lon: escolhida.longitude, pistaQueNaoBateu: pista && !daPista ? dica.join(', ') : null };
 }
 
 async function previsao(lugar, deps = {}) {
@@ -212,6 +215,7 @@ async function responderClima({ pergunta, deps = {}, config = {}, pasta, pedido,
     dias,
     horas: { t: h.time || [], temp: (h.temperature_2m || []).map(Math.round), prob: h.precipitation_probability || [], ico: (h.weather_code || []).map((cod, i) => icone(cod, h.is_day?.[i] ?? 1)) },
   };
+  if (lugar.pistaQueNaoBateu) texto = `${en ? `I didn't find **${lugar.nome}** in ${lugar.pistaQueNaoBateu} — showing ${local}.` : `Não achei **${lugar.nome}** em ${lugar.pistaQueNaoBateu} — mostrando ${local}.`}\n\n${texto}`;
   return fim(`${texto}\n\n\`\`\`clima\n${JSON.stringify(bloco)}\n\`\`\``);
 }
 

@@ -174,6 +174,11 @@ const pedeVisual = (pergunta) => PEDE_VISUAL.test(String(pergunta || '')) && !pe
 /** Página completa num ```html (18/10: o 2B escreveu a calculadora certa, mas como código): vira ```visual. */
 const comoVisual = (texto) => (/```visual/.test(texto) ? texto : String(texto).replace(/```html\s*\n([\s\S]*?<(?:script|body|canvas|button)[\s\S]*?)```/i, '```visual\n$1```'));
 
+// pergunta só SOBRE a imagem anexada (26/10, no app: "O que que tem na minha tela?" pesquisou na web por
+// 85 s): descrever, ler, traduzir — a resposta vem de olhar a imagem. "Que erro é esse?" continua buscando.
+const SOBRE_A_IMAGEM = /\b(o que (que )?(tem|h[áa]|[ée]|est[áa]|aparece|mostra)|descrev\w*|traduz\w*|leia|l[êe] (pra|para) mim|o que (est[áa] )?escrito|transcrev\w*)\b[^?]{0,40}\b(tela|imagem|foto|captura|print|isso|isto|aqui)\b|^\s*(o que [ée] isso|descreva|traduz\w*|leia)\b|\bwhat'?s? (is )?(on|in) (my|the|this) (screen|image|picture|photo)\b/i;
+const soSobreAImagem = (pergunta) => SOBRE_A_IMAGEM.test(String(pergunta || ''));
+
 function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
   try {
     const j = JSON.parse(String(texto).slice(String(texto).indexOf('{'), String(texto).lastIndexOf('}') + 1));
@@ -181,7 +186,7 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     const assuntos = (Array.isArray(j.assuntos) ? j.assuntos : []).map((a) => String(a || '').trim()).filter((a) => a.length >= 2 && a.length <= 80).slice(0, 4);
     // o modelo só decide "sem busca" no que é claramente conversa; um nome solto ("Dragon Ball Super Beerus") pesquisa
     const exatas = QUESTAO_DE_EXATAS(String(pergunta || ''));
-    const semBusca = exatas || SOBRE_O_AUGPT.test(String(pergunta || '')) || CONTA_DIRETA.test(String(pergunta || ''));
+    const semBusca = exatas || SOBRE_O_AUGPT.test(String(pergunta || '')) || CONTA_DIRETA.test(String(pergunta || '')) || (comImagem && soSobreAImagem(pergunta));
     const precisaBuscar = !semBusca && (j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta)));
     return {
       precisaBuscar,
@@ -879,7 +884,7 @@ ${
         atual ? `\n- Esta pergunta depende de QUANDO: diga a data dos fatos que citar ("em 5 de outubro de ${String(hoje).slice(-4)}…") e deixe claro o que já aconteceu e o que ainda não, olhando a data de hoje.` : ''
       }${produto ? FORMATO_DE_PRODUTO : ''}`
     : `- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.${INSTRUCAO_DE_GRAFICO}${INSTRUCAO_DE_VISUAL}`
-}${capacidadesNaEscrita ? `\n\n${capacidadesNaEscrita}` : ''}${preferencias ? `\n\n<preferencias_do_usuario>\n${preferencias}\n</preferencias_do_usuario>\nO usuário pediu para você guardar isto: siga as preferências e use os fatos quando ajudarem, sem citá-los à toa.` : ''}${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 1500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou), e não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
+}${capacidadesNaEscrita ? `\n\n${capacidadesNaEscrita}` : ''}${preferencias ? `\n\n<preferencias_do_usuario>\n${preferencias}\n</preferencias_do_usuario>\nO usuário pediu para você guardar isto: siga as preferências e use os fatos quando ajudarem, sem citá-los à toa. Só isto está guardado: nunca diga que algo é \"preferência registrada\" ou está guardado se não estiver nesta lista, e não cite este bloco como fonte.` : ''}${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 1500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou), e não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
 }
 
 // 15/10 (pedido do Davi): resposta de produto em cartões — o renderer desenha
@@ -1285,7 +1290,8 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   ];
   const limparEscrita = (t) =>
     semImagens(t)
-      .replace(/\s*\[(imagem_anexada|imagem anexada)\]/gi, '')
+      // marcação dos blocos internos citada como fonte (26/10, no app: "[preferencias_do_usuario]")
+      .replace(/\s*\[(imagem_anexada|imagem anexada|preferencias_do_usuario|sobre_o_usuario|anotacoes_do_pesquisador|fontes|capacidades)\]/gi, '')
       // título dentro de negrito (17/10, Llama 3.2 3B: "**#### 1. HyperX…**") não vira cartão nem título
       .replace(/^\s*\*\*\s*(#{2,4} [^*\n]+?)\s*\*\*\s*$/gm, '$1');
   let escrito = limparEscrita(await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco })));
@@ -1387,4 +1393,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null };
 }
 
-module.exports = { tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

@@ -16,7 +16,8 @@ const INICIO = /^(?:(?:por favor|ei|olha|ah|ok|beleza)[,!]?\s+)?(?:au(?:gpt)?[,!
 // "lembre-me de pagar a conta amanhã" é lembrete (agendamento), não memória
 const LEMBRAR = /^(?:lembr[ae](?:-se)?|guard[ae]|anot[ae]|grav[ae]|memoriz[ae]|nao esquec[ae])\s+(?:de\s+)?(?:que|isso|disso)\b|^(?:a partir de agora|de agora em diante|daqui (?:pra|para) frente)\b|^(?:meu nome e|me chame de|pode me chamar de)\b/;
 const ESQUECER = /^(?:esquec[ae]|apague|remova|tire)\b.*\b(?:memoria|sobre mim)\b|^esquec[ae] (?:que|o que eu (?:disse|falei)|meu|minha)\b/;
-const LISTAR = /\bo que (?:voce|vc) (?:sabe|lembra|guardou|tem guardado|anotou) (?:sobre|de) mim\b|\b(?:mostre|liste|veja) (?:a )?(?:sua )?memoria\b/;
+// 26/10 (no app, com erro de digitação/fala): "o que voce saber sobre min" — "saber" e "min" também valem
+const LISTAR = /\bo que (?:voce|vc) (?:sabe|saber|lembra|guardou|tem guardado|anotou) (?:sobre|de) mi[mn]\b|\b(?:mostre|liste|veja) (?:a )?(?:sua )?memoria\b/;
 
 /** 'lembrar' | 'esquecer' | 'listar' | null */
 function pedidoDeMemoria(texto) {

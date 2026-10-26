@@ -69,7 +69,13 @@ const ROTAS = [
     id: 'compras',
     detecta: ({ objetivo }) => compras.pedidoDeCompras(objetivo),
     intencao: (objetivo) => compras.intencaoDeCompras(objetivo),
-    responde: ({ objetivo, deps, config, dirImagens, ent }, pedido) => compras.responderCompras({ pergunta: objetivo, deps, config, dirImagens, ...(pedido ? { pedido } : ent?.assuntos?.[0] ? { pedido: { produto: ent.assuntos[0] } } : {}) }),
+    // pela ação (26/10): a pergunta reescrita pelo entendimento ("quanto está a Asus ROG Astral RTX 5080
+    // usada?") monta o pedido; sem ela, o primeiro assunto
+    responde: ({ objetivo, deps, config, dirImagens, ent }, pedido) => {
+      const doEntendimento = ent?.pergunta ? compras.pedidoDeCompras(ent.pergunta) : null;
+      const escolhido = pedido || doEntendimento || (ent?.assuntos?.[0] ? { produto: ent.assuntos[0] } : null);
+      return compras.responderCompras({ pergunta: objetivo, deps, config, dirImagens, ...(escolhido ? { pedido: escolhido } : {}) });
+    },
   },
   {
     // "o que você pode fazer?": a mesma lista da aba Utilitários, montada pelo código

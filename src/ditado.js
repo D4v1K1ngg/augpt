@@ -257,6 +257,24 @@ function semChamada(texto, variantes = []) {
   return resto ? resto[0].toUpperCase() + resto.slice(1) : '';
 }
 
+/**
+ * O pedido falado sem chamada no meio e sem frase repetida (26/10, no app: "Procure por vídeos dessa placa
+ * de vídeo. E aí, AuGPT. Procure por vídeos dessa placa de vídeo." — chamou de novo no meio e repetiu).
+ */
+function limparPedidoFalado(texto, variantes = []) {
+  const frases = String(texto || '').split(/(?<=[.!?…])\s+/).filter(Boolean);
+  const vistas = new Set();
+  const saida = [];
+  for (const f of frases) {
+    if (palavrasDaChamada(f, variantes) && !semChamada(f, variantes)) continue; // a frase é só a chamada
+    const k = compactoFrase(f);
+    if (!k || vistas.has(k)) continue;
+    vistas.add(k);
+    saida.push(f);
+  }
+  return saida.join(' ').trim();
+}
+
 /** Comando direto, sem passar pelo modelo: 'nova-conversa', 'parar' ou null. */
 function comandoDeVoz(texto) {
   const t = compacto(texto);
@@ -270,6 +288,7 @@ function pedidoDeCorrecao(texto, idioma = 'pt') {
   return `Você corrige transcrições de fala feitas por reconhecimento de voz${idioma === 'en' ? ' (em inglês)' : ' (em português do Brasil)'}.
 São pedidos para o AuGPT, um assistente no computador que pesquisa na web, compara preços em lojas, vê o clima, mostra mapas e rotas, marca lembretes na agenda, faz teste de rede (velocidade, ping), vê vídeos do YouTube e responde sobre o PC.
 Corrija SÓ: palavras ouvidas errado (pelo sentido da frase — ex.: "ritmo de rede" → "teste de rede", "pingue" → "ping"), ortografia, acentos, pontuação e nomes de produtos, marcas e termos de tecnologia (ex.: "RTX 5080", "Ryzen 7 9800X3D", "PlayStation 5", "PUBG").
+NUNCA troque nomes de cidades, lugares, pessoas ou produtos por outros parecidos ou mais conhecidos: se o nome existe, mesmo pouco conhecido (ex.: "Iconha"), deixe como está.
 NÃO responda ao que foi dito, NÃO acrescente nem tire informação, NÃO troque palavra certa por sinônimo ("quanto está" continua "quanto está"), NÃO mude o sentido nem o jeito de falar. Frase repetida em seguida fica uma vez só. Se já estiver certo, devolva igual.
 Devolva só o texto corrigido, sem aspas e sem explicação.
 
@@ -278,7 +297,8 @@ Transcrição: ${texto}`;
 
 /** Aceita a correção só se ela parece a mesma frase (nada de resposta, explicação ou texto inventado). */
 function correcaoAceitavel(original, corrigido) {
-  const o = String(original || '').trim();
+  // o original já sem a frase repetida ("Qual a data de hoje? Qual a data de hoje?"): a medida do tamanho é dele
+  const o = semRepeticao(String(original || '').trim()) || String(original || '').trim();
   const c = String(corrigido || '').trim().replace(/^["'“”«]+|["'“”»]+$/g, '').trim();
   if (!c || c.length > o.length * 1.6 + 20 || c.length < o.length * 0.5) return null;
   if (/\n\s*\n|^(aqui est|claro|a transcri|texto corrigido|corrigido:)/i.test(c)) return null;
@@ -286,7 +306,45 @@ function correcaoAceitavel(original, corrigido) {
   const palavras = compacto(o).split(' ').filter((p) => p.length >= 4);
   const ficaram = palavras.filter((p) => compacto(c).includes(p)).length;
   if (palavras.length >= 2 && ficaram / palavras.length < 0.5) return null;
-  return c;
+  return trocasPequenas(o, c) ? c : null;
+}
+
+// palavras de enchimento que a correção pode tirar sem mudar o pedido
+const ENCHIMENTO_DA_FALA = /^(ne|tipo|ah|eh|e|hum|hmm|entao|assim|ai|la|que)$/;
+/**
+ * A correção só AJUSTA (26/10, no app: o Davi falou "Iconha" — o Whisper escreveu certo — e o qwen
+ * "corrigiu" para "Icoaraci", uma cidade mais conhecida): as frases alinhadas palavra por palavra, cada
+ * trecho trocado tem que soar quase igual ao original (até 1 letra a cada 3 na chave de som) — acento,
+ * letra ouvida errado, "50 80" → "5080", "rayzen" → "Ryzen", "pub gi" → "PUBG". Trocar por outra palavra
+ * ("Iconha" → "Icoaraci", "está" → "custa") ou acrescentar palavra derruba a correção inteira.
+ */
+function trocasPequenas(original, corrigido) {
+  const a = compacto(original).split(' ').filter(Boolean);
+  const b = compacto(corrigido).split(' ').filter(Boolean);
+  // alinhamento (maior subsequência comum) das palavras
+  const lcs = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = a.length - 1; i >= 0; i -= 1) for (let j = b.length - 1; j >= 0; j -= 1) lcs[i][j] = a[i] === b[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+  const blocos = [];
+  let bloco = { de: [], para: [] };
+  let i = 0;
+  let j = 0;
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && a[i] === b[j]) {
+      if (bloco.de.length || bloco.para.length) blocos.push(bloco);
+      bloco = { de: [], para: [] };
+      i += 1;
+      j += 1;
+    } else if (j < b.length && (i >= a.length || lcs[i][j + 1] >= lcs[i + 1][j])) bloco.para.push(b[j++]);
+    else bloco.de.push(a[i++]);
+  }
+  if (bloco.de.length || bloco.para.length) blocos.push(bloco);
+  return blocos.every(({ de, para }) => {
+    const x = chaveDeSom(de.join(''));
+    const y = chaveDeSom(para.join(''));
+    if (!y) return de.every((p) => ENCHIMENTO_DA_FALA.test(p) || a.filter((q) => q === p).length > 1); // tirou enchimento ou repetição
+    if (!x) return false; // acrescentou palavra
+    return distancia(x, y) <= Math.max(1, Math.floor(Math.max(x.length, y.length) / 3));
+  });
 }
 
 /** O modelo para este PC: o turbo com 6 núcleos ou mais; senão, o pequeno. */
@@ -473,4 +531,4 @@ class Ditado {
   }
 }
 
-module.exports = { definirNome, nomeAtual, lembraONome, lembraVariante, temSomDoNome, temSomDeGPT, Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel };
+module.exports = { limparPedidoFalado, definirNome, nomeAtual, lembraONome, lembraVariante, temSomDoNome, temSomDeGPT, Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel };

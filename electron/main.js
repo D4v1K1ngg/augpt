@@ -1208,7 +1208,7 @@ ipcMain.handle('ditado:pedidoDeVoz', async (_e, bytes) => {
     fs.writeFileSync(arquivo, audio);
     const { semChamada, comandoDeVoz } = require('../src/ditado');
     const r = await ditado.transcrever(arquivo, { idioma: idiomaEfetivo() });
-    const pedido = semChamada(r.texto, variantesDaEscuta());
+    const pedido = require('../src/ditado').limparPedidoFalado(semChamada(r.texto, variantesDaEscuta()), variantesDaEscuta());
     // a chamada virou pedido (ou comando): é a sua voz — o jeito que o Whisper escreveu fica aprendido
     if (ultimaChamada && Date.now() - ultimaChamada.em < 120000 && (pedido || comandoDeVoz(pedido))) aprenderChamada(ultimaChamada.junto);
     ultimaChamada = null;
