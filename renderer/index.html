@@ -775,6 +775,9 @@
           <label class="linha"><span class="linha-texto"><span>Resumir as páginas das tarefas com o modelo</span><small>Desligado: nas tarefas, cada página lida vira os trechos mais ligados ao pedido, sem o modelo (bem mais rápido). Ligado: o modelo resume cada página (~7 s por página). A pesquisa de produtos sempre usa o modelo.</small></span>
             <input type="checkbox" id="cfgDestilarComModelo" class="caixa" />
           </label>
+          <label class="linha"><span class="linha-texto"><span>Conferir as afirmações com as fontes</span><small>Depois de escrever uma resposta de pesquisa, o modelo procura afirmações que as fontes contradizem (uma data, um lugar, um nome) e corrige. Custa uns 5 a 10 s a mais; mais ainda quando há o que corrigir.</small></span>
+            <input type="checkbox" id="cfgConferirAfirmacoes" class="caixa" />
+          </label>
           <label class="linha"><span class="linha-texto"><span>Usar leitor externo (r.jina.ai)</span><small>Quando uma página não abre direto, o endereço dela é enviado ao serviço r.jina.ai pra leitura. Desligado por padrão.</small></span>
             <input type="checkbox" id="cfgLeitorExterno" class="caixa" />
           </label>

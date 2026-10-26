@@ -68,6 +68,7 @@ function preencherConfig() {
   $('cfgUsarSxEmbutido').checked = config.usarSearxngEmbutido === true;
   $('cfgRenderJs').checked = config.renderizarJs !== false;
   $('cfgDestilarComModelo').checked = config.destilarComModelo === true;
+  $('cfgConferirAfirmacoes').checked = config.conferirAfirmacoes === true;
   // Padrão desligado desde a Fase 1 de segurança — só marcado com opt-in explícito.
   $('cfgLeitorExterno').checked = config.permitirLeitorExterno === true;
   $('cfgRedeLocal').checked = config.permitirRedeLocal === true;
@@ -125,6 +126,7 @@ async function salvarAjustes() {
     usarSearxngEmbutido: $('cfgUsarSxEmbutido').checked,
     renderizarJs: $('cfgRenderJs').checked,
     destilarComModelo: $('cfgDestilarComModelo').checked,
+    conferirAfirmacoes: $('cfgConferirAfirmacoes').checked,
     permitirLeitorExterno: $('cfgLeitorExterno').checked,
     permitirRedeLocal: $('cfgRedeLocal').checked,
     navegacaoInterativa: $('cfgNavegacao').checked,

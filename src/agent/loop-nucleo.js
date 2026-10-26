@@ -136,6 +136,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     preferencias: (pergunta) => preferenciasDaPergunta(this.userDataPath, cfg, { pergunta, chamar: (m, o) => deps.chamar(m, o) }),
     // o idioma das telas (22/10): 'en' faz o escritor responder em inglês
     idioma: cfg.idiomaEfetivo === 'en' ? 'en' : 'pt',
+    // conferir as afirmações com as fontes (27/10, Ajustes → Pesquisa; desligado por padrão)
+    conferirAfirmacoes: cfg.conferirAfirmacoes === true,
     lerPagina: (url) => lerComCache(url, ctxWeb),
     // olhar a tela (27/10): o pedido é sobre a tela e não veio imagem — o app fotografa (só o agente da
     // conversa aberta tem; a fila em segundo plano e a agenda não fotografam a tela sozinhas)

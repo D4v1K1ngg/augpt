@@ -1106,6 +1106,36 @@ function conferirFatos(texto, { material = '', extra = '', semNumeros = false } 
   return { texto: marcado, numeros: [...numeros], nomes: [...nomes], conferidos };
 }
 
+/**
+ * As afirmações da resposta que as fontes contradizem (27/10). Uma chamada curta em JSON; o que vier sem
+ * a fonte, sem o trecho ou com fonte que não existe é descartado (o modelo pequeno inventa contradição).
+ */
+async function contradicoesComAsFontes(resposta, usadas, chamar) {
+  const fontesTexto = usadas.map((f) => `[${f.n}] ${f.titulo || ''}\n${(f.trechos || []).join(' … ') || f.resumo || ''}`).join('\n\n').slice(0, 12000);
+  const prompt = `Confira a RESPOSTA contra as FONTES. Liste SÓ as afirmações da resposta que as fontes CONTRADIZEM: a fonte diz outra coisa sobre o MESMO ponto (data, lugar, número, nome, causa). Não liste o que as fontes apenas não mencionam, nem diferenças de redação.
+
+FONTES:
+${fontesTexto}
+
+RESPOSTA:
+${String(resposta).slice(0, 6000)}
+
+Responda só com JSON: {"contradicoes": [{"afirmacao": "o trecho exato da resposta", "fonte_diz": "o que a fonte diz", "n": número da fonte}]} — ou {"contradicoes": []}.`;
+  const r = await chamar([{ role: 'user', content: prompt }], { json: true, numPredict: 600 }).catch(() => null);
+  let lista = [];
+  try {
+    const t = String(r?.content || '');
+    lista = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)).contradicoes || [];
+  } catch {
+    return [];
+  }
+  const numeros = new Set(usadas.map((f) => f.n));
+  return (Array.isArray(lista) ? lista : [])
+    .map((c) => ({ afirmacao: String(c?.afirmacao || '').trim().slice(0, 300), fonte_diz: String(c?.fonte_diz || '').trim().slice(0, 300), n: Number(c?.n) }))
+    .filter((c) => c.afirmacao.length >= 8 && c.fonte_diz.length >= 4 && numeros.has(c.n) && String(resposta).includes(c.afirmacao.slice(0, 40)))
+    .slice(0, 6);
+}
+
 /** Muitos fatos sem fonte (3+ e pelo menos 1 em cada 4 conferidos): a resposta é reescrita sem eles. */
 const precisaReescrever = (c) => c.numeros.length + c.nomes.length >= 3 && (c.numeros.length + c.nomes.length) / Math.max(1, c.conferidos) >= 0.25;
 
@@ -1365,6 +1395,26 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
       else emit('resposta-reinicia', { motivo: 'a reescrita não ficou melhor — mantendo a primeira versão' });
     }
   }
+  // conferir as afirmações (27/10, opção em Ajustes, desligada por padrão): o que as fontes CONTRADIZEM
+  // — não o que elas só não citam — é corrigido pelo que elas dizem ("Dom Pedro I nasceu na Espanha")
+  let afirmacoes = null;
+  if (usadas.length && deps.conferirAfirmacoes === true && !deps.signal?.aborted) {
+    const contradicoes = await contradicoesComAsFontes(escrito, usadas, chamar);
+    afirmacoes = { contradicoes: contradicoes.length, ficou: 'original' };
+    if (contradicoes.length) {
+      emit('aviso', { texto: `conferência das afirmações: ${contradicoes.length} contradiz(em) as fontes — corrigindo` });
+      emit('resposta-reinicia', { motivo: `conferindo as afirmações: ${contradicoes.length} contradiz(em) as fontes — corrigindo` });
+      const lista = contradicoes.map((c) => `- "${c.afirmacao}" → a fonte [${c.n}] diz: "${c.fonte_diz}"`).join('\n');
+      const nova = limparEscrita(await escrever(
+        [...mensagens, { role: 'assistant', content: escrito }, { role: 'user', content: `Conferi sua resposta com as fontes. Estas afirmações contradizem o que elas dizem:\n${lista}\nReescreva a resposta inteira corrigindo só esses pontos pelo que as fontes dizem. Mantenha o resto, o formato e as citações [n]. Escreva só a nova resposta.` }],
+        (pedaco) => emit('resposta-token', { pedaco })
+      ));
+      if (nova.trim().length >= escrito.trim().length * 0.6) {
+        escrito = nova;
+        afirmacoes.ficou = 'nova';
+      } else emit('resposta-reinicia', { motivo: 'a correção não ficou boa — mantendo a primeira versão' });
+    }
+  }
   // só ficam na lista as fontes que a resposta citou (ou todas as usadas, se ela não citou nenhuma)
   const citadas = new Set([...String(escrito).matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
   // 23/10: sem citação, a lista trazia todas as lidas (a capital da França listou "Encarceramento nos Estados Unidos")
@@ -1417,6 +1467,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     conferido.texto = fatos.numeros.length ? `${fatos.texto}\n\n*⚠ ${fatos.numeros.length === 1 ? 'Este número não aparece' : 'Estes números não aparecem'} nas fontes lidas: ${fatos.numeros.join(', ')}. Vale conferir.*` : fatos.texto;
     conferido.fatosSemFonte = [...fatos.nomes, ...fatos.numeros];
     if (reescrita) conferido.reescrita = { ...reescrita, depois: conferido.fatosSemFonte.length };
+    if (afirmacoes) conferido.afirmacoes = afirmacoes;
   }
   if (semVideos) emit('aviso', { texto: 'Para o AuGPT ver vídeos do YouTube, instale o yt-dlp em Ajustes → Componentes.' });
   // identificação só pela aparência: a resposta avisa, pelo código (16/10: a foto de um EPOS H6PRO
@@ -1433,7 +1484,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const comGraficos = recolocarGraficos(conferido.texto, graf.graficos);
   const avisoDaFoto = deps.idioma === 'en' ? '*From the photo, the model was recognized by its looks: its name is not written in the image, so it may be a similar one from the same line.*' : '*Pela foto, o modelo foi reconhecido pela aparência — o nome dele não está escrito na imagem, então pode ser outro parecido da mesma linha.*';
   const texto = pelaAparencia ? `${avisoDaFoto}\n\n${comGraficos}` : comGraficos;
-  return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null };
+  return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

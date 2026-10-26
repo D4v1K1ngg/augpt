@@ -136,6 +136,8 @@ const DEFAULTS = {
   // páginas da web nas tarefas (27/10): false = os trechos mais ligados ao pedido, sem o modelo (~0,3 s);
   // true = o resumo pelo modelo (~7 s por página), como antes
   destilarComModelo: false,
+  // conferir as afirmações da resposta com as fontes e corrigir o que elas contradizem (27/10)
+  conferirAfirmacoes: false,
   // Imagens nas respostas (src/tools/imagens.js, 11/10): foto de cada produto
   // nos cartões da recomendação e imagem de referência nas explicações.
   imagensNasRespostas: true,
