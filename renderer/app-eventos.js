@@ -951,6 +951,9 @@ function atividade(canal, d) {
     case 'pesquisa-plano':
       return etapaDaAtividade('planejar', 'Planejando a pesquisa', d.criterios?.length ? tr('Critérios: {c}', { c: nomes(d.criterios) }) : '');
     case 'ferramenta':
+      if (d.nome === 'olhar_tela') return etapaDaAtividade('olhar', 'Olhando a sua tela', tr('o pedido é sobre o que está na sua tela'));
+      // ver a imagem (a captura ou um anexo) continua na mesma etapa, não vira "Executando ações"
+      if (d.nome === 'ver_imagem') return etapaDaAtividade('olhar', 'Olhando a imagem');
       if (!FERRAMENTAS_DE_PESQUISA.test(d.nome)) return etapaDaAtividade('agir', 'Executando ações', d.nome);
       return etapaDaAtividade('pesquisar', 'Pesquisando na internet', d.argumentos?.consulta ? tr('Busca: {q}', { q: d.argumentos.consulta }) : d.argumentos?.url || '');
     case 'fonte':

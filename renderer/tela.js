@@ -45,6 +45,19 @@
     caixa.focus();
   };
 
+  // o agente olhou a tela sozinho (27/10: o pedido era sobre a tela e não veio imagem): a captura fica
+  // marcada no seu pedido e na lista de arquivos da conversa
+  manipuladores['tela-olhada'] = ({ anexo } = {}) => {
+    const pedido = agente.turno?.caixa.previousElementSibling?.querySelector('.msg-corpo');
+    if (pedido && anexo?.nome) {
+      const marca = document.createElement('div');
+      marca.className = 'anexos-enviados';
+      marca.textContent = tr('olhei a sua tela: {nome}', { nome: anexo.nome });
+      pedido.appendChild(marca);
+    }
+    if (anexo?.relativo) adicionarSaida({ caminho: anexo.relativo, tamanho: anexo.tamanho, tipo: 'anexado' });
+  };
+
   // pelo "Ei GPT" (escuta.js): o pedido fala da tela → captura a tela inteira e manda junto
   const SOBRE_A_TELA = /\b(na|nessa|nesta|minha|desta|dessa|esta|essa)\s+tela\b|\b(on|in) (my|the|this) screen\b|\bthis screen\b/i;
   window.telaPorVoz = {

@@ -137,6 +137,17 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // o idioma das telas (22/10): 'en' faz o escritor responder em inglês
     idioma: cfg.idiomaEfetivo === 'en' ? 'en' : 'pt',
     lerPagina: (url) => lerComCache(url, ctxWeb),
+    // olhar a tela (27/10): o pedido é sobre a tela e não veio imagem — o app fotografa (só o agente da
+    // conversa aberta tem; a fila em segundo plano e a agenda não fotografam a tela sozinhas)
+    capturarTela: typeof this.capturarTela === 'function'
+      ? async () => {
+        const rel = await this.capturarTela();
+        if (!rel) return null;
+        const arquivo = new Sandbox(cfg.workspace).resolve(rel);
+        const texto = ocr?.instalado() ? await ocr.lerTexto(arquivo).catch(() => '') : '';
+        return { nome: path.basename(rel), arquivo, base64: imagemParaOModelo(arquivo), texto };
+      }
+      : null,
     embed: (textos) => ollama.embed({ host: cfg.host, model: cfg.embedModel || 'nomic-embed-text', input: textos, signal }),
     // Reddit e fóruns cadastrados (dados/fontes-da-comunidade.json): "site:reddit.com …", "site:clubedohardware.com.br …"
     buscarNaComunidade: async (q) => {

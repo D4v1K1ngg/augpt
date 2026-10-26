@@ -150,7 +150,7 @@
     'Pesquisando na internet': 'Searching the web', 'Planejando a pesquisa': 'Planning the research', 'Executando ações': 'Taking actions',
     'Comparando as opções encontradas': 'Comparing the options found', 'Conferindo as evidências de cada opção': 'Checking the evidence for each option',
     'Conferindo a resposta com as fontes': 'Checking the answer against the sources',
-    'Busca: {q}': 'Search: {q}', 'achou: {s}': 'found: {s}', 'Critérios: {c}': 'Criteria: {c}', 'Na frente: {c}': 'Leading: {c}', 'A partir de {n} fonte(s)': 'From {n} source(s)',
+    'Busca: {q}': 'Search: {q}', 'achou: {s}': 'found: {s}', 'Olhando a sua tela': 'Looking at your screen', 'Olhando a imagem': 'Looking at the image', 'o pedido é sobre o que está na sua tela': 'the request is about what is on your screen', 'olhei a sua tela: {nome}': 'looked at your screen: {nome}', 'Critérios: {c}': 'Criteria: {c}', 'Na frente: {c}': 'Leading: {c}', 'A partir de {n} fonte(s)': 'From {n} source(s)',
     '{p}% dos critérios com evidência': '{p}% of the criteria backed by evidence', 'pesquisa {modo}': '{modo} research',
     '{n} busca': '{n} search', '{n} buscas': '{n} searches', '{n} resultado vistos': '{n} result seen', '{n} resultados vistos': '{n} results seen',
     '{n} página em {s} site': '{n} page on {s} site', '{n} página em {s} sites': '{n} page on {s} sites', '{n} páginas em {s} site': '{n} pages on {s} site', '{n} páginas em {s} sites': '{n} pages on {s} sites',

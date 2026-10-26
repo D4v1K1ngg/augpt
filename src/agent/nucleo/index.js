@@ -97,7 +97,7 @@ ${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}
 ÚLTIMA MENSAGEM: ${String(pergunta).slice(0, 1500)}
 
 Responda SÓ com um JSON:
-{"precisa_buscar": true ou false, "produto": true ou false, "criar_imagem": true ou false, "muda_com_o_tempo": true ou false, "sobre_o_usuario": true ou false, "imagem_ajuda": true ou false, "acao": "", "sugerir": "", "assuntos": ["..."], "lugares": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
+{"precisa_buscar": true ou false, "produto": true ou false, "criar_imagem": true ou false, "muda_com_o_tempo": true ou false, "sobre_o_usuario": true ou false, "sobre_a_tela": true ou false, "imagem_ajuda": true ou false, "acao": "", "sugerir": "", "assuntos": ["..."], "lugares": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
 
 - O AuGPT roda no computador do usuário e EXECUTA estas ações:
 ${capacidades.listaParaEntender()}
@@ -108,6 +108,7 @@ ${capacidades.listaParaEntender()}
 
 - "muda_com_o_tempo" é true quando a resposta certa hoje pode ser diferente da de alguns meses atrás: notícia, resultado, placar, eleição, cotação, preço, previsão, lançamento, versão mais nova, quem ocupa um cargo, situação atual de algo. Fato histórico, definição, ciência e como algo funciona: false.
 - "sobre_o_usuario" é true quando a resposta depende de algo do próprio usuário: o computador, o celular, o carro, a cidade, o curso, a rotina ou o que ele já tem ("meu PC", "no meu celular", "pra minha cidade").
+- "sobre_a_tela" é true quando o usuário pede para você olhar o que está na tela do computador dele AGORA, com quaisquer palavras ("o que é isso na minha tela?", "dá uma olhada aqui", "o que estou vendo?", "que erro é esse que apareceu?", "me ajuda com isso que está aberto"). É false para perguntas sobre telas em geral ("o que é a tela azul?", "melhor tela para jogos", "trocar a tela do celular").
 - "imagem_ajuda" é true quando ver uma foto ajuda a entender a resposta (um produto, um lugar, um animal, um objeto, uma pessoa conhecida, uma obra). Notícia, política, conta, conceito, passo a passo e pedido sobre um site: false.
 
 - "criar_imagem" é true quando o usuário pede para CRIAR, gerar, desenhar, ilustrar ou editar uma imagem (logo, desenho, foto artística, transformar a foto anexada). Pedir para MOSTRAR ou achar uma foto que já existe ("mostre uma foto da Torre Eiffel") é false.
@@ -131,17 +132,20 @@ const QUESTAO_DE_EXATAS = (t) => /\bquest[aã]o\s*\d/i.test(t) && /\\\(|\\\[|\\f
 const SOBRE_O_AUGPT = /^\s*(quem (é|e) (voc[eê]|vc|o augpt)|o que (voc[eê]|vc) (é|e)(?![a-zà-ú])|como (voc[eê]|vc) funciona|quem (te|o) (criou|fez|desenvolveu)|qual (é |e )?(o )?seu nome|voc[eê] (é|e) (uma )?(ia|intelig|rob[oô]))/i;
 const CONTA_DIRETA = /^\s*(resolva|calcule|quanto (é|e|da|dá)|derive|integre|simplifique|fatore)(?![a-zà-ú])[^?]*[\d=+\-*/^√]/i;
 const PERGUNTA_DE_SUPORTE = /(?<![a-zà-ú])(como (atualizar|configurar|ativar|desativar|instalar|desinstalar|resolver|consertar|corrigir|arrumar|habilitar|desabilitar|mudar|trocar|tirar|remover|limpar)|(é|e) poss[ií]vel (usar|ativar|fazer|instalar|configurar)|n[ãa]o (tenho|aparece|acho|encontro) (a )?op[çc][ãa]o|n[ãa]o (funciona|liga|abre|conecta|reconhece)|(d[áa]|deu|est[áa] dando) erro|travando|com (lag|problema|defeito))\b/i;
-// só cumprimento (27/10, análise do Davi: "E aí" pesquisava na web — 15 s, 2 páginas lidas): o  do
+// só cumprimento (27/10, análise do Davi: "E aí" pesquisava na web — 15 s, 2 páginas lidas): o \b do
 // SEM_BUSCA não fecha depois de letra acentuada ("e aí", "olá"); aqui o texto vem sem acento. Depois do
 // cumprimento, só conversa ("tudo bem", "como vai", o nome) — "e aí, quem ganhou o jogo?" continua buscando.
 const SO_CUMPRIMENTO = /^(oi+|ola|opa|eae|e ai|eai|hey|ei|bom dia|boa tarde|boa noite|tudo bem|tudo bom|como vai|como voce esta|obrigad[oa]|muito obrigad[oa]|valeu|vlw|blz|beleza|show|perfeito|otimo|legal|massa|top|entendi|ok|okay|certo|tchau|ate mais|falou)( (e )?(tudo bem|tudo bom|tudo certo|como vai|como voce esta|como vc ta|como vc esta|beleza|blz|augpt|gpt|jarvis|amigo|cara|mano|pessoal|meu (amigo|chapa)))*$/;
+// o que o AuGPT sabe de você (27/10, teste de abertura: "qual é o meu nome?" às vezes pesquisava na web e
+// respondia sem o nome guardado) — a resposta está na memória, não na internet
+const SOBRE_MIM = /^\s*(qual (é|e) o meu nome|como (é que )?(eu )?me chamo|quem sou eu|voc[eê] sabe (o )?meu nome|voc[eê] lembra (do )?meu nome|what'?s my name)\s*[?!.]*\s*$/i;
 const soCumprimento = (pergunta) => {
   const t = require('../tipo-de-pedido').normalizarPedido(pergunta);
   return t.length > 0 && t.length <= 60 && SO_CUMPRIMENTO.test(t);
 };
 const podeFicarSemBusca = (pergunta) => {
   const t = String(pergunta || '').trim();
-  return SEM_BUSCA.test(t) || soCumprimento(t) || QUESTAO_DE_EXATAS(t) || SOBRE_O_AUGPT.test(t) || CONTA_DIRETA.test(t);
+  return SEM_BUSCA.test(t) || soCumprimento(t) || SOBRE_MIM.test(t) || QUESTAO_DE_EXATAS(t) || SOBRE_O_AUGPT.test(t) || CONTA_DIRETA.test(t);
 };
 
 // Travas do código para o modelo pequeno que erra os campos do entendimento (18/10): palavras que
@@ -187,6 +191,16 @@ const comoVisual = (texto) => (/```visual/.test(texto) ? texto : String(texto).r
 const SOBRE_A_IMAGEM = /\b(o que (que )?(tem|h[áa]|[ée]|est[áa]|aparece|mostra)|descrev\w*|traduz\w*|leia|l[êe] (pra|para) mim|o que (est[áa] )?escrito|transcrev\w*)\b[^?]{0,40}\b(tela|imagem|foto|captura|print|isso|isto|aqui)\b|^\s*(o que [ée] isso|descreva|traduz\w*|leia)\b|\bwhat'?s? (is )?(on|in) (my|the|this) (screen|image|picture|photo)\b/i;
 const soSobreAImagem = (pergunta) => SOBRE_A_IMAGEM.test(String(pergunta || ''));
 
+// o pedido é para olhar a tela do usuário (27/10, relato do Davi: "o que é isso na minha tela?" digitado
+// pesquisou na web as peças do PC dele e respondeu "não consigo ver sua tela"). O modelo decide pelo sentido
+// ("sobre_a_tela"); estas frases são a reserva do código, e as de tela em geral nunca contam.
+const PEDE_A_TELA = /\b(na|nessa|nesta|minha|desta|dessa|aqui na)\s+tela\b|\bo que (eu )?(estou|to|tô) vendo\b|\bo que (est[aá]|t[aá]) aberto\b|\b(d[aáê]|de) uma olhada (aqui|nisso|nessa|nesta|na minha|no que)\b|\bolha (isso|aqui|s[oó] isso)\b|\bconsegue ver (o que|a minha|minha|isso)\b|\b(on|at) my screen\b|\bwhat am i looking at\b/i;
+const TELA_EM_GERAL = /\btela (azul|preta|branca|do celular|do notebook|do monitor|de bloqueio|de carregamento|cheia|dividida|touch|de \d)|\btela d[oa] (meu |minha |seu |sua )?(celular|notebook|monitor|tv|televis|tablet|carro)|\b(melhor|trocar|troca|comprar|consertar|limpar|protetor de|pel[ií]cula d[ae])\s+(a |uma |de )?tela\b|\bprint ?screen\b/i;
+// olhar a tela e pedir solução ("que erro é esse?", "como resolvo isso?") pesquisa; só olhar ("dá uma
+// olhada aqui, o que você acha?") responde pelo que se vê (27/10: buscou na web e citou site sem relação)
+const PEDE_SOLUCAO = /\b(erro|error|problema|bug|falha|travou|como (resolvo|resolver|conserto|consertar|corrijo|corrigir|arrumo|arrumar|fa[cç]o)|por que|porque|pesquis\w*|procur\w*|busqu\w*|pre[cç]o|quanto custa)\b/i;
+const pedeATela = (pergunta) => PEDE_A_TELA.test(String(pergunta || '')) && !TELA_EM_GERAL.test(String(pergunta || ''));
+
 function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
   try {
     const j = JSON.parse(String(texto).slice(String(texto).indexOf('{'), String(texto).lastIndexOf('}') + 1));
@@ -194,7 +208,7 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     const assuntos = (Array.isArray(j.assuntos) ? j.assuntos : []).map((a) => String(a || '').trim()).filter((a) => a.length >= 2 && a.length <= 80).slice(0, 4);
     // o modelo só decide "sem busca" no que é claramente conversa; um nome solto ("Dragon Ball Super Beerus") pesquisa
     const exatas = QUESTAO_DE_EXATAS(String(pergunta || ''));
-    const semBusca = exatas || soCumprimento(pergunta) || SOBRE_O_AUGPT.test(String(pergunta || '')) || CONTA_DIRETA.test(String(pergunta || '')) || (comImagem && soSobreAImagem(pergunta));
+    const semBusca = exatas || soCumprimento(pergunta) || SOBRE_MIM.test(String(pergunta || '')) || SOBRE_O_AUGPT.test(String(pergunta || '')) || CONTA_DIRETA.test(String(pergunta || '')) || (comImagem && (soSobreAImagem(pergunta) || (pedeATela(pergunta) && !PEDE_SOLUCAO.test(String(pergunta || '')))));
     const precisaBuscar = !semBusca && (j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta)));
     return {
       precisaBuscar,
@@ -202,6 +216,7 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
       criarImagem: (j.criar_imagem === true && !pedeVisual(pergunta) && !pedeGrafico(pergunta)) || pedeImagem(pergunta),
       atual: precisaBuscar && (j.muda_com_o_tempo === true || PISTA_DE_ATUAL.test(pergunta)),
       sobreOUsuario: j.sobre_o_usuario === true || PISTA_DO_USUARIO.test(pergunta),
+      sobreATela: !comImagem && !TELA_EM_GERAL.test(String(pergunta || '')) && (j.sobre_a_tela === true || pedeATela(pergunta)),
       imagemAjuda: !exatas && j.imagem_ajuda !== false,
       acao: acaoValida(j.acao, pergunta) || ((PEDE_QUE_FACA.test(String(pergunta || '')) || RESPONDEM.has(j.sugerir)) ? acaoValida(j.sugerir, pergunta) : null),
       sugerir: acaoValida(j.acao, pergunta) || PEDE_QUE_FACA.test(String(pergunta || '')) || RESPONDEM.has(j.sugerir) ? null : acaoValida(j.sugerir, pergunta),
@@ -213,7 +228,7 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
   } catch {
     // JSON quebrado: busca, com a pergunta como veio
     // 23/10: a reserva pesquisava sempre — a prova de 10 questões (JSON longo, ilegível) fez 7 buscas
-    return { precisaBuscar: !podeFicarSemBusca(pergunta), produto: false, criarImagem: pedeImagem(pergunta), atual: PISTA_DE_ATUAL.test(pergunta), sobreOUsuario: PISTA_DO_USUARIO.test(pergunta), imagemAjuda: false, assuntos: [], pergunta };
+    return { precisaBuscar: !podeFicarSemBusca(pergunta), produto: false, criarImagem: pedeImagem(pergunta), atual: PISTA_DE_ATUAL.test(pergunta), sobreOUsuario: PISTA_DO_USUARIO.test(pergunta), sobreATela: !comImagem && pedeATela(pergunta), imagemAjuda: false, assuntos: [], pergunta };
   }
 }
 
@@ -1258,6 +1273,12 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   }
   const perguntaComImagem = vista ? `${pergunta}\n\n[Imagem anexada pelo usuário — o que se vê nela: ${vista.slice(0, 1500)}]` : pergunta;
   const ent = conferirEntendimento(lerEntendimento((await chamar([{ role: 'user', content: pedidoDeEntendimento({ pergunta: perguntaComImagem, conversa, hoje }) }], { json: true, numPredict: 300 })).content, pergunta, { comImagem: imagens.length > 0 }), { pergunta: perguntaComImagem, conversa });
+  // olhar a tela (27/10): pediu e não veio imagem — o AuGPT fotografa a tela inteira e refaz com ela
+  if (ent.sobreATela && !imagens.length && typeof deps.capturarTela === 'function') {
+    emit('ferramenta', { nome: 'olhar_tela', argumentos: { motivo: 'o pedido é sobre o que está na sua tela' }, risco: 'leitura' });
+    const foto = await deps.capturarTela().catch(() => null);
+    if (foto) return responder({ pergunta, conversa, modo, tamanho, deps: { ...deps, capturarTela: null }, hoje, imagens: [foto] });
+  }
   // criar imagem (Fase 5): com o gerador instalado, o pedido não pesquisa — o Qwen escreve o prompt e o FLUX gera
   if (ent.criarImagem && typeof deps.gerarImagem === 'function') {
     emit('nucleo-entendimento', { ...ent, modo: 'imagem' });
@@ -1404,4 +1425,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null };
 }
 
-module.exports = { soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

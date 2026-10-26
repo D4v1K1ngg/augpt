@@ -468,6 +468,8 @@ function criarAgente(idConversa = null) {
     navegador: obterNavegador(),
     skills,
   });
+  // só o agente da conversa aberta olha a tela (a fila em segundo plano e a agenda, não)
+  agent.capturarTela = capturarTelaParaOAgente;
   // depois de cada resposta (o usuário está lendo): calibra a placa, se o modelo transbordou
   agent.on('concluido', () => setTimeout(() => calibrarSePreciso(), 1500));
   for (const evento of EVENTOS) {
@@ -1343,6 +1345,40 @@ function escolherArea(imagem, display) {
 }
 
 /** Captura e anexa: com `inteira`, sem escolher área (pela voz). Avisa a tela com 'tela-capturada'. */
+/** A captura vira um PNG na pasta de trabalho, como um anexo. */
+function salvarCaptura(imagem) {
+  const sandbox = new Sandbox(config.data.workspace);
+  const agora = new Date();
+  const dois = (n) => String(n).padStart(2, '0');
+  const nome = `captura-${agora.getFullYear()}-${dois(agora.getMonth() + 1)}-${dois(agora.getDate())}-${dois(agora.getHours())}${dois(agora.getMinutes())}${dois(agora.getSeconds())}.png`;
+  const destino = sandbox.resolve(nome);
+  const png = imagem.toPNG();
+  fs.writeFileSync(destino, png);
+  return { nome, relativo: sandbox.relative(destino), tamanho: png.length, ehTexto: false, texto: null, captura: true };
+}
+
+/**
+ * O agente pediu para olhar a tela (27/10, relato do Davi: "o que é isso na minha tela?" digitado não
+ * capturava nada). A tela inteira, sem escolher área; a janela do AuGPT some um instante, como no
+ * Ctrl+Alt+A, e volta. → caminho relativo do PNG, ou null.
+ */
+async function capturarTelaParaOAgente() {
+  if (capturando) return null;
+  capturando = true;
+  try {
+    const foto = await fotografarTela();
+    foto.voltar();
+    const anexo = salvarCaptura(foto.imagem);
+    enviar('tela-olhada', { anexo });
+    return anexo.relativo;
+  } catch (err) {
+    enviar('aviso', { texto: `não consegui fotografar a tela: ${err.message}` });
+    return null;
+  } finally {
+    capturando = false;
+  }
+}
+
 async function capturarParaOChat({ inteira = false, pergunta = '' } = {}) {
   if (capturando) return { ok: false, error: 'já há uma captura em andamento' };
   capturando = true;
@@ -1362,14 +1398,7 @@ async function capturarParaOChat({ inteira = false, pergunta = '' } = {}) {
         imagem = imagem.crop({ x: Math.round(area.x * s), y: Math.round(area.y * s), width: Math.round(area.width * s), height: Math.round(area.height * s) });
       }
     }
-    const sandbox = new Sandbox(config.data.workspace);
-    const agora = new Date();
-    const dois = (n) => String(n).padStart(2, '0');
-    const nome = `captura-${agora.getFullYear()}-${dois(agora.getMonth() + 1)}-${dois(agora.getDate())}-${dois(agora.getHours())}${dois(agora.getMinutes())}${dois(agora.getSeconds())}.png`;
-    const destino = sandbox.resolve(nome);
-    const png = imagem.toPNG();
-    fs.writeFileSync(destino, png);
-    const anexo = { nome, relativo: sandbox.relative(destino), tamanho: png.length, ehTexto: false, texto: null, captura: true };
+    const anexo = salvarCaptura(imagem);
     if (win && !win.isDestroyed()) {
       if (win.isMinimized()) win.restore();
       win.show();
