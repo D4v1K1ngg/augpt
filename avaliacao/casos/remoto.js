@@ -70,7 +70,7 @@ module.exports = [
         res.push((await pedir(porta, '/?c=errado')).status === 401 || 'código errado');
         const qr = await pedir(porta, '/?c=codigo-secreto-de-teste-123');
         const cookie = String(qr.cab['set-cookie'] || '').split(';')[0];
-        res.push(qr.status === 302 && qr.cab.location === '/' && /HttpOnly/.test(qr.cab['set-cookie']) && /SameSite=Strict/.test(qr.cab['set-cookie']) || `QR: ${qr.status} ${qr.cab['set-cookie']}`);
+        res.push(qr.status === 302 && qr.cab.location === '/' && /HttpOnly/.test(qr.cab['set-cookie']) && /SameSite=Lax/.test(qr.cab['set-cookie']) || `QR: ${qr.status} ${qr.cab['set-cookie']}`);
         const pagina = await pedir(porta, '/', { cookie });
         res.push(pagina.status === 200 && /movel\.js/.test(pagina.texto) && /script-src 'self'/.test(pagina.cab['content-security-policy']) || `página: ${pagina.status}`);
         res.push((await pedir(porta, '/package.json', { cookie })).status === 404 && (await pedir(porta, '/../package.json', { cookie })).status === 404 && (await pedir(porta, '/app.js', { cookie })).status === 404 || 'fora da lista');

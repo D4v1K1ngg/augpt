@@ -7,7 +7,7 @@
  *
  * Segurança:
  * - desligado por padrão; só responde a endereços da rede local (10.x, 192.168.x, 172.16–31.x, link-local);
- * - código secreto (no QR code): na 1ª visita vira um cookie HttpOnly/SameSite=Strict e sai da URL;
+ * - código secreto (no QR code): na 1ª visita vira um cookie HttpOnly/SameSite=Lax e sai da URL (Strict não: o celular abre o link vindo da câmera, e aí o Chrome não manda o cookie no redirecionamento);
  *   sem ele, nada além de uma página "escaneie o QR code"; 20 tentativas erradas bloqueiam o IP por 10 min;
  * - POST só com o cabeçalho X-AuGPT (outro site não consegue mandar sem CORS, que não existe aqui);
  * - arquivos só de uma lista fechada; CSP só com a própria página; corpo até 64 KB.
@@ -171,7 +171,7 @@ class AcessoRemoto {
     const doQr = url.searchParams.get('c');
     if (doQr !== null) {
       if (!iguais(doQr, this.o.codigo)) return this.recusar(res, ip);
-      res.writeHead(302, this.cabecalhos({ Location: '/', 'Set-Cookie': `augpt=${this.o.codigo}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000` }));
+      res.writeHead(302, this.cabecalhos({ Location: '/', 'Set-Cookie': `augpt=${this.o.codigo}; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000` }));
       return res.end();
     }
     if (!iguais(lerCookie(req.headers.cookie, 'augpt'), this.o.codigo)) return this.recusar(res, ip);
