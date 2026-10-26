@@ -97,7 +97,7 @@ ${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}
 ÚLTIMA MENSAGEM: ${String(pergunta).slice(0, 1500)}
 
 Responda SÓ com um JSON:
-{"precisa_buscar": true ou false, "produto": true ou false, "criar_imagem": true ou false, "muda_com_o_tempo": true ou false, "sobre_o_usuario": true ou false, "sobre_a_tela": true ou false, "imagem_ajuda": true ou false, "acao": "", "sugerir": "", "assuntos": ["..."], "lugares": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
+{"precisa_buscar": true ou false, "produto": true ou false, "criar_imagem": true ou false, "muda_com_o_tempo": true ou false, "sobre_o_usuario": true ou false, "sobre_a_tela": true ou false, "imagem_ajuda": true ou false, "acao": "", "sugerir": "", "assuntos": ["..."], "lugares": ["..."], "buscas": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
 
 - O AuGPT roda no computador do usuário e EXECUTA estas ações:
 ${capacidades.listaParaEntender()}
@@ -118,6 +118,7 @@ ${capacidades.listaParaEntender()}
 - "produto" é true quando o usuário quer escolher, comparar, avaliar ou conhecer produtos ou itens para comprar ou usar (fone, mouse, celular, geladeira, carro, um modelo específico…). Para explicação, notícia, pessoa, história ou como algo funciona, false.
 
 - "precisa_buscar" é true para qualquer pedido de informação: produto, preço, recomendação, comparação, notícia, pessoa, lugar, história, ciência, como algo funciona, dado ou número. Seu conhecimento pode estar desatualizado, então mesmo o que você sabe vale conferir.
+- "buscas": quando "precisa_buscar" é true, de 1 a 3 buscas curtas para a web (como alguém digitaria no Google), de ângulos diferentes, com as condições que o usuário deu (modelo, ano, país, orçamento); para tecnologia e produtos, uma delas em inglês. Senão, [].
 - "precisa_buscar" é false SÓ para: saudação ou agradecimento, conta de matemática, tradução ou revisão de um texto que o usuário mandou, escrever um texto criativo, ou algo que a própria conversa já respondeu. Na dúvida, true.
 - Em "pergunta", troque "ele", "isso", "o outro" pelo que eles são na conversa e traga o que a conversa já disse: por exemplo, depois de "qual o melhor <tipo de produto> para <uso>?", a mensagem "e quanto ao <modelo>?" vira "o <modelo> é bom como <tipo de produto> para <uso>, e quanto custa?" (use os nomes reais da conversa, nunca os deste exemplo). Mantenha o resto como o usuário escreveu.`;
 }
@@ -217,6 +218,8 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
       atual: precisaBuscar && (j.muda_com_o_tempo === true || PISTA_DE_ATUAL.test(pergunta)),
       sobreOUsuario: j.sobre_o_usuario === true || PISTA_DO_USUARIO.test(pergunta),
       sobreATela: !comImagem && !TELA_EM_GERAL.test(String(pergunta || '')) && (j.sobre_a_tela === true || pedeATela(pergunta)),
+      // as primeiras buscas (27/10): o código as faz antes da 1ª rodada do pesquisador (uma decisão a menos)
+      buscas: (Array.isArray(j.buscas) ? j.buscas : []).map((b) => String(b || '').trim()).filter((b) => b.length >= 3 && b.length <= 120).slice(0, 3),
       imagemAjuda: !exatas && j.imagem_ajuda !== false,
       acao: acaoValida(j.acao, pergunta) || ((PEDE_QUE_FACA.test(String(pergunta || '')) || RESPONDEM.has(j.sugerir)) ? acaoValida(j.sugerir, pergunta) : null),
       sugerir: acaoValida(j.acao, pergunta) || PEDE_QUE_FACA.test(String(pergunta || '')) || RESPONDEM.has(j.sugerir) ? null : acaoValida(j.sugerir, pergunta),
@@ -405,7 +408,7 @@ function sistemaDoPesquisador({ hoje, rodada, total, produto = false, modo = 'no
 - Mantenha nas buscas as condições que o pedido deu: plataforma, tipo, versão, ano, orçamento, país. Busque exatamente o que a pergunta e a conversa falam — não troque por outro produto nem por outra categoria.
 - Em buscar_na_web, mande até 3 buscas curtas por vez, de ângulos diferentes. Para tecnologia e produtos, inclua buscas em inglês, onde há mais material.
 - Quando a pergunta pede opinião, experiência de uso ou recomendação, inclua buscas que tragam quem usa (por exemplo com "reddit" ou "fórum").
-- Use ler_pagina nas páginas mais promissoras quando o resumo não basta, sempre com um foco.
+- Use ler_pagina nas páginas mais promissoras quando o resumo não basta, sempre com um foco. Peça 2 ou 3 de uma vez, de sites diferentes: são lidas ao mesmo tempo.
 ${youtube ? '- Vídeos ajudam em review de produto, teste, tutorial e "como fazer": use buscar_no_youtube e ver_video (traz o que é falado e os comentários). Vídeo sem legenda só tem a descrição e os comentários.\n' : ''}${verImagens ? '- Quando a aparência importa (como algo é, cor, design, onde fica uma peça, diferença visual entre versões), use ver_imagens.\n' : ''}- Comece amplo e aprofunde no que os resultados mostrarem. Se 2 ou 3 buscas não acham algo, provavelmente não existe: siga em frente.
 ${produto ? `- Este pedido é sobre produtos: use buscar_na_comunidade pelo menos uma vez e leia com ler_pagina pelo menos ${regras.comunidade} tópico(s) da comunidade, para saber o que quem usa recomenda, elogia e critica. Busque também preço atual e especificações.\n` : ''}${
     modo === 'profundo'
@@ -460,7 +463,7 @@ const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || d
  * O laço do pesquisador. Devolve as fontes juntadas (numeradas, com resumo e,
  * quando lidas, os trechos escolhidos da página).
  */
-async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [], imagemAnexada = '', atual = false, sobreOUsuario = '', linksDoUsuario = [] }) {
+async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [], imagemAnexada = '', atual = false, sobreOUsuario = '', linksDoUsuario = [], buscasIniciais = [] }) {
   const { chamar, buscar, lerPagina, embed, emit = () => {}, signal, buscarNaComunidade } = deps;
   // comunidade (15/10, pedido do Davi): em pedido de produto, Reddit e fóruns entram sempre
   const comComunidade = produto && typeof buscarNaComunidade === 'function';
@@ -678,6 +681,14 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     porUrl.set(url, f);
     const lido = await executarLeitura({ fonte: f.n, foco: pergunta }, { garantia: true });
     historico.push({ role: 'user', content: `O usuário mandou este link na pergunta e ele já foi lido (é a fonte [${f.n}]):\n${String(lido).slice(0, 3500)}` });
+  }
+
+  // as primeiras buscas vêm do entendimento (27/10, análise do Davi: a 1ª rodada do pesquisador quase
+  // sempre era só "buscar" — uma decisão inteira, ~2 s com 3 mil tokens, para escolher as buscas). O
+  // código já busca; o pesquisador começa decidindo o que ler, e as 2 primeiras páginas já vão sendo lidas.
+  if (buscasIniciais.length && !signal?.aborted) {
+    const resultado = await executarBusca(buscasIniciais);
+    historico.push({ role: 'user', content: `Primeiras buscas, já feitas (${buscasIniciais.join(' · ')}):\n${resultado}\n\nContinue: leia com ler_pagina as páginas mais promissoras (2 ou 3 de uma vez, de sites diferentes), busque um ângulo que falte, ou chame pronto.` });
   }
 
   for (let rodada = 1; rodada <= total; rodada += 1) {
@@ -1306,7 +1317,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const sobreOUsuario = ent.sobreOUsuario && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '';
   // os links que o usuário colou (da pergunta original — a reescrita do entendimento pode perder o endereço)
   const linksDoUsuario = [...new Set(String(pergunta || '').match(/https?:\/\/[^\s'"<>)\]]+/g) || [])];
-  const fontes = ent.precisaBuscar || linksDoUsuario.length ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa, imagemAnexada: vista, atual: ent.atual, sobreOUsuario, linksDoUsuario }) : [];
+  const fontes = ent.precisaBuscar || linksDoUsuario.length ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa, imagemAnexada: vista, atual: ent.atual, sobreOUsuario, linksDoUsuario, buscasIniciais: ent.buscas || [] }) : [];
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
   const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit }) : [];
   // 16/10: sem o yt-dlp, "pesquise vídeos no youtube" saiu como "realizei uma pesquisa no YouTube" — não houve
