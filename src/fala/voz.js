@@ -130,7 +130,7 @@ function extrairTgz(arquivo, destino, quer) {
  * A resposta (markdown) vira o que se fala: sem código, tabela, link, imagem, citação e a lista de fontes;
  * resposta longa fica nas primeiras frases (~450 caracteres) e avisa que o resto está na tela.
  */
-function textoParaFalar(markdown, { maximo = 450 } = {}) {
+function textoParaFalar(markdown, { maximo = 450, semAviso = false } = {}) {
   let t = String(markdown || '')
     .split(/\n-{3,}\s*\n/)[0] // "---\n**Fontes**"
     .replace(/```[\s\S]*?```/g, ' ')
@@ -159,7 +159,7 @@ function textoParaFalar(markdown, { maximo = 450 } = {}) {
     if ((dito + f).length > maximo && dito) break;
     dito += f;
   }
-  return `${dito.trim()} Os detalhes estão na tela.`;
+  return semAviso ? dito.trim() : `${dito.trim()} Os detalhes estão na tela.`;
 }
 
 /** Frases de até ~220 caracteres (o Kokoro aceita até 510 fonemas por vez; frase curta começa a falar antes). */

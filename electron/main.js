@@ -1087,26 +1087,53 @@ ipcMain.handle('voz:instalar', async () => {
     return { ok: false, error: err.message };
   }
 });
-ipcMain.handle('voz:falar', async (_e, { texto, resumir = true } = {}) => {
-  if (!voz?.instalada()) return { ok: false, error: 'a voz não está instalada' };
-  const id = (falaAtual += 1);
-  const dito = resumir ? textoParaFalar(texto) : String(texto || '').slice(0, 2000);
-  if (!dito) return { ok: false, error: 'nada para falar' };
-  (async () => {
+// a fala em partes (27/10): `parcial` começa pelas primeiras frases enquanto a resposta ainda é escrita;
+// `continuar` (no fim) fala só o que falta do resumo, na mesma fila — sem repetir e sem cortar o que toca.
+// Se o começo dito não bate com a resposta final (a conferência mudou algo), o resto não é dito.
+let falado = []; // as frases já mandadas para tocar nesta fala
+let cadeia = Promise.resolve();
+const semEspaco = (t) => String(t || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+function gerarFrases(id, frases, { ultimo }) {
+  falado.push(...frases);
+  const opcoes = { voz: config.data.vozNome || 'pm_alex', velocidade: Number(config.data.vozVelocidade) || 1, cancelado: () => falaAtual !== id };
+  cadeia = cadeia.then(async () => {
     try {
-      for await (const { pcm } of voz.falar(dito, { voz: config.data.vozNome || 'pm_alex', velocidade: Number(config.data.vozVelocidade) || 1, cancelado: () => falaAtual !== id })) {
+      for (const frase of frases) {
         if (falaAtual !== id) return;
-        enviar('voz-audio', { id, pcm, taxa: 24000 });
+        for await (const { pcm } of voz.falar(frase, opcoes)) {
+          if (falaAtual !== id) return;
+          enviar('voz-audio', { id, pcm, taxa: 24000 });
+        }
       }
-      if (falaAtual === id) enviar('voz-audio', { id, fim: true });
+      if (ultimo && falaAtual === id) enviar('voz-audio', { id, fim: true });
     } catch (err) {
       enviar('voz-audio', { id, fim: true, erro: err.message });
     }
-  })();
+  });
+}
+ipcMain.handle('voz:falar', async (_e, { texto, resumir = true, parcial = false, continuar = false } = {}) => {
+  if (!voz?.instalada()) return { ok: false, error: 'a voz não está instalada' };
+  const { frasesParaFalar } = require('../src/fala/voz');
+  if (continuar && falado.length) {
+    const id = falaAtual;
+    const frases = frasesParaFalar(textoParaFalar(texto));
+    const iguais = falado.every((f, i) => semEspaco(f) === semEspaco(frases[i]));
+    gerarFrases(id, iguais ? frases.slice(falado.length) : [], { ultimo: true });
+    return { ok: true, id, continuou: iguais };
+  }
+  const id = (falaAtual += 1);
+  falado = [];
+  cadeia = Promise.resolve();
+  // parcial: só frases completas, sem o "Os detalhes estão na tela" (quem decide o fim é a resposta inteira)
+  const dito = resumir ? textoParaFalar(texto, parcial ? { maximo: 450, semAviso: true } : {}) : String(texto || '').slice(0, 2000);
+  if (!dito) return { ok: false, error: 'nada para falar' };
+  gerarFrases(id, frasesParaFalar(dito), { ultimo: !parcial });
   return { ok: true, id, texto: dito };
 });
 ipcMain.handle('voz:parar', () => {
   falaAtual += 1;
+  falado = [];
+  cadeia = Promise.resolve();
   return { ok: true };
 });
 ipcMain.handle('ditado:estado', () => (ditado ? { ...ditado.estado(), escutaEmUso: ditado.modeloDaEscuta(config.data.escutaModelo) } : { instalado: false }));

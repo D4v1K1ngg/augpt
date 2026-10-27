@@ -100,12 +100,20 @@ module.exports = [
       const escuta = ler('renderer/escuta.js');
       return [
         /vozFalar: 'voz'/.test(ler('src/config.js')) || 'padrão',
-        /quando === 'nunca' \|\| \(quando === 'voz' && !porVoz\)/.test(fala) || 'quando falar',
+        /quando !== 'nunca' && \(quando === 'sempre' \|\| window\.falaPorVoz\.pedidoPorVoz\)/.test(fala) || 'quando falar',
+        // 27/10: a fala começa durante a escrita — não em preço, produto ou o que muda com o tempo; reescrita cala
+        /if \(d\.produto\) turnoDaFala\.podeAntes = false;/.test(fala) && fala.includes("if (/R\\$|US\\$|€|%/.test(corrido)) turnoDaFala.podeAntes = false;") || 'produto e preço esperam o fim',
+        /manipuladores\['resposta-reinicia'\][\s\S]{0,200}parar\(\);/.test(fala) || 'reescrita cala',
+        /fins\.length >= 1 && corrido\.length >= 80/.test(fala) && /\.split\(\/```\|\\n\\s\*\\\|\|\\n-\{3,\}\/\)\[0\]/.test(fala) || 'só texto corrido, 1ª frase',
+        /falar\(corrido\.slice\(0, fins\[fins\.length - 1\]\.index \+ 1\), \{ parcial: true \}\)/.test(fala) || 'parcial',
+        /if \(atual !== null\) api\.voz\.falar\(d\.resumo, \{ continuar: true \}\)/.test(fala) || 'continua sem repetir; parada não recomeça',
         /window\.falaPorVoz\.pedidoPorVoz = true/.test(escuta) || 'pedido pela voz marca',
         /g\.calouAFala = Boolean\(window\.falaPorVoz\?\.falando\(\)\);\s*window\.falaPorVoz\?\.parar\(\);/.test(escuta) || 'a chamada cala a fala',
         /window\.falaPorVoz\?\.parar\(\); \/\/ a voz do AuGPT/.test(ler('renderer/app-abas.js')) || 'pedido novo cala',
         (/id="btnVozInstalar"/.test(ler('renderer/index.html')) && /<script src="fala.js"><\/script>/.test(ler('renderer/index.html'))) || 'Ajustes e script',
         /ipcMain\.handle\('voz:falar'/.test(ler('electron/main.js')) && /voz = new Voz\(/.test(ler('electron/main.js')) || 'processo principal',
+        /const iguais = falado\.every\(\(f, i\) => semEspaco\(f\) === semEspaco\(frases\[i\]\)\);/.test(ler('electron/main.js')) || 'continuar confere o que já foi dito',
+        textoParaFalar('Uma frase. '.repeat(80), { semAviso: true }).endsWith('frase.') || 'parcial sem o aviso do fim',
       ];
     },
   },

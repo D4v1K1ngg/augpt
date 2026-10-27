@@ -93,22 +93,80 @@
     if (e.key === 'Escape' && atual !== null) parar();
   });
 
-  // a resposta terminou: fala, se for o caso (o pedido pela voz marca `pedidoPorVoz`, em escuta.js)
+  // quando falar: só quando você chamou pela voz (padrão), sempre ou nunca; a conversão é do português
+  let vozInstalada = false;
+  api.voz.estado().then((e) => (vozInstalada = e.instalada === true)).catch(() => {});
+  const deveFalar = () => {
+    const quando = config.vozFalar || 'voz';
+    return vozInstalada && quando !== 'nunca' && (quando === 'sempre' || window.falaPorVoz.pedidoPorVoz) && window.i18n?.idioma !== 'en';
+  };
+
+  /*
+   * A fala começa durante a escrita (27/10): com a 1ª frase pronta na tela (80+ letras), já fala; no fim,
+   * só o que falta do resumo. Fica para o fim (como antes) a pergunta de preço, de produto ou que muda
+   * com o tempo — a conferência ainda pode mexer num número —, e uma resposta que foi reescrita.
+   */
+  const turnoDaFala = { podeAntes: false, falouAntes: false, texto: '' };
+  const comecoOriginal = manipuladores.inicio;
+  manipuladores.inicio = (d) => {
+    Object.assign(turnoDaFala, { podeAntes: true, falouAntes: false, texto: '' });
+    return comecoOriginal?.(d);
+  };
+  const entendimentoOriginal = manipuladores['nucleo-entendimento'];
+  manipuladores['nucleo-entendimento'] = (d = {}) => {
+    // produto espera o fim (o preço da loja ainda é conferido); "muda com o tempo" não serve de regra — o
+    // modelo marcava até "quanto tempo vive uma calopsita" (27/10); preço e % no texto barram abaixo
+    if (d.produto) turnoDaFala.podeAntes = false;
+    return entendimentoOriginal?.(d);
+  };
+  const reiniciaOriginal = manipuladores['resposta-reinicia'];
+  manipuladores['resposta-reinicia'] = (d) => {
+    turnoDaFala.podeAntes = false;
+    if (turnoDaFala.falouAntes) {
+      turnoDaFala.falouAntes = false;
+      parar();
+    }
+    return reiniciaOriginal?.(d);
+  };
+  const tokenOriginal = manipuladores['resposta-token'];
+  manipuladores['resposta-token'] = (d = {}) => {
+    const r = tokenOriginal?.(d);
+    if (turnoDaFala.podeAntes && !turnoDaFala.falouAntes && deveFalar()) {
+      turnoDaFala.texto += d.pedaco || '';
+      // só o texto corrido: para antes de tabela, bloco de código ou da lista de fontes
+      const corrido = turnoDaFala.texto.split(/```|\n\s*\||\n-{3,}/)[0];
+      const fins = [...corrido.matchAll(/[.!?…](?=\s)/g)];
+      // preço ou porcentagem no começo: a conferência pode tirar ou marcar — espera a resposta inteira
+      if (/R\$|US\$|€|%/.test(corrido)) turnoDaFala.podeAntes = false;
+      else if (fins.length >= 1 && corrido.length >= 80) {
+        turnoDaFala.falouAntes = true;
+        falar(corrido.slice(0, fins[fins.length - 1].index + 1), { parcial: true });
+      }
+    }
+    return r;
+  };
+
+  // a resposta terminou: fala (ou continua a fala que começou durante a escrita)
   const concluidoOriginal = manipuladores.concluido;
   manipuladores.concluido = (d = {}) => {
     concluidoOriginal(d);
-    const porVoz = window.falaPorVoz.pedidoPorVoz;
+    const falar1 = deveFalar() && d.resumo;
     window.falaPorVoz.pedidoPorVoz = false;
-    const quando = config.vozFalar || 'voz';
-    if (quando === 'nunca' || (quando === 'voz' && !porVoz) || !d.resumo) return;
-    // a conversão de texto em fala é do português (src/fala/fonemas-pt-br.js)
-    if (window.i18n?.idioma === 'en') return;
-    api.voz.estado().then((e) => e.instalada && falar(d.resumo)).catch(() => {});
+    turnoDaFala.podeAntes = false;
+    if (!falar1) return;
+    if (turnoDaFala.falouAntes) {
+      // você parou no meio (Esc, botão, "para"): não recomeça; senão, continua de onde parou
+      if (atual !== null) api.voz.falar(d.resumo, { continuar: true }).catch(() => {});
+      return;
+    }
+    falar(d.resumo);
   };
   for (const fim of ['erro', 'interrompido', 'limite']) {
     const original = manipuladores[fim];
     manipuladores[fim] = (d) => {
       window.falaPorVoz.pedidoPorVoz = false;
+      turnoDaFala.podeAntes = false;
+      if (turnoDaFala.falouAntes) parar(); // a resposta não terminou: o começo dito não vale
       return original?.(d);
     };
   }
@@ -122,6 +180,7 @@
     if (!status) return;
     const e = await api.voz.estado().catch(() => ({}));
     const pronta = e.instalada === true;
+    vozInstalada = pronta;
     for (const linha of document.querySelectorAll('.voz-opcao')) linha.hidden = !pronta;
     $id('btnVozInstalar').hidden = pronta;
     $id('btnVozTestar').hidden = !pronta;
