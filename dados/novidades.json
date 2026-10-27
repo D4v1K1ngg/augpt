@@ -1,5 +1,41 @@
 [
   {
+    "versao": "0.39.0",
+    "data": "2026-10-27",
+    "pt": {
+      "titulo": "O AuGPT fala, trabalha em segundo plano e pesquisa mais rápido",
+      "itens": [
+        "**O AuGPT fala:** as respostas podem ser lidas em voz alta por uma voz natural (Kokoro, roda no próprio PC, sem internet). Baixe em Ajustes, na opção \"Voz do AuGPT\", com um clique. Por padrão ele fala quando você chamou pela voz, e a fala começa enquanto a resposta ainda está sendo escrita.",
+        "**\"Ei Jarvis\" mais confiável:** a chamada pela voz continua funcionando depois de fechar e abrir o app, lembra o microfone escolhido e não dispara mais com conversas comuns perto do microfone.",
+        "**Use pelo celular:** abra o AuGPT no celular pela rede de casa, lendo um QR code (Ajustes → \"Acesso pelo celular\").",
+        "**Tarefas em segundo plano:** peça algo demorado, continue usando o app e receba um aviso quando terminar.",
+        "**Instruções por assunto:** diga como quer as respostas de um assunto (por exemplo, receitas sempre em gramas) e o AuGPT lembra só quando o assunto aparece.",
+        "**\"O que tem na minha tela?\":** funciona com qualquer jeito de perguntar, e o AuGPT confere a tela de novo antes de dizer que terminou.",
+        "**Busca mais robusta:** além do SearXNG, o AuGPT usa a busca do Ollama e a Jina (cadastre as chaves em Ajustes). Buscador que falha é pulado na hora, em vez de atrasar a resposta.",
+        "**Pesquisa mais rápida e limpa:** sem recarregar o modelo entre as etapas, menos rodadas de decisão, sem esperar a página mais lenta e com buscas mais certeiras (sem ano à toa, sem dicionários como fonte).",
+        "**Conferir afirmações (opcional):** em Ajustes, ative para o AuGPT conferir a resposta com as fontes e corrigir o que elas não sustentam.",
+        "**Procurar perfis e nomes:** peça \"procure o perfil de…\" e o AuGPT busca perfis e páginas públicas. Ele não monta dossiê de pessoas comuns (endereço, telefone, família).",
+        "**Correções:** clima de \"Vitória ES\", cumprimentos sem busca à toa, \"qual é o meu nome\" e modelos com formato rígido de mensagens (como o Bonsai) nas tarefas."
+      ]
+    },
+    "en": {
+      "titulo": "AuGPT speaks, works in the background and searches faster",
+      "itens": [
+        "**AuGPT speaks:** answers can be read aloud by a natural voice (Kokoro, runs on your own PC, no internet). Download it in Settings (\"AuGPT voice\") with one click. By default it speaks when you called it by voice, and speech starts while the answer is still being written.",
+        "**More reliable \"Hey Jarvis\":** voice calling keeps working after closing and reopening the app, remembers the chosen microphone and no longer triggers on ordinary conversation near the mic.",
+        "**Use it from your phone:** open AuGPT on your phone over your home network by scanning a QR code (Settings → \"Phone access\").",
+        "**Background tasks:** ask for something long, keep using the app and get a notification when it is done.",
+        "**Instructions per subject:** say how you want answers on a subject (for example, recipes always in grams) and AuGPT remembers only when that subject comes up.",
+        "**\"What is on my screen?\":** works however you ask, and AuGPT checks the screen again before saying it is done.",
+        "**More robust search:** besides SearXNG, AuGPT uses Ollama web search and Jina (add the keys in Settings). A search engine that fails is skipped right away instead of delaying the answer.",
+        "**Faster, cleaner research:** no model reloads between steps, fewer decision rounds, no waiting for the slowest page, and sharper queries (no needless year, no dictionaries as sources).",
+        "**Claim checking (optional):** turn it on in Settings so AuGPT checks the answer against the sources and fixes what they do not support.",
+        "**Find profiles and names:** ask \"find the profile of…\" and AuGPT searches public profiles and pages. It does not build dossiers on private people (address, phone, family).",
+        "**Fixes:** weather for \"Vitória ES\", greetings without needless searches, \"what is my name\" and models with strict message formats (like Bonsai) in tasks."
+      ]
+    }
+  },
+  {
     "versao": "0.38.1",
     "data": "2026-10-25",
     "pt": {
