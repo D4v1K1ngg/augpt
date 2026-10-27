@@ -6,6 +6,7 @@
 /* ============================ enviar pedido ao agente ============================ */
 
 async function enviarPedido() {
+  window.falaPorVoz?.parar(); // a voz do AuGPT (27/10): pedido novo, ele para de falar
   if (agente.rodando) {
     await api.agent.stop();
     return;

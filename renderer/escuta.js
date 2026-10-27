@@ -201,6 +201,9 @@
       return;
     }
     window.ditadoPorVoz.lembrarMicrofone?.(); // a chamada deu certo: este microfone fica lembrado
+    // o AuGPT falando e você chamou: ele se cala para ouvir (27/10)
+    g.calouAFala = Boolean(window.falaPorVoz?.falando());
+    window.falaPorVoz?.parar();
     g.estado = 'pedido';
     g.chamadaEm = Date.now();
     g.restoNaChamada = Boolean(r.resto);
@@ -243,7 +246,7 @@
         avisar(tr('Nova conversa ✓'), 3000);
       } else if (r.comando === 'parar') {
         if (ocupado) a.enviar.click();
-        avisar(ocupado ? tr('Parei ✓') : tr('Nada para parar.'), 3000);
+        avisar(ocupado || g.calouAFala ? tr('Parei ✓') : tr('Nada para parar.'), 3000);
       } else if (!r.pedido) {
         avisar(tr('Ouvi o "{nome}", mas não o pedido. Tente: "{nome}, vai chover amanhã?"', { nome: nome() }), 6000);
       } else if (ocupado) {
@@ -256,6 +259,8 @@
         }
         avisar('');
         // "Ei GPT, o que é isso na tela?": captura a tela inteira e manda junto (renderer/tela.js)
+        // pedido pela voz: a resposta pode ser falada (renderer/fala.js, "Quando falar")
+        if (window.falaPorVoz) window.falaPorVoz.pedidoPorVoz = true;
         if (window.telaPorVoz?.falaDaTela(texto)) {
           await window.telaPorVoz.capturarEPerguntar(texto);
           return;

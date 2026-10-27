@@ -155,6 +155,10 @@ const DEFAULTS = {
   ditadoMicrofone: '',
   // o microfone que já ouviu você (treino, ditado ou chamada), quando nenhum foi escolhido (27/10)
   ditadoMicrofoneQueOuviu: '',
+  // a voz do AuGPT (27/10): quando falar ('voz' = quando você chama pela voz, 'sempre', 'nunca'), qual voz e a velocidade
+  vozFalar: 'voz',
+  vozNome: 'pm_alex',
+  vozVelocidade: 1,
   // 25/10: "Ei GPT" (o microfone fica aberto ouvindo a chamada; desligado por padrão) e a correção
   // do texto falado pelo modelo (ortografia e palavras ouvidas errado) antes de enviar
   ouvirChamada: false,

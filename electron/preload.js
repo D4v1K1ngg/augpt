@@ -33,6 +33,13 @@ contextBridge.exposeInMainWorld('augpt', {
     salvar: (nome, sugestao) => ipcRenderer.invoke('imagem:salvar', { nome, sugestao }),
     mostrarNaPasta: (caminho) => ipcRenderer.invoke('imagem:mostrarNaPasta', { caminho }),
   },
+  // a voz do AuGPT (27/10)
+  voz: {
+    estado: () => ipcRenderer.invoke('voz:estado'),
+    instalar: () => ipcRenderer.invoke('voz:instalar'),
+    falar: (texto, opcoes = {}) => ipcRenderer.invoke('voz:falar', { texto, ...opcoes }),
+    parar: () => ipcRenderer.invoke('voz:parar'),
+  },
   ditado: {
     estado: () => ipcRenderer.invoke('ditado:estado'),
     instalar: () => ipcRenderer.invoke('ditado:instalar'),

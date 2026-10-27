@@ -1072,6 +1072,43 @@ function iniciarAgendador() {
 // bytes; o arquivo temporário é apagado logo depois. Instala só no clique (Ajustes → Componentes).
 const { Ditado } = require('../src/ditado');
 let ditado = null;
+
+/* ------------------------------ a voz do AuGPT (27/10, src/fala/voz.js) ------------------------------ */
+// O Kokoro no processador fala a resposta (estilo Jarvis). O processo principal gera frase por frase e
+// manda o áudio para a tela tocar; um pedido novo de fala cancela o anterior.
+const { Voz, textoParaFalar } = require('../src/fala/voz');
+let voz = null;
+let falaAtual = 0;
+ipcMain.handle('voz:estado', () => (voz ? voz.estado() : { instalada: false }));
+ipcMain.handle('voz:instalar', async () => {
+  try {
+    return { ok: true, estado: await voz.instalar({ emitir: (p) => enviar('voz-progresso', p) }) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('voz:falar', async (_e, { texto, resumir = true } = {}) => {
+  if (!voz?.instalada()) return { ok: false, error: 'a voz não está instalada' };
+  const id = (falaAtual += 1);
+  const dito = resumir ? textoParaFalar(texto) : String(texto || '').slice(0, 2000);
+  if (!dito) return { ok: false, error: 'nada para falar' };
+  (async () => {
+    try {
+      for await (const { pcm } of voz.falar(dito, { voz: config.data.vozNome || 'pm_alex', velocidade: Number(config.data.vozVelocidade) || 1, cancelado: () => falaAtual !== id })) {
+        if (falaAtual !== id) return;
+        enviar('voz-audio', { id, pcm, taxa: 24000 });
+      }
+      if (falaAtual === id) enviar('voz-audio', { id, fim: true });
+    } catch (err) {
+      enviar('voz-audio', { id, fim: true, erro: err.message });
+    }
+  })();
+  return { ok: true, id, texto: dito };
+});
+ipcMain.handle('voz:parar', () => {
+  falaAtual += 1;
+  return { ok: true };
+});
 ipcMain.handle('ditado:estado', () => (ditado ? { ...ditado.estado(), escutaEmUso: ditado.modeloDaEscuta(config.data.escutaModelo) } : { instalado: false }));
 ipcMain.handle('ditado:instalar', async () => {
   try {
@@ -2361,6 +2398,7 @@ app.whenReady().then(() => {
       .catch((err) => registrarErro('faxina', err));
   }, 2 * 60000);
   ditado = new Ditado(path.join(app.getPath('userData'), 'componentes'));
+  voz = new Voz(path.join(app.getPath('userData'), 'componentes', 'voz'));
   carregarRegistroDaEscuta();
   aplicarNomeDaChamada();
   // 25/10: sai do treino o que não soa como "GPT" ("somdebarulho" — o teclado — chamava o AuGPT)

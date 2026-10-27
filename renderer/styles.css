@@ -1875,3 +1875,8 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .instrucao-nova { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
 .instrucao-nova input { flex: 1 1 140px; min-width: 0; }
 .instrucao-nova input#instrucaoTexto { flex-basis: 260px; }
+
+/* a voz do AuGPT (27/10, renderer/fala.js) */
+.parar-voz { position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%); z-index: 60; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line-forte); background: var(--panel-2); color: var(--text-forte); font: inherit; font-size: 13px; cursor: pointer; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); }
+.parar-voz:hover { border-color: var(--amber); }
+.parar-voz[hidden] { display: none; }
