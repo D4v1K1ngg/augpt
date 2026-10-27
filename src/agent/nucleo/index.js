@@ -35,6 +35,8 @@ const { qualidadeDoDominio } = require('../../tools/search');
  */
 const RISCO_FORA = new Set(['alto', 'bloqueado']);
 const PRAZO_DA_PAGINA_MS = 8000;
+// depois que uma página da rodada fica pronta, quanto as outras ainda podem demorar (27/10)
+const FOLGA_DA_RODADA_MS = 3000;
 function comCredibilidade(ordenados, { comunidade = false, maximo = 8, porSite = 2, jaVistos = [] } = {}) {
   const contagem = new Map();
   for (const f of jaVistos) contagem.set(dominio(f.url), (contagem.get(dominio(f.url)) || 0) + 1);
@@ -642,10 +644,19 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       // leitura segue em segundo plano (vai para o cache) e o modelo continua com as outras
       if (!f.adiantada) f.adiantada = Promise.resolve().then(() => lerPagina(f.url)).catch((err) => ({ erro: err }));
       let relogio;
-      const pronta = await Promise.race([f.adiantada, new Promise((ok) => (relogio = setTimeout(() => ok({ demorou: true }), deps.prazoDaPaginaMs ?? PRAZO_DA_PAGINA_MS)))]);
+      // 27/10 (medido: leitura direta < 2 s, pelo intermediário 3–12 s): a rodada não espera a mais lenta —
+      // quando uma página da rodada fica pronta, as outras têm mais FOLGA_DA_RODADA_MS
+      const rodada = leituraDaRodada;
+      const pronta = await Promise.race([
+        f.adiantada.then((p) => (p?.texto && rodada?.avisar(), p)),
+        new Promise((ok) => (relogio = setTimeout(() => ok({ demorou: true }), deps.prazoDaPaginaMs ?? PRAZO_DA_PAGINA_MS))),
+        ...(rodada ? [rodada.pronta.then(() => new Promise((ok) => setTimeout(() => ok({ demorou: true }), deps.folgaDaRodadaMs ?? FOLGA_DA_RODADA_MS)))] : []),
+      ]);
       clearTimeout(relogio);
       if (pronta?.demorou) {
         leiturasFeitas -= 1;
+        // chegou depois? os trechos ainda entram na escrita, se ela não começou
+        f.adiantada.then((p) => (p?.texto && !f.trechos.length && !escrevendo ? aproveitar(f, p, foco) : null)).catch(() => {});
         return `A página [${f.n}] está demorando para abrir: leia outra fonte.`;
       }
       if (pronta?.erro) throw pronta.erro;
@@ -654,13 +665,24 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       return `Não consegui ler [${f.n}]: ${String(err.message || err).slice(0, 120)}`;
     }
     if (!pagina?.texto) return `A página [${f.n}] não trouxe texto.`;
+    return aproveitar(f, pagina, foco);
+  };
+  /** O que a página lida traz para a fonte: até 4 trechos ligados ao foco (rodapé e menu ficam de fora). */
+  const aproveitar = async (f, pagina, foco) => {
     emit('fonte', { tipo: 'leitura', provedor: pagina.via || 'web', url: f.url });
     if (pagina.titulo && !f.titulo) f.titulo = pagina.titulo;
     if (pagina.data) f.data = String(pagina.data).slice(0, 10);
-    // até 4 trechos, e só os que têm alguma relação com o foco (rodapé e menu ficam de fora)
     const melhores = (await ordenar(`${foco || ''} ${pergunta}`, pedacos(pagina.texto).map((texto) => ({ texto })), { embed, maximo: 4 })).filter((m, i) => i === 0 || m.nota >= 0.2);
     f.trechos.push(...melhores.map((m) => m.texto).filter((t) => !f.trechos.includes(t)));
     return `[${f.n}] ${f.titulo}\n${melhores.map((m) => m.texto).join('\n…\n').slice(0, 3000)}`;
+  };
+  // a rodada em andamento: a 1ª página pronta avisa (ver executarLeitura); `escrevendo` fecha as que chegam tarde
+  let leituraDaRodada = null;
+  let escrevendo = false;
+  const novaRodadaDeLeitura = () => {
+    let avisar;
+    const pronta = new Promise((ok) => (avisar = ok));
+    leituraDaRodada = { pronta, avisar };
   };
 
   // o modelo quis parar: falta busca (pede sempre) ou falta leitura (pede uma vez; o resto o código lê no fim)
@@ -760,7 +782,9 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
     const ehBusca = (c) => /^buscar_/.test(c.nome);
     const saidas = new Array(chamadas.length);
     await Promise.all(chamadas.map((c, i) => (ehBusca(c) ? rodar(c).then((x) => (saidas[i] = x)) : null)));
+    novaRodadaDeLeitura();
     await Promise.all(chamadas.map((c, i) => (ehBusca(c) ? null : rodar(c).then((x) => (saidas[i] = x)))));
+    leituraDaRodada = null;
     chamadas.forEach((c, i) => historico.push({ role: 'tool', tool_name: c.nome, content: saidas[i] }));
     semNovidade = fontes.length === antesDaRodada.fontes && lidas() === antesDaRodada.lidas ? semNovidade + 1 : 0;
     if (chamadas.some((c) => c.nome === 'pronto')) {
@@ -799,9 +823,12 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
     while (i < candidatas.length && lidas() < regras.minLeituras && !signal?.aborted) {
       const lote = candidatas.slice(i, i + regras.minLeituras - lidas());
       i += lote.length;
+      novaRodadaDeLeitura();
       await Promise.all(lote.map((f) => executarLeitura({ fonte: f.n, foco: pergunta }, { garantia: true })));
+      leituraDaRodada = null;
     }
   }
+  escrevendo = true; // daqui em diante a escrita começa: página que chegar tarde não muda as fontes
   return fontes;
 }
 
