@@ -359,6 +359,27 @@ function definirPensarPadrao(valor) {
  * já em uso (texto curto não muda nada); só crescer recarrega, uma vez.
  */
 const contextoEmUso = new Map(); // `${host}|${model}` → maior num_ctx pedido
+
+/*
+ * Instrução de sistema só no começo (27/10, teste do Bonsai-27B): o modelo de conversa embutido em alguns
+ * GGUF recusa "system" fora da 1ª mensagem ("System message must be at the beginning") — e as tarefas do
+ * AuGPT mandam avisos de sistema no meio. Na 1ª recusa, o modelo fica lembrado e as mensagens de sistema
+ * do meio viram mensagens comuns marcadas; os modelos que aceitam o formato de sempre não mudam nada.
+ */
+const exigeSistemaNoInicio = new Set();
+const ERRO_SISTEMA_NO_INICIO = /System message must be at the beginning/i;
+const sistemaNoInicio = (msgs) => msgs.map((m, i) => (m.role === 'system' && i > 0 ? { ...m, role: 'user', content: `[Instrução do sistema] ${m.content}` } : m));
+async function comSistemaNoInicio(host, model, messages, tentar) {
+  const chave = `${String(host || DEFAULT_HOST).replace(/\/$/, '')}|${model}`;
+  const ajustar = () => (exigeSistemaNoInicio.has(chave) ? sistemaNoInicio(messages) : messages);
+  try {
+    return await tentar(ajustar());
+  } catch (err) {
+    if (!ERRO_SISTEMA_NO_INICIO.test(String(err?.message || '')) || exigeSistemaNoInicio.has(chave)) throw err;
+    exigeSistemaNoInicio.add(chave);
+    return tentar(ajustar());
+  }
+}
 function contextoSemRecarga(host, model, numCtx) {
   const chave = `${String(host || DEFAULT_HOST).replace(/\/$/, '')}|${model}`;
   const usado = Math.max(Number(numCtx) || 0, contextoEmUso.get(chave) || 0);
@@ -419,7 +440,7 @@ async function chat({
     };
   };
 
-  const { resultado, reducao } = await comReducaoDeContexto(messages, numPredict, signal, enviar);
+  const { resultado, reducao } = await comSistemaNoInicio(host, model, messages, (msgs) => comReducaoDeContexto(msgs, numPredict, signal, enviar));
   const { data, via } = resultado;
 
   return {
@@ -547,8 +568,8 @@ async function chatStreamUmaVez({
 
 /** Streaming com a mesma proteção de contexto de `chat` (reduz e reenvia uma vez). */
 async function chatStream(opcoes) {
-  const { resultado, reducao } = await comReducaoDeContexto(opcoes.messages, opcoes.numPredict ?? 2048, opcoes.signal, (msgs) =>
-    chatStreamUmaVez({ ...opcoes, messages: msgs })
+  const { resultado, reducao } = await comSistemaNoInicio(opcoes.host, opcoes.model, opcoes.messages, (inicio) =>
+    comReducaoDeContexto(inicio, opcoes.numPredict ?? 2048, opcoes.signal, (msgs) => chatStreamUmaVez({ ...opcoes, messages: msgs }))
   );
   return { ...resultado, contextoReduzido: reducao };
 }
@@ -625,6 +646,7 @@ async function decidir({ host = DEFAULT_HOST, model, state, questions, keepAlive
 
 module.exports = {
   contextoSemRecarga,
+  sistemaNoInicio,
   DEFAULT_HOST, health, listModels, psModels, unloadModel, embed, pullModel, suportaEsquema, semBlocoDePensamento, definirPensarPadrao,
   chat: (opcoes) => comCamadas(opcoes, chat),
   chatStream: (opcoes) => comCamadas(opcoes, chatStream),

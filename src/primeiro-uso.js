@@ -158,7 +158,9 @@ function mensagemAmigavel(erro) {
     return 'O modelo demorou demais pra responder. Em computador sem placa de vídeo isso é comum com modelos grandes: tente o raciocínio "leve" ou um modelo menor.';
   }
   if (/System message must be at the beginning|Jinja Exception/i.test(texto)) {
-    return 'Este modelo não conversa: é um modelo de decisão (como o tev1), que só escolhe entre opções. Em Ajustes, escolha um modelo de conversa, como o qwen2.5:7b, como principal e como copiloto.';
+    // 27/10: era só "modelo de decisão" — o Bonsai-27B também cai aqui (o modelo de conversa embutido nele recusa
+    // a ordem das mensagens) e o AuGPT já tenta de novo no formato que ele aceita; se chegou aqui, não deu
+    return 'Este modelo recusou a conversa no formato do AuGPT (o modelo de conversa embutido nele é rígido com a ordem das instruções). Se for um modelo de decisão, como o tev1, ele só escolhe entre opções. Em Ajustes, escolha outro modelo como principal — o qwen3.5 funciona com tudo.';
   }
   if (/out of memory|cudaMalloc|requires more system memory|insufficient memory/i.test(texto)) {
     return 'Faltou memória pra carregar o modelo. Escolha um modelo menor, ou reduza a janela de contexto em Ajustes → Avançado.';
