@@ -85,13 +85,20 @@ async function pedirJson(url, deps) {
 
 /** "Campinas", "Curitiba, PR", "Paris, França" → { nome, rotulo, lat, lon } ou null. */
 async function acharCidade(nome, { idioma = 'pt', deps = {} } = {}) {
-  const [cidade, ...dica] = String(nome).split(',').map((p) => p.trim()).filter(Boolean);
+  // "Vitória ES" / "Vitória-ES" sem vírgula (27/10, no app: "Não achei a cidade Vitória ES"): a sigla do fim é o estado
+  let texto = String(nome).trim();
+  const comSigla = /^(.+?)[\s-]+([A-Za-z]{2})$/.exec(texto);
+  if (!texto.includes(',') && comSigla && UF[comSigla[2].toLowerCase()]) texto = `${comSigla[1]}, ${comSigla[2]}`;
+  const [cidade, ...dica] = texto.split(',').map((p) => p.trim()).filter(Boolean);
   const j = await pedirJson(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cidade)}&count=10&language=${idioma}&format=json`, deps);
   const lista = j.results || [];
   if (!lista.length) return null;
   const pista = semAcento(dica.join(' '));
   const estado = UF[pista] ? semAcento(UF[pista]) : pista;
-  const daPista = pista && lista.find((x) => [x.admin1, x.country, x.country_code].some((v) => semAcento(v) === estado || semAcento(v) === pista));
+  // sigla de estado vale só no Brasil (27/10: "Vitória, ES" virou Vitoria, Espanha — "ES" é também o código do país)
+  const daPista = pista && lista.find((x) => (UF[pista]
+    ? x.country_code === 'BR' && semAcento(x.admin1) === estado
+    : [x.admin1, x.country, x.country_code].some((v) => semAcento(v) === estado || semAcento(v) === pista)));
   const escolhida = daPista
     // sem pista: a do Brasil (o AuGPT é usado aqui) com mais gente, senão a primeira da busca
     || (!pista && lista.filter((x) => x.country_code === 'BR').sort((a, b) => (b.population || 0) - (a.population || 0))[0])
