@@ -208,7 +208,10 @@ function varianteValida(junto) {
   // outro nome (26/10): vale o que o Whisper escreveu quando VOCÊ disse o nome — no PC do Davi, "Ei Jarvis"
   // virou "Age of Elvis" no treino. Variante só entra pelo treino, pela repetição ou pelo "Era eu chamando"
   // (sempre você chamando), e a escuta ainda confere com o som da voz quando o texto não basta.
-  return true;
+  // 27/10 (registro do Davi): "agora" tinha virado variante de "Jarvis" e "Agora é certo" chamava. Agora a
+  // variante tem que lembrar o nome em algum ponto do fim ("vocetaaijarvis", "daijervis", "javes").
+  for (let i = 0; i <= Math.max(0, k.length - 3); i += 1) if (lembraONome(k.slice(i)) || temSomDoNome(k.slice(i))) return true;
+  return false;
 }
 const variantesValidas = (lista) => (Array.isArray(lista) ? lista : []).filter((v) => typeof v === 'string' && varianteValida(v));
 

@@ -213,7 +213,10 @@
     // × 1,45: no PC do Davi, as gravações boas ficaram até 18,1 entre si (limite 26,2), as chamadas reais
     // em 13,7 e 14,8, e uma frase que não era chamada em 30,1. Piso de 6: gravações quase iguais (mesmo
     // tom, mesma velocidade) dariam limite perto de zero
-    return Math.max(6, finitos[finitos.length - 1] * 1.45);
+    // 27/10 (registro do Davi, 12 gravações, maior distância 19,9): com × 1,45 o limite ficava em 28,9 e
+    // "para chegar até os 30…" (27,0) chamou; as chamadas reais ficaram entre 14,1 e 18,9 e a fala comum
+    // de 26,8 para cima — × 1,25 (24,9) separa as duas; o nome seguido do pedido (a bancada) ainda passa
+    return Math.max(6, finitos[finitos.length - 1] * 1.25);
   }
 
   /** A fala nova (Float32 16 kHz) começa com o nome? → { chamou, custo, limite, corteSegundos } */

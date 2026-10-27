@@ -1188,6 +1188,13 @@ ipcMain.handle('ditado:chamada', async (_e, bytes, pelaVoz = null) => {
     r.chamou = true;
     r.pelaVoz = true;
   }
+  // 27/10 (registro do Davi: "Chaves", "Agora é certo" chamavam o Jarvis): só pelo texto, vale o som do NOME
+  // ("Jarvis", "Jervis"); uma variante aprendida ("chaves", "javes") também precisa do som da sua voz,
+  // quando há gravações do treino para comparar
+  if (r.ok && r.chamou && !r.pelaVoz && pelaVoz && pelaVoz.chamou !== true && !require('../src/ditado').ehChamada(r.texto, [])) {
+    r.chamou = false;
+    r.semAVoz = true;
+  }
   if (r.ok && r.chamou) ultimaChamada = { junto: require('../src/ditado').chamadaEscrita(r.texto, variantesDaEscuta()), em: Date.now() };
   // aprender com a repetição (25/10): você falou, a escuta não pegou, você repetiu e pegou — a 1ª era você
   // chamando ("e jepeite" ✗ e logo depois "E aí, jepeta!" ✓, no registro real)
@@ -1200,7 +1207,7 @@ ipcMain.handle('ditado:chamada', async (_e, bytes, pelaVoz = null) => {
     tentativaPerdida = null;
   }
   if (r.ok && r.texto) {
-    anotarNaEscuta({ texto: r.texto, chamou: r.chamou, pelaVoz: Boolean(r.pelaVoz), custo: Number.isFinite(pelaVoz?.custo) ? Math.round(pelaVoz.custo * 10) / 10 : undefined, ms: r.ms, modelo: r.modelo });
+    anotarNaEscuta({ texto: r.texto, chamou: r.chamou, pelaVoz: Boolean(r.pelaVoz), ...(r.semAVoz ? { semAVoz: true } : {}), custo: Number.isFinite(pelaVoz?.custo) ? Math.round(pelaVoz.custo * 10) / 10 : undefined, ms: r.ms, modelo: r.modelo });
   }
   return r;
 });
