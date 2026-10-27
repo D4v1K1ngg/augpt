@@ -153,7 +153,7 @@ function textoParaFalar(markdown, { maximo = 450 } = {}) {
     .replace(/\s+([.,!?;:])/g, '$1')
     .trim();
   if (t.length <= maximo) return t;
-  const frases = t.match(/[^.!?]+[.!?]+/g) || [t];
+  const frases = t.split(/(?<=[.!?…])\s+/).map((f) => `${f} `);
   let dito = '';
   for (const f of frases) {
     if ((dito + f).length > maximo && dito) break;
@@ -164,7 +164,8 @@ function textoParaFalar(markdown, { maximo = 450 } = {}) {
 
 /** Frases de até ~220 caracteres (o Kokoro aceita até 510 fonemas por vez; frase curta começa a falar antes). */
 function frasesParaFalar(texto) {
-  const frases = String(texto || '').match(/[^.!?;]+[.!?;]*/g) || [];
+  // só pontuação seguida de espaço encerra a frase (27/10: "R$ 6.999,90" e "teclado.txt" eram cortados no ponto)
+  const frases = String(texto || '').split(/(?<=[.!?;…])\s+/);
   const saida = [];
   for (let f of frases.map((x) => x.trim()).filter(Boolean)) {
     while (f.length > 220) {

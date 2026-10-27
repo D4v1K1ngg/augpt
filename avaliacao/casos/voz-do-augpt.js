@@ -48,6 +48,8 @@ module.exports = [
         (longo.length < 560 && /Os detalhes estão na tela\.$/.test(longo)) || longo,
         (!/\||https|\[|RTX 5080 \|/.test(tabela) && /A melhor é a RTX 5080\./.test(tabela)) || tabela,
         frasesParaFalar('Primeira frase. Segunda frase! Terceira?').length === 3 || 'frases',
+        // 27/10: o ponto de número e de arquivo não corta a frase
+        JSON.stringify(frasesParaFalar('Custa R$ 6.999,90 hoje. Salvei em teclado.txt agora!')) === JSON.stringify(['Custa R$ 6.999,90 hoje.', 'Salvei em teclado.txt agora!']) || JSON.stringify(frasesParaFalar('Custa R$ 6.999,90 hoje. Salvei em teclado.txt agora!')),
         frasesParaFalar('palavra '.repeat(80)).every((f) => f.length <= 220) || 'frase longa é cortada',
       ];
     },

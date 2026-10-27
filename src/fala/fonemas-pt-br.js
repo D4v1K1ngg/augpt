@@ -42,7 +42,8 @@ function numeroPorExtenso(n) {
   }
   // "mil e cem", "dois mil e trinta"; com mais partes, vírgula (pausa) entre elas
   if (partes.length === 2 && (grupos[0] < 100 || grupos[0] % 100 === 0)) return `${partes[0]} e ${partes[1]}`;
-  return partes.join(', ');
+  // sem vírgula: "mil quatrocentos e quarenta" se fala sem pausa (27/10)
+  return partes.join(' ');
 }
 
 const comFeminino = (t) => t.replace(/\bum\b/g, 'uma').replace(/\bdois\b/g, 'duas').replace(/(duz|trez|quatroc|quinh|seisc|setec|oitoc|novec)entos\b/g, '$1entas');
@@ -76,8 +77,18 @@ function porExtenso(texto) {
   });
   // RTX 5080, 7800X3D: número colado em letra é lido dígito a dígito agrupado ("cinquenta e oitenta"? não —
   // "cinco mil e oitenta" engana): número de modelo de 4+ dígitos vai em pares ("cinquenta, oitenta")
-  t = t.replace(/\b([A-Za-z]+)[ -]?(\d{4})\b/g, (m, letras, num) => `${letras} ${numeroPorExtenso(Number(num.slice(0, 2)))} ${num.slice(2) === '00' ? 'cem' : numeroPorExtenso(Number(num.slice(2)))}`);
+  // só sigla em maiúsculas (RTX 5080) ou letra colada (i7-13700): "de 2026" é ano (27/10: saía "vinte vinte e seis")
+  t = t.replace(/\b([A-Z]{2,}|[A-Za-z]+(?=-?\d))[ -]?(\d{4})\b/g, (m, letras, num) => `${letras} ${numeroPorExtenso(Number(num.slice(0, 2)))} ${num.slice(2) === '00' ? 'cem' : numeroPorExtenso(Number(num.slice(2)))}`);
+  // letra colada em número ("i7", "4K"): separados, cada um com a sua leitura (27/10: "i7" saía "isete")
+  // unidades depois de número (o AuGPT fala muito de hardware): 8 GB → "oito gigas", 144 Hz, 60 fps, 5 km
+  const UNIDADES_DE_MEDIDA = { GB: 'gigas', MB: 'megas', TB: 'terabytes', KB: 'kilobytes', GHz: 'giga-hertz', MHz: 'mega-hertz', Hz: 'hertz', fps: 'éfe pê ésse', km: 'quilômetros', kg: 'quilos', ms: 'milissegundos', mm: 'milímetros', cm: 'centímetros', W: 'watts', mAh: 'miliampères-hora', Mbps: 'megas', Gbps: 'gigas' };
+  t = t.replace(/(\d)\s?(GB|MB|TB|KB|GHz|MHz|Hz|fps|km|kg|ms|mm|cm|W|mAh|Mbps|Gbps)\b/g, (m, d, u) => `${d} ${UNIDADES_DE_MEDIDA[u]}`);
+  // letra COLADA depois de número é soletrada: "4K" → "quatro cá", "1440p" → "pê" (o "e" de "13700 e" não)
+  t = t.replace(/(\d)([A-Za-z])\b/g, (m, d, l) => `${d} ${LETRAS[l.toLowerCase()] || l}`);
+  t = t.replace(/(\p{L})(\d)/gu, '$1 $2').replace(/(\d)(\p{L})/gu, '$1 $2').replace(/(\d)-(\d)/g, '$1 $2');
   t = t.replace(/\d+/g, (m) => numeroPorExtenso(Number(m)));
+  // "importação/exportação" é uma pausa, não "barra"; parênteses também viram pausa
+  t = t.replace(/(\p{L})\s*\/\s*(\p{L})/gu, '$1, $2').replace(/\s*[()]\s*/g, ', ');
   return t.replace(/&/g, ' e ').replace(/\+/g, ' mais ').replace(/=/g, ' igual a ').replace(/\//g, ' barra ');
 }
 
@@ -102,6 +113,22 @@ const soletrar = (p) => p.toLowerCase().split('').map((l) => LETRAS[l] || l).joi
 /* ------------------------------ palavras átonas ------------------------------ */
 // sem acento próprio na frase (lidas grudadas na palavra seguinte)
 const ATONAS = new Set(['o', 'a', 'os', 'as', 'um', 'uns', 'de', 'do', 'da', 'dos', 'das', 'em', 'no', 'na', 'nos', 'nas', 'e', 'que', 'se', 'me', 'te', 'lhe', 'nos', 'vos', 'com', 'por', 'pelo', 'pela', 'pelos', 'pelas', 'para', 'pra', 'pro', 'mas', 'ou', 'num', 'numa', 'ao', 'aos', 'à', 'às', 'sem', 'seu', 'sua', 'meu', 'minha', 'teu']);
+
+/* ------------------------------ vogais abertas ------------------------------ */
+// A escrita não diz se o "e"/"o" tônico é aberto ("tela" é "téla"; 27/10: saía "têla"). As palavras comuns
+// com a vogal aberta, e as terminações que quase sempre são (janela, escola, rosa, prova, colega, papel, sol).
+// ponytail: lista, não dicionário — palavra fora dela fica fechada; aumentar a lista quando ouvir errado.
+const ABERTAS = new Set([
+  'ela', 'elas', 'tela', 'telas', 'certo', 'certa', 'certos', 'certas', 'perto', 'aberto', 'aberta', 'abertos', 'abertas', 'festa', 'festas', 'testa', 'resto', 'sete',
+  'terra', 'guerra', 'ferro', 'era', 'eram', 'velho', 'velha', 'velhos', 'velhas', 'belo', 'bela', 'regra', 'regras', 'perda', 'perdas', 'pedra', 'pedras', 'febre', 'leve',
+  'leves', 'neve', 'breve', 'greve', 'meta', 'metas', 'seta', 'reta', 'quero', 'quer', 'serra',
+  'nota', 'notas', 'bola', 'bolas', 'porta', 'portas', 'forte', 'fortes', 'sorte', 'morte', 'norte', 'moda', 'roda', 'rodas', 'cola', 'prova', 'provas', 'posso', 'pode',
+  'podem', 'logo', 'jogos', 'olhos', 'ovos', 'mole', 'pobre', 'pobres', 'obra', 'obras', 'loja', 'lojas', 'foto', 'fotos', 'moto', 'motos', 'modo', 'modos', 'volta',
+  'voltas', 'solta', 'costa', 'costas', 'gosta', 'gostam', 'nossa', 'nossas', 'nosso', 'nossos', 'importa', 'sobra', 'sobras', 'cobre', 'toca', 'roxa', 'corpos', 'portos',
+  'forma', 'formas', 'norma', 'normas', 'reforma',
+]);
+const TERMINA_ABERTA = /(?:ela|elas|ola|olas|osa|osas|ova|ovas|ega|egas|el|ol|éis|óis)$/;
+const vogalAberta = (p) => ABERTAS.has(p) || TERMINA_ABERTA.test(p);
 
 /* ------------------------------ sílaba tônica ------------------------------ */
 const VOGAL = 'aeiouáéíóúâêôãõàü';
@@ -174,7 +201,8 @@ function palavraCrua(original, { atona = false } = {}) {
       const nucleo = ns.find((n) => i >= n.inicio && i < n.fim);
       const ehTonica = nucleo && nucleo.inicio === tonicoEm;
       // a última vogal átona (o "e" de "noite" vira i, o "o" de "carro" vira u) — palavra de uma sílaba só não ("seu")
-      const ehFinal = nucleo === ultimoNucleo && !ehTonica && (ns.length > 1 || (atona && nucleo.fim - nucleo.inicio === 1));
+      // 27/10: só quando a vogal é a última letra (ou só um "s" depois) — "dólar" não vira "dólâr"
+      const ehFinal = nucleo === ultimoNucleo && !ehTonica && /^s?$/.test(p.slice(i + 1)) && (ns.length > 1 || (atona && nucleo.fim - nucleo.inicio === 1));
       // nasal: vogal + m/n antes de consoante ou no fim ("tempo", "bem", "canto")
       const depois = p[i + 1] || '';
       const nasalPorMN = /[mn]/.test(depois) && (!p[i + 2] || (!ehVogal(p[i + 2]) && p[i + 2] !== 'h'));
@@ -191,12 +219,15 @@ function palavraCrua(original, { atona = false } = {}) {
         case 'õ': v = 'õ'; break;
         case 'ú': case 'ü': v = 'u'; break;
         case 'a': v = ehFinal ? 'ɐ' : 'a'; break;
-        case 'e': v = ehFinal && !nasalPorMN ? 'i' : 'e'; break;
-        case 'o': v = ehFinal && !nasalPorMN ? 'u' : 'o'; break;
+        case 'e': v = ehFinal && !nasalPorMN ? 'i' : ehTonica && !nasalPorMN && vogalAberta(p) ? 'ɛ' : 'e'; break;
+        case 'o': v = ehFinal && !nasalPorMN ? 'u' : ehTonica && !nasalPorMN && vogalAberta(p) ? 'ɔ' : 'o'; break;
         default: v = c; // i, u
       }
       // 'e' átono antes da última vogal: vídeo → vidʒju, área → aɾja
       if (c === 'e' && !ehTonica && /^[ao]s?$/.test(p.slice(i + 1)) && ns.length > 1) v = 'j';
+      // "i"/"u" átonos depois de consoante e antes de outra vogal viram semivogal na fala corrida (27/10:
+      // "comer-ci-al", "va-ri-a-ção" soavam separados): comercial → komeɾsjˈaw, variação → vaɾjasˈɐ̃w
+      if (/[iu]/.test(c) && !ehTonica && i > 0 && !ehVogal(ant()) && /[aeoáéóâêôãõ]/.test(p[i + 1] || '') && nucleo && nucleo.fim - nucleo.inicio === 1) v = c === 'i' ? 'j' : 'w';
       // semivogal no ditongo ("noite" → "nojʧi", "pouco" → "powku")
       if (nucleo && i > nucleo.inicio && /[iu]/.test(c) && nucleo.fim - nucleo.inicio === 2) v = c === 'i' ? 'j' : 'w';
       // ão, õe, ãe
@@ -269,6 +300,8 @@ function palavraCrua(original, { atona = false } = {}) {
         if (i === p.length - 1) { saida += 'ks'; break; } // tórax, xerox
         if (/^ex[aeiouáéíóú]/.test(p.slice(i - 1)) && i === 1) { saida += 'z'; break; } // exame, exemplo
         if (prox() === 'c' && /[eiéí]/.test(prox(2))) { saida += 's'; i += 1; break; } // exceto
+        // antes de consoante: exportação, texto, explicar, extra (27/10: saía "echportação")
+        if (prox() && !ehVogal(prox()) && ant() === 'e') { saida += 's'; break; }
         if (/^(t[aá]xi|t[oó]xic|fixo|fix|sexo|anex|reflex|complex|flex|nex|box|lux)/.test(p.slice(Math.max(0, i - 3)))) { saida += 'ks'; break; }
         if (/^(pr[oó]xim|m[aá]xim|aux[ií]li|sint[aá]x|trouxe)/.test(p.slice(Math.max(0, i - 4)))) { saida += 's'; break; }
         saida += 'ʃ';
