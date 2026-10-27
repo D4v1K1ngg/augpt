@@ -106,7 +106,7 @@ module.exports = [
         /manipuladores\['resposta-reinicia'\][\s\S]{0,200}parar\(\);/.test(fala) || 'reescrita cala',
         /fins\.length >= 1 && corrido\.length >= 80/.test(fala) && /\.split\(\/```\|\\n\\s\*\\\|\|\\n-\{3,\}\/\)\[0\]/.test(fala) || 'só texto corrido, 1ª frase',
         /falar\(corrido\.slice\(0, fins\[fins\.length - 1\]\.index \+ 1\), \{ parcial: true \}\)/.test(fala) || 'parcial',
-        /if \(atual !== null\) api\.voz\.falar\(d\.resumo, \{ continuar: true \}\)/.test(fala) || 'continua sem repetir; parada não recomeça',
+        /if \(atual !== null\) \{\s*seguir = porVoz;\s*api\.voz\.falar\(d\.resumo, \{ continuar: true \}\)/.test(fala) || 'continua sem repetir; parada não recomeça',
         /window\.falaPorVoz\.pedidoPorVoz = true/.test(escuta) || 'pedido pela voz marca',
         /g\.calouAFala = Boolean\(window\.falaPorVoz\?\.falando\(\)\);\s*window\.falaPorVoz\?\.parar\(\);/.test(escuta) || 'a chamada cala a fala',
         /window\.falaPorVoz\?\.parar\(\); \/\/ a voz do AuGPT/.test(ler('renderer/app-abas.js')) || 'pedido novo cala',
@@ -114,6 +114,28 @@ module.exports = [
         /ipcMain\.handle\('voz:falar'/.test(ler('electron/main.js')) && /voz = new Voz\(/.test(ler('electron/main.js')) || 'processo principal',
         /const iguais = falado\.every\(\(f, i\) => semEspaco\(f\) === semEspaco\(frases\[i\]\)\);/.test(ler('electron/main.js')) || 'continuar confere o que já foi dito',
         textoParaFalar('Uma frase. '.repeat(80), { semAviso: true }).endsWith('frase.') || 'parcial sem o aviso do fim',
+      ];
+    },
+  },
+  {
+    nome: 'conversa estilo Jarvis: a oferta do fim é dita ("É só dizer sim"), "Um momento." quando a resposta demora, e depois da fala a escuta ouve a réplica sem o nome (some em silêncio)',
+    tipo: 'unidade',
+    executar() {
+      const oferta = textoParaFalar('A RTX 60 ainda não tem data.\n\n---\n**Fontes**\n1. [x](https://x)\n\nQuer que eu acompanhe **RTX 60** e te avise? É só responder **"sim"**.');
+      const curta = textoParaFalar('Curta.\n\nQuer que eu pesquise **x**? É só responder **"sim"**.');
+      const fala = ler('renderer/fala.js');
+      const escuta = ler('renderer/escuta.js');
+      return [
+        oferta === 'A RTX 60 ainda não tem data. Quer que eu acompanhe RTX 60 e te avise? É só dizer "sim".' || oferta,
+        curta === 'Curta. Quer que eu pesquise x? É só dizer "sim".' || curta,
+        textoParaFalar('Uma frase. Quer que eu pesquise x?', { semAviso: true }) === 'Uma frase. Quer que eu pesquise x?' || 'parcial não repete',
+        /conversaContinua: true/.test(ler('src/config.js')) && /id="cfgConversaContinua"/.test(ler('renderer/index.html')) || 'padrão e Ajustes',
+        /if \(seguir\) \{\s*seguir = false;\s*window\.dispatchEvent\(new Event\('augpt-fala-terminou'\)\);/.test(fala) || 'avisa o fim da fala',
+        /seguir = false; \/\/ parou no meio/.test(fala) || 'parar não abre a réplica',
+        /if \(!deveFalar\(\) \|\| atual !== null \|\| !agente\.rodando\) return;/.test(fala) && /setTimeout\(\(\) => window\.falaPorVoz\?\.confirmar\?\.\(\), 1200\)/.test(escuta) || '"Um momento."',
+        /window\.addEventListener\('augpt-fala-terminou'[\s\S]{0,200}e\.estado !== 'esperando' \|\| config\?\.conversaContinua === false/.test(escuta) || 'réplica só esperando e ligada',
+        /e\.replica && t - e\.chamadaEm > ESPERA_A_REPLICA\) \{\s*avisar\(''\);/.test(escuta) && /!r\.pedido && replica\) \{\s*avisar\(''\);/.test(escuta) || 'réplica some em silêncio',
+        /e\.replica = false;/.test(escuta) || 'voltar a esperar zera a réplica',
       ];
     },
   },

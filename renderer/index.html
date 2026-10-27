@@ -649,6 +649,9 @@
           <label class="linha voz-opcao" hidden><span class="linha-texto"><span>Velocidade</span><small id="vozVelocidadeValor"></small></span>
             <input type="range" id="cfgVozVelocidade" min="0.8" max="1.3" step="0.05" />
           </label>
+          <label class="linha voz-opcao" hidden><span class="linha-texto"><span>Continuar a conversa</span><small>Depois de falar a resposta de um pedido pela voz, ele fica uns segundos ouvindo a sua réplica, sem precisar chamar o nome de novo ("e amanhã?", "sim"). Se você não falar nada, volta a esperar o nome.</small></span>
+            <input type="checkbox" id="cfgConversaContinua" class="caixa" />
+          </label>
           <!-- 25/10: "o que tem na minha tela?" -->
           <label class="linha"><span class="linha-texto"><span>Atalho Ctrl+Alt+A: perguntar sobre a tela</span><small>De qualquer programa, Ctrl+Alt+A congela a tela e você escolhe a área (Enter = a tela inteira, Esc cancela). A imagem vira anexo do Agente, pronta para a pergunta. Também pelo botão ao lado do + ou falando "Ei GPT, o que é isso na tela?".</small><small id="atalhoDaTelaStatus" class="ajuste-status"></small></span>
             <input type="checkbox" id="cfgAtalhoDaTela" class="caixa" />

@@ -21,6 +21,7 @@
   const FIM_DO_PEDIDO = 1600; // ms de silêncio depois do pedido
   const ESPERA_O_PEDIDO = 7000; // só "Ei GPT" e nada depois: desiste
   const PEDIDO_MAX = 60000;
+  const ESPERA_A_REPLICA = 8000; // depois de falar a resposta, ouve a réplica sem o nome (27/10)
 
   let e = null; // a escuta ligada
   // o nome que chama (Ajustes → Geral / boas-vindas); "GPT" é o "Ei GPT" de sempre
@@ -36,14 +37,14 @@
     return voz;
   }
 
-  function bipe() {
+  function bipe(freq = 880, volume = 0.15) {
     try {
       const c = new AudioContext();
       const o = c.createOscillator();
       const g = c.createGain();
-      o.frequency.value = 880;
+      o.frequency.value = freq;
       g.gain.setValueAtTime(0.0001, c.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.15, c.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(volume, c.currentTime + 0.02);
       g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.18);
       o.connect(g).connect(c.destination);
       o.start();
@@ -115,6 +116,7 @@
     e.trecho = [];
     e.recentes = [];
     e.corte = 0;
+    e.replica = false;
   }
 
   function passo(dados) {
@@ -168,7 +170,10 @@
           avisar(`${tr('Pode falar…')}  ${'▮'.repeat(barras)}${'▯'.repeat(8 - barras)}`);
         }
         if (temPedido && t - e.ultimaFala > FIM_DO_PEDIDO) terminarPedido();
-        else if (!temPedido && t - e.chamadaEm > ESPERA_O_PEDIDO) {
+        else if (!temPedido && e.replica && t - e.chamadaEm > ESPERA_A_REPLICA) {
+          avisar(''); // você não respondeu: volta a esperar o nome, em silêncio
+          voltarAEsperar();
+        } else if (!temPedido && !e.replica && t - e.chamadaEm > ESPERA_O_PEDIDO) {
           avisar(tr('Ouvi o "{nome}", mas não o pedido. Tente: "{nome}, vai chover amanhã?"', { nome: nome() }), 6000);
           voltarAEsperar();
         } else if (t - e.inicio > PEDIDO_MAX) terminarPedido();
@@ -235,6 +240,7 @@
       if (depois.length) audio = depois;
     }
     const a = alvo();
+    const replica = g.replica;
     try {
       avisar(tr('Transcrevendo…'));
       const r = await api.ditado.pedidoDeVoz(await window.ditadoPorVoz.paraWav(audio, g.taxa));
@@ -247,6 +253,8 @@
       } else if (r.comando === 'parar') {
         if (ocupado) a.enviar.click();
         avisar(ocupado || g.calouAFala ? tr('Parei ✓') : tr('Nada para parar.'), 3000);
+      } else if (!r.pedido && replica) {
+        avisar(''); // na réplica, barulho sem pedido é só ignorado
       } else if (!r.pedido) {
         avisar(tr('Ouvi o "{nome}", mas não o pedido. Tente: "{nome}, vai chover amanhã?"', { nome: nome() }), 6000);
       } else if (ocupado) {
@@ -261,6 +269,8 @@
         // "Ei GPT, o que é isso na tela?": captura a tela inteira e manda junto (renderer/tela.js)
         // pedido pela voz: a resposta pode ser falada (renderer/fala.js, "Quando falar")
         if (window.falaPorVoz) window.falaPorVoz.pedidoPorVoz = true;
+        // a resposta demora: "Um momento." (renderer/fala.js)
+        setTimeout(() => window.falaPorVoz?.confirmar?.(), 1200);
         if (window.telaPorVoz?.falaDaTela(texto)) {
           await window.telaPorVoz.capturarEPerguntar(texto);
           return;
@@ -282,6 +292,16 @@
       if (e === g) voltarAEsperar();
     }
   }
+
+  // a resposta de um pedido pela voz acabou de ser falada: ouve a réplica sem precisar do nome
+  // ("e amanhã?", "sim") — some em silêncio se você não falar nada em 8 s
+  window.addEventListener('augpt-fala-terminou', () => {
+    if (!e || e.estado !== 'esperando' || config?.conversaContinua === false || window.ditadoPorVoz.gravando()) return;
+    const agora = Date.now();
+    Object.assign(e, { estado: 'pedido', replica: true, chamadaEm: agora, inicio: agora, restoNaChamada: false, falouDepois: false, calouAFala: false, corte: 0, trecho: [], surdoAte: agora + 400 });
+    bipe(660, 0.06); // mais baixo e mais grave que o da chamada
+    avisar(tr('Pode responder…'));
+  });
 
   window.escutaPorVoz = { ligar, desligar, ligada: () => Boolean(e), recarregarVoz, nome, microfone: () => e?.fluxo.getAudioTracks()[0]?.label || null };
   if (typeof config !== 'undefined' && config?.ouvirChamada === true) ligar();

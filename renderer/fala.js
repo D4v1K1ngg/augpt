@@ -25,9 +25,22 @@
     botao.hidden = !sim;
   }
 
+  /*
+   * Conversa estilo Jarvis (27/10): resposta curta enquanto pensa ("Um momento.") e, quando a resposta de um
+   * pedido pela voz termina de ser falada, o aviso 'augpt-fala-terminou' — a escuta fica ouvindo a réplica.
+   */
+  let seguir = false; // esta fala respondeu a um pedido pela voz
+  let fimDaConfirmacao = null;
+  let soltarConfirmacao = () => {};
+
   function terminou() {
     atual = null;
     mostrar(false);
+    soltarConfirmacao();
+    if (seguir) {
+      seguir = false;
+      window.dispatchEvent(new Event('augpt-fala-terminou'));
+    }
   }
 
   function tocar(pcm, taxa) {
@@ -65,6 +78,8 @@
   function parar() {
     if (atual !== null) api.voz.parar().catch(() => {});
     atual = null;
+    seguir = false; // parou no meio: não fica ouvindo
+    soltarConfirmacao();
     for (const f of fontes) {
       try {
         f.stop();
@@ -78,6 +93,8 @@
   }
 
   async function falar(texto, opcoes = {}) {
+    // a resposta não corta o "Um momento." no meio: espera ele acabar (no máximo 3 s)
+    if (fimDaConfirmacao) await Promise.race([fimDaConfirmacao, new Promise((ok) => setTimeout(ok, 3000))]);
     parar();
     const r = await api.voz.falar(texto, opcoes).catch((err) => ({ ok: false, error: err.message }));
     if (r?.ok) {
@@ -151,15 +168,21 @@
   manipuladores.concluido = (d = {}) => {
     concluidoOriginal(d);
     const falar1 = deveFalar() && d.resumo;
+    const porVoz = window.falaPorVoz.pedidoPorVoz && config.conversaContinua !== false;
     window.falaPorVoz.pedidoPorVoz = false;
     turnoDaFala.podeAntes = false;
     if (!falar1) return;
     if (turnoDaFala.falouAntes) {
       // você parou no meio (Esc, botão, "para"): não recomeça; senão, continua de onde parou
-      if (atual !== null) api.voz.falar(d.resumo, { continuar: true }).catch(() => {});
+      if (atual !== null) {
+        seguir = porVoz;
+        api.voz.falar(d.resumo, { continuar: true }).catch(() => {});
+      }
       return;
     }
-    falar(d.resumo);
+    falar(d.resumo).then((r) => {
+      if (r?.ok && atual === r.id) seguir = porVoz;
+    });
   };
   for (const fim of ['erro', 'interrompido', 'limite']) {
     const original = manipuladores[fim];
@@ -171,7 +194,22 @@
     };
   }
 
-  window.falaPorVoz = { falar, parar, falando: () => atual !== null, pedidoPorVoz: false };
+  // o pedido pela voz foi enviado e a resposta demora: uma frase curta, como o Jarvis (só em português)
+  const CONFIRMACOES = ['Um momento.', 'Certo, já vejo isso.', 'Deixa comigo.', 'Só um instante.'];
+  async function confirmar() {
+    if (!deveFalar() || atual !== null || !agente.rodando) return;
+    const r = await falar(CONFIRMACOES[Math.floor(Math.random() * CONFIRMACOES.length)], { resumir: false });
+    if (!r?.ok || atual !== r.id) return;
+    fimDaConfirmacao = new Promise((ok) => {
+      soltarConfirmacao = () => {
+        soltarConfirmacao = () => {};
+        fimDaConfirmacao = null;
+        ok();
+      };
+    });
+  }
+
+  window.falaPorVoz = { falar, parar, confirmar, falando: () => atual !== null, pedidoPorVoz: false };
 
   /* ---------------- Ajustes → Geral → Voz do AuGPT ---------------- */
   const $id = (x) => document.getElementById(x);
@@ -192,6 +230,7 @@
     }
     if (sel) sel.value = config.vozNome || 'pm_alex';
     $id('cfgVozFalar').value = config.vozFalar || 'voz';
+    if ($id('cfgConversaContinua')) $id('cfgConversaContinua').checked = config.conversaContinua !== false;
     $id('cfgVozVelocidade').value = String(Number(config.vozVelocidade) || 1);
     $id('vozVelocidadeValor').textContent = `${(Number(config.vozVelocidade) || 1).toFixed(2).replace('.', ',')}×`;
   }
@@ -218,6 +257,7 @@
   };
   $id('cfgVozNome')?.addEventListener('change', (e) => salvar({ vozNome: e.target.value }));
   $id('cfgVozFalar')?.addEventListener('change', (e) => salvar({ vozFalar: e.target.value }));
+  $id('cfgConversaContinua')?.addEventListener('change', (e) => salvar({ conversaContinua: e.target.checked }));
   $id('cfgVozVelocidade')?.addEventListener('input', (e) => ($id('vozVelocidadeValor').textContent = `${Number(e.target.value).toFixed(2).replace('.', ',')}×`));
   $id('cfgVozVelocidade')?.addEventListener('change', (e) => salvar({ vozVelocidade: Number(e.target.value) }));
   document.querySelector('[data-painel="ajGeral"]')?.addEventListener('click', () => setTimeout(pintarVoz, 50));

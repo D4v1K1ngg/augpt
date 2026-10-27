@@ -161,6 +161,8 @@ const DEFAULTS = {
   vozFalar: 'voz',
   vozNome: 'pm_alex',
   vozVelocidade: 1,
+  // 27/10: depois de falar a resposta de um pedido pela voz, a escuta fica uns segundos ouvindo a réplica (sem o nome)
+  conversaContinua: true,
   // 25/10: "Ei GPT" (o microfone fica aberto ouvindo a chamada; desligado por padrão) e a correção
   // do texto falado pelo modelo (ortografia e palavras ouvidas errado) antes de enviar
   ouvirChamada: false,

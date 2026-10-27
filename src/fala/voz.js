@@ -130,7 +130,17 @@ function extrairTgz(arquivo, destino, quer) {
  * A resposta (markdown) vira o que se fala: sem código, tabela, link, imagem, citação e a lista de fontes;
  * resposta longa fica nas primeiras frases (~450 caracteres) e avisa que o resto está na tela.
  */
-function textoParaFalar(markdown, { maximo = 450, semAviso = false } = {}) {
+function textoParaFalar(markdown, opcoes = {}) {
+  const texto = textoCorrido(markdown, opcoes);
+  if (opcoes.semAviso) return texto;
+  // a oferta do fim ("Quer que eu acompanhe…? É só responder sim") também é dita — mesmo depois das fontes ou
+  // do corte do resumo —, e a escuta fica ouvindo a resposta (renderer/escuta.js, 27/10)
+  const oferta = /(?:^|\n)[ \t]*((?:Quer que eu|Want me to)\b[^\n]*\?[^\n]*?)\s*$/.exec(String(markdown || '').trim())?.[1]?.replace(/[*_`~]/g, '').trim();
+  const dito = oferta && !texto.includes(oferta) ? `${texto} ${oferta}` : texto;
+  return dito.replace(/É só responder/g, 'É só dizer').replace(/Just reply/g, 'Just say');
+}
+
+function textoCorrido(markdown, { maximo = 450, semAviso = false } = {}) {
   let t = String(markdown || '')
     .split(/\n-{3,}\s*\n/)[0] // "---\n**Fontes**"
     .replace(/```[\s\S]*?```/g, ' ')
