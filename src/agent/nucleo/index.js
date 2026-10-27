@@ -463,12 +463,16 @@ const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || d
  * O laço do pesquisador. Devolve as fontes juntadas (numeradas, com resumo e,
  * quando lidas, os trechos escolhidos da página).
  */
+const PEDE_APARENCIA = /\b(apar[eê]ncia|aparenta|visual|design|cor|cores|bonit\w*|feio|feia|formato|estilo|layout|como (é|e|são|sao|fica|ficou) (o|a|os|as) (visual|design|cor|traseira|frente|dianteira|lateral|interior|painel|cara|parte de tr[aá]s)|onde fica (o|a) (bot[aã]o|porta|entrada|sa[ií]da|pe[cç]a|conector|tecla)|diferen[cç]a visual|parece com|fotos?|imagens?|como ele é|como ela é)\b/i;
+
 async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [], imagemAnexada = '', atual = false, sobreOUsuario = '', linksDoUsuario = [], buscasIniciais = [] }) {
   const { chamar, buscar, lerPagina, embed, emit = () => {}, signal, buscarNaComunidade } = deps;
   // comunidade (15/10, pedido do Davi): em pedido de produto, Reddit e fóruns entram sempre
   const comComunidade = produto && typeof buscarNaComunidade === 'function';
   const comYoutube = typeof deps.buscarNoYoutube === 'function' && typeof deps.verVideo === 'function' && modo !== 'rapido';
-  const comImagens = typeof deps.buscarImagensParaVer === 'function' && modo !== 'rapido';
+  // ver imagens só quando a aparência importa ou veio uma imagem (27/10: em "quanto tempo um gato vive?" o
+  // pesquisador olhou fotos — 9,2 s de modelo de visão, disputando a placa com o resto da pesquisa)
+  const comImagens = typeof deps.buscarImagensParaVer === 'function' && modo !== 'rapido' && (Boolean(imagemAnexada) || PEDE_APARENCIA.test(String(pergunta || '')));
   const ferramentas = [...(comComunidade ? [FERRAMENTA_DA_COMUNIDADE] : []), ...FERRAMENTAS, ...(comYoutube ? FERRAMENTAS_DO_YOUTUBE : []), ...(comImagens ? [FERRAMENTA_DE_IMAGENS] : [])];
   // com o link na pergunta, o material principal já vem dele: sem mínimo de buscas e leituras (25/10: um
   // "resumo desse vídeo" levava 176 s cumprindo 2 buscas obrigatórias na web)
@@ -496,9 +500,16 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   const termosDoAssunto = new Set(palavrasDe(`${pergunta} ${assuntos.join(' ')}`));
   const assuntoCurto = (assuntos.length ? assuntos.slice(0, 2).join(' ') : pergunta).slice(0, 80);
   const feitas = new Set();
+  // 27/10 (análise das buscas): "gato expected lifespan of a cat 2026" — o assunto em português grudado
+  // numa busca em inglês, e o ano numa pergunta que não muda com o tempo
+  const anoNaPergunta = /\b20\d\d\b/.test(String(pergunta || ''));
+  const emIngles = (q) => /\b(the|of|for|with|how|what|which|why|best|vs|review|lifespan|price|prices|guide|today|exchange|rate|news|cheap|test|benchmark|statistics|specs|worth|buy|latest)\b/i.test(q) && !/[ãõçáéíóúâêà]/i.test(q.replace(/^[^?]*\?\s*/, ''));
   const prepararBuscas = (buscas, maximo, onde = 'web') =>
     listaDeBuscas(buscas)
-      .map((q) => (palavrasDe(q).some((w) => termosDoAssunto.has(w)) ? q : `${assuntoCurto} ${q}`))
+      // o ano só fica quando a PERGUNTA fala de tempo ("hoje", "atual"…) ou traz um ano — o modelo marcava
+      // "muda com o tempo" até no gato ("…longevidade de gatos em 2026")
+      .map((q) => (anoNaPergunta || PISTA_DE_ATUAL.test(String(pergunta || '')) ? q : q.replace(/\s*\b(em\s+|de\s+)?20\d\d\b\s*/g, ' ').trim()))
+      .map((q) => (palavrasDe(q).some((w) => termosDoAssunto.has(w)) || emIngles(q) ? q : `${assuntoCurto} ${q}`))
       .filter((q) => {
         const chave = `${onde}:${palavrasDe(q).sort().join(' ')}`;
         if (feitas.has(chave)) return false;
@@ -696,8 +707,12 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     const minimos = buscasFeitas >= regras.minBuscas && lidas() >= regras.minLeituras && fontes.length > 0;
     if (minimos && rodadaDosMinimos === null) rodadaDosMinimos = rodada;
     // cumpridos os mínimos, mais uma rodada no máximo (o modelo que nunca chama pronto não segue até o limite)
-    if (rodada > 1 && minimos && (leiturasFeitas >= regras.leituras || semNovidade >= 1 || rodada > rodadaDosMinimos + 1)) {
-      emit('aviso', { texto: `pesquisa encerrada na rodada ${rodada - 1} de ${total}: ${leiturasFeitas >= regras.leituras ? 'as leituras desta pesquisa se esgotaram' : semNovidade >= 1 ? 'a última rodada não trouxe nada novo' : 'os mínimos do modo já estavam cumpridos'}` });
+    // 27/10 (análise do Davi): na pesquisa normal, mínimos cumpridos com leitura de 2+ sites já basta — a
+    // rodada a mais quase sempre era só o modelo dizendo "pronto" (15 tokens, 1,4–1,9 s)
+    const sitesLidos = new Set(fontes.filter((f) => f.trechos.length).map((f) => dominio(f.url))).size;
+    const bastaNaNormal = modo !== 'profundo' && sitesLidos >= 2;
+    if (rodada > 1 && minimos && (leiturasFeitas >= regras.leituras || semNovidade >= 1 || bastaNaNormal || rodada > rodadaDosMinimos + 1)) {
+      emit('aviso', { texto: `pesquisa encerrada na rodada ${rodada - 1} de ${total}: ${leiturasFeitas >= regras.leituras ? 'as leituras desta pesquisa se esgotaram' : semNovidade >= 1 ? 'a última rodada não trouxe nada novo' : bastaNaNormal ? 'mínimos cumpridos, com leitura de vários sites' : 'os mínimos do modo já estavam cumpridos'}` });
       break;
     }
     const antesDaRodada = { fontes: fontes.length, lidas: lidas() };

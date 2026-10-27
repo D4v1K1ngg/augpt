@@ -125,7 +125,9 @@ const DEFAULTS = {
   naoPerguntarNoAutomatico: true,
   // Página que não responde em N ms deixa de segurar a busca (as páginas de
   // uma busca são lidas em lote, e o lote esperava a mais lenta). 0 = sem limite.
-  tempoMaximoPorPaginaMs: 15000,
+  // 27/10 (medido): leitura direta termina em menos de 2 s; com 15 s, um site do governo parado segurava a
+  // rodada inteira (as páginas são lidas juntas). O que chegar depois fica no cache para a próxima vez
+  tempoMaximoPorPaginaMs: 8000,
   // Páginas lidas ficam guardadas por N dias e valem em qualquer conversa
   // (0 desliga). Pedido sobre preço, notícia, clima ou "hoje" não usa o guardado.
   cachePaginasDias: 3,
@@ -429,6 +431,8 @@ class Config {
       // próprio no topo). Deriva o nível equivalente UMA VEZ, só quando o
       // arquivo salvo não menciona `nivelRaciocinio` — nunca migra sozinho
       // pra 'extremo', esse é opt-in explícito do usuário.
+      // o limite por página não tem tela; 15000 gravado é o padrão antigo (27/10)
+      if (salvo.tempoMaximoPorPaginaMs === 15000) this.data.tempoMaximoPorPaginaMs = DEFAULTS.tempoMaximoPorPaginaMs;
       if (!('nivelRaciocinio' in salvo)) {
         const inverso = { normal: 'leve', media: 'medio', alta: 'alto' };
         this.data.nivelRaciocinio = inverso[this.data.profundidadePesquisa] || 'leve';

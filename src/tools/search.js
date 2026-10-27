@@ -237,6 +237,9 @@ const PESOS = [
   // Fórum e rede social aparecem muito em busca técnica e quase nunca sustentam
   [/(^|\.)(forum|forums|reddit|stackexchange)\.|\.forum\.|discourse\./, 1, 'fórum'],
   [/(pinterest|quora|answers|slideshare|scribd|tudogostoso)\./, 0, 'agregador'],
+  // 27/10 (medido): "quanto tempo vive uma calopsita" teve o Priberam como primeira leitura — dicionário
+  // define a palavra, não responde; penalidade leve (em "o que significa X?" ele ainda ganha pela relevância)
+  [/(^|\.)(dicio|priberam|significados|michaelis|wiktionary|dicionario|infopedia|sinonimos)\./, 0, 'dicionário'],
   [/(facebook|instagram|twitter|x\.com|tiktok|youtube)\./, 0, 'rede social'],
   // Skill "Pesquisa acadêmica" (2026-09-22): repositório/periódico acadêmico
   // pontuava igual a site comum (.org genérico, peso 5) ou — pior, no caso de

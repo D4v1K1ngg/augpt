@@ -352,6 +352,20 @@ function definirPensarPadrao(valor) {
   pensarPadrao = valor === true || valor === false ? valor : null;
 }
 
+/*
+ * O contexto de um modelo carregado nunca encolhe (27/10, medido no PC do Davi): o Ollama RECARREGA o
+ * modelo quando o num_ctx muda — 3 a 4 s, contra 0,15 s mantendo. A correção do texto falado pedia 4096,
+ * a pesquisa 16384: cada pedido pela voz pagava duas recargas (~7 s). Agora o pedido menor usa o maior
+ * já em uso (texto curto não muda nada); só crescer recarrega, uma vez.
+ */
+const contextoEmUso = new Map(); // `${host}|${model}` → maior num_ctx pedido
+function contextoSemRecarga(host, model, numCtx) {
+  const chave = `${String(host || DEFAULT_HOST).replace(/\/$/, '')}|${model}`;
+  const usado = Math.max(Number(numCtx) || 0, contextoEmUso.get(chave) || 0);
+  contextoEmUso.set(chave, usado);
+  return usado;
+}
+
 async function chat({
   host = DEFAULT_HOST,
   model,
@@ -359,7 +373,7 @@ async function chat({
   json = false,
   esquema = null,
   temperature = 0.4,
-  numCtx = 8192,
+  numCtx: numCtxPedido = 8192,
   numPredict = 1024,
   manterVivo = '30m',
   pensar,
@@ -368,6 +382,7 @@ async function chat({
   tools,
   signal,
 }) {
+  const numCtx = contextoSemRecarga(host, model, numCtxPedido);
   const usarEsquema = Boolean(esquema) && suportaEsquema(host, model);
 
   const corpo = (msgs, formato) => ({
@@ -472,7 +487,7 @@ async function chatStreamUmaVez({
       // 10/10 (SR-71 com qwen3.5:9b): sem `think: false` o modelo que pensa
       // gastava os 3.072 tokens da redação raciocinando e a resposta saía vazia
       ...(pensar === undefined ? (pensarPadrao === null ? {} : { think: pensarPadrao }) : { think: pensar }),
-      options: { temperature, num_ctx: numCtx, num_predict: numPredict, ...(numGpu === undefined ? {} : { num_gpu: numGpu }) },
+      options: { temperature, num_ctx: contextoSemRecarga(host, model, numCtx), num_predict: numPredict, ...(numGpu === undefined ? {} : { num_gpu: numGpu }) },
     }),
     signal,
   });
@@ -609,6 +624,7 @@ async function decidir({ host = DEFAULT_HOST, model, state, questions, keepAlive
 }
 
 module.exports = {
+  contextoSemRecarga,
   DEFAULT_HOST, health, listModels, psModels, unloadModel, embed, pullModel, suportaEsquema, semBlocoDePensamento, definirPensarPadrao,
   chat: (opcoes) => comCamadas(opcoes, chat),
   chatStream: (opcoes) => comCamadas(opcoes, chatStream),
