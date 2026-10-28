@@ -588,6 +588,9 @@
     // a voz do AuGPT (27/10)
     '■ Parar a voz': '■ Stop the voice', 'Instalada ✓': 'Installed ✓', 'Não instalada — baixa uma vez cerca de {mb} MB.': 'Not installed — downloads about {mb} MB once.',
     'A instalação falhou: {erro}': 'The installation failed: {erro}', 'Voz do AuGPT': 'AuGPT voice', 'Baixar a voz': 'Download the voice', 'Testar': 'Test',
+    'Falar os avisos': 'Speak the notifications', 'Horário de silêncio': 'Quiet hours', 'até': 'to',
+    'Lembretes, tarefas em segundo plano prontas e novidades dos assuntos acompanhados também são ditos em voz alta. Ele não fala em tela cheia (jogo, filme, apresentação), no "não incomodar" do Windows nem quando outro programa está com o microfone aberto (uma chamada).': 'Reminders, finished background tasks and news on the subjects you follow are also spoken aloud. It stays quiet in full screen (game, movie, presentation), in Windows "do not disturb" and when another program has the microphone open (a call).',
+    'Nesse horário os avisos ficam só escritos. Deixe vazio para não ter.': 'During these hours notifications are only written. Leave empty for none.',
     'Continuar a conversa': 'Keep the conversation going', 'Pode responder…': 'Go ahead…',
     'Depois de falar a resposta de um pedido pela voz, ele fica uns segundos ouvindo a sua réplica, sem precisar chamar o nome de novo ("e amanhã?", "sim"). Se você não falar nada, volta a esperar o nome.': 'After speaking the answer to a voice request, it listens for your reply for a few seconds, without you saying the name again ("and tomorrow?", "yes"). If you say nothing, it goes back to waiting for the name.',
     'Quando falar': 'When to speak', 'Quando eu chamar pela voz': 'When I call by voice', 'Sempre': 'Always', 'Nunca': 'Never', 'Voz': 'Voice', 'Velocidade': 'Speed',

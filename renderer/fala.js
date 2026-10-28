@@ -209,6 +209,13 @@
     });
   }
 
+  // aviso falado (lembrete, tarefa pronta, novidade): o processo principal já conferiu o silêncio e se o PC
+  // está livre; aqui, só não fala por cima de outra fala nem de uma resposta em andamento
+  manipuladores['aviso-falado'] = ({ texto } = {}) => {
+    if (!texto || !vozInstalada || config.avisosFalados === false || atual !== null || agente.rodando) return;
+    falar(texto);
+  };
+
   window.falaPorVoz = { falar, parar, confirmar, falando: () => atual !== null, pedidoPorVoz: false };
 
   /* ---------------- Ajustes → Geral → Voz do AuGPT ---------------- */
@@ -231,6 +238,9 @@
     if (sel) sel.value = config.vozNome || 'pm_alex';
     $id('cfgVozFalar').value = config.vozFalar || 'voz';
     if ($id('cfgConversaContinua')) $id('cfgConversaContinua').checked = config.conversaContinua !== false;
+    if ($id('cfgAvisosFalados')) $id('cfgAvisosFalados').checked = config.avisosFalados !== false;
+    if ($id('cfgSilencioDe')) $id('cfgSilencioDe').value = config.silencioDe || '';
+    if ($id('cfgSilencioAte')) $id('cfgSilencioAte').value = config.silencioAte || '';
     $id('cfgVozVelocidade').value = String(Number(config.vozVelocidade) || 1);
     $id('vozVelocidadeValor').textContent = `${(Number(config.vozVelocidade) || 1).toFixed(2).replace('.', ',')}×`;
   }
@@ -258,6 +268,9 @@
   $id('cfgVozNome')?.addEventListener('change', (e) => salvar({ vozNome: e.target.value }));
   $id('cfgVozFalar')?.addEventListener('change', (e) => salvar({ vozFalar: e.target.value }));
   $id('cfgConversaContinua')?.addEventListener('change', (e) => salvar({ conversaContinua: e.target.checked }));
+  $id('cfgAvisosFalados')?.addEventListener('change', (e) => salvar({ avisosFalados: e.target.checked }));
+  $id('cfgSilencioDe')?.addEventListener('change', (e) => salvar({ silencioDe: e.target.value }));
+  $id('cfgSilencioAte')?.addEventListener('change', (e) => salvar({ silencioAte: e.target.value }));
   $id('cfgVozVelocidade')?.addEventListener('input', (e) => ($id('vozVelocidadeValor').textContent = `${Number(e.target.value).toFixed(2).replace('.', ',')}×`));
   $id('cfgVozVelocidade')?.addEventListener('change', (e) => salvar({ vozVelocidade: Number(e.target.value) }));
   document.querySelector('[data-painel="ajGeral"]')?.addEventListener('click', () => setTimeout(pintarVoz, 50));

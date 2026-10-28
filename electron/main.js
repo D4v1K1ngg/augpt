@@ -1549,6 +1549,26 @@ function avisar(titulo, corpo, item, aoClicar = () => enviar('agenda-abrir', { i
   }
 }
 
+/*
+ * Avisos falados (27/10, fase 2 da conversa estilo Jarvis): além do aviso do Windows, a voz do AuGPT diz o
+ * aviso — só com a voz instalada, em português, fora do horário de silêncio e com o PC livre (sem tela cheia,
+ * "não incomodar" ou outro programa com o microfone aberto; src/pc-ocupado.js). Ajustes → Voz do AuGPT.
+ */
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const dataFalada = (iso) => {
+  const [a, m, d] = String(iso).split('-').map(Number);
+  return MESES[m - 1] ? `${d} de ${MESES[m - 1]} de ${a}` : String(iso);
+};
+async function falarAviso(texto) {
+  const c = config.data;
+  if (!texto || c.avisosFalados === false || idiomaEfetivo() === 'en' || !voz?.instalada()) return;
+  const { emSilencio, estadoDoPc } = require('../src/pc-ocupado');
+  if (emSilencio(new Date(), c.silencioDe, c.silencioAte)) return;
+  const pc = await estadoDoPc();
+  if (!pc.livre) return;
+  enviar('aviso-falado', { texto });
+}
+
 function verificarAgenda() {
   if (!agenda) return;
   const en = idiomaEfetivo() === 'en';
@@ -1556,6 +1576,7 @@ function verificarAgenda() {
     agenda.atualizar(item.id, { avisado: true });
     const quando = item.diaInteiro ? (en ? 'today' : 'hoje') : String(item.quando).slice(11, 16);
     avisar(en ? `AuGPT reminder · ${quando}` : `Lembrete do AuGPT · ${quando}`, item.titulo, item);
+    falarAviso(`Lembrete: ${item.titulo}.`);
     enviar('agenda-mudou', { avisado: item.id });
   }
   // um assunto por vez, com o agente parado e o app aberto há 3 min (não disputa a abertura)
@@ -1587,7 +1608,10 @@ async function conferirPreco(item) {
         ...(aconteceu ? { status: 'aconteceu' } : {}),
       },
     });
-    if (aconteceu) avisar(en ? `Price drop: ${assunto}` : `Baixou: ${assunto}`, `${reais(menor.preco)} — ${menor.loja}`, item);
+    if (aconteceu) {
+      avisar(en ? `Price drop: ${assunto}` : `Baixou: ${assunto}`, `${reais(menor.preco)} — ${menor.loja}`, item);
+      falarAviso(`Baixou o preço de ${assunto}: ${reais(menor.preco)} na ${menor.loja}.`);
+    }
   } finally {
     if (conferindo === marcador) conferindo = null;
     enviar('agenda-conferindo', { id: item.id, conferindo: false });
@@ -1624,8 +1648,13 @@ async function conferirAcompanhamento(item) {
     const antes = item.acompanhar || {};
     agenda.atualizar(item.id, mudancas);
     const en = idiomaEfetivo() === 'en';
-    if (r?.aconteceu) avisar(en ? `News: ${assunto}` : `Novidade: ${assunto}`, r.resumo || (en ? 'It happened.' : 'Aconteceu.'), item);
-    else if (r?.data && r.data !== antes.data) avisar(en ? `Date confirmed: ${assunto}` : `Data confirmada: ${assunto}`, `${r.data.split('-').reverse().join('/')} — ${r.resumo}`, item);
+    if (r?.aconteceu) {
+      avisar(en ? `News: ${assunto}` : `Novidade: ${assunto}`, r.resumo || (en ? 'It happened.' : 'Aconteceu.'), item);
+      falarAviso(`Novidade sobre ${assunto}. ${r.resumo || ''}`.trim());
+    } else if (r?.data && r.data !== antes.data) {
+      avisar(en ? `Date confirmed: ${assunto}` : `Data confirmada: ${assunto}`, `${r.data.split('-').reverse().join('/')} — ${r.resumo}`, item);
+      falarAviso(`Data confirmada para ${assunto}: ${dataFalada(r.data)}.`);
+    }
   } finally {
     if (conferindo === silencioso) conferindo = null;
     enviar('agenda-conferindo', { id: item.id, conferindo: false });
@@ -1757,6 +1786,7 @@ const fundo = new FilaDeFundo({
       : item.estado === 'esperando' ? [en ? 'A task needs your approval' : 'Uma tarefa precisa da sua aprovação', `${titulo} — ${item.aprovacao?.nome || ''}`]
         : [en ? 'Task failed' : 'A tarefa não terminou', `${titulo} — ${item.erro || ''}`];
     avisar(`AuGPT · ${cab}`, corpo, item, () => enviar('fundo-abrir', { id: item.id, idConversa: item.idConversa || null }));
+    falarAviso(item.estado === 'pronta' ? `Terminei a tarefa: ${titulo}.` : item.estado === 'esperando' ? `Uma tarefa precisa da sua aprovação: ${titulo}.` : `A tarefa "${titulo}" não terminou.`);
     remoto?.transmitir('fundo-aviso', { id: item.id, estado: item.estado, titulo, idConversa: item.idConversa || null });
   },
   mudou: (lista) => {

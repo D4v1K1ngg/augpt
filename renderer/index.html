@@ -652,6 +652,12 @@
           <label class="linha voz-opcao" hidden><span class="linha-texto"><span>Continuar a conversa</span><small>Depois de falar a resposta de um pedido pela voz, ele fica uns segundos ouvindo a sua réplica, sem precisar chamar o nome de novo ("e amanhã?", "sim"). Se você não falar nada, volta a esperar o nome.</small></span>
             <input type="checkbox" id="cfgConversaContinua" class="caixa" />
           </label>
+          <label class="linha voz-opcao" hidden><span class="linha-texto"><span>Falar os avisos</span><small>Lembretes, tarefas em segundo plano prontas e novidades dos assuntos acompanhados também são ditos em voz alta. Ele não fala em tela cheia (jogo, filme, apresentação), no "não incomodar" do Windows nem quando outro programa está com o microfone aberto (uma chamada).</small></span>
+            <input type="checkbox" id="cfgAvisosFalados" class="caixa" />
+          </label>
+          <div class="linha voz-opcao" hidden><span class="linha-texto"><span>Horário de silêncio</span><small>Nesse horário os avisos ficam só escritos. Deixe vazio para não ter.</small></span>
+            <span class="microfone-escolha"><input type="time" id="cfgSilencioDe" /> <span>até</span> <input type="time" id="cfgSilencioAte" /></span>
+          </div>
           <!-- 25/10: "o que tem na minha tela?" -->
           <label class="linha"><span class="linha-texto"><span>Atalho Ctrl+Alt+A: perguntar sobre a tela</span><small>De qualquer programa, Ctrl+Alt+A congela a tela e você escolhe a área (Enter = a tela inteira, Esc cancela). A imagem vira anexo do Agente, pronta para a pergunta. Também pelo botão ao lado do + ou falando "Ei GPT, o que é isso na tela?".</small><small id="atalhoDaTelaStatus" class="ajuste-status"></small></span>
             <input type="checkbox" id="cfgAtalhoDaTela" class="caixa" />
