@@ -1146,7 +1146,7 @@ $('btnLimparExec').addEventListener('click', async () => {
   const resumir = () => {
     const ollama = $('statusOllama');
     const modelos = $('btnModelos');
-    const pesquisa = $('modoDePesquisa').value === 'investigacao' ? tr('investigação {n} min', { n: config.minutosDeInvestigacao || 10 }) : tr('pesquisa {modo}', { modo: curto($('modoDePesquisa')) });
+    const pesquisa = $('modoDePesquisa').value === 'investigacao' ? tr('investigação {n} min', { n: config.minutosDeInvestigacao || 10 }) : $('modoDePesquisa').value === 'conversa' ? tr('só conversar') : tr('pesquisa {modo}', { modo: curto($('modoDePesquisa')) });
     const partes = [$('modelo').value || tr('sem modelo'), pesquisa, curto($('modoResposta'))].filter(Boolean);
     const desligado = ollama.classList.contains('offline');
     const texto = desligado ? tr('Ollama desligado · {resto}', { resto: partes.join(' · ') }) : partes.join(' · ');

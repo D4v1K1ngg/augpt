@@ -53,6 +53,7 @@
         <label class="campo" title="Pesquisa: quanto o agente pesquisa antes de responder (o mesmo seletor da tela inicial)">
           <span>pesquisa</span>
           <select id="modoDePesquisa" aria-label="Profundidade da pesquisa">
+            <option value="conversa">só conversar · direto com o modelo, sem pesquisa</option>
             <option value="automatico">automático · produto pesquisa a fundo</option>
             <option value="rapido">rápido · 1 ou 2 buscas, segundos</option>
             <option value="normal">normal · várias buscas e leituras</option>
@@ -272,6 +273,7 @@
           <div class="deck-foot">
             <span class="foot-l">Pesquisa</span>
           <div class="modo-do-agente" id="modoDoAgente" role="group" aria-label="Como o agente responde">
+            <button type="button" data-modo="conversa" title="Conversa direto com o modelo, sem pesquisar na web (diga &quot;pesquise…&quot; quando quiser uma pesquisa)">Conversar</button>
             <button type="button" data-modo="automatico" title="O agente escolhe: produto pesquisa a fundo, o resto pesquisa normal">Automático</button>
             <button type="button" data-modo="rapido" title="Uma ou duas buscas e a resposta em segundos">Rápido</button>
             <button type="button" data-modo="normal" title="Várias buscas e leituras (pelo menos 2 buscas)">Normal</button>
@@ -328,6 +330,7 @@
         <textarea id="entradaAgente" rows="1" placeholder="Peça alguma coisa ao agente…"></textarea>
         <!-- 19/10: o raciocínio troca no meio da conversa (o seletor da abertura some quando ela começa) -->
         <select class="modo-caixa" id="modoNaCaixa" aria-label="Raciocínio da próxima resposta" title="Raciocínio da próxima resposta">
+          <option value="conversa">Conversar</option>
           <option value="automatico">Automático</option>
           <option value="rapido">Rápido</option>
           <option value="normal">Normal</option>

@@ -250,6 +250,12 @@
         if (ocupado) a.enviar.click();
         novaConversa('agente');
         avisar(tr('Nova conversa ✓'), 3000);
+      } else if (r.comando === 'so-conversar' || r.comando === 'pesquisar') {
+        // 28/10: "Ei Jarvis, vamos só conversar" / "pode pesquisar de novo" — o mesmo seletor do Agente
+        const conversa = r.comando === 'so-conversar';
+        await window.escolherModo?.(conversa ? 'conversa' : 'automatico');
+        avisar(conversa ? tr('Só conversar ✓') : tr('Pesquisa automática ✓'), 3000);
+        window.falaPorVoz?.falar(conversa ? tr('Certo, vamos só conversar.') : tr('Certo, volto a pesquisar.'), { resumir: false });
       } else if (r.comando === 'parar') {
         if (ocupado) a.enviar.click();
         avisar(ocupado || g.calouAFala ? tr('Parei ✓') : tr('Nada para parar.'), 3000);

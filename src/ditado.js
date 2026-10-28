@@ -283,6 +283,9 @@ function comandoDeVoz(texto) {
   const t = compacto(texto);
   if (/^((abr[ae]|abrir|comec[ae]|comecar|inici[ae]|iniciar|nova|uma) )?(uma )?nova conversa( por favor)?$|^(new|start a new) (chat|conversation)$/.test(t)) return 'nova-conversa';
   if (/^(para|pare|parar|cancela|cancele|cancelar|chega|stop|cancel)( (tudo|isso|a resposta|de responder))?( por favor)?$/.test(t)) return 'parar';
+  // 28/10: o seletor "Conversar" do Agente pela voz
+  if (/^((agora )?(vamos|bora|quero|pode|vamo) )?(so )?conversar( (um pouco|comigo|so))?( por favor)?$|^(modo (de )?conversa|so conversa)( por favor)?$|^(let'?s )?just chat$/.test(t)) return 'so-conversar';
+  if (/^((pode|volta a|volte a|voltar a) )?pesquisar (de novo|novamente)( por favor)?$|^(sai|sair) do modo (de )?conversa$|^(modo (de )?pesquisa|pesquisa automatica)$|^(you can )?research again$/.test(t)) return 'pesquisar';
   return null;
 }
 
