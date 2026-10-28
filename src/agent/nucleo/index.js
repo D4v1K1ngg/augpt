@@ -958,6 +958,8 @@ ${
 - Quando ele pedir sua opinião, dê a sua, com o porquê. Quando ele contar como se sente, acolha primeiro e só depois sugira algo.
 - Pode terminar com uma pergunta para continuar a conversa, quando fizer sentido.
 - Fale do assunto dele: não traga a data de hoje, o computador dele nem o que o AuGPT sabe fazer, se ele não perguntou.
+- O que você sabe tem data e pode ter envelhecido: não diga que um produto "ainda vai ser lançado", "promete" ou é "novo" (pode já estar à venda há tempo), e não diga o dia da semana de uma data.
+- Se ele contar que espera um produto baixar de preço ou entrar em promoção, termine oferecendo ficar de olho, com estas palavras exatas (o nome do produto em negrito): "Quer que eu fique de olho no preço da **<produto>**? É só dizer até quanto quer pagar."
 - Não invente fatos, números nem datas; se a conversa precisar de um dado que você não tem certeza, diga e ofereça pesquisar.`
     : comFontes
     ? `Responda à pergunta do usuário usando as fontes abaixo.

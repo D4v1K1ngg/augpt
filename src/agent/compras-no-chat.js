@@ -55,7 +55,11 @@ function produtoDoTexto(pergunta) {
   }
   const m = GATILHO.exec(original.replace(/\bquanto que\b/i, 'quanto'));
   if (!m) return null;
+  // 28/10, no app: "…só estou esperando uma promoção boa." buscou o produto "boa" — o gatilho no meio de uma
+  // frase que conta algo (sem "?") não é pedido de preço; e o que vem depois dele tem de ser um nome
+  if (m.index > 30 && !/\?\s*$/.test(original)) return null;
   let produto = limpar(original.slice(m.index + m[0].length));
+  if (/^(boas?|bons?|bom|otim[oa]s?|legal|legais|interessantes?|melhor(es)?|aqui|ai|isso|isto|dessas?|desses?|que|de verdade|real|top)$/.test(semAcento(produto))) return null;
   // "a RTX 5080 está quanto?" / "RTX 5080 preço": o produto antes do gatilho
   if (!produto || produto.length < 2) produto = limpar(original.slice(0, m.index).replace(/\s+(?:est[áa]|ta|tá|custa)\s*$/i, ''));
   if (!produto || produto.length < 2 || produto.split(/\s+/).length > 9) return null;

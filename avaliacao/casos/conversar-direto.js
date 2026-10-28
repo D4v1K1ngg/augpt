@@ -40,6 +40,27 @@ module.exports = [
     },
   },
   {
+    nome: 'conversa do Davi (28/10): "promoção boa" no meio da frase não busca o produto "boa"; Black Friday no calendário (sexta); "quer que eu fique de olho no preço da **X**?" + "uns 4 mil" cria o alerta',
+    tipo: 'unidade',
+    executar() {
+      const compras = require('../../src/agent/compras-no-chat');
+      const cal = require('../../src/agent/calendario-no-chat');
+      const { aceitouOferta } = require('../../src/agent/capacidades');
+      const bf = (a) => cal.datasDoAno(a).find((d) => d.nome === 'Black Friday');
+      const oferta = [{ role: 'assistant', content: 'Quer que eu fique de olho no preço da **RTX 5070 Ti**? É só dizer até quanto quer pagar.' }];
+      return [
+        compras.pedidoDeCompras('No caso, essa placa já foi lançada há um tempo, só estou esperando uma promoção boa.') === null || 'promoção boa',
+        compras.pedidoDeCompras('Tem alguma promoção boa?') === null || '"boa" não é produto',
+        compras.pedidoDeCompras('Você sabe se tem promoção da RTX 5070 Ti hoje?')?.produto === 'RTX 5070 Ti' || 'pergunta de preço continua',
+        bf(2025).iso === '2025-11-28' && bf(2026).iso === '2026-11-27' && bf(2027).iso === '2027-11-26' && bf(2026).data.getDay() === 5 || 'Black Friday',
+        cal.pedidoDeCalendario('Qual dia da Black Friday?')?.nome === 'Black Friday' || '"qual dia da"',
+        aceitouOferta('Uns 4 mil', oferta)?.pergunta === 'me avise quando RTX 5070 Ti ficar abaixo de R$ 4000' || JSON.stringify(aceitouOferta('Uns 4 mil', oferta)),
+        aceitouOferta('até R$ 4.500', oferta)?.pergunta.endsWith('R$ 4500') && aceitouOferta('sim', oferta) === null || 'valor',
+        /fique de olho no preço da \*\*<produto>\*\*/.test(nucleo.sistemaDoEscritor({ hoje: 'x', comFontes: false, conversa: true })) || 'a oferta no tom de conversa',
+      ];
+    },
+  },
+  {
     nome: 'conversar: o modo "Conversar" nos três seletores tira a pesquisa (menos com "pesquise"); "Ei Jarvis, vamos só conversar" e "pode pesquisar de novo" trocam o modo',
     tipo: 'unidade',
     executar() {

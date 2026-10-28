@@ -39,6 +39,12 @@ const domingo = (ano, mes, n) => {
   return dia(ano, mes, 1 + ((7 - primeiro.getDay()) % 7) + 7 * (n - 1));
 };
 
+/** Black Friday: o dia seguinte à 4ª quinta-feira de novembro (28/10, no app: "quinta-feira, 27 de novembro" de memória). */
+const blackFriday = (ano) => {
+  const primeiro = dia(ano, 11, 1);
+  return dia(ano, 11, 1 + ((4 - primeiro.getDay() + 7) % 7) + 21 + 1);
+};
+
 /**
  * As datas do ano: tipo 'feriado' (nacional), 'facultativo' (ponto facultativo) ou 'comemorativa'.
  * `chaves`: como a pessoa chama a data (sem acento), para "quantos dias faltam pro …".
@@ -63,6 +69,7 @@ function datasDoAno(ano) {
     [dia(ano, 11, 15), 'Proclamação da República', 'Republic Day', 'feriado', 'proclamacao da republica|republic day'],
     // feriado nacional desde 2024 (Lei 14.759/2023)
     ...(ano >= 2024 ? [[dia(ano, 11, 20), 'Dia da Consciência Negra', 'Black Awareness Day', 'feriado', 'consciencia negra|zumbi|black awareness']] : []),
+    [blackFriday(ano), 'Black Friday', 'Black Friday', 'comemorativa', 'black friday'],
     [dia(ano, 12, 25), 'Natal', 'Christmas', 'feriado', 'natal|christmas'],
   ];
   return lista.map(([data, nome, en, tipo, chaves]) => ({ data, iso: iso(data), nome, en, tipo, chaves }));
@@ -122,7 +129,7 @@ function dataCitada(t, hoje) {
 /* ------------------------------ que pedido é ------------------------------ */
 
 const HOJE = /\b((que|qual) (e )?(o )?(dia|data)( (da semana|do mes))? (e |eh |sera )?hoje|hoje e (que|qual) dia|data de hoje|dia de hoje|what day is (it )?today|what(?:'s| is) (the )?(date|day) today|what(?:'s| is) today'?s date|today'?s date)\b/;
-const CONTAGEM = /\b(quantos dias (faltam|falta|ate|pra|para)|falta(m)? quantos dias|quando (e|eh|cai|vai ser|sera|vai cair)|em que dia (e|cai|vai cair|sera)|que dia (e|cai|vai cair|sera)|how many days (until|till|to|left)|when is)\b/;
+const CONTAGEM = /\b(quantos dias (faltam|falta|ate|pra|para)|falta(m)? quantos dias|quando (e|eh|cai|vai ser|sera|vai cair)|em que dia (e|cai|vai cair|sera)|(que|qual) (e o )?dia (e|cai|vai cair|sera|d[aoe])|how many days (until|till|to|left)|when is)\b/;
 const DIA_DA_SEMANA = /\b(dia da semana|cai (em )?que dia|caiu (em )?que dia|vai cair (em )?que dia|que dia (cai|caiu|vai cair|foi)|day of (the )?week|what day (is|was|will be))\b/;
 const FERIADO = /\b(feriados?|holidays?)\b/;
 const FERIADO_PERGUNTA = /\b(quais|qual|tem|temos|teremos|tera|terao|proximos?|lista|liste|quantos|quando|calendario|deste|desse|neste|nesse|este|esse|do mes|do ano|no mes|no ano|de (\w+)|em (\w+)|which|what|next|upcoming|any|this|list)\b/;

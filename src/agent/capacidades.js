@@ -174,6 +174,15 @@ const SIM = /^\s*(sim|s|pode|pode sim|pode testar|pode fazer|pode ver|quero|ok|o
 /** Oferta de pesquisa (item 3): o "sim" seguinte vira a pergunta "pesquise <assunto>". */
 const ofertaDePesquisa = (assunto, idioma = 'pt') => (idioma === 'en' ? `Want me to research **${assunto}**? Just reply **"yes"**.` : `Quer que eu pesquise **${assunto}**? É só responder **"sim"**.`);
 
+/** "uns 4 mil" → 4000; "R$ 4.500" → 4500; "4,5 mil" → 4500; sem número → null. Texto já sem acento e minúsculo. */
+function valorFalado(t) {
+  const mil = /(\d+(?:[.,]\d+)?)\s*(?:mil|k)(?![a-z])/.exec(t);
+  if (mil) return Math.round(Number(mil[1].replace(',', '.')) * 1000);
+  const n = /\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?/.exec(t);
+  const v = n ? Math.round(Number(n[0].replace(/\./g, '').replace(',', '.'))) : 0;
+  return v >= 10 ? v : null;
+}
+
 function aceitouOferta(texto, conversa = []) {
   const ultima = [...conversa].reverse().find((m) => m.role === 'assistant');
   if (!ultima) return null;
@@ -183,6 +192,10 @@ function aceitouOferta(texto, conversa = []) {
   // a oferta da agenda no fim da pesquisa (23/10): "Quer que eu acompanhe **RTX 60** …?" + "sim"
   const acompanhar = /(?:Quer que eu acompanhe|Want me to keep an eye on) \*\*(.+?)\*\*/.exec(String(ultima.content || ''));
   if (acompanhar && SIM.test(t) && t.length <= 60) return { id: 'agenda', pergunta: `acompanhe ${acompanhar[1]}` };
+  // ficar de olho no preço (28/10, conversa): "Quer que eu fique de olho no preço da **RTX 5070 Ti**?" + "uns 4 mil"
+  const olho = /fique de olho no pre[çc]o d[aoe]s? \*\*(.+?)\*\*/i.exec(String(ultima.content || ''));
+  const valor = olho && t.length <= 60 ? valorFalado(t) : null;
+  if (valor) return { id: 'agenda', pergunta: `me avise quando ${olho[1]} ficar abaixo de R$ ${valor}` };
   const oferecida = CAPACIDADES.find((c) => c.executa && [c.oferta, OFERTAS_EN[c.id]].some((o) => o && String(ultima.content || '').includes(o.slice(0, 40))));
   if (!oferecida) return null;
   if (oferecida.id === 'teste_de_rede' && /\bso (o )?(ping|latencia)\b|\bjust (the )?ping\b|\bonly (the )?ping\b/.test(t)) return { id: oferecida.id, modo: 'ping' };
