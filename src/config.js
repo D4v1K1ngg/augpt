@@ -167,6 +167,8 @@ const DEFAULTS = {
   avisosFalados: true,
   silencioDe: '22:00',
   silencioAte: '07:00',
+  // 28/10, etapa 2 do Jarvis: modelo leve que conversa pela voz NA CPU enquanto o principal trabalha ('' = nenhum)
+  modeloDaVoz: '',
   // 25/10: "Ei GPT" (o microfone fica aberto ouvindo a chamada; desligado por padrão) e a correção
   // do texto falado pelo modelo (ortografia e palavras ouvidas errado) antes de enviar
   ouvirChamada: false,

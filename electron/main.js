@@ -1130,6 +1130,38 @@ ipcMain.handle('voz:falar', async (_e, { texto, resumir = true, parcial = false,
   gerarFrases(id, frasesParaFalar(dito), { ultimo: !parcial });
   return { ok: true, id, texto: dito };
 });
+// a voz em paralelo (28/10, etapa 2 do Jarvis; src/fala/voz-paralela.js): o modelo leve, só na CPU (num_gpu 0),
+// conversa enquanto o principal trabalha — fica carregado por 1 h para responder em ~1,5 s
+const vozParalela = (mensagens, numPredict = 120) => ollama.chat({ host: config.data.host, model: String(config.data.modeloDaVoz || '').trim(), messages: mensagens, pensar: false, temperature: 0.6, numCtx: 2048, numPredict, numGpu: 0, manterVivo: '60m', signal: AbortSignal.timeout(30000) });
+ipcMain.handle('voz:paralela', async (_e, { texto, objetivo = '', etapa = '', resumo = '', segundos = 0 } = {}) => {
+  if (!String(config.data.modeloDaVoz || '').trim()) return { ok: false, error: 'sem-modelo' };
+  const { sistemaDaVozParalela, lerRespostaParalela, precisaDoPrincipal, FRASE_DA_FILA, perguntaDeAndamento, respostaDeAndamento } = require('../src/fala/voz-paralela');
+  const nome = String(config.data.nomeDaChamada || '').replace(/^ei\s+/i, '').trim() || 'AuGPT';
+  // o andamento é dito pelo código (o que a tela mostra); pesquisa, fato, preço e lembrete vão para a fila do
+  // principal — nenhum dos dois passa pelo modelo leve
+  if (perguntaDeAndamento(texto)) return { ok: true, fila: false, resposta: respostaDeAndamento({ etapa, resumo, segundos }) };
+  if (precisaDoPrincipal(texto)) return { ok: true, fila: true, resposta: FRASE_DA_FILA };
+  const andamento = [String(etapa).split('\n')[0], resumo].filter(Boolean).join(' ');
+  try {
+    const r = await vozParalela([
+      { role: 'system', content: sistemaDaVozParalela({ nome: /^(gpt|augpt|chatgpt)$/i.test(nome) ? 'AuGPT' : nome, usuario: String(config.data.nomeDoUsuario || '').trim(), objetivo, andamento, segundos: Number(segundos) || 0 }) },
+      { role: 'user', content: String(texto || '').slice(0, 600) },
+    ]);
+    return { ok: true, ...lerRespostaParalela(r.content) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+// carrega o modelo leve antes da primeira conversa (a primeira carga leva ~6 s)
+ipcMain.handle('voz:aquecer', async () => {
+  if (!String(config.data.modeloDaVoz || '').trim()) return { ok: false };
+  try {
+    await vozParalela([{ role: 'user', content: 'oi' }], 1);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
 ipcMain.handle('voz:parar', () => {
   falaAtual += 1;
   falado = [];

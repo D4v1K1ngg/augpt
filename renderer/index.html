@@ -655,6 +655,9 @@
           <label class="linha voz-opcao" hidden><span class="linha-texto"><span>Continuar a conversa</span><small>Depois de falar a resposta de um pedido pela voz, ele fica uns segundos ouvindo a sua réplica, sem precisar chamar o nome de novo ("e amanhã?", "sim"). Se você não falar nada, volta a esperar o nome.</small></span>
             <input type="checkbox" id="cfgConversaContinua" class="caixa" />
           </label>
+          <label class="linha voz-opcao" hidden><span class="linha-texto"><span>Conversar enquanto ele trabalha</span><small>Um modelo leve, só no processador, conversa com você pela voz enquanto o modelo principal pesquisa: conta como está indo, bate papo e põe na fila o que precisar de pesquisa. Recomendado: qwen3.5:4b (ocupa uns 3 GB de memória).</small></span>
+            <select id="cfgModeloDaVoz"></select>
+          </label>
           <label class="linha voz-opcao" hidden><span class="linha-texto"><span>Falar os avisos</span><small>Lembretes, tarefas em segundo plano prontas e novidades dos assuntos acompanhados também são ditos em voz alta. Ele não fala em tela cheia (jogo, filme, apresentação), no "não incomodar" do Windows nem quando outro programa está com o microfone aberto (uma chamada).</small></span>
             <input type="checkbox" id="cfgAvisosFalados" class="caixa" />
           </label>

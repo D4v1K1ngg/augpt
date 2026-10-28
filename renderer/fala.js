@@ -123,10 +123,10 @@
    * só o que falta do resumo. Fica para o fim (como antes) a pergunta de preço, de produto ou que muda
    * com o tempo — a conferência ainda pode mexer num número —, e uma resposta que foi reescrita.
    */
-  const turnoDaFala = { podeAntes: false, falouAntes: false, texto: '' };
+  const turnoDaFala = { podeAntes: false, falouAntes: false, texto: '', inicio: 0, objetivo: '' };
   const comecoOriginal = manipuladores.inicio;
   manipuladores.inicio = (d) => {
-    Object.assign(turnoDaFala, { podeAntes: true, falouAntes: false, texto: '' });
+    Object.assign(turnoDaFala, { podeAntes: true, falouAntes: false, texto: '', inicio: Date.now(), objetivo: String(d?.objetivo || '') });
     return comecoOriginal?.(d);
   };
   const entendimentoOriginal = manipuladores['nucleo-entendimento'];
@@ -216,7 +216,34 @@
     falar(texto);
   };
 
-  window.falaPorVoz = { falar, parar, confirmar, falando: () => atual !== null, pedidoPorVoz: false };
+  /*
+   * Etapa 2 do Jarvis (28/10): com o modelo principal ocupado, o pedido pela voz vai para o modelo leve na CPU
+   * (src/fala/voz-paralela.js). Ele recebe o pedido em andamento e o que o painel de atividade mostra; o que ele
+   * marca [FILA] (pesquisa, fato, ação) vai para o segundo plano, para o modelo principal fazer depois.
+   */
+  // a etapa atual (o último item do painel de atividade) e o resumo ("6 buscas · 3 páginas em 3 sites")
+  function andamentoNaTela() {
+    const paineis = document.querySelectorAll('#agenteMensagens .atividade');
+    const p = paineis[paineis.length - 1];
+    if (!p) return { etapa: '', resumo: '' };
+    const etapas = p.querySelectorAll('.atividade-etapas li');
+    return { etapa: etapas[etapas.length - 1]?.innerText.trim() || '', resumo: p.querySelector('.atividade-resumo')?.textContent.trim() || '' };
+  }
+  async function emParalelo(texto) {
+    const r = await api.voz.paralela({ texto, objetivo: turnoDaFala.objetivo, ...andamentoNaTela(), segundos: turnoDaFala.inicio ? (Date.now() - turnoDaFala.inicio) / 1000 : 0 }).catch(() => null);
+    if (!r?.ok || !r.resposta) return null;
+    if (r.fila) await api.fundo.adicionar(texto).catch(() => null);
+    if (vozInstalada && window.i18n?.idioma !== 'en') {
+      const f = await falar(r.resposta, { resumir: false });
+      // depois de falar, continua ouvindo (a réplica da etapa 1) — a conversa segue enquanto ele trabalha
+      if (f?.ok && atual === f.id && config.conversaContinua !== false) seguir = true;
+    }
+    return { ...r, resposta: r.fila ? `${r.resposta} — ${tr('Coloquei na fila: {texto}', { texto: String(texto).slice(0, 60) })}` : r.resposta };
+  }
+  // o modelo leve carregado antes da primeira conversa (só com a escuta ligada: sem ela, não há conversa pela voz)
+  if (typeof config !== 'undefined' && config?.modeloDaVoz && config?.ouvirChamada) setTimeout(() => api.voz.aquecer().catch(() => {}), 15000);
+
+  window.falaPorVoz = { falar, parar, confirmar, emParalelo, falando: () => atual !== null, pedidoPorVoz: false };
 
   /* ---------------- Ajustes → Geral → Voz do AuGPT ---------------- */
   const $id = (x) => document.getElementById(x);
@@ -239,6 +266,14 @@
     $id('cfgVozFalar').value = config.vozFalar || 'voz';
     if ($id('cfgConversaContinua')) $id('cfgConversaContinua').checked = config.conversaContinua !== false;
     if ($id('cfgAvisosFalados')) $id('cfgAvisosFalados').checked = config.avisosFalados !== false;
+    // os mesmos modelos do seletor do topo (já sem os de embedding e de decisão)
+    const leve = $id('cfgModeloDaVoz');
+    if (leve) {
+      const nomes = [...(document.getElementById('modelo')?.options || [])].map((o) => o.value).filter(Boolean);
+      if (config.modeloDaVoz && !nomes.includes(config.modeloDaVoz)) nomes.push(config.modeloDaVoz);
+      leve.replaceChildren(new Option(tr('Nenhum (só o modelo principal)'), ''), ...nomes.map((n) => new Option(n, n)));
+      leve.value = config.modeloDaVoz || '';
+    }
     if ($id('cfgSilencioDe')) $id('cfgSilencioDe').value = config.silencioDe || '';
     if ($id('cfgSilencioAte')) $id('cfgSilencioAte').value = config.silencioAte || '';
     $id('cfgVozVelocidade').value = String(Number(config.vozVelocidade) || 1);
@@ -269,6 +304,10 @@
   $id('cfgVozFalar')?.addEventListener('change', (e) => salvar({ vozFalar: e.target.value }));
   $id('cfgConversaContinua')?.addEventListener('change', (e) => salvar({ conversaContinua: e.target.checked }));
   $id('cfgAvisosFalados')?.addEventListener('change', (e) => salvar({ avisosFalados: e.target.checked }));
+  $id('cfgModeloDaVoz')?.addEventListener('change', async (e) => {
+    await salvar({ modeloDaVoz: e.target.value });
+    if (e.target.value) api.voz.aquecer().catch(() => {});
+  });
   $id('cfgSilencioDe')?.addEventListener('change', (e) => salvar({ silencioDe: e.target.value }));
   $id('cfgSilencioAte')?.addEventListener('change', (e) => salvar({ silencioAte: e.target.value }));
   $id('cfgVozVelocidade')?.addEventListener('input', (e) => ($id('vozVelocidadeValor').textContent = `${Number(e.target.value).toFixed(2).replace('.', ',')}×`));

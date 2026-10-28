@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld('augpt', {
     instalar: () => ipcRenderer.invoke('voz:instalar'),
     falar: (texto, opcoes = {}) => ipcRenderer.invoke('voz:falar', { texto, ...opcoes }),
     parar: () => ipcRenderer.invoke('voz:parar'),
+    paralela: (dados) => ipcRenderer.invoke('voz:paralela', dados),
+    aquecer: () => ipcRenderer.invoke('voz:aquecer'),
   },
   ditado: {
     estado: () => ipcRenderer.invoke('ditado:estado'),

@@ -263,6 +263,11 @@
         avisar(''); // na réplica, barulho sem pedido é só ignorado
       } else if (!r.pedido) {
         avisar(tr('Ouvi o "{nome}", mas não o pedido. Tente: "{nome}, vai chover amanhã?"', { nome: nome() }), 6000);
+      } else if (ocupado && config.modeloDaVoz && window.falaPorVoz?.emParalelo) {
+        // 28/10, etapa 2: o modelo principal está ocupado — o modelo leve (na CPU) conversa (renderer/fala.js)
+        avisar(tr('Pensando…'));
+        const p = await window.falaPorVoz.emParalelo(r.pedido);
+        avisar(p?.resposta || tr('O agente ainda está respondendo. Espere terminar ou diga "{nome}, para".', { nome: nome() }), p?.resposta ? 9000 : 7000);
       } else if (ocupado) {
         avisar(tr('O agente ainda está respondendo. Espere terminar ou diga "{nome}, para".', { nome: nome() }), 7000);
       } else {
