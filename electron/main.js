@@ -1135,12 +1135,12 @@ ipcMain.handle('voz:falar', async (_e, { texto, resumir = true, parcial = false,
 const vozParalela = (mensagens, numPredict = 120) => ollama.chat({ host: config.data.host, model: String(config.data.modeloDaVoz || '').trim(), messages: mensagens, pensar: false, temperature: 0.6, numCtx: 2048, numPredict, numGpu: 0, manterVivo: '60m', signal: AbortSignal.timeout(30000) });
 ipcMain.handle('voz:paralela', async (_e, { texto, objetivo = '', etapa = '', resumo = '', segundos = 0 } = {}) => {
   if (!String(config.data.modeloDaVoz || '').trim()) return { ok: false, error: 'sem-modelo' };
-  const { sistemaDaVozParalela, lerRespostaParalela, precisaDoPrincipal, FRASE_DA_FILA, perguntaDeAndamento, respostaDeAndamento } = require('../src/fala/voz-paralela');
+  const { sistemaDaVozParalela, lerRespostaParalela, precisaDoPrincipal, FRASE_DA_FILA, fraseDaFila, perguntaDeAndamento, respostaDeAndamento } = require('../src/fala/voz-paralela');
   const nome = String(config.data.nomeDaChamada || '').replace(/^ei\s+/i, '').trim() || 'AuGPT';
   // o andamento é dito pelo código (o que a tela mostra); pesquisa, fato, preço e lembrete vão para a fila do
   // principal — nenhum dos dois passa pelo modelo leve
-  if (perguntaDeAndamento(texto)) return { ok: true, fila: false, resposta: respostaDeAndamento({ etapa, resumo, segundos }) };
-  if (precisaDoPrincipal(texto)) return { ok: true, fila: true, resposta: FRASE_DA_FILA };
+  if (perguntaDeAndamento(texto)) return { ok: true, fila: false, resposta: respostaDeAndamento({ etapa, resumo, segundos, usuario: primeiroNome() }) };
+  if (precisaDoPrincipal(texto)) return { ok: true, fila: true, resposta: fraseDaFila(primeiroNome()) || FRASE_DA_FILA };
   const andamento = [String(etapa).split('\n')[0], resumo].filter(Boolean).join(' ');
   try {
     const r = await vozParalela([
@@ -1162,7 +1162,8 @@ ipcMain.handle('voz:narrar', async (_e, { pedido = '', achado = {}, primeira = t
       { role: 'system', content: sistemaDaNarracao({ pedido, primeira, anterior }) },
       { role: 'user', content: `Site: ${achado.site || '?'}\nTítulo: ${achado.titulo || '?'}\nTrecho: ${String(achado.trecho || '').slice(0, 320)}` },
     ], 60);
-    const texto = String(r.content || '').replace(/[*_#`"]/g, '').replace(/\s+/g, ' ').trim();
+    // "forum.adrenaline.com.br" vira "adrenaline": o nome do site, não o endereço
+    const texto = String(r.content || '').replace(/[*_#`"]/g, '').replace(/\b(?:[\w-]+\.)*([\w-]+)\.(?:com|net|org|gov|edu)(?:\.br)?\b/gi, '$1').replace(/\s+/g, ' ').trim();
     return { ok: true, texto: texto.length >= 8 && texto.length <= 260 ? texto : padrao };
   } catch {
     return { ok: true, texto: padrao };
@@ -1607,6 +1608,9 @@ const dataFalada = (iso) => {
   const [a, m, d] = String(iso).split('-').map(Number);
   return MESES[m - 1] ? `${d} de ${MESES[m - 1]} de ${a}` : String(iso);
 };
+// o primeiro nome do usuário, para a voz chamar pelo nome (28/10: "parece um robô")
+const primeiroNome = () => String(config.data.nomeDoUsuario || '').trim().split(/\s+/)[0] || '';
+const virgulaNome = () => (primeiroNome() ? `, ${primeiroNome()}` : '');
 async function falarAviso(texto) {
   const c = config.data;
   if (!texto || c.avisosFalados === false || idiomaEfetivo() === 'en' || !voz?.instalada()) return;
@@ -1624,7 +1628,7 @@ function verificarAgenda() {
     agenda.atualizar(item.id, { avisado: true });
     const quando = item.diaInteiro ? (en ? 'today' : 'hoje') : String(item.quando).slice(11, 16);
     avisar(en ? `AuGPT reminder · ${quando}` : `Lembrete do AuGPT · ${quando}`, item.titulo, item);
-    falarAviso(`Lembrete: ${item.titulo}.`);
+    falarAviso(`${primeiroNome() ? `${primeiroNome()}, p` : 'P'}assando pra te lembrar: ${item.titulo}.`);
     enviar('agenda-mudou', { avisado: item.id });
   }
   // um assunto por vez, com o agente parado e o app aberto há 3 min (não disputa a abertura)
@@ -1658,7 +1662,7 @@ async function conferirPreco(item) {
     });
     if (aconteceu) {
       avisar(en ? `Price drop: ${assunto}` : `Baixou: ${assunto}`, `${reais(menor.preco)} — ${menor.loja}`, item);
-      falarAviso(`Baixou o preço de ${assunto}: ${reais(menor.preco)} na ${menor.loja}.`);
+      falarAviso(`Boa notícia${virgulaNome()}! Baixou o preço de ${assunto}: ${reais(menor.preco)} na ${menor.loja}.`);
     }
   } finally {
     if (conferindo === marcador) conferindo = null;
@@ -1698,10 +1702,10 @@ async function conferirAcompanhamento(item) {
     const en = idiomaEfetivo() === 'en';
     if (r?.aconteceu) {
       avisar(en ? `News: ${assunto}` : `Novidade: ${assunto}`, r.resumo || (en ? 'It happened.' : 'Aconteceu.'), item);
-      falarAviso(`Novidade sobre ${assunto}. ${r.resumo || ''}`.trim());
+      falarAviso(`Olha só${virgulaNome()}, tem novidade sobre ${assunto}. ${r.resumo || ''}`.trim());
     } else if (r?.data && r.data !== antes.data) {
       avisar(en ? `Date confirmed: ${assunto}` : `Data confirmada: ${assunto}`, `${r.data.split('-').reverse().join('/')} — ${r.resumo}`, item);
-      falarAviso(`Data confirmada para ${assunto}: ${dataFalada(r.data)}.`);
+      falarAviso(`Saiu a data${virgulaNome()}! ${assunto}: ${dataFalada(r.data)}.`);
     }
   } finally {
     if (conferindo === silencioso) conferindo = null;
@@ -1834,7 +1838,7 @@ const fundo = new FilaDeFundo({
       : item.estado === 'esperando' ? [en ? 'A task needs your approval' : 'Uma tarefa precisa da sua aprovação', `${titulo} — ${item.aprovacao?.nome || ''}`]
         : [en ? 'Task failed' : 'A tarefa não terminou', `${titulo} — ${item.erro || ''}`];
     avisar(`AuGPT · ${cab}`, corpo, item, () => enviar('fundo-abrir', { id: item.id, idConversa: item.idConversa || null }));
-    falarAviso(item.estado === 'pronta' ? `Terminei a tarefa: ${titulo}.` : item.estado === 'esperando' ? `Uma tarefa precisa da sua aprovação: ${titulo}.` : `A tarefa "${titulo}" não terminou.`);
+    falarAviso(item.estado === 'pronta' ? `Prontinho${virgulaNome()}! Terminei a tarefa: ${titulo}.` : item.estado === 'esperando' ? `${primeiroNome() ? `${primeiroNome()}, u` : 'U'}ma tarefa precisa da sua aprovação: ${titulo}.` : `Poxa${virgulaNome()}, a tarefa "${titulo}" não terminou. Dá uma olhada no AuGPT quando puder.`);
     remoto?.transmitir('fundo-aviso', { id: item.id, estado: item.estado, titulo, idConversa: item.idConversa || null });
   },
   mudou: (lista) => {

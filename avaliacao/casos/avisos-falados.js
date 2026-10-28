@@ -41,7 +41,7 @@ module.exports = [
       const html = ler('renderer/index.html');
       return [
         (main.match(/falarAviso\(`/g) || []).length >= 4 || 'lembrete, preço, novidade e data',
-        /falarAviso\(item\.estado === 'pronta' \? `Terminei a tarefa/.test(main) || 'tarefa',
+        /falarAviso\(item\.estado === 'pronta' \? `Prontinho\$\{virgulaNome\(\)\}! Terminei a tarefa/.test(main) || 'tarefa',
         /if \(emSilencio\(new Date\(\), c\.silencioDe, c\.silencioAte\)\) return;\s*const pc = await estadoDoPc\(\);\s*if \(!pc\.livre\) return;/.test(main) || 'silêncio e PC livre',
         /c\.avisosFalados === false \|\| idiomaEfetivo\(\) === 'en' \|\| !voz\?\.instalada\(\)/.test(main) || 'ligado, português e voz instalada',
         /manipuladores\['aviso-falado'\][\s\S]{0,200}atual !== null \|\| agente\.rodando\) return;/.test(fala) || 'não fala por cima',

@@ -66,6 +66,8 @@ function porExtenso(texto) {
   // porcentagem e graus
   t = t.replace(/(\d+(?:,\d+)?)\s?%/g, '$1 por cento');
   t = t.replace(/(\d+(?:,\d+)?)\s?°\s?C\b/g, '$1 graus').replace(/(\d+(?:,\d+)?)\s?°/g, '$1 graus');
+  // versão e padrão com ponto (28/10: "ATX 3.1" saía "três.um"): 3.1 → "três ponto um", PCIe 5.0, Bluetooth 5.3
+  t = t.replace(/\b(\d{1,2})\.(\d{1,2})\b(?!\.\d)/g, (m, a, b) => `${numeroPorExtenso(Number(a))} ponto ${b.split('').map((d) => UNIDADES[Number(d)]).join(' ')}`);
   // decimal com vírgula: 0,47 → "zero vírgula quarenta e sete"
   t = t.replace(/\b(\d+),(\d+)\b/g, (m, a, b) => `${numeroPorExtenso(Number(a))} vírgula ${/^0/.test(b) ? b.split('').map((d) => UNIDADES[Number(d)]).join(' ') : numeroPorExtenso(Number(b))}`);
   // milhar com ponto: 205.083
@@ -79,6 +81,11 @@ function porExtenso(texto) {
   // "cinco mil e oitenta" engana): número de modelo de 4+ dígitos vai em pares ("cinquenta, oitenta")
   // só sigla em maiúsculas (RTX 5080) ou letra colada (i7-13700): "de 2026" é ano (27/10: saía "vinte vinte e seis")
   t = t.replace(/\b([A-Z]{2,}|[A-Za-z]+(?=-?\d))[ -]?(\d{4})\b/g, (m, letras, num) => `${letras} ${numeroPorExtenso(Number(num.slice(0, 2)))} ${num.slice(2) === '00' ? 'cem' : numeroPorExtenso(Number(num.slice(2)))}`);
+  // 7800X3D, 9070XT: número de modelo de 4 dígitos colado em letra também vai em pares, como o RTX 5080
+  t = t.replace(/\b(\d{4})(?=[A-Z])/g, (m, num) => `${numeroPorExtenso(Number(num.slice(0, 2)))} ${num.slice(2) === '00' ? 'cem' : numeroPorExtenso(Number(num.slice(2)))} `);
+  // uma letra sozinha no meio de modelo (28/10): "24H2" → agá, "B580" → bê, "S25" → ésse, "2x6" → xis
+  t = t.replace(/(\d)([A-Za-z])(?=\d)/g, (m, d, l) => `${d} ${LETRAS[l.toLowerCase()] || l} `);
+  t = t.replace(/\b([A-Z])(?=\d)/g, (m, l) => `${LETRAS[l.toLowerCase()]} `);
   // letra colada em número ("i7", "4K"): separados, cada um com a sua leitura (27/10: "i7" saía "isete")
   // unidades depois de número (o AuGPT fala muito de hardware): 8 GB → "oito gigas", 144 Hz, 60 fps, 5 km
   const UNIDADES_DE_MEDIDA = { GB: 'gigas', MB: 'megas', TB: 'terabytes', KB: 'kilobytes', GHz: 'giga-hertz', MHz: 'mega-hertz', Hz: 'hertz', fps: 'éfe pê ésse', km: 'quilômetros', kg: 'quilos', ms: 'milissegundos', mm: 'milímetros', cm: 'centímetros', W: 'watts', mAh: 'miliampères-hora', Mbps: 'megas', Gbps: 'gigas' };
@@ -104,6 +111,10 @@ const ESTRANGEIRAS = {
   software: 'sˈɔftweɾ', hardware: 'xˈaɾdweɾ', notebook: 'nowʧibˈuki', headset: 'xˈɛdsɛʧi', smartphone: 'smaɾʧifˈoni', iphone: 'ajfˈoni', youtube: 'jutˈubi',
   google: 'ɡˈuɡow', whatsapp: 'wˈatsapi', instagram: 'ĩstaɡɾˈɐ̃', facebook: 'fejsibˈuki', twitter: 'twˈiteɾ', tiktok: 'tʃiktˈɔki', linkedin: 'lĩkedˈĩ',
   nvidia: 'enˈvidiɐ', geforce: 'ʤifˈɔɾsi', intel: 'ĩtˈɛw', amd: 'a ˈemi ˈde', ryzen: 'xˈajzẽ', windows: 'wˈĩdows', microsoft: 'majkɾosˈɔfʧi', bluetooth: 'bluʧˈuʧi',
+  // 28/10 (narração da pesquisa): hardware, lojas e sites que aparecem muito
+  radeon: 'xˈejʤiõ', black: 'blˈɛki', friday: 'fɾˈajdej', ranking: 'xˈɐ̃kĩ', tech: 'tˈɛki', shop: 'ʃˈɔpi', canaltech: 'kanawtˈɛki', terabyteshop: 'teɾabajʧiʃˈɔpi', terabyte: 'teɾabˈajʧi',
+  kabum: 'kabˈũ', nvme: 'ˈeni vˈe ˈemi ˈe', pcie: 'pˈe sˈe ˈi ˈe', galaxy: 'ɡˈalaksi', max: 'mˈɛks', pro: 'pɾˈɔ', ray: 'xˈej', tracing: 'tɾˈejsĩ', arc: 'ˈaɾki', ti: 'tˈi', super: 'sˈupeɾ',
+  gaming: 'ɡˈejmĩ', review: 'xivjˈu', reviews: 'xivjˈus', benchmark: 'bẽʃimˈaɾki', benchmarks: 'bẽʃimˈaɾkis', playstation: 'plejstˈejʃõ', xbox: 'ˈɛksbɔks', steam: 'stʃˈĩ', amazon: 'ˈamazõ', pichau: 'piʃˈaw',
   jarvis: 'ʤˈaɾvis', hall: 'xˈɔw', txt: 'tˈe ʃˈis tˈe', pdf: 'pˈe dˈe ˈɛfi', ok: 'ɔkˈej', okay: 'ɔkˈej', sir: 'sˈɛɾ', chat: 'ʃˈɛʧi', bug: 'bˈaɡi', reddit: 'xˈɛʤiʧi', ollama: 'olˈama', kokoro: 'kokˈɔɾu', gpt: 'ʒe pe tˈe',
 };
 
@@ -327,6 +338,10 @@ function textoEmFonemas(texto) {
     .replace(/https?:\/\/\S+/g, ' ')
     .replace(/[*_#`>|~]/g, ' ')
     .replace(/\p{Extended_Pictographic}/gu, ' ');
+  // endereço de site fala só o nome (28/10: "4gamers.com.br" saía "ponto com ponto bê érre")
+  t = t.replace(/\b(?:www\.)?([\p{L}\d-]+)\.(?:com|net|org|gov|edu|io|tv|app|dev)(?:\.[a-z]{2})?\b/giu, '$1').replace(/\b([\p{L}\d-]{3,})\.(?:br|pt)\b/giu, '$1');
+  // sigla no plural: GPUs, SSDs, CPUs → soletrada e com o "s" ("gê pê us")
+  t = t.replace(/\b([A-Z]{2,5})s\b/g, (m, s) => (ehSigla(s) ? `${soletrar(s)}s` : m));
   // nome de arquivo: teclado.txt → 'teclado ponto txt'
   t = t.replace(/\b([\p{L}\d_-]+)\.([a-z]{2,4})\b/gu, (m, nome, ext) => `${nome} ponto ${ext.toUpperCase()}`);
   t = porExtenso(t);

@@ -11,7 +11,7 @@
 
 function sistemaDaVozParalela({ nome = 'Jarvis', usuario = '', objetivo = '', andamento = '', segundos = 0 } = {}) {
   const tempo = segundos >= 60 ? `${Math.round(segundos / 60)} min` : `${Math.max(1, Math.round(segundos))} s`;
-  return `Você é o ${nome}, a voz do AuGPT, conversando${usuario ? ` com ${usuario}` : ''} pela voz enquanto o modelo principal trabalha num pedido. Responda em português do Brasil, em 1 ou 2 frases curtas, como numa conversa falada: sem listas, sem títulos, sem emojis.
+  return `Você é o ${nome}, a voz do AuGPT, conversando${usuario ? ` com ${usuario}` : ''} pela voz enquanto o modelo principal trabalha num pedido. Responda em português do Brasil, em 1 ou 2 frases curtas, como numa conversa falada entre amigos: caloroso, bem-humorado, natural — nunca seco ou robótico. Chame pelo nome de vez em quando (não em toda frase). Sem listas, sem títulos, sem emojis.
 
 O modelo principal está trabalhando neste pedido há ${tempo}: "${String(objetivo).slice(0, 300)}"
 Andamento (o que a tela mostra agora): ${String(andamento).slice(0, 500) || 'começando'}
@@ -60,14 +60,21 @@ const tempoFalado = (s) => (s >= 90 ? `${Math.round(s / 60)} minutos` : s >= 60 
  * código, com o que o painel de atividade mostra. Ex.: "Ainda estou nisso: pesquisando na internet. Até agora,
  * 6 buscas, 3 páginas em 3 sites. Já faz 39 segundos."
  */
-function respostaDeAndamento({ etapa = '', resumo = '', segundos = 0 } = {}) {
+// 28/10 (Davi: "muito secos, parece um robô"): o mesmo conteúdo, dito de jeitos diferentes e com o nome às vezes
+const umaDe = (lista) => lista[Math.floor(Math.random() * lista.length)];
+const comNome = (usuario) => (usuario && Math.random() < 0.5 ? `, ${usuario}` : '');
+
+function respostaDeAndamento({ etapa = '', resumo = '', segundos = 0, usuario = '' } = {}) {
   const e = String(etapa || '').split('\n')[0].trim().replace(/[.…]+$/, '');
   const r = String(resumo || '').replace(/^\s*·\s*/, '').split(/\s*·\s*/).filter((p) => p && !/resultados? vistos?/i.test(p)).join(', ');
-  return `Ainda estou nisso${e ? `: ${e.charAt(0).toLowerCase()}${e.slice(1)}` : ''}.${r ? ` Até agora, ${r}.` : ''} Já faz ${tempoFalado(Number(segundos) || 0)}.`;
+  const fazendo = e ? `${e.charAt(0).toLowerCase()}${e.slice(1)}` : 'trabalhando no seu pedido';
+  const abertura = umaDe([`Tô nisso${comNome(usuario)}! Agora estou ${fazendo}.`, `Andando bem${comNome(usuario)}: estou ${fazendo}.`, `Quase lá. No momento, estou ${fazendo}.`]);
+  return `${abertura}${r ? ` Até agora, ${r}.` : ''} Já faz ${tempoFalado(Number(segundos) || 0)}.`;
 }
 
 // o que a voz diz quando o código manda para a fila (o 4b pode ter respondido o conteúdo — e inventado)
 const FRASE_DA_FILA = 'Pode deixar: coloquei na fila e faço assim que terminar o pedido atual.';
+const fraseDaFila = (usuario = '') => umaDe([`Pode deixar${comNome(usuario)}! Anotei aqui e faço assim que terminar isso.`, `Combinado. Coloquei na fila, já já eu vejo isso pra você.`, `Anotado${comNome(usuario)}! Termino o que estou fazendo e já parto pra isso.`]);
 
 /*
  * Narrar a pesquisa (28/10, pedido do Davi: "ir falando: achei isso, achei esse outro, estou analisando ainda"):
@@ -79,7 +86,7 @@ const nomeDoSite = (site) => String(site || '').replace(/^www\./, '').replace(/\
 function sistemaDaNarracao({ pedido = '', primeira = true, anterior = '' } = {}) {
   const comeco = String(anterior).split(/\s+/).slice(0, 2).join(' ');
   return `Você narra em voz alta, como o Jarvis, uma pesquisa que está em andamento sobre: "${String(pedido).slice(0, 200)}".
-Diga em UMA frase curta (até 18 palavras), em português do Brasil, o que a página abaixo acabou de mostrar. ${primeira ? 'Comece com "Achei" ou "Encontrei".' : `Varie o começo: "Esse outro, do …", "Já o …", "Mais um: …", "O … diz que…".${comeco ? ` Não comece com "${comeco}" (a frase anterior começou assim).` : ''}`} Diga o nome do site sem o ".com.br".
+Diga em UMA frase curta (até 20 palavras), em português do Brasil, o que a página abaixo acabou de mostrar — com calor humano, como um assistente animado contando uma descoberta para um amigo, nunca como um robô lendo um relatório. ${primeira ? 'Comece com algo como "Olha só, achei…", "Opa, encontrei…" ou "Achei uma coisa interessante no…".' : `Varie o começo: "Esse outro, do …, diz que…", "Já o … conta que…", "Olha que curioso: o …", "Mais um bom: …".${comeco ? ` Não comece com "${comeco}" (a frase anterior começou assim).` : ''}`} Diga o nome do site sem o ".com.br".
 - Use só o que está no trecho. Números e nomes só se estiverem nele.
 - Não conclua, não recomende e não diga que terminou: a pesquisa continua.
 - Sem listas, sem markdown, sem aspas.`;
@@ -89,7 +96,8 @@ Diga em UMA frase curta (até 18 palavras), em português do Brasil, o que a pá
 function narracaoPadrao({ titulo = '', site = '' } = {}, primeira = true) {
   const s = nomeDoSite(site) || 'um site';
   const t = String(titulo || '').replace(/\s*[|–—-]\s*[^|–—-]{0,40}$/, '').trim().slice(0, 90);
-  return primeira ? `Achei ${t ? `"${t}"` : 'uma página'}, no ${s}.` : `Encontrei mais um, no ${s}${t ? `: ${t}` : ''}.`;
+  if (primeira) return umaDe([`Olha só, achei ${t ? `"${t}"` : 'uma página boa'}, no ${s}.`, `Opa, já tem coisa no ${s}${t ? `: ${t}` : ''}.`]);
+  return umaDe([`Encontrei mais um, no ${s}${t ? `: ${t}` : ''}.`, `Esse outro é do ${s}${t ? `: ${t}` : ''}.`, `Mais uma fonte boa, no ${s}.`]);
 }
 
-module.exports = { sistemaDaNarracao, narracaoPadrao, nomeDoSite, sistemaDaVozParalela, lerRespostaParalela, precisaDoPrincipal, FRASE_DA_FILA, perguntaDeAndamento, respostaDeAndamento };
+module.exports = { sistemaDaNarracao, narracaoPadrao, nomeDoSite, sistemaDaVozParalela, lerRespostaParalela, precisaDoPrincipal, FRASE_DA_FILA, fraseDaFila, perguntaDeAndamento, respostaDeAndamento };

@@ -198,8 +198,33 @@
     };
   }
 
+  /*
+   * O jeito de falar (28/10, Davi: "estão muito secos, não possuem saudações, parece um robô"): cada fala sai
+   * de um grupo de frases (nunca a mesma duas vezes seguidas), o nome de vez em quando — não em toda frase — e,
+   * na primeira chamada depois de um tempo, a saudação da hora.
+   */
+  const usuario = () => String(config?.nomeDoUsuario || '').trim().split(/\s+/)[0] || '';
+  const ultimaDoGrupo = new Map();
+  function uma(grupo, chave) {
+    const opcoes = grupo.filter((f, i) => grupo.length < 2 || i !== ultimaDoGrupo.get(chave));
+    const escolhida = opcoes[Math.floor(Math.random() * opcoes.length)];
+    ultimaDoGrupo.set(chave, grupo.indexOf(escolhida));
+    // {n}: ", Davi" em umas 40% das vezes (sem nome guardado, some); {N}: "Davi, " no começo
+    const comNome = usuario() && Math.random() < 0.4;
+    return escolhida.replace('{n}', comNome ? `, ${usuario()}` : '').replace('{N}', comNome ? `${usuario()}, ` : '').replace(/^./, (c) => c.toUpperCase());
+  }
+  let ultimaChamadaEm = 0;
+  function saudacao() {
+    const agora = Date.now();
+    const faz = agora - ultimaChamadaEm;
+    ultimaChamadaEm = agora;
+    if (faz < 3 * 3600 * 1000) return '';
+    const h = new Date().getHours();
+    const nome = usuario() ? `, ${usuario()}` : '';
+    return `${h >= 5 && h < 12 ? 'Bom dia' : h >= 12 && h < 18 ? 'Boa tarde' : 'Boa noite'}${nome}! `;
+  }
   // o pedido pela voz foi enviado e a resposta demora: uma frase curta, como o Jarvis (só em português)
-  const CONFIRMACOES = ['Um momento.', 'Certo, já vejo isso.', 'Deixa comigo.', 'Só um instante.'];
+  const CONFIRMACOES = ['Claro{n}, já vejo isso pra você.', 'Deixa comigo{n}.', 'Pode deixar, vou dar uma olhada.', 'Boa pergunta! Um instante.', 'Certo{n}, já estou nisso.', 'Só um momento, vou verificar.'];
   // frase curta (confirmação, narração): a próxima fala espera ela acabar em vez de cortar no meio
   async function falarCurta(texto) {
     const r = await falar(texto, { resumir: false });
@@ -215,7 +240,8 @@
   }
   async function confirmar() {
     if (!deveFalar() || atual !== null || !agente.rodando) return;
-    await falarCurta(CONFIRMACOES[Math.floor(Math.random() * CONFIRMACOES.length)]);
+    const oi = saudacao();
+    await falarCurta(oi ? `${oi}${uma(['Já vejo isso pra você.', 'Deixa comigo.', 'Vou dar uma olhada.'], 'oi')}` : uma(CONFIRMACOES, 'confirmar'));
   }
 
   /*
@@ -263,15 +289,21 @@
         narra.disseBuscas = true;
         const sites = [...narra.sites].slice(0, 3).map((s) => s.replace(/^www\./, '').replace(/\.[a-z.]+$/i, ''));
         const buscas = narra.buscas === 1 ? 'uma busca' : `${narra.buscas} buscas`;
-        narra.pronta = sites.length ? `Fiz ${buscas}. Vou abrir o que apareceu no ${sites.join(', ')}.` : `Fiz ${buscas}, abrindo as páginas.`;
+        const lista = sites.length > 1 ? `${sites.slice(0, -1).join(', ')} e ${sites[sites.length - 1]}` : sites[0];
+        narra.pronta = sites.length
+          ? uma([`Já fiz ${buscas}. Apareceu coisa no ${lista}, vou dar uma olhada.`, `Certo, ${buscas} feitas. Vou abrir o que achei no ${lista}.`, `Olha, ${buscas} e já tem resultado do ${lista}. Deixa eu ler.`], 'buscas')
+          : uma([`Já fiz ${buscas}, agora vou abrir as páginas.`, `${buscas} feitas{n}. Agora é ler o que apareceu.`], 'buscas');
       }
     }
     if (atual !== null || Date.now() - narra.ultima < NARRAR_A_CADA_MS) return;
     let frase = narra.pronta;
     narra.pronta = '';
     if (!frase && !narra.gerando && Date.now() - narra.ultima > AINDA_ANALISANDO_MS) {
-      if (narra.fase === 'escrita') frase = narra.escritas++ < 2 ? (narra.escritas === 1 ? 'Ainda escrevendo, está quase.' : 'Só mais um pouco, conferindo os detalhes.') : '';
-      else frase = narra.lidas ? `Ainda analisando. Já li ${narra.lidas === 1 ? 'uma página' : `${narra.lidas} páginas`}.` : 'Ainda procurando, um instante.';
+      const lidas = narra.lidas === 1 ? 'uma página' : `${narra.lidas} páginas`;
+      if (narra.fase === 'escrita') frase = narra.escritas++ < 2 ? uma(['Quase lá{n}, só caprichando na resposta.', 'Só mais um pouquinho, estou conferindo os detalhes.', 'Já estou terminando de escrever.'], 'escrita') : '';
+      else frase = narra.lidas
+        ? uma([`Ainda analisando{n}. Já li ${lidas} e tem coisa boa aparecendo.`, `Continuo aqui, já são ${lidas} lidas.`, `Tô comparando as fontes, ${lidas} até agora.`], 'analisando')
+        : uma(['Ainda procurando{n}, só um instante.', 'Continuo garimpando, já volto com algo.', 'Hmm, ainda buscando as melhores fontes.'], 'procurando');
     }
     if (frase) {
       narra.ultima = Date.now();
@@ -299,7 +331,8 @@
     if (!narra.ativo || narra.fase === 'escrita') return;
     Object.assign(narra, { fase: 'escrita', achados: [], ultima: 0 });
     const leu = narra.lidas;
-    narra.pronta = leu ? (leu === 1 ? 'Pronto, estou montando a resposta.' : `Li ${leu} páginas. Estou montando a resposta.`) : '';
+    const paginas = leu === 1 ? 'uma página' : `${leu} páginas`;
+    narra.pronta = leu ? uma([`Pronto{n}! Li ${paginas}, agora vou juntar tudo numa resposta.`, `Beleza, ${paginas} lidas. Já estou montando a resposta pra você.`, `Tenho o que preciso: ${paginas}. Só organizar e já te conto.`], 'montando') : '';
   });
   for (const fim of ['concluido', 'erro', 'interrompido', 'limite']) embrulhar(fim, pararNarracao);
 
