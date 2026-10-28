@@ -683,6 +683,8 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     if (pagina.titulo && !f.titulo) f.titulo = pagina.titulo;
     if (pagina.data) f.data = String(pagina.data).slice(0, 10);
     const melhores = (await ordenar(`${foco || ''} ${pergunta}`, pedacos(pagina.texto).map((texto) => ({ texto })), { embed, maximo: 4 })).filter((m, i) => i === 0 || m.nota >= 0.2);
+    // o que esta página trouxe (28/10): a voz narra a pesquisa ("achei…", "esse outro diz…") — renderer/fala.js
+    if (melhores[0]?.texto) emit('achado', { titulo: String(f.titulo || '').slice(0, 140), site: dominio(f.url), trecho: String(melhores[0].texto).replace(/\s+/g, ' ').slice(0, 320) });
     f.trechos.push(...melhores.map((m) => m.texto).filter((t) => !f.trechos.includes(t)));
     return `[${f.n}] ${f.titulo}\n${melhores.map((m) => m.texto).join('\n…\n').slice(0, 3000)}`;
   };

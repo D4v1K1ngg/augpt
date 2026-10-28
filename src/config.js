@@ -163,6 +163,8 @@ const DEFAULTS = {
   vozVelocidade: 1,
   // 27/10: depois de falar a resposta de um pedido pela voz, a escuta fica uns segundos ouvindo a réplica (sem o nome)
   conversaContinua: true,
+  // 28/10: num pedido falado, a voz narra a pesquisa ("achei…", "esse outro…", "ainda analisando")
+  narrarPesquisa: true,
   // 27/10: lembretes, tarefas prontas e novidades também são falados — nunca no horário de silêncio (vazio = sem)
   avisosFalados: true,
   silencioDe: '22:00',

@@ -31,6 +31,25 @@ module.exports = [
     },
   },
   {
+    nome: 'narrar a pesquisa: o núcleo avisa o que cada página trouxe; a frase pelo código sem o modelo leve; o modelo só reconta o trecho, varia o começo; a narração prepara a próxima enquanto fala, cala quando a resposta fala',
+    tipo: 'unidade',
+    executar() {
+      const fala = ler('renderer/fala.js');
+      const sistema = v.sistemaDaNarracao({ pedido: 'placas 1440p', primeira: false, anterior: 'Encontrei também no newegg' });
+      return [
+        /emit\('achado', \{ titulo: [^\n]+site: dominio\(f\.url\), trecho:/.test(ler('src/agent/nucleo/index.js')) || 'evento achado',
+        /'fonte', 'achado'/.test(ler('electron/main.js')) || 'o evento chega na tela',
+        v.narracaoPadrao({ titulo: 'Melhores placas para 1440p | Canaltech', site: 'www.canaltech.com.br' }) === 'Achei "Melhores placas para 1440p", no canaltech.' || v.narracaoPadrao({ titulo: 'Melhores placas para 1440p | Canaltech', site: 'www.canaltech.com.br' }),
+        v.narracaoPadrao({ site: 'reddit.com' }, false) === 'Encontrei mais um, no reddit.' || v.narracaoPadrao({ site: 'reddit.com' }, false),
+        /Não comece com "Encontrei também"/.test(sistema) && /Use só o que está no trecho/.test(sistema) && /Não conclua, não recomende/.test(sistema) || 'regras da narração',
+        /narrarPesquisa: true/.test(ler('src/config.js')) && /id="cfgNarrarPesquisa"/.test(ler('renderer/index.html')) || 'padrão e Ajustes',
+        /if \(deveFalar\(\) && config\.narrarPesquisa !== false\)/.test(fala) || 'só em pedido falado',
+        /!agente\.rodando \|\| turnoDaFala\.falouAntes\) return pararNarracao\(\)/.test(fala) || 'cala quando a resposta fala',
+        /narra\.fase === 'pesquisa' && !narra\.pronta && !narra\.gerando/.test(fala) && /if \(atual !== null \|\| Date\.now\(\) - narra\.ultima < NARRAR_A_CADA_MS\) return;/.test(fala) || 'prepara enquanto fala',
+      ];
+    },
+  },
+  {
     nome: 'voz em paralelo no app: só na CPU (num_gpu 0) e carregado por 1 h; o código responde andamento e fila antes do modelo; a escuta usa com o agente ocupado; Ajustes',
     tipo: 'unidade',
     executar() {

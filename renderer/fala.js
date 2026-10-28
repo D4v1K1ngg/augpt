@@ -30,6 +30,7 @@
    * pedido pela voz termina de ser falada, o aviso 'augpt-fala-terminou' — a escuta fica ouvindo a réplica.
    */
   let seguir = false; // esta fala respondeu a um pedido pela voz
+  const ultimas = [];
   let fimDaConfirmacao = null;
   let soltarConfirmacao = () => {};
 
@@ -96,6 +97,9 @@
     // a resposta não corta o "Um momento." no meio: espera ele acabar (no máximo 3 s)
     if (fimDaConfirmacao) await Promise.race([fimDaConfirmacao, new Promise((ok) => setTimeout(ok, 3000))]);
     parar();
+    // as últimas frases ditas (para conferir o que a voz falou e quando)
+    ultimas.push({ em: Date.now(), texto: String(texto).slice(0, 400), parcial: Boolean(opcoes.parcial) });
+    if (ultimas.length > 20) ultimas.shift();
     const r = await api.voz.falar(texto, opcoes).catch((err) => ({ ok: false, error: err.message }));
     if (r?.ok) {
       atual = r.id;
@@ -196,10 +200,10 @@
 
   // o pedido pela voz foi enviado e a resposta demora: uma frase curta, como o Jarvis (só em português)
   const CONFIRMACOES = ['Um momento.', 'Certo, já vejo isso.', 'Deixa comigo.', 'Só um instante.'];
-  async function confirmar() {
-    if (!deveFalar() || atual !== null || !agente.rodando) return;
-    const r = await falar(CONFIRMACOES[Math.floor(Math.random() * CONFIRMACOES.length)], { resumir: false });
-    if (!r?.ok || atual !== r.id) return;
+  // frase curta (confirmação, narração): a próxima fala espera ela acabar em vez de cortar no meio
+  async function falarCurta(texto) {
+    const r = await falar(texto, { resumir: false });
+    if (!r?.ok || atual !== r.id) return r;
     fimDaConfirmacao = new Promise((ok) => {
       soltarConfirmacao = () => {
         soltarConfirmacao = () => {};
@@ -207,7 +211,97 @@
         ok();
       };
     });
+    return r;
   }
+  async function confirmar() {
+    if (!deveFalar() || atual !== null || !agente.rodando) return;
+    await falarCurta(CONFIRMACOES[Math.floor(Math.random() * CONFIRMACOES.length)]);
+  }
+
+  /*
+   * Narrar a pesquisa (28/10, pedido do Davi: "ir falando: achei isso, achei esse outro, estou analisando ainda").
+   * Num pedido que vai ser falado, a voz conta o que acontece: as buscas, cada página que trouxe algo (evento
+   * 'achado' do núcleo; a frase vem do modelo leve ou do código), "ainda analisando" quando fica quieto, e
+   * "montando a resposta" quando a escrita começa — aí ela se cala para a resposta.
+   */
+  const NARRAR_A_CADA_MS = 2500; // entre uma frase e outra
+  const AINDA_ANALISANDO_MS = 14000; // quieto por isso: "ainda analisando" / "ainda escrevendo"
+  const narra = { ativo: false, fase: 'pesquisa', achados: [], buscas: 0, sites: new Set(), lidas: 0, ultima: 0, gerando: false, pronta: '', disseBuscas: false, primeira: true, escritas: 0, timer: null };
+  const embrulhar = (canal, antes) => {
+    const original = manipuladores[canal];
+    manipuladores[canal] = (d = {}) => {
+      try {
+        antes(d);
+      } catch {
+        // a narração nunca atrapalha a tela
+      }
+      return original?.(d);
+    };
+  };
+  function pararNarracao() {
+    narra.ativo = false;
+    clearInterval(narra.timer);
+    narra.timer = null;
+  }
+  function passoDaNarracao() {
+    if (!narra.ativo || !agente.rodando || turnoDaFala.falouAntes) return pararNarracao(); // a resposta já fala
+    // a próxima frase é montada enquanto a anterior ainda está sendo dita (28/10: só 2 de 11 páginas eram narradas)
+    if (narra.fase === 'pesquisa' && !narra.pronta && !narra.gerando) {
+      if (narra.achados.length) {
+        narra.achados = narra.achados.slice(-2); // ficou para trás? as mais novas
+        const achado = narra.achados.shift();
+        const primeira = narra.primeira;
+        narra.primeira = false;
+        narra.gerando = true;
+        api.voz.narrar({ pedido: turnoDaFala.objetivo, achado, primeira, anterior: narra.anterior || '' })
+          .then((r) => {
+            if (narra.ativo && narra.fase === 'pesquisa') narra.pronta = narra.anterior = r?.texto || '';
+          })
+          .catch(() => {})
+          .finally(() => (narra.gerando = false));
+      } else if (narra.buscas && !narra.disseBuscas) {
+        narra.disseBuscas = true;
+        const sites = [...narra.sites].slice(0, 3).map((s) => s.replace(/^www\./, '').replace(/\.[a-z.]+$/i, ''));
+        const buscas = narra.buscas === 1 ? 'uma busca' : `${narra.buscas} buscas`;
+        narra.pronta = sites.length ? `Fiz ${buscas}. Vou abrir o que apareceu no ${sites.join(', ')}.` : `Fiz ${buscas}, abrindo as páginas.`;
+      }
+    }
+    if (atual !== null || Date.now() - narra.ultima < NARRAR_A_CADA_MS) return;
+    let frase = narra.pronta;
+    narra.pronta = '';
+    if (!frase && !narra.gerando && Date.now() - narra.ultima > AINDA_ANALISANDO_MS) {
+      if (narra.fase === 'escrita') frase = narra.escritas++ < 2 ? (narra.escritas === 1 ? 'Ainda escrevendo, está quase.' : 'Só mais um pouco, conferindo os detalhes.') : '';
+      else frase = narra.lidas ? `Ainda analisando. Já li ${narra.lidas === 1 ? 'uma página' : `${narra.lidas} páginas`}.` : 'Ainda procurando, um instante.';
+    }
+    if (frase) {
+      narra.ultima = Date.now();
+      falarCurta(frase);
+    }
+  }
+  embrulhar('inicio', () => {
+    pararNarracao();
+    Object.assign(narra, { fase: 'pesquisa', achados: [], buscas: 0, sites: new Set(), lidas: 0, ultima: Date.now(), gerando: false, pronta: '', anterior: '', disseBuscas: false, primeira: true, escritas: 0 });
+    // só num pedido que vai ser falado (pela voz, ou "Quando falar: sempre"), e com a opção ligada
+    if (deveFalar() && config.narrarPesquisa !== false) {
+      narra.ativo = true;
+      narra.timer = setInterval(passoDaNarracao, 1000);
+    }
+  });
+  embrulhar('fonte', (d) => {
+    if (d.tipo === 'busca') {
+      narra.buscas += 1;
+      for (const s of d.dominios || []) narra.sites.add(String(s));
+    } else if (d.tipo === 'leitura') narra.lidas += 1;
+  });
+  embrulhar('achado', (d) => narra.ativo && narra.achados.push(d));
+  // a escrita começou: o que ficou da pesquisa sai da fila; "montando a resposta" e, se demorar, "ainda escrevendo"
+  embrulhar('redigindo', () => {
+    if (!narra.ativo || narra.fase === 'escrita') return;
+    Object.assign(narra, { fase: 'escrita', achados: [], ultima: 0 });
+    const leu = narra.lidas;
+    narra.pronta = leu ? (leu === 1 ? 'Pronto, estou montando a resposta.' : `Li ${leu} páginas. Estou montando a resposta.`) : '';
+  });
+  for (const fim of ['concluido', 'erro', 'interrompido', 'limite']) embrulhar(fim, pararNarracao);
 
   // aviso falado (lembrete, tarefa pronta, novidade): o processo principal já conferiu o silêncio e se o PC
   // está livre; aqui, só não fala por cima de outra fala nem de uma resposta em andamento
@@ -243,7 +337,7 @@
   // o modelo leve carregado antes da primeira conversa (só com a escuta ligada: sem ela, não há conversa pela voz)
   if (typeof config !== 'undefined' && config?.modeloDaVoz && config?.ouvirChamada) setTimeout(() => api.voz.aquecer().catch(() => {}), 15000);
 
-  window.falaPorVoz = { falar, parar, confirmar, emParalelo, falando: () => atual !== null, pedidoPorVoz: false };
+  window.falaPorVoz = { falar, parar, confirmar, emParalelo, falando: () => atual !== null, pedidoPorVoz: false, ultimas };
 
   /* ---------------- Ajustes → Geral → Voz do AuGPT ---------------- */
   const $id = (x) => document.getElementById(x);
@@ -266,6 +360,7 @@
     $id('cfgVozFalar').value = config.vozFalar || 'voz';
     if ($id('cfgConversaContinua')) $id('cfgConversaContinua').checked = config.conversaContinua !== false;
     if ($id('cfgAvisosFalados')) $id('cfgAvisosFalados').checked = config.avisosFalados !== false;
+    if ($id('cfgNarrarPesquisa')) $id('cfgNarrarPesquisa').checked = config.narrarPesquisa !== false;
     // os mesmos modelos do seletor do topo (já sem os de embedding e de decisão)
     const leve = $id('cfgModeloDaVoz');
     if (leve) {
@@ -304,6 +399,7 @@
   $id('cfgVozFalar')?.addEventListener('change', (e) => salvar({ vozFalar: e.target.value }));
   $id('cfgConversaContinua')?.addEventListener('change', (e) => salvar({ conversaContinua: e.target.checked }));
   $id('cfgAvisosFalados')?.addEventListener('change', (e) => salvar({ avisosFalados: e.target.checked }));
+  $id('cfgNarrarPesquisa')?.addEventListener('change', (e) => salvar({ narrarPesquisa: e.target.checked }));
   $id('cfgModeloDaVoz')?.addEventListener('change', async (e) => {
     await salvar({ modeloDaVoz: e.target.value });
     if (e.target.value) api.voz.aquecer().catch(() => {});

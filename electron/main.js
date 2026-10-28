@@ -112,7 +112,7 @@ const EVENTOS = [
   'inicio', 'inicio-rapido', 'iteracao', 'pensando', 'raciocinio', 'ferramenta', 'resultado',
   'negado', 'concluido', 'interrompido', 'limite', 'erro', 'uso', 'aviso',
   'aprovacao', 'pergunta', 'protocolo-invalido', 'compactado', 'workspace-changed',
-  'config-alterada', 'fonte', 'contrato-incompleto', 'serie-de-precos', 'redigindo', 'resposta-token', 'resposta-reinicia', 'skills', 'cobertura',
+  'config-alterada', 'fonte', 'achado', 'contrato-incompleto', 'serie-de-precos', 'redigindo', 'resposta-token', 'resposta-reinicia', 'skills', 'cobertura',
   'chamada', 'aprovacao-resolvida', 'aprovacao-critica', 'registro', 'verificacao', 'destilado', 'rotina-inicio', 'rotina-passo', 'rotina-fim', 'rotina-ignorada', 'protocolo-recuperado', 'cache-usado', 'confronto', 'lacunas', 'confianca', 'fonte-marcada', 'checklist', 'busca-reforco', 'busca-ajustada', 'critica-plano',
   'ambiguidade', 'skill-sugerida', 'objetivo-reescrito', 'interpretacao-escolhida', 'resumo-conversa',
   'tarefa-atualizada', 'janela-contexto', 'subtarefa', 'skill-forcada',
@@ -1150,6 +1150,22 @@ ipcMain.handle('voz:paralela', async (_e, { texto, objetivo = '', etapa = '', re
     return { ok: true, ...lerRespostaParalela(r.content) };
   } catch (err) {
     return { ok: false, error: err.message };
+  }
+});
+// narrar a pesquisa (28/10): uma frase sobre a página que acabou de ser lida — pelo modelo leve, ou pelo código
+ipcMain.handle('voz:narrar', async (_e, { pedido = '', achado = {}, primeira = true, anterior = '' } = {}) => {
+  const { sistemaDaNarracao, narracaoPadrao } = require('../src/fala/voz-paralela');
+  const padrao = narracaoPadrao(achado, primeira);
+  if (!String(config.data.modeloDaVoz || '').trim()) return { ok: true, texto: padrao };
+  try {
+    const r = await vozParalela([
+      { role: 'system', content: sistemaDaNarracao({ pedido, primeira, anterior }) },
+      { role: 'user', content: `Site: ${achado.site || '?'}\nTítulo: ${achado.titulo || '?'}\nTrecho: ${String(achado.trecho || '').slice(0, 320)}` },
+    ], 60);
+    const texto = String(r.content || '').replace(/[*_#`"]/g, '').replace(/\s+/g, ' ').trim();
+    return { ok: true, texto: texto.length >= 8 && texto.length <= 260 ? texto : padrao };
+  } catch {
+    return { ok: true, texto: padrao };
   }
 });
 // carrega o modelo leve antes da primeira conversa (a primeira carga leva ~6 s)

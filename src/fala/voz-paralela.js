@@ -69,4 +69,27 @@ function respostaDeAndamento({ etapa = '', resumo = '', segundos = 0 } = {}) {
 // o que a voz diz quando o código manda para a fila (o 4b pode ter respondido o conteúdo — e inventado)
 const FRASE_DA_FILA = 'Pode deixar: coloquei na fila e faço assim que terminar o pedido atual.';
 
-module.exports = { sistemaDaVozParalela, lerRespostaParalela, precisaDoPrincipal, FRASE_DA_FILA, perguntaDeAndamento, respostaDeAndamento };
+/*
+ * Narrar a pesquisa (28/10, pedido do Davi: "ir falando: achei isso, achei esse outro, estou analisando ainda"):
+ * a cada página lida, uma frase curta sobre o que ela trouxe. O modelo leve só reconta o trecho que a página
+ * tem — sem concluir nem recomendar (a conclusão é do modelo principal, que leu tudo).
+ */
+const nomeDoSite = (site) => String(site || '').replace(/^www\./, '').replace(/\.(com|net|org|gov|edu)(\.[a-z]{2})?$|\.[a-z]{2,3}$/i, '');
+
+function sistemaDaNarracao({ pedido = '', primeira = true, anterior = '' } = {}) {
+  const comeco = String(anterior).split(/\s+/).slice(0, 2).join(' ');
+  return `Você narra em voz alta, como o Jarvis, uma pesquisa que está em andamento sobre: "${String(pedido).slice(0, 200)}".
+Diga em UMA frase curta (até 18 palavras), em português do Brasil, o que a página abaixo acabou de mostrar. ${primeira ? 'Comece com "Achei" ou "Encontrei".' : `Varie o começo: "Esse outro, do …", "Já o …", "Mais um: …", "O … diz que…".${comeco ? ` Não comece com "${comeco}" (a frase anterior começou assim).` : ''}`} Diga o nome do site sem o ".com.br".
+- Use só o que está no trecho. Números e nomes só se estiverem nele.
+- Não conclua, não recomende e não diga que terminou: a pesquisa continua.
+- Sem listas, sem markdown, sem aspas.`;
+}
+
+/** Sem o modelo leve (ou ele falhou): a frase sai pelo código. */
+function narracaoPadrao({ titulo = '', site = '' } = {}, primeira = true) {
+  const s = nomeDoSite(site) || 'um site';
+  const t = String(titulo || '').replace(/\s*[|–—-]\s*[^|–—-]{0,40}$/, '').trim().slice(0, 90);
+  return primeira ? `Achei ${t ? `"${t}"` : 'uma página'}, no ${s}.` : `Encontrei mais um, no ${s}${t ? `: ${t}` : ''}.`;
+}
+
+module.exports = { sistemaDaNarracao, narracaoPadrao, nomeDoSite, sistemaDaVozParalela, lerRespostaParalela, precisaDoPrincipal, FRASE_DA_FILA, perguntaDeAndamento, respostaDeAndamento };
