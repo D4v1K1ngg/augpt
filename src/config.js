@@ -165,6 +165,8 @@ const DEFAULTS = {
   conversaContinua: true,
   // 28/10: num pedido falado, a voz narra a pesquisa ("achei…", "esse outro…", "ainda analisando")
   narrarPesquisa: true,
+  // 29/10: as etiquetas de fonte no meio do texto (desligado: as fontes ficam só no bloco do fim da resposta)
+  citacoesNoTexto: false,
   // 27/10: lembretes, tarefas prontas e novidades também são falados — nunca no horário de silêncio (vazio = sem)
   avisosFalados: true,
   silencioDe: '22:00',

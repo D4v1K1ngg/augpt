@@ -45,12 +45,38 @@ module.exports = [
     nome: 'cartões: a citação "[(17)](url)" vira a etiqueta com o nome do site (sem o número no texto), com a fonte no título; link comum continua link',
     tipo: 'unidade',
     executar() {
-      const html = md.render('Muito citado [(17)](https://www.techtudo.com.br/x)[(3)](https://www.reddit.com/r/a) e [aqui](https://g1.globo.com/y).');
+      // 29/10: por padrão a citação sai do texto (as fontes ficam no fim); a etiqueta só com a opção ligada
+      const texto = 'Muito citado [(17)](https://www.techtudo.com.br/x)[(3)](https://www.reddit.com/r/a) e [aqui](https://g1.globo.com/y).';
+      const limpo = md.render(texto);
+      const antes = global.config;
+      global.config = { citacoesNoTexto: true };
+      let html;
+      try {
+        html = md.render(texto);
+      } finally {
+        global.config = antes;
+      }
       return [
+        limpo === '<p>Muito citado e <a href="https://g1.globo.com/y" data-externo="1">aqui</a>.</p>' || limpo,
         /<a class="cita" href="https:\/\/www\.techtudo\.com\.br\/x"[^>]*title="Fonte 17 · techtudo\.com\.br">techtudo<\/a>/.test(html) || html,
         /<a class="cita"[^>]*>reddit<\/a>/.test(html) || 'reddit',
         !/\(17\)|\(3\)/.test(html) || 'o número ficou no texto',
         /<a href="https:\/\/g1\.globo\.com\/y" data-externo="1">aqui<\/a>/.test(html) || 'link comum',
+      ];
+    },
+  },
+  {
+    nome: 'fontes no fim (29/10): "---" + "Fontes" + lista viram o bloco recolhido "Fontes · N sites" com o nome de cada site; a coluna da tabela que só tinha citações sai',
+    tipo: 'unidade',
+    executar() {
+      const html = md.render('Texto [(1)](https://www.infoescola.com/x).\n\n---\n**Fontes**\n1. [Motor a vapor - InfoEscola](https://www.infoescola.com/x)\n2. [Um blog](https://meublog.wordpress.com/y)');
+      const tabela = md.render('| Característica | Descrição | Fonte |\n|---|---|---|\n| Tipo | Externa | [(1)](https://a.com/x) |');
+      return [
+        /<details class="fontes-da-resposta"><summary>Fontes · 2 sites<\/summary>/.test(html) || html,
+        /<li value="1"><a href="https:\/\/www\.infoescola\.com\/x" data-externo="1"><span class="fonte-site">infoescola<\/span><span class="fonte-nome">Motor a vapor - InfoEscola<\/span><\/a><\/li>/.test(html) || 'item com o site',
+        /<span class="fonte-site">meublog<\/span>/.test(html) || 'blog hospedado: o nome do blog',
+        !/<hr \/>/.test(html) && /^<p>Texto\.<\/p>/.test(html) || 'sem a linha e sem a citação no texto',
+        !/Fonte<\/th>/.test(tabela) && /<th>Descrição<\/th>/.test(tabela) || tabela,
       ];
     },
   },

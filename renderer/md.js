@@ -9,6 +9,37 @@
   const escapar = (s) =>
     String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  const citacoesNoTexto = () => typeof config !== 'undefined' && config?.citacoesNoTexto === true;
+  const siteDe = (url) => {
+    try {
+      return new URL(String(url).replace(/&amp;/g, '&')).hostname.replace(/^(www|m|pt|br|old)\./, '');
+    } catch {
+      return '';
+    }
+  };
+  // blog hospedado ("meublog.wordpress.com", "x.blogspot.com"): o nome é o do blog, não o da hospedagem
+  const siteCurto = (site) => {
+    const blog = /^([\w-]+)\.(wordpress|blogspot|medium|substack|tumblr|wixsite|github)\.(com|io)$/.exec(site);
+    if (blog) return blog[1];
+    return site.split('.').filter((p) => !/^(com|org|net|gov|edu|br|co|io|info|uk|us|pt|ar|blog)$/.test(p)).pop() || site;
+  };
+
+  /**
+   * As fontes do fim (29/10): a linha "---", "**Fontes**" e a lista numerada viram um bloco recolhido
+   * ("Fontes · 6 sites"), cada item com o nome do site ao lado do título. O número continua (a citação [n] bate).
+   */
+  function blocoDeFontes(html) {
+    return html.replace(/<hr \/>\n<p><strong>(Fontes|Sources)<\/strong><\/p>\n<ol>\n([\s\S]*?)\n<\/ol>/, (m, titulo, itens) => {
+      const lista = itens.split('\n').map((li) => li.replace(/^<li value="(\d+)"><a href="([^"]+)" data-externo="1">([\s\S]*)<\/a><\/li>$/, (x, n, url, nome) => {
+        const site = siteDe(url);
+        return `<li value="${n}"><a href="${url}" data-externo="1"><span class="fonte-site">${escapar(siteCurto(site) || site)}</span><span class="fonte-nome">${nome}</span></a></li>`;
+      }));
+      const sites = new Set(itens.match(/href="([^"]+)"/g)?.map((h) => siteDe(h.slice(6, -1))) || []).size;
+      const rotulo = titulo === 'Sources' ? `Sources · ${sites} ${sites === 1 ? 'site' : 'sites'}` : `Fontes · ${sites} ${sites === 1 ? 'site' : 'sites'}`;
+      return `<details class="fontes-da-resposta"><summary>${rotulo}</summary>\n<ol>\n${lista.join('\n')}\n</ol></details>`;
+    });
+  }
+
   function inline(t) {
     return t
       .replace(/`([^`\n]+)`/g, '<code>$1</code>')
@@ -17,15 +48,13 @@
       .replace(/~~([^~\n]+)~~/g, '<del>$1</del>')
       // a citação "[(17)](url)" vira uma etiqueta com o nome do site (21/10: os "(17)" no meio do texto incomodavam)
       // endereço com parênteses (Wikipédia: "Santo_André_(São_Paulo)") vai inteiro — antes sobrava um ")" no texto
-      .replace(/\[\((\d{1,3})\)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g, (m, n, url) => {
-        let site = '';
-        try {
-          site = new URL(url.replace(/&amp;/g, '&')).hostname.replace(/^(www|m|pt|br|old)\./, '');
-        } catch {
-          return '';
-        }
-        const curto = site.split('.').filter((p) => !/^(com|org|net|gov|edu|br|co|io|info|uk|us|pt|ar|blog)$/.test(p)).pop() || site;
-        return `<a class="cita" href="${url}" data-externo="1" title="Fonte ${n} · ${site}">${curto}</a>`;
+      // 29/10 (Davi: "quebra o fluxo do texto"): por padrão a citação sai do texto — com o espaço antes dela, para não
+      // sobrar "ciclo ." — e as fontes ficam no bloco do fim; Ajustes → "Mostrar as fontes no meio do texto" traz de volta
+      .replace(/(\s*)\[\((\d{1,3})\)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g, (m, espaco, n, url) => {
+        if (!citacoesNoTexto()) return '';
+        const site = siteDe(url);
+        if (!site) return '';
+        return `${espaco}<a class="cita" href="${url}" data-externo="1" title="Fonte ${n} · ${site}">${siteCurto(site)}</a>`;
       })
       .replace(/\[([^\]]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g, '<a href="$2" data-externo="1">$1</a>')
       .replace(/(^|[\s])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" data-externo="1">$2</a>');
@@ -131,18 +160,17 @@
           j = proximaComTexto(j + 1);
         }
         i = j - 1;
+        // 29/10: sem as citações no texto, a coluna que só tinha citações ("Fonte") ficava vazia — ela sai
+        const linhasDoCorpo = corpo.map((linhaCorpo) => {
+          const ajustada = [...linhaCorpo];
+          while (ajustada.length < cabecalho.length) ajustada.push('');
+          return ajustada.slice(0, cabecalho.length).map((c) => inline(c));
+        });
+        const vazia = (k) => linhasDoCorpo.length > 0 && linhasDoCorpo.every((l) => !String(l[k]).replace(/<[^>]*>|&nbsp;|[\s—–-]/g, ''));
+        const colunas = cabecalho.map((c, k) => k).filter((k) => !(cabecalho.length > 1 && vazia(k)));
         saida.push(
-          `<table><thead><tr>${cabecalho.map((c) => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>` +
-            corpo
-              .map((linhaCorpo) => {
-                const ajustada = [...linhaCorpo];
-                while (ajustada.length < cabecalho.length) ajustada.push('');
-                return `<tr>${ajustada
-                  .slice(0, cabecalho.length)
-                  .map((c) => `<td>${inline(c)}</td>`)
-                  .join('')}</tr>`;
-              })
-              .join('') +
+          `<table><thead><tr>${colunas.map((k) => `<th>${inline(cabecalho[k])}</th>`).join('')}</tr></thead><tbody>` +
+            linhasDoCorpo.map((l) => `<tr>${colunas.map((k) => `<td>${l[k]}</td>`).join('')}</tr>`).join('') +
             '</tbody></table>'
         );
         continue;
@@ -254,9 +282,9 @@
     fecharCitacao();
     fecharCartao();
 
-    return saida
+    return blocoDeFontes(saida
       .join('\n')
-      .replace(/\u0000BLOCO(\d+)\u0000/g, (_, i) => blocos[Number(i)]);
+      .replace(/\u0000BLOCO(\d+)\u0000/g, (_, i) => blocos[Number(i)]));
   }
 
   /**

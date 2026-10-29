@@ -75,6 +75,7 @@ function preencherConfig() {
   $('cfgDetalhesTecnicos').checked = config.mostrarDetalhesTecnicos === true;
   $('cfgNavegacao').checked = config.navegacaoInterativa !== false;
   $('cfgImagensNasRespostas').checked = config.imagensNasRespostas !== false;
+  if ($('cfgCitacoesNoTexto')) $('cfgCitacoesNoTexto').checked = config.citacoesNoTexto === true;
   $('cfgRevisarImagens').checked = config.revisarImagensCriadas !== false;
   $('cfgAnimacaoDeAbertura').checked = config.animacaoDeAbertura !== false;
   $('cfgSomDaAbertura').checked = config.somDaAbertura !== false;
@@ -131,6 +132,7 @@ async function salvarAjustes() {
     permitirRedeLocal: $('cfgRedeLocal').checked,
     navegacaoInterativa: $('cfgNavegacao').checked,
     imagensNasRespostas: $('cfgImagensNasRespostas').checked,
+    citacoesNoTexto: Boolean($('cfgCitacoesNoTexto')?.checked),
     revisarImagensCriadas: $('cfgRevisarImagens').checked,
     animacaoDeAbertura: $('cfgAnimacaoDeAbertura').checked,
     somDaAbertura: $('cfgSomDaAbertura').checked,
