@@ -30,10 +30,16 @@
    */
   function blocoDeFontes(html) {
     return html.replace(/<hr \/>\n<p><strong>(Fontes|Sources)<\/strong><\/p>\n<ol>\n([\s\S]*?)\n<\/ol>/, (m, titulo, itens) => {
+      // mesmo site e mesmo título (29/10, no app: "wikipedia · Motor a vapor" duas vezes) aparecem uma vez só
+      const vistas = new Set();
       const lista = itens.split('\n').map((li) => li.replace(/^<li value="(\d+)"><a href="([^"]+)" data-externo="1">([\s\S]*)<\/a><\/li>$/, (x, n, url, nome) => {
         const site = siteDe(url);
-        return `<li value="${n}"><a href="${url}" data-externo="1"><span class="fonte-site">${escapar(siteCurto(site) || site)}</span><span class="fonte-nome">${nome}</span></a></li>`;
-      }));
+        const chave = `${siteCurto(site)}|${String(nome).toLowerCase().replace(/\s+/g, ' ').trim()}`;
+        if (vistas.has(chave)) return '';
+        vistas.add(chave);
+        // o número só importa com as citações no texto (aí ele bate com a etiqueta); sem elas, a lista conta 1, 2, 3
+        return `<li${citacoesNoTexto() ? ` value="${n}"` : ''}><a href="${url}" data-externo="1"><span class="fonte-site">${escapar(siteCurto(site) || site)}</span><span class="fonte-nome">${nome}</span></a></li>`;
+      })).filter(Boolean);
       const sites = new Set(itens.match(/href="([^"]+)"/g)?.map((h) => siteDe(h.slice(6, -1))) || []).size;
       const rotulo = titulo === 'Sources' ? `Sources · ${sites} ${sites === 1 ? 'site' : 'sites'}` : `Fontes · ${sites} ${sites === 1 ? 'site' : 'sites'}`;
       return `<details class="fontes-da-resposta"><summary>${rotulo}</summary>\n<ol>\n${lista.join('\n')}\n</ol></details>`;

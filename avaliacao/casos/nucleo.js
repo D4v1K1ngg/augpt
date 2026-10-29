@@ -436,7 +436,7 @@ module.exports = [
         !/\[9\]/.test(r.texto) && /Intro \[1\]\./.test(r.texto) && !/\(fonte: \)/.test(r.texto) || `citação inexistente: ${r.texto}`,
         !/Razer Opus 7\n/.test(r.texto) && /#### 2\. HyperX Cloud Earbuds II/.test(r.texto) && /Tirei 1 opção que não aparece em nenhuma fonte lida: Razer Opus 7/.test(r.texto) || `cartão sem fonte: ${r.texto}`,
         // 19/10: o preço sem fonte sai do texto (antes ganhava ⚠); o das fontes fica
-        !/R\$ 350/.test(r.texto.split('\n\n*Tirei')[0]) && /HyperX Cloud Earbuds II\n\*\*Faixa de preço:\*\* \*\(preço não confirmado\)\*/.test(r.texto) && /R\$ 649,90/.test(r.texto) && /Tirei 1 preço que não aparece nas fontes lidas \(R\$ 350\)/.test(r.texto) && !/R\$ 499,00/.test(r.texto) || `preço: ${r.texto}`,
+        !/R\$ 350/.test(r.texto.split('\n\n*Tirei')[0]) && /HyperX Cloud Earbuds II\n\*\*Faixa de preço:\*\* não encontrei nas fontes lidas\./.test(r.texto) && /R\$ 649,90/.test(r.texto) && /Tirei 1 preço que não aparece nas fontes lidas \(R\$ 350\)/.test(r.texto) && !/R\$ 499,00/.test(r.texto) || `preço: ${r.texto}`,
         /## Conclusão\nfim/.test(r.texto) || 'o que vem depois dos cartões fica',
         /#### 1\. Marca X1/.test(nenhum.texto) && /Nenhuma das opções aparece/.test(nenhum.texto) || `nenhum com fonte: ${nenhum.texto}`,
       ];

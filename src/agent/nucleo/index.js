@@ -960,6 +960,14 @@ function tamanhoNaMedida(pergunta, tamanho = 'normal', { produto = false } = {})
   return simples ? 'curta' : tamanho;
 }
 
+// 29/10 (Davi, olhando as respostas): "Aqui está uma explicação detalhada…", "Abaixo, detalho…" e o "Em resumo"
+// que repete o primeiro parágrafo não dizem nada novo
+const SEM_ANUNCIO_NEM_REPETICAO = `- Não anuncie o que vai escrever ("Aqui está uma explicação detalhada…", "Abaixo, detalho…", "A seguir, veja…", "Vou explicar…"): escreva direto.
+- Não termine repetindo o começo ("Em resumo…", "Conclusão" que diz de novo o primeiro parágrafo). Termine com o que ainda não foi dito — a recomendação, qual escolher, um cuidado — ou simplesmente pare.`;
+// a rede de segurança: parágrafo que é só anúncio sai (o modelo pequeno às vezes escreve mesmo assim)
+const PARAGRAFO_DE_ANUNCIO = /^(?:aqui (?:est[áa]|est[ãa]o|vai|v[ãa]o)\s+(?:uma?|as?|os?)\s+(?:[\wà-ú]+\s+){0,2}?(?:explica[çc][ãa]o|resumo|lista|compara[çc][ãa]o|guia|an[áa]lise|detalh\w*|vis[ãa]o|op[çc][õo]es|principais|passos?|informa[çc][õo]es)|abaixo,?\s+(?:detalho|est[ãa]o|seguem?|listo|apresento|explico|voc[êe]|veja|confira|mostro|trago)|a seguir,?\s+(?:veja|confira|detalho|explico|apresento|est[ãa]o|seguem?|listo|mostro|trago)|segue(?:m)?\s+(?:abaixo|uma|um|a|o|as|os)\s|vou (?:te )?(?:explicar|detalhar|mostrar|apresentar)|vamos (?:ver|entender|detalhar))[^\n]{0,160}[:.]$/i;
+const semParagrafosDeAnuncio = (t) => String(t).split(/\n{2,}/).filter((p) => !PARAGRAFO_DE_ANUNCIO.test(p.trim()) || /\d|\*\*|\[/.test(p)).join('\n\n');
+
 function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal', atual = false, sobreOUsuario = '', capacidadesNaEscrita = '', preferencias = '', idioma = 'pt', conversa = false }) {
   return `Você é o AuGPT, um assistente que pesquisa na web e escreve respostas completas, claras e bem explicadas, em ${idioma === 'en' ? 'INGLÊS (en-US): a resposta inteira em inglês, inclusive títulos, tabelas e cartões, mesmo com o material em português' : 'português do Brasil'}. Hoje é ${hoje}.${conversa ? '' : TAMANHO_DA_RESPOSTA[tamanho] || ''}
 
@@ -977,6 +985,7 @@ ${
     ? `Responda à pergunta do usuário usando as fontes abaixo.
 - Respeite exatamente as condições do pedido (plataforma, tipo de produto, orçamento, quantidade de opções). Fonte que trata de outra coisa (outra plataforma, outro tipo de produto) não serve de base para a recomendação.
 - Comece respondendo diretamente à pergunta: a primeira frase já é a resposta. Depois desenvolva, com seções (##) só quando o assunto pedir.
+${SEM_ANUNCIO_NEM_REPETICAO}
 - Não comece com a data ("Hoje é…"), com "Com base nas fontes…", "Como o AuGPT…" nem com título de relatório ("# Relatório…"). Sem título no topo de resposta curta.
 - Explique os termos técnicos para quem não é especialista.
 - Cite a fonte de cada informação com [n] no fim da frase. Não cite número que não está nas fontes.
@@ -992,7 +1001,7 @@ ${
 - Todo número, data e nome que você escrever tem de estar nas fontes. O que elas não trazem, você não afirma.${INSTRUCAO_DE_GRAFICO}${INSTRUCAO_DE_VISUAL}${
         atual ? `\n- Esta pergunta depende de QUANDO: diga a data dos fatos que citar ("em 5 de outubro de ${String(hoje).slice(-4)}…") e deixe claro o que já aconteceu e o que ainda não, olhando a data de hoje.` : ''
       }${produto ? FORMATO_DE_PRODUTO : ''}`
-    : `- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.${INSTRUCAO_DE_GRAFICO}${INSTRUCAO_DE_VISUAL}`
+    : `- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.\n${SEM_ANUNCIO_NEM_REPETICAO}${INSTRUCAO_DE_GRAFICO}${INSTRUCAO_DE_VISUAL}`
 }${capacidadesNaEscrita ? `\n\n${capacidadesNaEscrita}` : ''}${preferencias ? `\n\n<preferencias_do_usuario>\n${preferencias}\n</preferencias_do_usuario>\nO usuário pediu para você guardar isto: siga as preferências e use os fatos quando ajudarem, sem citá-los à toa. Uma linha "Quando o assunto for X: …" é instrução só para pedidos sobre X: siga-a quando a pergunta for sobre X (mesmo com outras palavras) e ignore-a nas outras. Só isto está guardado: nunca diga que algo é \"preferência registrada\" ou está guardado se não estiver nesta lista, e não cite este bloco como fonte.` : ''}${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 1500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou), e não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
 }
 
@@ -1078,6 +1087,27 @@ function conferirResposta(texto, { numeros = [], material = '', produto = false 
     }
   }
   const valoresDoMaterial = new Set((material.match(/\d[\d.,]*\d|\d/g) || []).map(inteiroDoPreco));
+  /*
+   * Sem buraco no lugar do preço tirado (29/10, no app: "A partir de aproximadamente *(preço não confirmado)*"):
+   * a FRASE com ele sai; no campo de preço do cartão, "não encontrei nas fontes lidas."; na tabela, "—". O aviso
+   * do fim diz quantos preços saíram.
+   */
+  const semOsPrecosTirados = (texto) => {
+    const filtrar = (s) => s.split(/(?<=[.!?…])\s+/).filter((f) => !f.includes('⁢')).join(' ').trim();
+    return texto.split('\n').map((linha) => {
+      if (!linha.includes('⁢')) return linha;
+      if (/^\s*\|.*\|\s*$/.test(linha)) return linha.split('|').map((c) => (c.includes('⁢') ? ' — ' : c)).join('|');
+      const campo = /^(\s*(?:[-*]\s+)?\*\*[^*\n]{2,40}:\*\*\s*)(.*)$/.exec(linha);
+      if (campo) {
+        const valor = filtrar(campo[2]);
+        if (valor) return campo[1] + valor;
+        return /pre[cç]o|valor|custo|price/i.test(campo[1]) ? `${campo[1]}não encontrei nas fontes lidas.` : null;
+      }
+      const prefixo = /^(\s*(?:[-*+]|\d+[.)])\s+)/.exec(linha)?.[1] || '';
+      const resto = filtrar(linha.slice(prefixo.length));
+      return resto ? prefixo + resto : null;
+    }).filter((l) => l !== null).join('\n');
+  };
   // 19/10 (revisão da pesquisa): preço sem fonte SAI do texto (antes ganhava ⚠ e ficava): era o modelo
   // estimando de memória ("R$ 600, R$ 800" para SSDs que nenhuma fonte citava), e preço velho engana
   // quem vai comprar. Faixa ("R$ 600 a R$ 800") vira uma marcação só; o preço das fontes fica.
@@ -1088,10 +1118,7 @@ function conferirResposta(texto, { numeros = [], material = '', produto = false 
     precosSemFonte.add(`${moeda.trim()} ${valor}`);
     return TIRADO;
   });
-  t = t
-    .replace(/\u2062(\s*(?:a|até|e|ou|-|–|—|\/)\s*\u2062)+/g, TIRADO)
-    .replace(/(entre|de|por|custa|custam|sai por|saem por|cerca de|em torno de|a partir de|até)\s+\u2062/gi, '$1 \u2062')
-    .replace(/\u2062/g, '*(preço não confirmado)*');
+  t = semOsPrecosTirados(t.replace(/\u2062(\s*(?:a|até|e|ou|-|–|—|\/)\s*\u2062)+/g, TIRADO)).replace(/\u2062/g, '');
 
   const notas = [];
   if (removidos.length) {
@@ -1470,7 +1497,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pergunta },
   ];
   const limparEscrita = (t) =>
-    semImagens(t)
+    semParagrafosDeAnuncio(semImagens(t))
       // marcação dos blocos internos citada como fonte (26/10, no app: "[preferencias_do_usuario]")
       .replace(/\s*\[(imagem_anexada|imagem anexada|preferencias_do_usuario|sobre_o_usuario|anotacoes_do_pesquisador|fontes|capacidades)\]/gi, '')
       // título dentro de negrito (17/10, Llama 3.2 3B: "**#### 1. HyperX…**") não vira cartão nem título

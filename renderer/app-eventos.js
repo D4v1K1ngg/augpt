@@ -431,12 +431,7 @@ const manipuladores = {
     // conversa inteira em vez de só este turno.
     t.arquivosGerados.forEach((a) => adicionarSaida({ caminho: a.caminho, tamanho: a.tamanho, tipo: 'gerado' }));
     if (t.arquivosGerados.length) renderizarAnexosGerados(t.resposta, t.arquivosGerados);
-    if (agente.fontes.size) {
-      const rodape = document.createElement('p');
-      rodape.className = 'secundario meta-turno';
-      rodape.textContent = tr('{n} passos · {f} fonte(s)', { n: iteracoes, f: agente.fontes.size });
-      t.resposta.appendChild(rodape);
-    }
+    // 29/10: o rodapé "N passos · N fonte(s)" saiu — o do registro, logo abaixo, já traz passos, fontes, tempo e o relatório
     carregarArvore(true);
     carregarMemoria();
     rolar(el.aRolagem, true);

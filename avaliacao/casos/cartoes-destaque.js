@@ -73,10 +73,37 @@ module.exports = [
       const tabela = md.render('| Característica | Descrição | Fonte |\n|---|---|---|\n| Tipo | Externa | [(1)](https://a.com/x) |');
       return [
         /<details class="fontes-da-resposta"><summary>Fontes · 2 sites<\/summary>/.test(html) || html,
-        /<li value="1"><a href="https:\/\/www\.infoescola\.com\/x" data-externo="1"><span class="fonte-site">infoescola<\/span><span class="fonte-nome">Motor a vapor - InfoEscola<\/span><\/a><\/li>/.test(html) || 'item com o site',
+        /<li><a href="https:\/\/www\.infoescola\.com\/x" data-externo="1"><span class="fonte-site">infoescola<\/span><span class="fonte-nome">Motor a vapor - InfoEscola<\/span><\/a><\/li>/.test(html) || 'item com o site',
+        // repetida (mesmo site e título) aparece uma vez; sem as citações no texto, a lista conta 1, 2, 3
+        (md.render('x\n\n---\n**Fontes**\n1. [Motor](https://pt.wikipedia.org/wiki/A)\n2. [Motor](https://pt.wikipedia.org/wiki/B)').match(/<li>/g) || []).length === 1 || 'repetida',
         /<span class="fonte-site">meublog<\/span>/.test(html) || 'blog hospedado: o nome do blog',
         !/<hr \/>/.test(html) && /^<p>Texto\.<\/p>/.test(html) || 'sem a linha e sem a citação no texto',
         !/Fonte<\/th>/.test(tabela) && /<th>Descrição<\/th>/.test(tabela) || tabela,
+      ];
+    },
+  },
+  {
+    nome: 'texto final (29/10): preço sem fonte tira a frase (sem "(preço não confirmado)" no meio); parágrafo que só anuncia sai, conteúdo fica; o escritor não anuncia nem repete o começo no fim',
+    tipo: 'unidade',
+    executar() {
+      const nucleo = require('../../src/agent/nucleo');
+      const r = nucleo.conferirResposta('A melhor é a RTX 5060 Ti. Ela custa R$ 2.899 hoje. Vale a pena.\n\n#### 1. CORSAIR RM850x\n**Faixa de preço:** A partir de aproximadamente R$ 899.\n**Pontos fortes:** Silenciosa. Custa R$ 700 no ML.\n\n| Modelo | Preço |\n|---|---|\n| RM850x | R$ 899 |\n| MSI | R$ 649,90 |\n\n- Opção por R$ 300.\n- Outra boa.', { material: 'MSI R$ 649,90', produto: true }).texto;
+      const corpo = r.split('\n\n*Tirei')[0];
+      const fs = require('fs');
+      const path = require('path');
+      const src = fs.readFileSync(path.join(__dirname, '../../src/agent/nucleo/index.js'), 'utf8');
+      const anuncio = eval(src.match(/const PARAGRAFO_DE_ANUNCIO = (\/.*\/i);/)[1]);
+      const escritor = nucleo.sistemaDoEscritor({ hoje: 'x', comFontes: true });
+      return [
+        !/não confirmado/.test(r) && !/\u2062/.test(r) || 'sem buraco',
+        /^A melhor é a RTX 5060 Ti\. Vale a pena\./.test(corpo) || corpo,
+        /\*\*Faixa de preço:\*\* não encontrei nas fontes lidas\./.test(corpo) && /\*\*Pontos fortes:\*\* Silenciosa\.\n/.test(corpo) || 'campos do cartão',
+        /\| RM850x \| — \|/.test(corpo) && /R\$ 649,90/.test(corpo) || 'tabela',
+        !/Opção por/.test(corpo) && /- Outra boa\./.test(corpo) || 'item da lista',
+        /Tirei 4 preços que não aparecem/.test(r) || 'o aviso do fim',
+        anuncio.test('Aqui está uma explicação detalhada do funcionamento, dividida por etapas:') && anuncio.test('Abaixo, detalho as opções encontradas.') && anuncio.test('Segue uma comparação entre os modelos:') || 'anúncio sai',
+        !anuncio.test('Aqui está o motivo: a água ferve no nível do mar.') && !anuncio.test('Abaixo do mar, a pressão aumenta e muda tudo.') || 'conteúdo fica',
+        /Não anuncie o que vai escrever/.test(escritor) && /Não termine repetindo o começo/.test(escritor) || 'regras do escritor',
       ];
     },
   },
