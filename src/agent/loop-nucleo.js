@@ -125,7 +125,12 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
       return r;
     },
     escrever: async (messages, onToken) => {
-      const r = await ollama.chatStream({ host: cfg.host, model: modelo, messages, temperature: 0.4, numCtx: 16384, numPredict: limiteDaEscrita, manterVivo: cfg.manterModeloVivo, signal, onToken: (p) => { escreveu = true; onToken(p); } });
+      const r = await ollama.chatStream({ host: cfg.host, model: modelo, messages, temperature: 0.4, numCtx: 16384, numPredict: limiteDaEscrita, manterVivo: cfg.manterModeloVivo, signal, onToken: (p) => {
+        escreveu = true;
+        // 29/10: o tempo até a primeira palavra da resposta — o que se sente esperando
+        if (!tempos.primeiraPalavraMs) tempos.primeiraPalavraMs = Date.now() - inicio;
+        onToken(p);
+      } });
       this.contabilizar({ promptTokens: r.promptTokens, completionTokens: r.completionTokens }, { tipo: 'redacao', duracaoMs: r.durationMs });
       return r.content;
     },

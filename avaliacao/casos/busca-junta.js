@@ -65,6 +65,31 @@ module.exports = [
         (loop.match(/\.then\(anotarBusca\)|anotarBusca\(await search\.buscar/g) || []).length >= 4 || 'todas as buscas anotadas (inclusive a da comunidade)',
         /tempos \}\);/.test(loop) && /if \(e\?\.tempos\) d\.tempos = e\.tempos;/.test(ler('src/registro.js')) || 'vai para o registro',
         /function linhasDeTempo/.test(ler('renderer/app-historico.js')) || 'relatório',
+        /if \(!tempos\.primeiraPalavraMs\) tempos\.primeiraPalavraMs = Date\.now\(\) - inicio;/.test(loop) || 'a primeira palavra',
+      ];
+    },
+  },
+  {
+    nome: 'mais rápido (29/10): o modelo carrega antes da pergunta (app aberto, "Ei Jarvis", digitando; mesmo contexto do agente); conversa óbvia pula o entendimento — produto e notícia não',
+    tipo: 'unidade',
+    async executar() {
+      const fs = require('fs');
+      const path = require('path');
+      const ler = (f) => fs.readFileSync(path.join(__dirname, '../..', f), 'utf8');
+      const nucleo = require('../../src/agent/nucleo');
+      const main = ler('electron/main.js');
+      const pula = async (p) => {
+        let chamadas = 0;
+        const deps = { chamar: async (m, o) => (chamadas++, { content: o?.json ? '{"precisa_buscar": true}' : '' }), escrever: async () => 'ok', emit: () => {}, buscar: async () => [], lerPagina: async () => ({}) };
+        await nucleo.responder({ pergunta: p, deps });
+        return chamadas === 0;
+      };
+      return [
+        /ipcMain\.handle\('agent:aquecer'[\s\S]{0,600}numCtx: 16384, numPredict: 1/.test(main) && /agent\?\.rodando \|\| Date\.now\(\) - aquecidoEm < 2 \* 60_000/.test(main) || 'aquecer com o contexto do agente, sem repetir',
+        /api\.agent\.aquecer\?\.\(\)/.test(ler('renderer/escuta.js')) && /setTimeout\(aquecerModelo, 8000\)/.test(ler('renderer/app-abas.js')) || '"Ei Jarvis", digitando e ao abrir',
+        (await pula('E aí, tudo bem?')) && (await pula('Estou meio cansado hoje')) && (await pula('Você acha que vale a pena aprender violão depois dos 30?')) || 'conversa óbvia pula',
+        !(await pula('Você acha que a RTX 5070 vale a pena?')) && !(await pula('o que você acha do fone Simgot EM6L?')) && !(await pula('Você acha que vale a pena comprar um notebook?')) || 'produto não pula',
+        !(await pula('O que você acha das notícias de hoje?')) && !(await pula('Quanto tempo uma calopsita vive?')) || 'notícia e fato não pulam',
       ];
     },
   },

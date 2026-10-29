@@ -102,7 +102,8 @@ module.exports = [
       const quebrado = nucleo.lerEntendimento('não sei responder em JSON', 'pergunta original');
       return [
         buscas[0] === 'O que é o fone Dunu Titan S?' || `busca da própria pergunta: ${buscas}`,
-        semBusca.buscou === false && semBusca.fontes.length === 0 && conversaFiada.chamadas.length === 1 || 'sem busca: só o entendimento e a escrita',
+        // 29/10: "obrigado!" é conversa que o código reconhece — nem o entendimento é chamado, só a escrita
+        semBusca.buscou === false && semBusca.fontes.length === 0 && conversaFiada.chamadas.length === 0 || 'sem busca: só a escrita',
         !/<fontes>/.test(conversaFiada.escritas[0][0].content) || 'sem fontes, a escrita não recebe bloco de fontes',
         quebrado.precisaBuscar === true && quebrado.pergunta === 'pergunta original' || 'JSON quebrado: busca a pergunta como veio',
       ];

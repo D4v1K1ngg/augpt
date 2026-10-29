@@ -216,6 +216,8 @@
     g.corte = pelaVoz?.chamou ? pelaVoz.corteSegundos || 0 : 0;
     g.surdoAte = Date.now() + 350; // o próprio bipe não conta como fala
     bipe();
+    // o modelo principal carrega enquanto você ainda fala o pedido (29/10: frio, "entender" levava 11 s)
+    api.agent.aquecer?.().catch(() => {});
     api.ditado.trazerJanela().catch(() => {});
     trocarAba('agente');
     avisar(tr('Pode falar…'));

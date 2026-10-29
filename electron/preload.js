@@ -124,6 +124,8 @@ contextBridge.exposeInMainWorld('augpt', {
     // quando a conversa ainda não foi salva (primeiro turno). Repassado até
     // Agent.run() pra escopar o que for lido nesta execução à conversa.
     start: (objetivo, conversa, idConversa) => ipcRenderer.invoke('agent:start', { objetivo, conversa, idConversa }),
+    // 29/10: o modelo principal carregado antes da pergunta (abrir o app, "Ei Jarvis", começar a digitar)
+    aquecer: () => ipcRenderer.invoke('agent:aquecer'),
     stop: () => ipcRenderer.invoke('agent:stop'),
     respond: (id, valor) => ipcRenderer.invoke('agent:respond', { id, valor }),
   },

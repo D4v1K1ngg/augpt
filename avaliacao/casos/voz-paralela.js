@@ -25,7 +25,8 @@ module.exports = [
         v.perguntaDeAndamento('E aí, como está indo?') && v.perguntaDeAndamento('Vai demorar muito?') && !v.precisaDoPrincipal('Vai demorar muito?') || 'andamento',
         // o jeito de dizer varia (28/10); o que é dito, não: a etapa, as contas da tela e o tempo
         /estou pesquisando na internet\. Até agora, 6 buscas, 3 páginas em 3 sites\. Já faz 39 segundos\.$/.test(andamento) || andamento,
-        /Davi/.test([1, 2, 3, 4, 5, 6, 7, 8].map(() => v.respostaDeAndamento({ etapa: 'Lendo', usuario: 'Davi' })).join(' ')) || 'o nome às vezes',
+        // 60 vezes: o nome sai em ~1/3 delas (com 8, falhava ~4% das vezes por azar)
+        /Davi/.test(Array.from({ length: 60 }, () => v.respostaDeAndamento({ etapa: 'Lendo', usuario: 'Davi' })).join(' ')) || 'o nome às vezes',
         /Já faz 2 minutos\.$/.test(v.respostaDeAndamento({ segundos: 130 })) || 'minutos',
         JSON.stringify(v.lerRespostaParalela('[FILA] Pode **deixar**.')) === '{"fila":true,"resposta":"Pode deixar."}' || 'marcação [FILA]',
         /Nunca afirme fatos/.test(v.sistemaDaVozParalela({ objetivo: 'x' })) && /conte só o que está no andamento/.test(v.sistemaDaVozParalela({})) || 'regras do modelo leve',

@@ -154,6 +154,16 @@ const CONVERSA = /(?<![a-zà-ú])(voc[eê] acha|o que voc[eê] (acha|pensa)|na s
 const PEDE_PESQUISA = /(?<![a-zà-ú])(pesquis\w*|procur\w*|busqu\w*|busca\w*|na internet|na web|no google|search)(?![a-zà-ú])/i;
 // ("estou cansado hoje" é conversa: "hoje" e "agora" sozinhos não fazem a pergunta ser sobre o que é atual)
 const ehConversa = (pergunta, j = {}) => (j.conversa === true || CONVERSA.test(String(pergunta || ''))) && j.produto !== true && !PISTA_DE_ATUAL.test(String(pergunta || '').replace(/(?<![a-zà-ú])(hoje|agora)(?![a-zà-ú])/gi, '')) && !PEDE_PESQUISA.test(String(pergunta || '')) && !/(?<![a-zà-ú])(not[ií]cias?|jornal|aconteceu|acontecendo|elei[cç][aã]o|jogo de ontem)(?![a-zà-ú])/i.test(String(pergunta || ''));
+// conversa que o código reconhece sozinho (cumprimento ou as frases de conversa), sem perguntar ao modelo
+// — sem o modelo, quem barra produto é o código: nome com número (RTX 5070, S25, EM6L, iPhone 16) ou palavra de
+// compra ("você acha que a RTX 5070 vale a pena?" pesquisa)
+const NOME_DE_MODELO = /(?:\b\w*[A-Z]\w*\s\d{1,4}\b)|(?:\b(?=\w*\d)(?=\w*[A-Za-z])\w{2,}\b)|\b\d{3,}\b/;
+const PALAVRA_DE_COMPRA = /(?<![a-zà-ú])(compr\w*|pre[cç]os?|custa\w*|loja\w*|promo[cç]\w*|ofertas?|marca|modelo)(?![a-zà-ú])/i;
+const conversaPeloCodigo = (pergunta) => {
+  const t = String(pergunta || '');
+  if (soCumprimento(t)) return true;
+  return CONVERSA.test(t) && ehConversa(t, {}) && !NOME_DE_MODELO.test(t) && !PALAVRA_DE_COMPRA.test(t);
+};
 const podeFicarSemBusca = (pergunta) => {
   const t = String(pergunta || '').trim();
   return SEM_BUSCA.test(t) || soCumprimento(t) || SOBRE_MIM.test(t) || QUESTAO_DE_EXATAS(t) || SOBRE_O_AUGPT.test(t) || CONTA_DIRETA.test(t);
@@ -1400,7 +1410,10 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   }
   const perguntaComImagem = vista ? `${pergunta}\n\n[Imagem anexada pelo usuário — o que se vê nela: ${vista.slice(0, 1500)}]` : pergunta;
   const inicioDoEntendimento = Date.now();
-  const ent = conferirEntendimento(lerEntendimento((await chamar([{ role: 'user', content: pedidoDeEntendimento({ pergunta: perguntaComImagem, conversa, hoje }) }], { json: true, numPredict: 300 })).content, pergunta, { comImagem: imagens.length > 0 }), { pergunta: perguntaComImagem, conversa });
+  // conversa óbvia (29/10): "e aí, tudo bem?", "estou cansado", "o que você acha de…" — o código já sabe, e a
+  // chamada do entendimento custava 2–3 s antes da primeira palavra. O JSON vazio passa pelas mesmas regras.
+  const conversaObvia = !imagens.length && conversaPeloCodigo(pergunta);
+  const ent = conferirEntendimento(lerEntendimento(conversaObvia ? '{"precisa_buscar": false, "conversa": true}' : (await chamar([{ role: 'user', content: pedidoDeEntendimento({ pergunta: perguntaComImagem, conversa, hoje }) }], { json: true, numPredict: 300 })).content, pergunta, { comImagem: imagens.length > 0 }), { pergunta: perguntaComImagem, conversa });
   // olhar a tela (27/10): pediu e não veio imagem — o AuGPT fotografa a tela inteira e refaz com ela
   if (ent.sobreATela && !imagens.length && typeof deps.capturarTela === 'function') {
     emit('ferramenta', { nome: 'olhar_tela', argumentos: { motivo: 'o pedido é sobre o que está na sua tela' }, risco: 'leitura' });

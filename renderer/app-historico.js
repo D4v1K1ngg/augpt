@@ -781,6 +781,7 @@ function linhasDeTempo(t = {}) {
   const buscadores = Object.entries(t.buscadores || {}).map(([nome, b]) => `${nome} ${b.vezes}× (média ${seg(b.ms / Math.max(1, b.vezes))})`).join(' · ');
   const juntou = Object.entries(t.combinacoes || {}).filter(([k]) => k.includes('+')).map(([k, n]) => `${k} ${n}×`).join(' · ');
   return [
+    t.primeiraPalavraMs && `1ª palavra:  ${seg(t.primeiraPalavraMs)}`,
     lista(t.etapas) && `Etapas:      ${lista(t.etapas)}`,
     lista(t.somas) && `Somas:       ${lista(t.somas)} (em paralelo)`,
     buscadores && `Buscadores:  ${buscadores}${juntou ? ` · juntou: ${juntou}` : ''}`,

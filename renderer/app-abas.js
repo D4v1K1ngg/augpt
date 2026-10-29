@@ -65,6 +65,16 @@ el.aEntrada.addEventListener('keydown', (e) => {
   }
 });
 el.aEntrada.addEventListener('input', () => autoAltura(el.aEntrada));
+// 29/10: o modelo principal carrega enquanto você digita e logo depois que o app abre (frio, "entender a
+// pergunta" levava 11 s; carregado, 3 s). O processo principal segura em no máximo uma vez a cada 2 min.
+let aquecerPedidoEm = 0;
+const aquecerModelo = () => {
+  if (Date.now() - aquecerPedidoEm < 60_000) return;
+  aquecerPedidoEm = Date.now();
+  api.agent.aquecer?.().catch(() => {});
+};
+el.aEntrada.addEventListener('input', () => el.aEntrada.value.trim() && aquecerModelo());
+setTimeout(aquecerModelo, 8000);
 
 for (const alvo of [el.aMensagens, el.aAbertura]) {
   alvo.addEventListener('click', (e) => {

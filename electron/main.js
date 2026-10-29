@@ -1170,6 +1170,26 @@ ipcMain.handle('voz:narrar', async (_e, { pedido = '', achado = {}, primeira = t
   }
 });
 // carrega o modelo leve antes da primeira conversa (a primeira carga leva ~6 s)
+/*
+ * O modelo principal carregado ANTES da pergunta (29/10, medido: "entender a pergunta" levou 2,9 s com o modelo na
+ * placa e 11,3 s com ele frio). Ao abrir o app, ao ouvir "Ei Jarvis" e ao começar a digitar: uma chamada de 1 token
+ * com o MESMO contexto do agente (16384 — outro tamanho faria o Ollama recarregar na hora da pergunta). No máximo
+ * uma a cada 2 min; nunca com o agente rodando. O modelo não fica preso na placa: vale o "manter vivo" de sempre.
+ */
+let aquecidoEm = 0;
+ipcMain.handle('agent:aquecer', async () => {
+  const modelo = config.data.model;
+  if (!modelo || agent?.rodando || Date.now() - aquecidoEm < 2 * 60_000) return { ok: false };
+  aquecidoEm = Date.now();
+  const inicio = Date.now();
+  try {
+    await ollama.chat({ host: config.data.host, model: modelo, messages: [{ role: 'user', content: 'oi' }], pensar: false, numCtx: 16384, numPredict: 1, manterVivo: config.data.manterModeloVivo, signal: AbortSignal.timeout(60_000) });
+    return { ok: true, ms: Date.now() - inicio };
+  } catch (err) {
+    aquecidoEm = 0;
+    return { ok: false, error: err.message };
+  }
+});
 ipcMain.handle('voz:aquecer', async () => {
   if (!String(config.data.modeloDaVoz || '').trim()) return { ok: false };
   try {
