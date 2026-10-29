@@ -1358,7 +1358,30 @@ async function criarImagem({ pergunta, conversa, imagens, vista, ent, deps }) {
   return { vista, texto, fontes: [], entendimento: ent, buscou: false, produto: false, assuntos: [], modo: 'imagem', anosSemFonte: [], imagemCriada: { uri: img.uri, caminho: img.caminho, prompt: p.prompt, tentativas: tentativas.length, referencia: referencia ? referencia.pagina || referencia.url : null } };
 }
 
+/**
+ * Quanto levou cada tipo de chamada (29/10, análise do projeto: "medir antes de otimizar"): modelo, escrita,
+ * buscas, páginas e embeddings, somados em deps.tempos.somas. Rodam em paralelo — a soma passa do tempo total.
+ */
+function medirDeps(deps) {
+  const somas = deps.tempos.somas;
+  const medir = (nome, fn) => (typeof fn === 'function'
+    ? async (...a) => {
+      const t = Date.now();
+      try {
+        return await fn(...a);
+      } finally {
+        somas[nome] = (somas[nome] || 0) + (Date.now() - t);
+      }
+    }
+    : fn);
+  return { ...deps, medido: true, chamar: medir('modelo', deps.chamar), escrever: medir('escrita', deps.escrever), embed: medir('embeddings', deps.embed), buscar: medir('buscas', deps.buscar), buscarNaComunidade: medir('buscas', deps.buscarNaComunidade), lerPagina: medir('paginas', deps.lerPagina) };
+}
+
 async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho = 'normal', deps, hoje = new Date().toLocaleDateString('pt-BR'), imagens = [] }) {
+  if (deps.tempos && !deps.medido) deps = medirDeps(deps);
+  // as etapas, em tempo de relógio: entendimento, pesquisa, material, escrita, conferência
+  const etapas = deps.tempos?.etapas || {};
+  const etapa = (nome, inicio) => (etapas[nome] = (etapas[nome] || 0) + (Date.now() - inicio));
   const { chamar, escrever, embed, emit = () => {} } = deps;
   // imagem anexada (Fase 4): o modelo olha primeiro, e o que viu vai para o entendimento e a escrita
   let vista = '';
@@ -1376,6 +1399,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     emit('imagem-vista', { texto: vista });
   }
   const perguntaComImagem = vista ? `${pergunta}\n\n[Imagem anexada pelo usuário — o que se vê nela: ${vista.slice(0, 1500)}]` : pergunta;
+  const inicioDoEntendimento = Date.now();
   const ent = conferirEntendimento(lerEntendimento((await chamar([{ role: 'user', content: pedidoDeEntendimento({ pergunta: perguntaComImagem, conversa, hoje }) }], { json: true, numPredict: 300 })).content, pergunta, { comImagem: imagens.length > 0 }), { pergunta: perguntaComImagem, conversa });
   // olhar a tela (27/10): pediu e não veio imagem — o AuGPT fotografa a tela inteira e refaz com ela
   if (ent.sobreATela && !imagens.length && typeof deps.capturarTela === 'function') {
@@ -1413,9 +1437,14 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const sobreOUsuario = ent.sobreOUsuario && !ent.conversa && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '';
   // os links que o usuário colou (da pergunta original — a reescrita do entendimento pode perder o endereço)
   const linksDoUsuario = [...new Set(String(pergunta || '').match(/https?:\/\/[^\s'"<>)\]]+/g) || [])];
+  etapa('entendimento', inicioDoEntendimento);
+  const inicioDaPesquisa = Date.now();
   const fontes = ent.precisaBuscar || linksDoUsuario.length ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa, imagemAnexada: vista, atual: ent.atual, sobreOUsuario, linksDoUsuario, buscasIniciais: ent.buscas || [] }) : [];
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
+  etapa('pesquisa', inicioDaPesquisa);
+  const inicioDoMaterial = Date.now();
   const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit }) : [];
+  etapa('material', inicioDoMaterial);
   // 16/10: sem o yt-dlp, "pesquise vídeos no youtube" saiu como "realizei uma pesquisa no YouTube" — não houve
   const semVideos = /\b(youtube|v[ií]deos?)\b/i.test(pergunta) && !(typeof deps.buscarNoYoutube === 'function');
   emit('redigindo', { fontes: usadas.length });
@@ -1433,7 +1462,10 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
       .replace(/\s*\[(imagem_anexada|imagem anexada|preferencias_do_usuario|sobre_o_usuario|anotacoes_do_pesquisador|fontes|capacidades)\]/gi, '')
       // título dentro de negrito (17/10, Llama 3.2 3B: "**#### 1. HyperX…**") não vira cartão nem título
       .replace(/^\s*\*\*\s*(#{2,4} [^*\n]+?)\s*\*\*\s*$/gm, '$1');
+  const inicioDaEscrita = Date.now();
   let escrito = limparEscrita(await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco })));
+  etapa('escrita', inicioDaEscrita);
+  const inicioDaConferencia = Date.now();
   if (pedeVisual(pergunta)) escrito = comoVisual(escrito);
   // o que a conferência aceita: o que foi lido, a pergunta, a conversa e o que se sabe do usuário
   const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')}`).join(' ')} ${notas} ${vista}` : '';
@@ -1550,6 +1582,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const comGraficos = recolocarGraficos(conferido.texto, graf.graficos);
   const avisoDaFoto = deps.idioma === 'en' ? '*From the photo, the model was recognized by its looks: its name is not written in the image, so it may be a similar one from the same line.*' : '*Pela foto, o modelo foi reconhecido pela aparência — o nome dele não está escrito na imagem, então pode ser outro parecido da mesma linha.*';
   const texto = pelaAparencia ? `${avisoDaFoto}\n\n${comGraficos}` : comGraficos;
+  etapa('conferencia', inicioDaConferencia);
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 

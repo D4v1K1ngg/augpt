@@ -94,7 +94,29 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
   };
   const ingles = (q) => /\b(the|best|for|with|vs|review|reddit|how|what|which)\b/i.test(q) && !/[ãõçáéíóúâêà]/i.test(q);
   let escreveu = false;
+  // quanto levou cada parte (29/10, análise do projeto: "medir antes de otimizar") — o núcleo anota as etapas,
+  // aqui entram os buscadores; vai no 'nucleo-fim' e fica no registro da execução
+  const tempos = { etapas: {}, somas: {}, buscadores: {}, combinacoes: {}, falhas: {} };
+  const anotarBusca = (x) => {
+    for (const [nome, ms] of Object.entries(x?.tempos || {})) {
+      const b = (tempos.buscadores[nome] ||= { vezes: 0, ms: 0 });
+      b.vezes += 1;
+      b.ms += ms;
+    }
+    if (x?.provedor) tempos.combinacoes[x.provedor] = (tempos.combinacoes[x.provedor] || 0) + 1;
+    // por que um buscador ficou de fora (29/10: "ollama: HTTP 429", "jina: pulado (falhou há pouco)")
+    for (const f of x?.falhas || []) {
+      const [nome, ...resto] = String(f).split(':');
+      const motivo = resto.join(':').trim();
+      if (motivo === 'sem resultados') continue;
+      const q = (tempos.falhas[nome] ||= { vezes: 0, motivo: '' });
+      q.vezes += 1;
+      if (!/^pulado/.test(motivo) || !q.motivo) q.motivo = motivo.slice(0, 120);
+    }
+    return x;
+  };
   const deps = {
+    tempos,
     signal,
     emit: (evento, dados) => this.emit(evento, dados),
     chamar: async (messages, { tools, json, numPredict } = {}) => {
@@ -114,14 +136,14 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
       if (recente) {
         const soSearxng = { ...opcoes, periodo: 'month', pular: search.CADEIA.map((p) => p.nome).filter((n) => n !== 'searxng') };
         const [noticias, web] = await Promise.all([
-          search.buscar(q, { ...soSearxng, categoria: 'news' }).then((x) => x.resultados.map((r) => ({ ...r, recente: true }))).catch(() => []),
-          search.buscar(q, opcoes).then((x) => x.resultados).catch(() => []),
+          search.buscar(q, { ...soSearxng, categoria: 'news' }).then(anotarBusca).then((x) => x.resultados.map((r) => ({ ...r, recente: true }))).catch(() => []),
+          search.buscar(q, opcoes).then(anotarBusca).then((x) => x.resultados).catch(() => []),
         ]);
         const vistos = new Set();
         const juntos = [...noticias.slice(0, 6), ...web].filter((r) => !vistos.has(r.url) && vistos.add(r.url));
         if (juntos.length >= 3) return juntos;
       }
-      return (await search.buscar(q, opcoes)).resultados;
+      return anotarBusca(await search.buscar(q, opcoes)).resultados;
     },
     // "meu computador" (18/10): a máquina do usuário (a memória central vai em toda resposta, por `preferencias`)
     sobreOUsuario: async () => {
@@ -154,7 +176,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // Reddit e fóruns cadastrados (dados/fontes-da-comunidade.json): "site:reddit.com …", "site:clubedohardware.com.br …"
     buscarNaComunidade: async (q) => {
       const lista = consultasNaComunidade(q, { config: cfg, maximo: 3 });
-      const achados = await Promise.all(lista.map((c) => search.buscar(c.consulta, { searxngUrl: cfg.searxngUrl, marginaliaKey: cfg.marginaliaKey, jinaKey: cfg.jinaKey, ollamaKey: cfg.ollamaKey, idioma: c.idioma }).then((x) => x.resultados).catch(() => [])));
+      const achados = await Promise.all(lista.map((c) => search.buscar(c.consulta, { searxngUrl: cfg.searxngUrl, marginaliaKey: cfg.marginaliaKey, jinaKey: cfg.jinaKey, ollamaKey: cfg.ollamaKey, idioma: c.idioma }).then(anotarBusca).then((x) => x.resultados).catch(() => [])));
       return achados.flat();
     },
   };
@@ -411,7 +433,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     const assuntoDoEvento = (r.rota || 'pesquisa') === 'pesquisa' && agendaNoChat.pedeAcompanhar(objetivo) ? (r.assuntos || r.entendimento?.assuntos || [])[0] : null;
     const comOferta = assuntoDoEvento ? `${comRelatorio}\n\n${agendaNoChat.ofertaDeAcompanhar(assuntoDoEvento, emIngles ? 'en' : 'pt')}` : comRelatorio;
     const final = r.fontes.length ? `${comOferta}\n\n---\n**${cfg.idiomaEfetivo === 'en' ? 'Sources' : 'Fontes'}**\n${r.fontes.map((f) => `${f.n}. [${String(f.titulo || f.url).replace(/[[\]]/g, '')}](${f.url})`).join('\n')}` : comOferta;
-    this.emit('nucleo-fim', { modo, rota: r.rota || 'pesquisa', ms: Date.now() - inicio, fontes: r.fontes.length, entendimento: r.entendimento });
+    this.emit('nucleo-fim', { modo, rota: r.rota || 'pesquisa', ms: Date.now() - inicio, fontes: r.fontes.length, entendimento: r.entendimento, tempos });
     await this.fotografarModelos();
     this.emit('concluido', { resumo: final, resposta: true, iteracoes: 0, uso: this.uso, verificacao: null, confianca: null });
     this.rodando = false;

@@ -371,6 +371,8 @@ class Registro {
     // passam pelo entendimento e ficavam no registro como se fossem do caminho antigo
     agente.on('nucleo-fim', (e) => {
       if (e?.rota) d.rota = e.rota;
+      // 29/10: quanto levou cada etapa e cada buscador (loop-nucleo.js / nucleo/index.js)
+      if (e?.tempos) d.tempos = e.tempos;
     });
     agente.on('nucleo-entendimento', (e) => {
       d.nucleo = { modo: e.modo || null, produto: e.produto === true };

@@ -540,28 +540,60 @@ const limparPausas = () => pausados.clear();
  * Percorre a cadeia até obter resultados suficientes.
  * Devolve também o diagnóstico de quem falhou, para aparecer na trilha.
  */
+/*
+ * Resultado fraco não encerra a busca (29/10, análise do projeto: o SearXNG era aceito até com 1 resultado, e o
+ * Ollama e a Jina nunca entravam). Poucos resultados (menos que o mínimo) ou todos de um site só: o próximo
+ * buscador também é consultado e os dois se juntam, sem repetir endereço. No máximo 2 que responderam — a cadeia
+ * inteira continua só para quem falhou.
+ */
+const MAX_BUSCADORES_JUNTOS = 2;
+const dominioDe = (url) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+};
+// busca com "site:" (a da comunidade: site:reddit.com) traz um site só de propósito — ali vale só a quantidade
+// (29/10, no registro: 12 buscas no Reddit percorriam DuckDuckGo, Lite e Wikipédia à toa)
+const bastante = (lista, minimo, consulta = '') => lista.length >= minimo && (minimo < 3 || /\bsite:/i.test(consulta) || new Set(lista.map((r) => dominioDe(r.url))).size >= 2);
+
 async function buscar(consulta, opcoes = {}) {
   const minimo = opcoes.minimo || 3;
   const falhas = [];
+  const juntos = [];
+  const vistos = new Set();
+  const usados = [];
+  const tempos = {}; // quanto cada buscador levou (o registro da execução mostra)
   for (const provedor of CADEIA) {
     if (opcoes.pular?.includes(provedor.nome)) continue;
     if (pausado(provedor.nome)) {
       falhas.push(`${provedor.nome}: pulado (falhou há pouco)`);
       continue;
     }
+    const inicio = Date.now();
     try {
       const resultados = await provedor.fn(consulta, opcoes);
-      if (resultados.length >= minimo || (resultados.length && provedor.nome === 'searxng')) {
-        return { resultados, provedor: provedor.nome, falhas };
+      tempos[provedor.nome] = Date.now() - inicio;
+      if (!resultados.length) {
+        falhas.push(`${provedor.nome}: sem resultados`);
+        continue;
       }
-      if (resultados.length) return { resultados, provedor: provedor.nome, falhas };
-      falhas.push(`${provedor.nome}: sem resultados`);
+      for (const item of resultados) {
+        const chave = String(item.url || '').replace(/[#?].*$/, '').replace(/\/$/, '');
+        if (!chave || vistos.has(chave)) continue;
+        vistos.add(chave);
+        juntos.push(item.provedor ? item : { ...item, provedor: provedor.nome });
+      }
+      usados.push(provedor.nome);
+      if (bastante(juntos, minimo, consulta) || usados.length >= MAX_BUSCADORES_JUNTOS) break;
     } catch (err) {
+      tempos[provedor.nome] = Date.now() - inicio;
       falhas.push(`${provedor.nome}: ${err.message}`);
       pausar(provedor.nome, err.message);
     }
   }
-  return { resultados: [], provedor: null, falhas };
+  return { resultados: juntos, provedor: usados.join('+') || null, falhas, tempos };
 }
 
 module.exports = {

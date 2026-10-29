@@ -774,6 +774,19 @@ const RESULTADO_ROTULO = {
 };
 
 const seg = (ms) => `${(ms / 1000).toFixed(1)}s`;
+/** As linhas de tempo do relatório (29/10): etapas, somas por tipo de chamada e os buscadores. */
+function linhasDeTempo(t = {}) {
+  const NOMES = { entendimento: 'entender', pesquisa: 'pesquisar', material: 'material', escrita: 'escrever', conferencia: 'conferir', modelo: 'modelo', buscas: 'buscas', paginas: 'páginas', embeddings: 'embeddings' };
+  const lista = (o) => Object.entries(o || {}).filter(([, ms]) => ms > 0).map(([k, ms]) => `${NOMES[k] || k} ${seg(ms)}`).join(' · ');
+  const buscadores = Object.entries(t.buscadores || {}).map(([nome, b]) => `${nome} ${b.vezes}× (média ${seg(b.ms / Math.max(1, b.vezes))})`).join(' · ');
+  const juntou = Object.entries(t.combinacoes || {}).filter(([k]) => k.includes('+')).map(([k, n]) => `${k} ${n}×`).join(' · ');
+  return [
+    lista(t.etapas) && `Etapas:      ${lista(t.etapas)}`,
+    lista(t.somas) && `Somas:       ${lista(t.somas)} (em paralelo)`,
+    buscadores && `Buscadores:  ${buscadores}${juntou ? ` · juntou: ${juntou}` : ''}`,
+    Object.keys(t.falhas || {}).length && `Falharam:    ${Object.entries(t.falhas).map(([nome, f]) => `${nome} ${f.vezes}× (${f.motivo})`).join(' · ')}`,
+  ].filter(Boolean);
+}
 
 async function carregarExecucoes() {
   const filtro = execucoes.origem ? { origem: execucoes.origem } : {};
@@ -959,6 +972,8 @@ async function abrirRelatorio(id) {
     `Passos:      ${r.passos} de ${r.maxPassos}`,
     `Chamadas:    ${r.chamadas.decisao} decisão · ${r.chamadas.redacao} redação`,
     `Tokens:      ${r.tokens.total.toLocaleString('pt-BR')} (${r.tokens.prompt} entrada · ${r.tokens.completion} saída)`,
+    // 29/10: quanto levou cada etapa e cada buscador (as somas rodam em paralelo: passam do tempo total)
+    ...(r.tempos ? linhasDeTempo(r.tempos) : []),
     // Caso real (Davi, 2026-09-18): "implemente uma função no relatório pra
     // vermos quando as AIs estão sendo usadas, 100% de certeza que está
     // funcionando" — linha de resumo aqui em cima (visão rápida), seção
