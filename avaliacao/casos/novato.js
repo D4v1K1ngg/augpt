@@ -1,0 +1,34 @@
+'use strict';
+
+/**
+ * O AuGPT pelos olhos de um novato (30/10): modo simples, voz oferecida na boas-vindas, a pesquisa andando na
+ * tela, a barra do topo em português comum e o aviso de cautela em direito, saúde e dinheiro.
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+const ler = (f) => fs.readFileSync(path.join(__dirname, '../..', f), 'utf8');
+
+module.exports = [
+  {
+    nome: 'novato — modo simples: instalação nova começa no simples, quem já usava começa com tudo à vista; Ajustes só com o essencial, Automático e Conversar, menu enxuto; "Mostrar todos os ajustes" traz tudo',
+    tipo: 'unidade',
+    executar() {
+      const config = ler('src/config.js');
+      const simples = ler('renderer/modo-simples.js');
+      const html = ler('renderer/index.html');
+      const css = ler('renderer/tema.css');
+      return [
+        /modoAvancado: false,/.test(config) || 'padrão: simples',
+        /if \(salvo\.modoAvancado === undefined && salvo\.boasVindasConcluida === true\) this\.data\.modoAvancado = true;/.test(config) || 'quem já usava vê tudo',
+        /id="cfgModoAvancado"/.test(html) && /<script src="modo-simples\.js"><\/script>/.test(html) || 'chave e script',
+        /const MODOS_SIMPLES = new Set\(\['automatico', 'conversa'\]\);/.test(simples) || 'dois modos',
+        ['navConversa', 'navSkills', 'navUtilitarios', 'navExecucoes'].every((id) => simples.includes(`'${id}'`)) || 'menu enxuto',
+        ['ajPesquisa', 'ajMemoria', 'ajTarefas', 'ajComponentes', 'ajAvancado'].every((id) => simples.includes(`'${id}'`)) || 'abas avançadas',
+        /body\.modo-simples \.fora-do-simples,/.test(css) && /body\.modo-simples #modoDoAgente/.test(css) || 'CSS',
+        /window\.modoSimples\?\.aplicar\(\);/.test(ler('renderer/app-ajustes.js')) || 'aplica quando a config chega',
+      ];
+    },
+  },
+];

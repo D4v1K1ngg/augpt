@@ -301,6 +301,12 @@ html[data-theme="light"] .btn-tema .lua, html:not([data-theme="light"]) .btn-tem
 }
 .msg-corpo a.cita:hover { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, var(--line-forte)); }
 
+/* ------------------------------ modo simples (30/10, renderer/modo-simples.js) ------------------------------ */
+body.modo-simples .fora-do-simples,
+body.modo-simples .ajustes-aba.aba-avancada,
+body.modo-simples .nav-item.menu-avancado,
+body.modo-simples #modoDoAgente { display: none !important; }
+
 /* ------------------------------ as fontes no fim da resposta, recolhidas (29/10) ------------------------------ */
 .msg-corpo details.fontes-da-resposta { margin: 22px 0 4px; padding-top: 12px; border-top: 1px solid var(--line); }
 .msg-corpo details.fontes-da-resposta > summary {

@@ -8,6 +8,7 @@
 /** Preferências que mudam o que aparece na tela (Fase 2, facilidade de uso). */
 function aplicarPreferenciasDeTela() {
   document.body.classList.toggle('mostrar-tecnico', config.mostrarDetalhesTecnicos === true);
+  window.modoSimples?.aplicar(); // 30/10: modo simples para quem está começando (renderer/modo-simples.js)
 }
 
 async function carregarConfig() {

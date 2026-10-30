@@ -596,6 +596,12 @@
       <!-- ---------------- Geral ---------------- -->
       <div class="ajustes-painel" id="ajGeral">
         <header class="pagina-topo"><div><h1>Geral</h1><p>O que muda o jeito do AuGPT responder no dia a dia. Tudo é gravado no seu computador assim que você muda.</p></div></header>
+        <!-- 30/10: modo simples (renderer/modo-simples.js) -->
+        <section class="grupo">
+          <label class="linha"><span class="linha-texto"><span>Mostrar todos os ajustes</span><small>Desligado, o AuGPT mostra só o essencial: estes ajustes, os modos Automático e Conversar e o menu enxuto. Ligado, aparecem as opções avançadas (pesquisa, memória, tarefas, componentes) e todos os modos de pesquisa.</small></span>
+            <input type="checkbox" id="cfgModoAvancado" class="caixa" />
+          </label>
+        </section>
         <section class="grupo">
           <h2>Você</h2>
           <label class="linha"><span class="linha-texto"><span>Idioma do AuGPT</span><small>O idioma das telas e das respostas. Automático segue o idioma do Windows.</small></span>
@@ -1353,5 +1359,6 @@
 <script src="celular.js"></script>
 <script src="segundo-plano.js"></script>
 <script src="fala.js"></script>
+<script src="modo-simples.js"></script>
 </body>
 </html>

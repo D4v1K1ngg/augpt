@@ -165,6 +165,9 @@ const DEFAULTS = {
   conversaContinua: true,
   // 28/10: num pedido falado, a voz narra a pesquisa ("achei…", "esse outro…", "ainda analisando")
   narrarPesquisa: true,
+  // 30/10: modo simples para quem está começando (falso): Ajustes só com o essencial, dois modos de pesquisa e o
+  // menu enxuto; ligado, aparece tudo (renderer/modo-simples.js)
+  modoAvancado: false,
   // 29/10: as etiquetas de fonte no meio do texto (desligado: as fontes ficam só no bloco do fim da resposta)
   citacoesNoTexto: false,
   // 27/10: lembretes, tarefas prontas e novidades também são falados — nunca no horário de silêncio (vazio = sem)
@@ -445,6 +448,8 @@ class Config {
       // pra 'extremo', esse é opt-in explícito do usuário.
       // o limite por página não tem tela; 15000 gravado é o padrão antigo (27/10)
       if (salvo.tempoMaximoPorPaginaMs === 15000) this.data.tempoMaximoPorPaginaMs = DEFAULTS.tempoMaximoPorPaginaMs;
+      // modo simples (30/10): quem já usava o AuGPT continua vendo tudo; só a instalação nova começa no simples
+      if (salvo.modoAvancado === undefined && salvo.boasVindasConcluida === true) this.data.modoAvancado = true;
       if (!('nivelRaciocinio' in salvo)) {
         const inverso = { normal: 'leve', media: 'medio', alta: 'alto' };
         this.data.nivelRaciocinio = inverso[this.data.profundidadePesquisa] || 'leve';
