@@ -72,4 +72,21 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'novato — aviso de cautela: saúde, direito e dinheiro, só quando a pergunta é sobre a situação da pessoa (não conceito, não questão de prova); link de redirecionamento do Google não vira fonte',
+    tipo: 'unidade',
+    executar() {
+      const nucleo = require('../../src/agent/nucleo');
+      const aviso = (p) => nucleo.avisoDeCautela(p);
+      const { normalizar } = require('../../src/tools/search');
+      return [
+        /saúde/.test(aviso('Posso tomar dipirona com ibuprofeno?')) && /saúde/.test(aviso('Minha mãe toma remédio para pressão alta, pode tomar café?')) || 'saúde',
+        /direito/.test(aviso('Fui demitido por justa causa, tenho direito a quê?')) || 'direito',
+        /dinheiro/.test(aviso('Vale a pena investir no tesouro direto?')) || 'dinheiro',
+        !aviso('O que é o contrato social de uma empresa?') && !aviso('Quanto tempo uma calopsita vive?') && !aviso('Questão 1: segundo a Lei 8.906/94, posso?\nA) Sim\nB) Não') || 'sem aviso à toa',
+        /const cautela = avisoDeCautela\(pergunta, deps\.idioma\);/.test(ler('src/agent/nucleo/index.js')) || 'no fim da resposta',
+        typeof normalizar !== 'function' || normalizar([{ url: 'https://www.google.com/goto?url=CAESbQ', titulo: 'x' }, { url: 'https://farmacerto.com/a', titulo: 'y' }], 'searxng').map((r) => r.url).join() === 'https://farmacerto.com/a' || 'sem redirecionamento do Google',
+      ];
+    },
+  },
 ];

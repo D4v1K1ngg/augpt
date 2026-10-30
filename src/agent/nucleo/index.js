@@ -977,6 +977,29 @@ function tamanhoNaMedida(pergunta, tamanho = 'normal', { produto = false } = {})
   return simples ? 'curta' : tamanho;
 }
 
+/*
+ * Aviso de cautela (30/10, análise do novato: o 9B errou uma questão da OAB lendo a lei certa, e quem está começando
+ * confia porque "tem fontes"). Uma linha no fim quando a pergunta é sobre a SITUAÇÃO da pessoa em saúde, direito ou
+ * dinheiro — não em toda menção ao assunto, nem em questão de prova.
+ */
+const AREAS_DE_CAUTELA = [
+  [/\b(rem[eé]dios?|medicamentos?|dose|dosagem|sintomas?|doen[cç]a|tratamento|diagn[oó]stico|gr[aá]vida|gravidez|febre|press[aã]o alta|diabetes|antibi[oó]tico|posso tomar|faz mal|efeito colateral|dor (de|no|na|nas|nos))\b/i,
+    'Informação geral sobre saúde: para o seu caso, confirme com um médico ou farmacêutico.', 'General health information: for your case, check with a doctor or pharmacist.'],
+  [/\b(processar|processo (trabalhista|judicial|na justi[cç]a)|advogad[oa]|direitos? (trabalhistas?|do consumidor)|contrato|indeniza[cç][aã]o|demiss[aã]o|justa causa|rescis[aã]o|pens[aã]o aliment[ií]cia|div[oó]rcio|heran[cç]a|invent[aá]rio|usucapi[aã]o|a[cç][aã]o judicial)\b/i,
+    'Informação geral sobre direito: para o seu caso, confirme com um advogado ou a Defensoria Pública.', 'General legal information: for your case, check with a lawyer.'],
+  [/\b(investir|investimentos?|a[cç][oõ]es da|bolsa de valores|criptomoedas?|bitcoin|renda fixa|tesouro direto|cdb|empr[eé]stimo|financiamento|d[ií]vidas?|imposto de renda|aposentadoria|previd[eê]ncia)\b/i,
+    'Informação geral sobre dinheiro: antes de decidir, confira os números e, se precisar, fale com um especialista.', 'General financial information: before deciding, check the numbers and, if needed, talk to a professional.'],
+];
+function avisoDeCautela(pergunta, idioma = 'pt') {
+  const t = String(pergunta || '');
+  // a situação da pessoa ("posso tomar…?", "fui demitido…", "vale a pena investir…?"), não a pergunta de conceito
+  // ("o que é o contrato social?")
+  const pessoal = /(?<![a-zà-ú])(eu|meu|minha|meus|minhas|posso|devo|estou|t[oô]|fui|tenho|vale a pena|o que fa[cç]o|me (receitaram|demitiram|mandaram)|minha m[aã]e|meu pai|meu filho|minha filha)(?![a-zà-ú])/i;
+  if (!t || QUESTAO_DE_PROVA(t) || !pessoal.test(t)) return '';
+  const area = AREAS_DE_CAUTELA.find(([re]) => re.test(t));
+  return area ? (idioma === 'en' ? area[2] : area[1]) : '';
+}
+
 /** O começo de uma resposta anterior (até ~700 letras, terminando numa frase), sem as fontes nem os blocos. */
 function comecoDaResposta(texto) {
   const t = semImagens(String(texto || '')).split(/\n-{3,}\s*\n/)[0].replace(/```[\s\S]*?```/g, ' ').trim();
@@ -1649,9 +1672,12 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   if (oferta && !jaOfereceu) conferido.texto = `${conferido.texto.trim()}\n\n${oferta}`;
   const comGraficos = recolocarGraficos(conferido.texto, graf.graficos);
   const avisoDaFoto = deps.idioma === 'en' ? '*From the photo, the model was recognized by its looks: its name is not written in the image, so it may be a similar one from the same line.*' : '*Pela foto, o modelo foi reconhecido pela aparência — o nome dele não está escrito na imagem, então pode ser outro parecido da mesma linha.*';
-  const texto = pelaAparencia ? `${avisoDaFoto}\n\n${comGraficos}` : comGraficos;
+  const comFoto = pelaAparencia ? `${avisoDaFoto}\n\n${comGraficos}` : comGraficos;
+  // direito, saúde e dinheiro (30/10, análise do novato): o modelo pode errar (a questão da OAB) e o erro custa caro
+  const cautela = avisoDeCautela(pergunta, deps.idioma);
+  const texto = cautela ? `${comFoto}\n\n*${cautela}*` : comFoto;
   etapa('conferencia', inicioDaConferencia);
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

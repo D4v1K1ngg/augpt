@@ -13,6 +13,9 @@ function normalizar(lista, fonte) {
   const vistos = new Set();
   return lista
     .filter((r) => r.url && /^https?:\/\//i.test(r.url))
+    // link de redirecionamento do Google (30/10, no app: "google.com/goto?url=CAESbQ…" como fonte — o site de verdade
+    // fica escondido num código, e nem o filtro de imitação nem o leitor sabem de quem é)
+    .filter((r) => !/^https?:\/\/(?:www\.)?google\.[a-z.]+\/(?:goto|url)\b/i.test(r.url))
     .filter((r) => {
       const chave = r.url.replace(/[#?].*$/, '');
       if (vistos.has(chave)) return false;
