@@ -976,11 +976,14 @@ ipcMain.handle('skills:preview', async (_e, texto) => {
   };
 });
 
-ipcMain.handle('agent:start', async (_e, { objetivo, conversa, idConversa } = {}) => {
+ipcMain.handle('agent:start', async (_e, { objetivo, conversa, idConversa, porVoz = false } = {}) => {
   if (agent?.rodando) return { ok: false, error: 'Já existe uma execução em andamento.' };
   pararConferencia(); // a checagem da agenda em segundo plano não disputa o modelo com você
   await garantirBuscaEmbutida();
   criarAgente(idConversa);
+  // 30/10: pedido pela voz — a voz fala só o começo, e a "detalhada" escrevia tudo antes de terminar (escrita com
+  // 16 s de mediana nas pesquisas do Davi). Só neste pedido; digitando, vale o que está em Ajustes
+  if (porVoz === true && agent.config.modoResposta === 'detalhada') agent.config = { ...agent.config, modoResposta: 'normal' };
   // Peça "resumo de conversa" 2026-09-21: o resumo acumulado (se esta
   // conversa já tiver um, de uma fusão anterior) mora no próprio JSON da
   // conversa — lido aqui, síncrono, antes de disparar run(), e devolvido de
@@ -1401,13 +1404,17 @@ ipcMain.handle('ditado:pedidoDeVoz', async (_e, bytes) => {
   }
 });
 // a correção pelo modelo (Ajustes → Geral): só ortografia e palavras ouvidas errado; na dúvida, fica o original
-ipcMain.handle('ditado:corrigir', async (_e, texto) => {
+ipcMain.handle('ditado:corrigir', async (_e, texto, contexto = '') => {
   const original = String(texto || '').slice(0, 2000).trim();
+  // 30/10: soa como uma das respostas que o AuGPT sugeriu ("Pais testa." → "pode testar")? vira ela, na hora, sem o
+  // modelo (que mantinha o "Pais testa." mesmo sabendo da pergunta) — vale até com a correção desligada
+  const sugerida = original ? require('../src/ditado').respostaSugeridaParecida(original, contexto) : null;
+  if (sugerida) return { ok: true, texto: sugerida, corrigiu: sugerida !== original, sugerida: true };
   if (!original || config.data.ditadoCorrigir === false) return { ok: true, texto: original, corrigiu: false };
   const { pedidoDeCorrecao, correcaoAceitavel } = require('../src/ditado');
   try {
     const cfg = configParaAgente();
-    const r = await ollama.chat({ host: cfg.host, model: cfg.model, messages: [{ role: 'user', content: pedidoDeCorrecao(original, idiomaEfetivo()) }], pensar: false, temperature: 0.1, numPredict: 400, numCtx: 4096, signal: AbortSignal.timeout(20000) });
+    const r = await ollama.chat({ host: cfg.host, model: cfg.model, messages: [{ role: 'user', content: pedidoDeCorrecao(original, idiomaEfetivo(), String(contexto || '').slice(-1500)) }], pensar: false, temperature: 0.1, numPredict: 400, numCtx: 4096, signal: AbortSignal.timeout(20000) });
     const corrigido = correcaoAceitavel(original, r.content);
     return { ok: true, texto: corrigido || original, corrigiu: Boolean(corrigido && corrigido !== original) };
   } catch (err) {

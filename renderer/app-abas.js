@@ -53,7 +53,8 @@ async function enviarPedido() {
   anexosParaPainel.forEach((a) => adicionarSaida({ caminho: a.relativo, tamanho: a.tamanho, tipo: 'anexado' }));
   agente.conversa.push({ role: 'user', content: pedidoCompleto });
 
-  const r = await api.agent.start(pedidoCompleto, agente.conversa.slice(0, -1), agente.idConversa);
+  // pedido pela voz (30/10): a resposta não sai "detalhada" — a voz fala só o começo dela
+  const r = await api.agent.start(pedidoCompleto, agente.conversa.slice(0, -1), agente.idConversa, { porVoz: window.falaPorVoz?.pedidoPorVoz === true });
   if (!r.ok) manipuladores.erro({ mensagem: r.error, amigavel: r.amigavel });
 }
 

@@ -245,6 +245,8 @@
     const replica = g.replica;
     try {
       avisar(tr('Transcrevendo…'));
+      // a última resposta do AuGPT vai para a correção (30/10): "pode testar" depois da oferta do teste saía "Pais testa"
+      const ultima = [...(typeof agente !== 'undefined' ? agente.conversa : [])].reverse().find((m) => m.role === 'assistant')?.content || '';
       const r = await api.ditado.pedidoDeVoz(await window.ditadoPorVoz.paraWav(audio, g.taxa));
       if (!r.ok) throw new Error(r.error);
       const ocupado = a.enviar.classList.contains('parando');
@@ -274,10 +276,10 @@
         avisar(tr('O agente ainda está respondendo. Espere terminar ou diga "{nome}, para".', { nome: nome() }), 7000);
       } else {
         let texto = r.pedido;
-        if (config.ditadoCorrigir !== false) {
-          avisar(tr('Corrigindo o texto…'));
-          texto = (await api.ditado.corrigir(texto).catch(() => null))?.texto || texto;
-        }
+        // sempre passa pela correção (30/10): a resposta sugerida ("pode testar") é reconhecida mesmo com a correção
+        // pelo modelo desligada — o processo principal decide
+        if (config.ditadoCorrigir !== false) avisar(tr('Corrigindo o texto…'));
+        texto = (await api.ditado.corrigir(texto, String(ultima).slice(-1500)).catch(() => null))?.texto || texto;
         avisar('');
         // "Ei GPT, o que é isso na tela?": captura a tela inteira e manda junto (renderer/tela.js)
         // pedido pela voz: a resposta pode ser falada (renderer/fala.js, "Quando falar")

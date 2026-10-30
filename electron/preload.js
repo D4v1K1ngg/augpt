@@ -58,7 +58,8 @@ contextBridge.exposeInMainWorld('augpt', {
     vozDoUsuario: () => ipcRenderer.invoke('ditado:vozDoUsuario'),
     chamada: (bytes, pelaVoz) => ipcRenderer.invoke('ditado:chamada', bytes, pelaVoz),
     pedidoDeVoz: (bytes) => ipcRenderer.invoke('ditado:pedidoDeVoz', bytes),
-    corrigir: (texto) => ipcRenderer.invoke('ditado:corrigir', texto),
+    // contexto (30/10): a última resposta do AuGPT — a fala pode ser a resposta à pergunta dele
+    corrigir: (texto, contexto = '') => ipcRenderer.invoke('ditado:corrigir', texto, contexto),
     trazerJanela: () => ipcRenderer.invoke('janela:trazer'),
   },
   fundo: {
@@ -123,7 +124,7 @@ contextBridge.exposeInMainWorld('augpt', {
     // idConversa (Peça 3, "memória curta", 2026-09-19): opcional — null
     // quando a conversa ainda não foi salva (primeiro turno). Repassado até
     // Agent.run() pra escopar o que for lido nesta execução à conversa.
-    start: (objetivo, conversa, idConversa) => ipcRenderer.invoke('agent:start', { objetivo, conversa, idConversa }),
+    start: (objetivo, conversa, idConversa, opcoes = {}) => ipcRenderer.invoke('agent:start', { objetivo, conversa, idConversa, porVoz: opcoes.porVoz === true }),
     // 29/10: o modelo principal carregado antes da pergunta (abrir o app, "Ei Jarvis", começar a digitar)
     aquecer: () => ipcRenderer.invoke('agent:aquecer'),
     stop: () => ipcRenderer.invoke('agent:stop'),

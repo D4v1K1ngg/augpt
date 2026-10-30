@@ -289,8 +289,59 @@ function comandoDeVoz(texto) {
   return null;
 }
 
+/**
+ * O que o AuGPT acabou de perguntar ou oferecer (30/10, conversa do Davi: depois de 'Responda "pode testar" para
+ * seguir, ou "só o ping"', o "pode testar" falado saiu "Pais testa." e virou pesquisa): a última pergunta do fim da
+ * resposta anterior e as respostas que ele mesmo sugeriu entre aspas — vão para a CORREÇÃO pelo modelo, não para o
+ * Whisper: frase na dica (--prompt) ele trata como já dita e tira da transcrição (25/10, com o "Ei GPT").
+ * @returns {{ pergunta: string, respostas: string[] }}
+ */
+function contextoDaFala(resposta) {
+  const t = String(resposta || '').split(/\n-{3,}\s*\n/)[0].replace(/```[\s\S]*?```/g, ' ').replace(/[*_#`>|]/g, ' ').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim().slice(-500);
+  const perguntas = t.match(/[^.!?]*\?/g);
+  const respostas = [...t.matchAll(/["“]([^"”]{1,40})["”]/g)].map((m) => m[1].trim()).filter((r) => r && r.split(/\s+/).length <= 6);
+  return { pergunta: perguntas ? perguntas[perguntas.length - 1].trim().slice(-200) : '', respostas: [...new Set(respostas)].slice(0, 4) };
+}
+
+/**
+ * A fala curta que soa como uma das respostas que o AuGPT sugeriu vira essa resposta (30/10: "Pais testa." era
+ * "pode testar" — e nem com o contexto o modelo da correção trocava). Mesmo número de palavras (±1), cada palavra
+ * com a mesma inicial ("pode parar" não vira "pode testar") e no máximo ~45% de letras diferentes.
+ */
+function respostaSugeridaParecida(texto, contexto = '') {
+  const { respostas } = contextoDaFala(contexto);
+  if (!respostas.length) return null;
+  const limpa = (s) => String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const a = limpa(texto);
+  const pa = a.split(' ').filter(Boolean);
+  if (!pa.length || pa.length > 5) return null;
+  for (const r of respostas) {
+    const b = limpa(r);
+    const pb = b.split(' ').filter(Boolean);
+    if (a === b) return r;
+    if (Math.abs(pa.length - pb.length) > 1) continue;
+    const pares = Math.min(pa.length, pb.length);
+    let mesmasIniciais = true;
+    for (let i = 0; i < pares; i += 1) if (pa[i][0] !== pb[i][0]) mesmasIniciais = false;
+    if (mesmasIniciais && distancia(a, b) <= Math.max(2, b.length * 0.45)) return r;
+  }
+  return null;
+}
+
+/** O pedido para o modelo corrigir o que o Whisper ouviu (com o que o AuGPT acabou de perguntar, se houver). */
+function pedidoDeCorrecao(texto, idioma = 'pt', contexto = '') {
+  const { pergunta, respostas } = contextoDaFala(contexto);
+  if (!pergunta && !respostas.length) return pedidoDeCorrecaoSemContexto(texto, idioma);
+  const disse = [pergunta && `perguntou: "${pergunta}"`, respostas.length && `sugeriu responder: ${respostas.map((r) => `"${r}"`).join(' ou ')}`].filter(Boolean).join('; e ');
+  return `${pedidoDeCorrecaoSemContexto(texto, idioma).replace(/\n\nTranscrição: [\s\S]*$/, '')}
+Logo antes, o AuGPT ${disse}. A fala pode ser a resposta a isso — se a transcrição soa parecida com uma dessas respostas, corrija para ela.
+
+Transcrição: ${texto}`;
+}
+
 /** O pedido para o modelo corrigir o que o Whisper ouviu. */
-function pedidoDeCorrecao(texto, idioma = 'pt') {
+
+function pedidoDeCorrecaoSemContexto(texto, idioma = 'pt') {
   return `Você corrige transcrições de fala feitas por reconhecimento de voz${idioma === 'en' ? ' (em inglês)' : ' (em português do Brasil)'}.
 São pedidos para o AuGPT, um assistente no computador que pesquisa na web, compara preços em lojas, vê o clima, mostra mapas e rotas, marca lembretes na agenda, faz teste de rede (velocidade, ping), vê vídeos do YouTube e responde sobre o PC.
 Corrija SÓ: palavras ouvidas errado (pelo sentido da frase — ex.: "ritmo de rede" → "teste de rede", "pingue" → "ping"), ortografia, acentos, pontuação e nomes de produtos, marcas e termos de tecnologia (ex.: "RTX 5080", "Ryzen 7 9800X3D", "PlayStation 5", "PUBG").
@@ -537,4 +588,4 @@ class Ditado {
   }
 }
 
-module.exports = { limparPedidoFalado, definirNome, nomeAtual, lembraONome, lembraVariante, temSomDoNome, temSomDeGPT, Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel };
+module.exports = { limparPedidoFalado, definirNome, nomeAtual, lembraONome, lembraVariante, temSomDoNome, temSomDeGPT, Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel, contextoDaFala, respostaSugeridaParecida };

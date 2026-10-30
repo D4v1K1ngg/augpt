@@ -15,6 +15,26 @@ const ler = (f) => fs.readFileSync(path.join(__dirname, '../..', f), 'utf8');
 
 module.exports = [
   {
+    nome: 'voz (30/10): fala curta que soa como a resposta que o AuGPT sugeriu vira ela ("Pais testa." → "pode testar"; "pode parar" não); pedido pela voz não sai "detalhado"',
+    tipo: 'unidade',
+    executar() {
+      const d = require('../../src/ditado');
+      const rede = 'Posso medir a sua internet agora.\n\nResponda **"pode testar"** para seguir, ou **"só o ping"** para medir só a latência, quase sem gastar dados.';
+      const sim = 'Quer que eu acompanhe **RTX 60**? É só responder **"sim"**.';
+      const main = ler('electron/main.js');
+      return [
+        d.respostaSugeridaParecida('Pais testa.', rede) === 'pode testar' || d.respostaSugeridaParecida('Pais testa.', rede),
+        d.respostaSugeridaParecida('Só o pinguim.', rede) === 'só o ping' || 'só o ping',
+        d.respostaSugeridaParecida('Pode parar.', rede) === null && d.respostaSugeridaParecida('Qual a previsão do tempo?', rede) === null || 'o que não é resposta fica',
+        d.respostaSugeridaParecida('Sim.', sim) === 'sim' && d.respostaSugeridaParecida('Pais testa.', 'Resposta sem sugestão.') === null || 'sem sugestão, nada',
+        /const sugerida = original \? require\('\.\.\/src\/ditado'\)\.respostaSugeridaParecida\(original, contexto\) : null;\s*if \(sugerida\) return/.test(main) || 'antes do modelo, mesmo com a correção desligada',
+        !/'--prompt'/.test(ler('src/ditado.js')) || 'nada de dica no Whisper (ele tira a frase da dica)',
+        /if \(porVoz === true && agent\.config\.modoResposta === 'detalhada'\) agent\.config = \{ \.\.\.agent\.config, modoResposta: 'normal' \};/.test(main) || 'voz não sai detalhada',
+        /porVoz: window\.falaPorVoz\?\.pedidoPorVoz === true/.test(ler('renderer/app-abas.js')) || 'a tela avisa que veio pela voz',
+      ];
+    },
+  },
+  {
     nome: 'sites certos: loja falsa com o nome da marca e nome quase igual ao de site conhecido são imitação; os de verdade (e os parecidos legítimos) não',
     tipo: 'unidade',
     executar() {
