@@ -1217,6 +1217,15 @@ function pintarComponentes() {
   $('btnCompYtInstalar').textContent = y.instalado ? 'Atualizar o yt-dlp' : 'Instalar o yt-dlp (18 MB)';
   $('btnCompYtVoltar').hidden = !y.temAnterior;
   $('sitYoutube').textContent = y.instalado ? (y.atualizar ? `atualização ${y.disponivel} disponível` : 'instalado') : 'não instalado';
+  // ffmpeg (30/10)
+  const ff = componentes?.ffmpeg || {};
+  if ($('compFfInstalada')) {
+    $('compFfInstalada').textContent = ff.instalado ? (ff.instalada === 'instalado' ? 'instalado' : ff.instalada) : ff.suportado === false ? 'não disponível neste sistema' : 'não instalado';
+    $('compFfDisponivel').textContent = ff.disponivel ? (ff.atualizar ? `${ff.disponivel} — atualização disponível` : `${ff.disponivel}${ff.instalado ? ' · em dia ✓' : ''}`) : 'não consegui consultar';
+    $('btnCompFfInstalar').hidden = ff.suportado === false || (ff.instalado && !ff.atualizar);
+    $('btnCompFfInstalar').textContent = ff.instalado ? 'Atualizar o ffmpeg' : `Instalar o ffmpeg (${ff.tamanhoMB || 87} MB)`;
+    $('btnCompFfVoltar').hidden = !ff.temAnterior;
+  }
   const t = componentes?.tesseract || {};
   $('compOcrInstalada').textContent = t.instalada ? `${t.instalada}${t.faltamIdiomas ? ' — faltam os idiomas' : ''}` : 'não instalado';
   $('compOcrDisponivel').textContent = t.disponivel ? (t.atualizar ? `${t.disponivel} — atualização disponível` : `${t.disponivel}${t.instalada ? ' · em dia ✓' : ''}`) : 'não consegui consultar';
@@ -1326,6 +1335,22 @@ $('btnCompImgVoltar').addEventListener('click', async () => {
   if (!confirm('Voltar o gerador de imagens para a versão anterior do programa?')) return;
   const r = await api.componentes.voltarImagem();
   $('compImgStatus').textContent = r.ok ? `voltou para ${r.info?.versao || 'a anterior'}` : `erro: ${r.error}`;
+  await carregarModelosEComponentes();
+});
+
+$('btnCompFfInstalar')?.addEventListener('click', async () => {
+  const btn = $('btnCompFfInstalar');
+  btn.disabled = true;
+  $('compFfStatus').textContent = 'começando…';
+  const r = await api.componentes.instalarFfmpeg();
+  btn.disabled = false;
+  $('compFfStatus').textContent = r.ok ? 'pronto ✓ — os downloads saem em 1080p e em MP3' : `erro: ${r.error}`;
+  await carregarModelosEComponentes();
+});
+$('btnCompFfVoltar')?.addEventListener('click', async () => {
+  if (!confirm('Voltar o ffmpeg para a versão anterior?')) return;
+  const r = await api.componentes.voltarFfmpeg();
+  $('compFfStatus').textContent = r.ok ? `voltou para ${r.estado.instalada}` : `erro: ${r.error}`;
   await carregarModelosEComponentes();
 });
 

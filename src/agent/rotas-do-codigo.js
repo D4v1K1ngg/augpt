@@ -24,6 +24,7 @@ const clima = require('./clima-no-chat');
 const mapa = require('./mapa-no-chat');
 const agenda = require('./agenda-no-chat');
 const compras = require('./compras-no-chat');
+const midia = require('./midia-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -70,6 +71,13 @@ const ROTAS = [
     detecta: ({ objetivo }) => mapa.pedidoDeMapa(objetivo),
     intencao: (objetivo) => mapa.intencaoDeMapa(objetivo),
     responde: ({ objetivo, conversa, deps, config, pasta, ent }, pedido) => mapa.responderMapa({ pergunta: objetivo, conversa, deps, config, pasta, lugares: ent?.lugares, ...(pedido ? { pedido } : {}) }),
+  },
+  {
+    // "baixa esse vídeo <link>", "baixa a música X em MP3" (30/10): o cartão com os botões Vídeo / Só o áudio;
+    // quem baixa é o processo principal, no clique (src/midia.js)
+    id: 'baixar_midia',
+    detecta: ({ objetivo }) => midia.pedidoDeMidia(objetivo),
+    responde: ({ deps, config, pasta, dirImagens }, pedido) => midia.responderMidia({ pedido, deps, config, pasta, dirImagens }),
   },
   {
     // "quanto está a RTX 5080?", "preço do PS5 Slim", "onde comprar o G Pro X Superlight 2" (24/10):

@@ -1010,6 +1010,18 @@
           </div>
           <div class="teste-resultado" id="compYtStatus"></div>
         </section>
+        <!-- 30/10: ffmpeg (src/ffmpeg.js) -->
+        <section class="grupo">
+          <h2>Vídeo e áudio (ffmpeg)</h2>
+          <p class="dica">Usado para baixar vídeos e músicas: junta o vídeo e o áudio em alta qualidade (1080p) e converte para MP3. Vem do próprio projeto do yt-dlp; cada atualização tem o SHA-256 conferido, e a versão de antes fica guardada.</p>
+          <div class="linha"><span>Instalado</span><span class="situacao" id="compFfInstalada">—</span></div>
+          <div class="linha"><span>Mais recente</span><span class="situacao" id="compFfDisponivel">—</span></div>
+          <div class="linha-botoes">
+            <button class="btn-primario" id="btnCompFfInstalar" hidden>Instalar</button>
+            <button class="btn-secundario" id="btnCompFfVoltar" hidden>Voltar à versão anterior</button>
+          </div>
+          <div class="teste-resultado" id="compFfStatus"></div>
+        </section>
         <section class="grupo">
           <h2>Texto de imagens (Tesseract)</h2>
           <p class="dica">Lê o texto de prints, fotos de documento e notas fiscais letra a letra, sem IA e sem internet. Ajuda o modelo a não errar números e nomes quando você anexa uma imagem. Instala o pacote oficial pelo winget (o Windows pode pedir permissão de administrador) e os idiomas português e inglês.</p>
@@ -1342,6 +1354,7 @@
 <script src="vendor/maplibre-gl-5.24.0/maplibre-gl-csp.js"></script>
 <script src="mapa.js"></script>
 <script src="compras.js"></script>
+<script src="midia.js"></script>
 <script src="md.js"></script>
 <script src="app.js"></script>
 <script src="app-eventos.js"></script>

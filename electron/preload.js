@@ -34,6 +34,14 @@ contextBridge.exposeInMainWorld('augpt', {
     mostrarNaPasta: (caminho) => ipcRenderer.invoke('imagem:mostrarNaPasta', { caminho }),
   },
   // a voz do AuGPT (27/10)
+  // baixar vídeos e músicas (30/10, src/midia.js)
+  midia: {
+    estado: () => ipcRenderer.invoke('midia:estado'),
+    baixar: (dados) => ipcRenderer.invoke('midia:baixar', dados),
+    cancelar: (id) => ipcRenderer.invoke('midia:cancelar', id),
+    mostrar: (id) => ipcRenderer.invoke('midia:mostrar', id),
+    abrir: (id) => ipcRenderer.invoke('midia:abrir', id),
+  },
   voz: {
     estado: () => ipcRenderer.invoke('voz:estado'),
     instalar: () => ipcRenderer.invoke('voz:instalar'),
@@ -90,6 +98,8 @@ contextBridge.exposeInMainWorld('augpt', {
     atualizarOllama: () => ipcRenderer.invoke('componentes:atualizarOllama'),
     instalarYtdlp: () => ipcRenderer.invoke('componentes:instalarYtdlp'),
     voltarYtdlp: () => ipcRenderer.invoke('componentes:voltarYtdlp'),
+    instalarFfmpeg: () => ipcRenderer.invoke('componentes:instalarFfmpeg'),
+    voltarFfmpeg: () => ipcRenderer.invoke('componentes:voltarFfmpeg'),
     instalarTesseract: () => ipcRenderer.invoke('componentes:instalarTesseract'),
     instalarImagem: () => ipcRenderer.invoke('componentes:instalarImagem'),
     voltarImagem: () => ipcRenderer.invoke('componentes:voltarImagem'),

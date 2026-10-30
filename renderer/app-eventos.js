@@ -602,6 +602,10 @@ const manipuladores = {
     if (texto) $('compYtStatus').textContent = texto;
   },
 
+  'ffmpeg-progresso'({ texto }) {
+    if (texto && $('compFfStatus')) $('compFfStatus').textContent = texto;
+  },
+
   'ollama-instalacao-progresso'({ texto }) {
     if (texto) $('compOllamaStatus').textContent = texto;
   },

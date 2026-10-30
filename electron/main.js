@@ -36,6 +36,9 @@ const verificadorDeHardware = require('../src/verificador-de-hardware');
 const instaladorOllama = require('../src/instalador-ollama');
 const { YtDlp } = require('../src/ytdlp');
 const ytdlp = () => new YtDlp(path.join(app.getPath('userData'), 'componentes'));
+// ffmpeg (30/10): junta vídeo e áudio em 1080p e converte para MP3 nos downloads (src/ffmpeg.js)
+const { Ffmpeg } = require('../src/ffmpeg');
+const ffmpeg = () => new Ffmpeg(path.join(app.getPath('userData'), 'componentes', 'ffmpeg'));
 const { Tesseract } = require('../src/tesseract');
 const tesseract = () => new Tesseract(path.join(app.getPath('userData'), 'componentes'));
 const { GeradorDeImagens, recomendar: recomendarGerador, pastaPadrao: pastaDoGerador } = require('../src/gerador-de-imagens');
@@ -2249,8 +2252,68 @@ ipcMain.handle('utilitarios:listar', () => require('../src/agent/capacidades').u
 
 ipcMain.handle('componentes:estado', async () => {
   const computador = await verificadorDeHardware.verificarComputador();
-  const [o, y, t, g] = await Promise.all([instaladorOllama.versoesDoOllama(config.data.host), ytdlp().estado(), tesseract().estado(), gerador().estado(computador)]);
-  return { ollama: o, ytdlp: y, tesseract: t, imagem: g, busca: searxngRuntime.estado() };
+  const [o, y, t, g, f] = await Promise.all([instaladorOllama.versoesDoOllama(config.data.host), ytdlp().estado(), tesseract().estado(), gerador().estado(computador), ffmpeg().estado()]);
+  return { ollama: o, ytdlp: y, tesseract: t, imagem: g, ffmpeg: f, busca: searxngRuntime.estado() };
+});
+
+// ffmpeg (30/10): instala/atualiza conferindo o SHA-256; a versão de antes fica guardada — igual ao yt-dlp
+ipcMain.handle('componentes:instalarFfmpeg', async () => {
+  try {
+    return { ok: true, estado: await ffmpeg().instalar({ emitir: (p) => enviar('ffmpeg-progresso', p) }) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+/*
+ * Baixar vídeos e músicas (30/10, src/midia.js): no clique do cartão ```midia. Salva em Downloads\AuGPT. "Mostrar na
+ * pasta" e "Abrir" só valem para o que o próprio AuGPT baixou (guardado aqui por id) — o cartão não passa caminho.
+ */
+const pastaDeDownloads = () => path.join(app.getPath('downloads'), 'AuGPT');
+const midiaBaixada = new Map(); // id do cartão → caminho do arquivo baixado
+const midiaBaixando = new Map(); // id → AbortController
+ipcMain.handle('midia:estado', () => ({ ytdlp: ytdlp().instalado(), ffmpeg: ffmpeg().instalado(), pasta: pastaDeDownloads() }));
+ipcMain.handle('midia:baixar', async (_e, { id, url, tipo } = {}) => {
+  const chave = String(id || '');
+  if (!chave || midiaBaixando.has(chave)) return { ok: false, error: 'já está baixando' };
+  if (!ytdlp().instalado()) return { ok: false, error: 'instale o yt-dlp em Ajustes → Componentes' };
+  const { Midia } = require('../src/midia');
+  const controle = new AbortController();
+  midiaBaixando.set(chave, controle);
+  try {
+    const m = new Midia({ ytdlp: ytdlp().caminho, ffmpegDir: ffmpeg().dir, pasta: pastaDeDownloads() });
+    const r = await m.baixar(String(url || ''), { tipo: tipo === 'audio' ? 'audio' : 'video', signal: controle.signal, emitir: (p) => enviar('midia-progresso', { id: chave, ...p }) });
+    midiaBaixada.set(chave, r.arquivo);
+    return { ok: true, nome: path.basename(r.arquivo), bytes: r.bytes, pasta: pastaDeDownloads() };
+  } catch (err) {
+    const mudou = require('../src/ytdlp').pareceMudancaDoYouTube(err.message);
+    return { ok: false, error: mudou ? `${err.message} — o YouTube pode ter mudado: atualize o yt-dlp em Ajustes → Componentes` : err.message };
+  } finally {
+    midiaBaixando.delete(chave);
+  }
+});
+ipcMain.handle('midia:cancelar', (_e, id) => {
+  midiaBaixando.get(String(id || ''))?.abort();
+  return { ok: true };
+});
+ipcMain.handle('midia:mostrar', (_e, id) => {
+  const arquivo = midiaBaixada.get(String(id || ''));
+  if (!arquivo || !fs.existsSync(arquivo)) return { ok: false, error: 'o arquivo não está mais lá' };
+  shell.showItemInFolder(arquivo);
+  return { ok: true };
+});
+ipcMain.handle('midia:abrir', async (_e, id) => {
+  const arquivo = midiaBaixada.get(String(id || ''));
+  // só o que o AuGPT baixou, e só vídeo ou áudio
+  if (!arquivo || !fs.existsSync(arquivo) || !/\.(mp4|mp3|m4a|webm|mkv|opus)$/i.test(arquivo)) return { ok: false, error: 'o arquivo não está mais lá' };
+  const erro = await shell.openPath(arquivo);
+  return erro ? { ok: false, error: erro } : { ok: true };
+});
+ipcMain.handle('componentes:voltarFfmpeg', async () => {
+  try {
+    return { ok: true, estado: await ffmpeg().voltar() };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 });
 
 // yt-dlp (Fase 3): instala/atualiza conferindo o SHA-256; a versão de antes fica guardada
