@@ -37,14 +37,16 @@ const RISCO_FORA = new Set(['alto', 'bloqueado']);
 const PRAZO_DA_PAGINA_MS = 8000;
 // depois que uma página da rodada fica pronta, quanto as outras ainda podem demorar (27/10)
 const FOLGA_DA_RODADA_MS = 3000;
-function comCredibilidade(ordenados, { comunidade = false, maximo = 8, porSite = 2, jaVistos = [] } = {}) {
+function comCredibilidade(ordenados, { comunidade = false, maximo = 8, porSite = 2, jaVistos = [], oficiais = [] } = {}) {
   const contagem = new Map();
   for (const f of jaVistos) contagem.set(dominio(f.url), (contagem.get(dominio(f.url)) || 0) + 1);
   return ordenados
     .map((r) => {
       const q = qualidadeDoDominio(r.url);
       const peso = comunidade && /fórum|rede social|blog/.test(q.tipo) ? 3 : q.peso;
-      return { ...r, qualidade: q.tipo, alerta: q.alerta || null, notaFinal: (r.nota || 0) + (peso - 3) * 0.03 };
+      // 30/10: a pergunta cita a marca ou o órgão — o site oficial dele passa na frente ("fone da Bose" → bose.com)
+      const oficial = doSiteOficial(r.url, oficiais);
+      return { ...r, qualidade: oficial ? `${q.tipo} · site oficial` : q.tipo, alerta: q.alerta || null, notaFinal: (r.nota || 0) + (peso - 3) * 0.03 + (oficial ? 0.2 : 0) };
     })
     .filter((r) => !RISCO_FORA.has(r.alerta?.risco))
     .sort((a, b) => b.notaFinal - a.notaFinal)
@@ -58,6 +60,7 @@ function comCredibilidade(ordenados, { comunidade = false, maximo = 8, porSite =
     .slice(0, maximo);
 }
 const { tituloCita } = require('../../tools/imagens');
+const { oficiaisDaPergunta, doSiteOficial } = require('../../tools/imitacao');
 const { separarGraficos, recolocarGraficos, graficoDoTexto, pedeGrafico, INSTRUCAO_DE_GRAFICO, INSTRUCAO_DE_VISUAL } = require('./graficos');
 const capacidades = require('../capacidades');
 
@@ -489,6 +492,7 @@ const PEDE_APARENCIA = /\b(apar[eê]ncia|aparenta|visual|design|cor|cores|bonit\
 
 async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [], imagemAnexada = '', atual = false, sobreOUsuario = '', linksDoUsuario = [], buscasIniciais = [] }) {
   const { chamar, buscar, lerPagina, embed, emit = () => {}, signal, buscarNaComunidade } = deps;
+  const oficiais = oficiaisDaPergunta(pergunta);
   // comunidade (15/10, pedido do Davi): em pedido de produto, Reddit e fóruns entram sempre
   const comComunidade = produto && typeof buscarNaComunidade === 'function';
   const comYoutube = typeof deps.buscarNoYoutube === 'function' && typeof deps.verVideo === 'function' && modo !== 'rapido';
@@ -553,7 +557,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     // ordena pelo que a pergunta + as buscas pedem; o pesquisador vê os 8 melhores novos
     const novos = achados.filter((r) => r?.url && !porUrl.has(r.url)).map((r) => ({ ...r, texto: `${r.titulo || ''} ${r.resumo || ''}` }));
     const relevantes = await ordenar(`${pergunta} ${lista.join(' ')}`, novos, { embed, maximo: 16 });
-    const ordenados = comCredibilidade(relevantes, { comunidade, maximo: 8, jaVistos: fontes });
+    const ordenados = comCredibilidade(relevantes, { comunidade, maximo: 8, jaVistos: fontes, oficiais });
     const mostrados = [];
     for (const r of ordenados) {
       if (porUrl.has(r.url)) continue;
@@ -834,7 +838,7 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
   if (lidas() < regras.minLeituras && !signal?.aborted) {
     const faltam = regras.minLeituras - lidas();
     const naoLidas = fontes.filter((f) => !f.trechos.length && !f.alerta).map((f) => ({ f, url: f.url, texto: `${f.titulo} ${f.resumo}` }));
-    const ordenadas = comCredibilidade(await ordenar(pergunta, naoLidas, { embed }), { comunidade: false, maximo: Infinity, porSite: Infinity }).map((x) => x.f);
+    const ordenadas = comCredibilidade(await ordenar(pergunta, naoLidas, { embed }), { comunidade: false, maximo: Infinity, porSite: Infinity, oficiais }).map((x) => x.f);
     // só página que cita o assunto: faltando, lê menos — completar a conta com página fora do assunto
     // (17/10, um tópico de SSD num pedido de fone) piora a resposta em vez de melhorar
     const ordem = ordenadas.filter(citaAssunto);
@@ -958,6 +962,15 @@ function tamanhoNaMedida(pergunta, tamanho = 'normal', { produto = false } = {})
   if (/\b(detalh|explique|explica|compar|diferenc|analis|relatorio|guia|passo a passo|como|por ?que|vale a pena|melhor|recomend|dicas?|resum|liste|todos|tudo)\w*/.test(t)) return tamanho;
   const simples = palavras <= 10 && /^(e )?(qual|quais|quanto|quantos|quantas|quem|quando|onde|o que (e|significa)|que (horas|dia)|existe|tem|e verdade|ja (saiu|lancou))\b/.test(t);
   return simples ? 'curta' : tamanho;
+}
+
+/** O começo de uma resposta anterior (até ~700 letras, terminando numa frase), sem as fontes nem os blocos. */
+function comecoDaResposta(texto) {
+  const t = semImagens(String(texto || '')).split(/\n-{3,}\s*\n/)[0].replace(/```[\s\S]*?```/g, ' ').trim();
+  if (t.length <= 800) return t;
+  const corte = t.slice(0, 700);
+  const fim = Math.max(corte.lastIndexOf('. '), corte.lastIndexOf('.\n'));
+  return `${corte.slice(0, fim > 300 ? fim + 1 : 700).trim()} […]`;
 }
 
 // 29/10 (Davi, olhando as respostas): "Aqui está uma explicação detalhada…", "Abaixo, detalho…" e o "Em resumo"
@@ -1491,7 +1504,9 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const preferencias = typeof deps.preferencias === 'function' ? String((await Promise.resolve(deps.preferencias(ent.pergunta || pergunta)).catch(() => '')) || '') : '';
   const mensagens = [
     { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
-    ...conversa.slice(-6).map((m) => ({ role: m.role, content: semImagens(m.content).slice(0, 2000) })),
+    // 30/10 (medido: ~5 s entre o fim da pesquisa e a 1ª palavra era o modelo lendo o material): das respostas
+    // anteriores vai só o começo, sem a lista de fontes — o assunto da conversa fica, o texto inteiro não precisa
+    ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
     { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pergunta },

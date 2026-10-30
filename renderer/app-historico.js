@@ -786,6 +786,11 @@ function linhasDeTempo(t = {}) {
     lista(t.somas) && `Somas:       ${lista(t.somas)} (em paralelo)`,
     buscadores && `Buscadores:  ${buscadores}${juntou ? ` · juntou: ${juntou}` : ''}`,
     Object.keys(t.falhas || {}).length && `Falharam:    ${Object.entries(t.falhas).map(([nome, f]) => `${nome} ${f.vezes}× (${f.motivo})`).join(' · ')}`,
+    // 30/10: os sites que mais demoraram para abrir (média acima de 3 s), e os que não abriram
+    (() => {
+      const lentos = Object.entries(t.sites || {}).map(([s, x]) => [s, x.ms / Math.max(1, x.vezes), x]).filter(([, media, x]) => media > 3000 || x.falhas).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      return lentos.length && `Sites lentos: ${lentos.map(([s, media, x]) => `${s} ${seg(media)}${x.falhas ? ` (${x.falhas} sem abrir)` : ''}`).join(' · ')}`;
+    })(),
   ].filter(Boolean);
 }
 

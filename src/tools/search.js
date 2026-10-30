@@ -231,6 +231,9 @@ async function ollamaWeb(consulta, { ollamaKey } = {}) {
  * de fontes é rígido: as primeiras da fila são as que serão lidas.
  */
 const PESOS = [
+  // 30/10 (pesquisas do Davi): sites de conteúdo genérico, escrito para aparecer na busca, que tomavam o lugar de
+  // fontes melhores — ficam por último (peso 0, como o dicionário). ponytail: lista fixa; entra o que reaparecer
+  [/(^|\.)(reviewstrails|thegadgettechworld|thewearify|whoismcafee|advancestudy|thirstybear|blacksheepmen|fypower|whileint|reviewsbypro|bestreviews\.guide|productreview\w*)\./, 0, 'conteúdo genérico'],
   // As regras específicas vêm primeiro: "forum.manjaro.org" casava com a regra
   // genérica de .org e era tratado como organização séria.
   [/(blogspot|wordpress|medium|substack)\./, 1, 'blog'],
@@ -360,6 +363,9 @@ function qualidadeDoDominio(url) {
   } catch {
     return { peso: 2, tipo: 'desconhecido' };
   }
+  // 30/10: loja falsa com o nome da marca e nome quase igual ao de site conhecido saem da pesquisa (risco alto)
+  const imitando = require('./imitacao').imitacao(dominio);
+  if (imitando) return { peso: -10, tipo: 'imitação', dominio, alerta: { risco: 'alto', motivo: imitando.motivo } };
   const marca = credibilidade(dominio);
 
   let base = { peso: 3, tipo: 'site', dominio };

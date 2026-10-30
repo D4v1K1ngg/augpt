@@ -96,7 +96,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
   let escreveu = false;
   // quanto levou cada parte (29/10, análise do projeto: "medir antes de otimizar") — o núcleo anota as etapas,
   // aqui entram os buscadores; vai no 'nucleo-fim' e fica no registro da execução
-  const tempos = { etapas: {}, somas: {}, buscadores: {}, combinacoes: {}, falhas: {} };
+  const tempos = { etapas: {}, somas: {}, buscadores: {}, combinacoes: {}, falhas: {}, sites: {} };
   const anotarBusca = (x) => {
     for (const [nome, ms] of Object.entries(x?.tempos || {})) {
       const b = (tempos.buscadores[nome] ||= { vezes: 0, ms: 0 });
@@ -165,7 +165,29 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     idioma: cfg.idiomaEfetivo === 'en' ? 'en' : 'pt',
     // conferir as afirmações com as fontes (27/10, Ajustes → Pesquisa; desligado por padrão)
     conferirAfirmacoes: cfg.conferirAfirmacoes === true,
-    lerPagina: (url) => lerComCache(url, ctxWeb),
+    // 30/10: quanto cada site levou para abrir (no relatório: os que sempre demoram ficam visíveis)
+    lerPagina: async (url) => {
+      const t = Date.now();
+      let ok = false;
+      try {
+        const p = await lerComCache(url, ctxWeb);
+        ok = Boolean(p?.texto);
+        return p;
+      } finally {
+        let site = '';
+        try {
+          site = new URL(url).hostname.replace(/^www\./, '');
+        } catch {
+          // endereço inválido: não conta
+        }
+        if (site) {
+          const s = (tempos.sites[site] ||= { vezes: 0, ms: 0, falhas: 0 });
+          s.vezes += 1;
+          s.ms += Date.now() - t;
+          if (!ok) s.falhas += 1;
+        }
+      }
+    },
     // olhar a tela (27/10): o pedido é sobre a tela e não veio imagem — o app fotografa (só o agente da
     // conversa aberta tem; a fila em segundo plano e a agenda não fotografam a tela sozinhas)
     capturarTela: typeof this.capturarTela === 'function'
