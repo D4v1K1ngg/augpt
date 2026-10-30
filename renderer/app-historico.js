@@ -1170,7 +1170,15 @@ $('btnLimparExec').addEventListener('click', async () => {
     const pesquisa = $('modoDePesquisa').value === 'investigacao' ? tr('investigação {n} min', { n: config.minutosDeInvestigacao || 10 }) : $('modoDePesquisa').value === 'conversa' ? tr('só conversar') : tr('pesquisa {modo}', { modo: curto($('modoDePesquisa')) });
     const partes = [$('modelo').value || tr('sem modelo'), pesquisa, curto($('modoResposta'))].filter(Boolean);
     const desligado = ollama.classList.contains('offline');
-    const texto = desligado ? tr('Ollama desligado · {resto}', { resto: partes.join(' · ') }) : partes.join(' · ');
+    // modo simples (30/10, análise do novato): "qwen3.5:9b · pesquisa automático · direta" vira português comum
+    const simples = document.body.classList.contains('modo-simples');
+    const modo = $('modoDePesquisa').value;
+    const textoSimples = !$('modelo').value
+      ? tr('Falta escolher a IA — veja em Ajustes')
+      : [tr('IA no seu computador'), modo === 'conversa' ? tr('só conversa') : modo === 'automatico' ? tr('pesquisa quando precisa') : pesquisa].join(' · ');
+    const texto = simples
+      ? (desligado ? tr('A IA está desligada — clique para ver') : textoSimples)
+      : desligado ? tr('Ollama desligado · {resto}', { resto: partes.join(' · ') }) : partes.join(' · ');
     if ($('resumoExecucao').textContent !== texto) $('resumoExecucao').textContent = texto;
     botao.classList.toggle('offline', desligado);
     const atencao = modelos.classList.contains('modelos-atencao') || buscaFraca;

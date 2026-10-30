@@ -59,4 +59,17 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'novato — a barra do topo em português comum no modo simples ("IA no seu computador · pesquisa quando precisa"); no avançado, o nome do modelo como antes',
+    tipo: 'unidade',
+    executar() {
+      const h = ler('renderer/app-historico.js');
+      return [
+        /const simples = document\.body\.classList\.contains\('modo-simples'\);/.test(h) || 'olha o modo',
+        /tr\('IA no seu computador'\)/.test(h) && /tr\('pesquisa quando precisa'\)/.test(h) && /tr\('A IA está desligada — clique para ver'\)/.test(h) || 'as frases',
+        /: desligado \? tr\('Ollama desligado · \{resto\}'/.test(h) || 'avançado como antes',
+        /body\.modo-simples \.deck-foot,/.test(ler('renderer/tema.css')) || 'sem o "Pesquisa" solto',
+      ];
+    },
+  },
 ];

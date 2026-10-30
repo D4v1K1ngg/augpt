@@ -306,6 +306,7 @@ body.modo-simples .fora-do-simples,
 body.modo-simples .ajustes-aba.aba-avancada,
 body.modo-simples .nav-item.menu-avancado,
 body.modo-simples #modoDoAgente,
+body.modo-simples .deck-foot,
 body.modo-simples .turno-medidores,
 body.modo-simples .atividade > details.detalhe { display: none !important; }
 
