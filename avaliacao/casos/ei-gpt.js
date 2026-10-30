@@ -178,7 +178,8 @@ module.exports = [
       return [
         (DEFAULTS ? DEFAULTS.ouvirChamada === false && DEFAULTS.ditadoCorrigir === true : /ouvirChamada: false/.test(fs.readFileSync(path.join(__dirname, '../../src/config.js'), 'utf8'))) || 'padrões',
         /'ditado:chamada'[\s\S]{0,120}config\.data\.ouvirChamada/.test(main) && /ehWav\(audio, 8\)/.test(main) || 'trava da chamada',
-        /'ditado:corrigir'[\s\S]{0,200}ditadoCorrigir === false/.test(main) || 'correção respeita o ajuste',
+        // 30/10: antes do ajuste vem só a resposta sugerida ("pode testar"), que não usa o modelo
+        /'ditado:corrigir'[\s\S]{0,700}ditadoCorrigir === false\) return \{ ok: true, texto: original, corrigiu: false \}/.test(main) || 'correção respeita o ajuste',
         /<script src="ditado\.js"><\/script>\s*<script src="voz\.js"><\/script>\s*<script src="escuta\.js"><\/script>/.test(html) || 'ditado.js, voz.js e escuta.js, nessa ordem',
         /ouvirChamada === true\) window\.escutaPorVoz\?\.ligar\(\)/.test(ajustes) || 'liga ao abrir',
         ['Chamar pela voz', 'Nome do assistente', 'Corrigir o texto falado', 'Pode falar…'].every((k) => i18n.includes(`'${k}'`)) || 'traduções',
