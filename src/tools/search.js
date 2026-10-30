@@ -606,7 +606,7 @@ async function buscar(consulta, opcoes = {}) {
 }
 
 module.exports = {
-  buscar, CADEIA, searxng, saudeDaBusca, registrarSaude, duckduckgoHtml, duckduckgoLite, marginalia, wikipedia, jina, ollamaWeb, buscadoresPausados, limparPausas,
+  buscar, normalizar, CADEIA, searxng, saudeDaBusca, registrarSaude, duckduckgoHtml, duckduckgoLite, marginalia, wikipedia, jina, ollamaWeb, buscadoresPausados, limparPausas,
   ordenarPorQualidade, qualidadeDoDominio, subconsultas, buscarVarias, estaBloqueado,
   definirPersonalizados,
   estatisticasDeDominios: () => {

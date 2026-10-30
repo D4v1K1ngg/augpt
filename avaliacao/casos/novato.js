@@ -85,7 +85,7 @@ module.exports = [
         /dinheiro/.test(aviso('Vale a pena investir no tesouro direto?')) || 'dinheiro',
         !aviso('O que é o contrato social de uma empresa?') && !aviso('Quanto tempo uma calopsita vive?') && !aviso('Questão 1: segundo a Lei 8.906/94, posso?\nA) Sim\nB) Não') || 'sem aviso à toa',
         /const cautela = avisoDeCautela\(pergunta, deps\.idioma\);/.test(ler('src/agent/nucleo/index.js')) || 'no fim da resposta',
-        typeof normalizar !== 'function' || normalizar([{ url: 'https://www.google.com/goto?url=CAESbQ', titulo: 'x' }, { url: 'https://farmacerto.com/a', titulo: 'y' }], 'searxng').map((r) => r.url).join() === 'https://farmacerto.com/a' || 'sem redirecionamento do Google',
+        normalizar([{ url: 'https://www.google.com/goto?url=CAESbQ', titulo: 'x' }, { url: 'https://farmacerto.com/a', titulo: 'y' }], 'searxng').map((r) => r.url).join() === 'https://farmacerto.com/a' || 'sem redirecionamento do Google',
       ];
     },
   },
