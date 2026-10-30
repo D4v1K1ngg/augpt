@@ -329,7 +329,9 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // `ent` (23/10): o que o entendimento leu — os lugares servem de reserva ao mapa e ao clima
     deps.executarAcao = async (id, { pergunta, modo: modoDoTeste = null, confirmado = false, ent = null } = {}) => rotas.executar(id, contexto({ objetivo: await emPortugues(pergunta), modo: modoDoTeste, confirmado, ent }));
     const aceitou = !investigando && !imagensDoPedido.length && catalogo.aceitouOferta(objetivo, conversa);
-    let escolha = !investigando && !aceitou && !imagensDoPedido.length ? rotas.escolherRota(contexto()) : null;
+    // questão de prova (30/10): nenhuma rota do código — a prova colada tem palavra de tudo (espaço, cidade, preço)
+    const prova = nucleo.questaoDeProva(objetivo);
+    let escolha = !investigando && !aceitou && !imagensDoPedido.length && !prova ? rotas.escolherRota(contexto()) : null;
     let objetivoDaRota = objetivo;
     if (emIngles && !escolha && !investigando && !aceitou && !imagensDoPedido.length && traducao.pareceIngles(objetivo)) {
       const pt = await emPortugues(objetivo);
@@ -338,7 +340,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     }
     // a intenção que o código reconhece sem montar o pedido (23/10): o entendimento completa os lugares
     // (também quando a rota reconheceu e não achou: a segunda tentativa leva os lugares do modelo)
-    deps.intencaoDoCodigo = !investigando && !aceitou ? rotas.intencao(objetivoDaRota) : null;
+    deps.intencaoDoCodigo = !investigando && !aceitou && !prova ? rotas.intencao(objetivoDaRota) : null;
     // a ação que o entendimento escolheu dentro da pesquisa (23/10: "onde fica iconha?" → mapa) fica com o nome dela no registro
     const pelaPesquisa = async () => ({ rota: 'pesquisa', ...(await nucleo.responder({ pergunta: aceitou?.id === 'pesquisa' ? aceitou.pergunta : objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido })) });
     const r = aceitou && aceitou.id !== 'pesquisa'

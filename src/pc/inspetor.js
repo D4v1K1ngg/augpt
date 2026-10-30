@@ -180,9 +180,13 @@ const OPINIAO = /\b(e bom|e boa|vale a pena|melhor|recomend\w*|compar\w*|devo|de
 const ESPECIFICO = /adaptador|placa de rede|realtek|chipset|politica|gpedit|registro|regedit|servico|tarefas? agendada|firewall|defender|antivirus|bitlocker|\btpm\b|secure boot|uefi|plano de energia|\beventos?\b|tela azul|bsod|variave(l|is) de ambiente|certificado|\bdrivers?\b(?! (da|de|do) (placa|video))/;
 
 /** As consultas que a pergunta pede (vazio = não é pergunta sobre este PC). */
+// pergunta sobre o próprio PC é curta (30/10, registros do Davi: uma prova da OAB colada — 5.490 letras — tinha
+// "nesse", "está" e "espaço" espalhados e foi respondida 3 vezes com o espaço dos discos)
+const PEDIDO_CURTO = 400;
+
 function consultasDoPedido(texto) {
   const t = norm(texto);
-  if (!DO_USUARIO.test(t) || !ACAO.test(t) || OPINIAO.test(t)) return [];
+  if (t.length > PEDIDO_CURTO || !DO_USUARIO.test(t) || !ACAO.test(t) || OPINIAO.test(t)) return [];
   let ids = QUAIS.filter(([, re]) => re.test(t)).map(([id]) => id);
   // assunto específico (19/10: "driver do meu processador", "configurações do meu adaptador de rede"):
   // a ficha geral não responde — sem ela, a pergunta vai para a leitura livre
@@ -199,7 +203,7 @@ const LER = /\b(analis\w*|examin\w*|leia|ler|veja|ve|verifi\w*|confir\w*|confer\
 /** A pergunta é sobre este PC, mas nenhuma consulta fixa responde? (o chat decide se a rede vem antes) */
 function pedidoDeLeituraLivre(texto) {
   const t = norm(texto);
-  if (!DO_USUARIO.test(t) || OPINIAO.test(t) || !(ACAO.test(t) || LER.test(t))) return false;
+  if (t.length > PEDIDO_CURTO || !DO_USUARIO.test(t) || OPINIAO.test(t) || !(ACAO.test(t) || LER.test(t))) return false;
   return SOBRE_O_PC.test(t) && !consultasDoPedido(texto).length;
 }
 

@@ -126,7 +126,8 @@ ${capacidades.listaParaEntender()}
 - "precisa_buscar" é true para qualquer pedido de informação: produto, preço, recomendação, comparação, notícia, pessoa, lugar, história, ciência, como algo funciona, dado ou número. Seu conhecimento pode estar desatualizado, então mesmo o que você sabe vale conferir.
 - "buscas": quando "precisa_buscar" é true, de 1 a 3 buscas curtas para a web (como alguém digitaria no Google), de ângulos diferentes, com as condições que o usuário deu (modelo, ano, país, orçamento); para tecnologia e produtos, uma delas em inglês. Senão, [].
 - "precisa_buscar" é false SÓ para: conversa, saudação ou agradecimento, conta de matemática, tradução ou revisão de um texto que o usuário mandou, escrever um texto criativo, ou algo que a própria conversa já respondeu. Na dúvida, true.
-- Em "pergunta", troque "ele", "isso", "o outro" pelo que eles são na conversa e traga o que a conversa já disse: por exemplo, depois de "qual o melhor <tipo de produto> para <uso>?", a mensagem "e quanto ao <modelo>?" vira "o <modelo> é bom como <tipo de produto> para <uso>, e quanto custa?" (use os nomes reais da conversa, nunca os deste exemplo). Mantenha o resto como o usuário escreveu.`;
+- Em "pergunta", troque "ele", "isso", "o outro" pelo que eles são na conversa e traga o que a conversa já disse: por exemplo, depois de "qual o melhor <tipo de produto> para <uso>?", a mensagem "e quanto ao <modelo>?" vira "o <modelo> é bom como <tipo de produto> para <uso>, e quanto custa?" (use os nomes reais da conversa, nunca os deste exemplo). Mantenha o resto como o usuário escreveu.
+- Se a ÚLTIMA MENSAGEM for longa (mais de 400 letras: um texto ou uma prova colada), devolva "pergunta": "" — o AuGPT usa a mensagem como veio (reescrever um texto longo não cabe na resposta).`;
 }
 
 // o que pode ficar sem pesquisa: saudação, agradecimento, conta, tradução/revisão de texto, texto criativo
@@ -134,7 +135,14 @@ const SEM_BUSCA = /^\s*(oi|ol[aá]|bom dia|boa (tarde|noite)|e a[ií]|obrigad[oa
 // questão de exatas com a conta inteira no enunciado (18/10: a prova de 10
 // questões pesquisou "Questão 6 matemática vestibular" e listou como fonte um
 // editor de PDF e um app de formulários): resolve, não pesquisa
-const QUESTAO_DE_EXATAS = (t) => /\bquest[aã]o\s*\d/i.test(t) && /\\\(|\\\[|\\frac|\^|\b\d+\s*[=+*/x×]\s*\d|\b[a-z]\s*[=+]\s*\d|\bf\(x\)|\blog_?\d|\bmatriz\b/i.test(t);
+// questão de prova com alternativas, de qualquer matéria (30/10, registros do Davi: uma prova da OAB colada caiu
+// em "consultar o PC") — não usa rota do código. Pesquisar continua: sem fontes, o modelo citou artigo de lei
+// que parecia inventado; só a de exatas (a conta está no enunciado) responde sem pesquisa.
+const ALTERNATIVAS = /(?:^|\n)\s*[•\-*]?\s*\(?[A-Ea-e]\)\s+\S/;
+// (número de lei, decreto ou resolução — "Lei nº 8.906/94" — não é conta)
+const SEM_NUMERO_DE_LEI = (t) => String(t).replace(/\b(lei|decreto|resolu[cç][aã]o|portaria|medida provis[oó]ria|mp|s[uú]mula|art(igo)?s?\.?)\s*(complementar\s*)?(n[ºo°.]*\s*)?[\d.\/-]+/gi, ' ');
+const QUESTAO_DE_EXATAS = (t) => /\bquest[aã]o\s*\d/i.test(t) && /\\\(|\\\[|\\frac|\^|\b\d+\s*[=+*/x×]\s*\d|\b[a-z]\s*[=+]\s*\d|\bf\(x\)|\blog_?\d|\bmatriz\b/i.test(SEM_NUMERO_DE_LEI(t));
+const QUESTAO_DE_PROVA = (t) => QUESTAO_DE_EXATAS(t) || (/\bquest[aã]o\s*\d/i.test(t) && ALTERNATIVAS.test(t));
 // sobre o próprio AuGPT e conta direta (23/10, histórico: "Quem é você?" fez 6 buscas e citou a Wikipédia)
 const SOBRE_O_AUGPT = /^\s*(quem (é|e) (voc[eê]|vc|o augpt)|o que (voc[eê]|vc) (é|e)(?![a-zà-ú])|como (voc[eê]|vc) funciona|quem (te|o) (criou|fez|desenvolveu)|qual (é |e )?(o )?seu nome|voc[eê] (é|e) (uma )?(ia|intelig|rob[oô]))/i;
 const CONTA_DIRETA = /^\s*(resolva|calcule|quanto (é|e|da|dá)|derive|integre|simplifique|fatore)(?![a-zà-ú])[^?]*[\d=+\-*/^√]/i;
@@ -142,12 +150,14 @@ const PERGUNTA_DE_SUPORTE = /(?<![a-zà-ú])(como (atualizar|configurar|ativar|d
 // só cumprimento (27/10, análise do Davi: "E aí" pesquisava na web — 15 s, 2 páginas lidas): o \b do
 // SEM_BUSCA não fecha depois de letra acentuada ("e aí", "olá"); aqui o texto vem sem acento. Depois do
 // cumprimento, só conversa ("tudo bem", "como vai", o nome) — "e aí, quem ganhou o jogo?" continua buscando.
-const SO_CUMPRIMENTO = /^(oi+|ola|opa|eae|e ai|eai|hey|ei|bom dia|boa tarde|boa noite|tudo bem|tudo bom|como vai|como voce esta|obrigad[oa]|muito obrigad[oa]|valeu|vlw|blz|beleza|show|perfeito|otimo|legal|massa|top|entendi|ok|okay|certo|tchau|ate mais|falou)( (e )?(tudo bem|tudo bom|tudo certo|como vai|como voce esta|como vc ta|como vc esta|beleza|blz|augpt|gpt|jarvis|amigo|cara|mano|pessoal|meu (amigo|chapa)))*$/;
+// 30/10: "está aí?", "tá me ouvindo?" — conferir se o Jarvis está lá também é só conversa
+const SO_CUMPRIMENTO = /^(oi+|ola|opa|eae|e ai|eai|hey|ei|alo|(?:voce |vc )?(?:esta|ta) (?:ai|ainda ai|me ouvindo|me escutando)|bom dia|boa tarde|boa noite|tudo bem|tudo bom|como vai|como voce esta|obrigad[oa]|muito obrigad[oa]|valeu|vlw|blz|beleza|show|perfeito|otimo|legal|massa|top|entendi|ok|okay|certo|tchau|ate mais|falou)( (e )?(tudo bem|tudo bom|tudo certo|como vai|como voce esta|como vc ta|como vc esta|beleza|blz|augpt|gpt|jarvis|amigo|cara|mano|pessoal|meu (amigo|chapa)))*$/;
 // o que o AuGPT sabe de você (27/10, teste de abertura: "qual é o meu nome?" às vezes pesquisava na web e
 // respondia sem o nome guardado) — a resposta está na memória, não na internet
 const SOBRE_MIM = /^\s*(qual (é|e) o meu nome|como (é que )?(eu )?me chamo|quem sou eu|voc[eê] sabe (o )?meu nome|voc[eê] lembra (do )?meu nome|what'?s my name)\s*[?!.]*\s*$/i;
 const soCumprimento = (pergunta) => {
-  const t = require('../tipo-de-pedido').normalizarPedido(pergunta);
+  // sem o ponto final ("Está aí.") e sem o nome do assistente na frente ("Jarvis, está aí?")
+  const t = require('../tipo-de-pedido').normalizarPedido(pergunta).replace(/[.!…]+$/, '').replace(/^(?:(?:ei|hey|ok|oi) )?(?:jarvis|gpt|augpt|chatgpt)\s+/, '').trim();
   return t.length > 0 && t.length <= 60 && SO_CUMPRIMENTO.test(t);
 };
 // conversa (28/10, pedido do Davi: "sinto falta de conversar diretamente com o modelo" — opinião, desabafo e
@@ -226,6 +236,8 @@ const PEDE_SOLUCAO = /\b(erro|error|problema|bug|falha|travou|como (resolvo|reso
 const pedeATela = (pergunta) => PEDE_A_TELA.test(String(pergunta || '')) && !TELA_EM_GERAL.test(String(pergunta || ''));
 
 function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
+    // questão de prova de direito pesquisa sempre (30/10: sem fontes, o modelo citou artigo de lei que parecia inventado)
+    const provaDeDireito = QUESTAO_DE_PROVA(String(pergunta || '')) && /\b(lei|leis|art(igo)?s?\.?\s*\d|estatuto|oab|c[oó]digo (civil|penal|de processo|de defesa)|constitui[cç][aã]o|jurisprud\w*|s[uú]mula|stf|stj)\b/i.test(String(pergunta || ''));
   try {
     const j = JSON.parse(String(texto).slice(String(texto).indexOf('{'), String(texto).lastIndexOf('}') + 1));
     // produto sempre busca (15/10: "fone de ouvido dunu titan s" saiu sem busca e o modelo disse que ele "não existe")
@@ -234,7 +246,8 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     const exatas = QUESTAO_DE_EXATAS(String(pergunta || ''));
     const conversa = !comImagem && (ehConversa(pergunta, j) || soCumprimento(pergunta));
     const semBusca = exatas || conversa || soCumprimento(pergunta) || SOBRE_MIM.test(String(pergunta || '')) || SOBRE_O_AUGPT.test(String(pergunta || '')) || CONTA_DIRETA.test(String(pergunta || '')) || (comImagem && (soSobreAImagem(pergunta) || (pedeATela(pergunta) && !PEDE_SOLUCAO.test(String(pergunta || '')))));
-    const precisaBuscar = !semBusca && (j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta)));
+    // (vale antes do "sem busca": "Lei nº 8.906/94" tem "906/94", que a regra de exatas lê como conta)
+    const precisaBuscar = provaDeDireito || (!semBusca && (j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta))));
     return {
       precisaBuscar,
       conversa,
@@ -256,7 +269,7 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
   } catch {
     // JSON quebrado: busca, com a pergunta como veio
     // 23/10: a reserva pesquisava sempre — a prova de 10 questões (JSON longo, ilegível) fez 7 buscas
-    return { precisaBuscar: !podeFicarSemBusca(pergunta), produto: false, criarImagem: pedeImagem(pergunta), atual: PISTA_DE_ATUAL.test(pergunta), sobreOUsuario: PISTA_DO_USUARIO.test(pergunta), sobreATela: !comImagem && pedeATela(pergunta), imagemAjuda: false, assuntos: [], pergunta };
+    return { precisaBuscar: provaDeDireito || !podeFicarSemBusca(pergunta), produto: false, criarImagem: pedeImagem(pergunta), atual: PISTA_DE_ATUAL.test(pergunta), sobreOUsuario: PISTA_DO_USUARIO.test(pergunta), sobreATela: !comImagem && pedeATela(pergunta), imagemAjuda: false, assuntos: [], pergunta };
   }
 }
 
@@ -978,7 +991,7 @@ function comecoDaResposta(texto) {
 const SEM_ANUNCIO_NEM_REPETICAO = `- Não anuncie o que vai escrever ("Aqui está uma explicação detalhada…", "Abaixo, detalho…", "A seguir, veja…", "Vou explicar…"): escreva direto.
 - Não termine repetindo o começo ("Em resumo…", "Conclusão" que diz de novo o primeiro parágrafo). Termine com o que ainda não foi dito — a recomendação, qual escolher, um cuidado — ou simplesmente pare.`;
 // a rede de segurança: parágrafo que é só anúncio sai (o modelo pequeno às vezes escreve mesmo assim)
-const PARAGRAFO_DE_ANUNCIO = /^(?:aqui (?:est[áa]|est[ãa]o|vai|v[ãa]o)\s+(?:uma?|as?|os?)\s+(?:[\wà-ú]+\s+){0,2}?(?:explica[çc][ãa]o|resumo|lista|compara[çc][ãa]o|guia|an[áa]lise|detalh\w*|vis[ãa]o|op[çc][õo]es|principais|passos?|informa[çc][õo]es)|abaixo,?\s+(?:detalho|est[ãa]o|seguem?|listo|apresento|explico|voc[êe]|veja|confira|mostro|trago)|a seguir,?\s+(?:veja|confira|detalho|explico|apresento|est[ãa]o|seguem?|listo|mostro|trago)|segue(?:m)?\s+(?:abaixo|uma|um|a|o|as|os)\s|vou (?:te )?(?:explicar|detalhar|mostrar|apresentar)|vamos (?:ver|entender|detalhar))[^\n]{0,160}[:.]$/i;
+const PARAGRAFO_DE_ANUNCIO = /^(?:aqui (?:est[áa]|est[ãa]o|vai|v[ãa]o)\s+(?:uma?|as?|os?)\s+(?:[\wà-ú]+\s+){0,2}?(?:explica[çc][ãa]o|resumo|lista|compara[çc][ãa]o|guia|an[áa]lise|detalh\w*|vis[ãa]o|op[çc][õo]es|principais|passos?|informa[çc][õo]es|respostas?|resolu[çc][õo]es|solu[çc][õo]es)|abaixo,?\s+(?:detalho|est[ãa]o|seguem?|listo|apresento|explico|voc[êe]|veja|confira|mostro|trago)|a seguir,?\s+(?:veja|confira|detalho|explico|apresento|est[ãa]o|seguem?|listo|mostro|trago)|segue(?:m)?\s+(?:abaixo|uma|um|a|o|as|os)\s|vou (?:te )?(?:explicar|detalhar|mostrar|apresentar)|vamos (?:ver|entender|detalhar))[^\n]{0,160}[:.]$/i;
 const semParagrafosDeAnuncio = (t) => String(t).split(/\n{2,}/).filter((p) => !PARAGRAFO_DE_ANUNCIO.test(p.trim()) || /\d|\*\*|\[/.test(p)).join('\n\n');
 
 function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal', atual = false, sobreOUsuario = '', capacidadesNaEscrita = '', preferencias = '', idioma = 'pt', conversa = false }) {
@@ -1641,4 +1654,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

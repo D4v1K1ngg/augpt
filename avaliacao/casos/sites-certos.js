@@ -15,6 +15,28 @@ const ler = (f) => fs.readFileSync(path.join(__dirname, '../..', f), 'utf8');
 
 module.exports = [
   {
+    nome: 'registros do Davi (30/10): prova colada não vai para "consultar o PC" (só pedido curto vai); questão com alternativas não pesquisa nem usa rota do código; "está aí?" é cumprimento',
+    tipo: 'unidade',
+    executar() {
+      const pc = require('../../src/pc/inspetor');
+      const prova = `Questão 1 (Incompatibilidade e Impedimento) Roberto, advogado inscrito na OAB, assume o cargo de Diretor de uma Unidade Básica de Saúde. ${'Texto da questão. '.repeat(30)}Nesse caso, quanto ao espaço de atuação dele, assinale a correta, se esta for possível:\n• A) Pode advogar.\n• B) Não pode.`;
+      const crase = 'Questão 1 (Emprego da Crase)\n\nAssinale a alternativa correta:\n• A) Fui à praia.\n• B) Fui a praia.';
+      return [
+        pc.consultasDoPedido(prova).length === 0 || 'prova longa não é pergunta sobre o PC',
+        JSON.stringify(pc.consultasDoPedido('quanto espaço tem no meu pc?')) === '["discos"]' || 'pergunta curta continua',
+        nucleo.questaoDeProva(prova) && nucleo.questaoDeProva(crase) && !nucleo.questaoDeProva('Qual é melhor: A) RTX 5070 ou B) RX 9070?') || 'questão de prova',
+        // só a de exatas responde sem pesquisa; direito e português pesquisam (sem fonte, o modelo inventou artigo de lei)
+        nucleo.lerEntendimento('{"precisa_buscar": true}', crase).precisaBuscar === true && nucleo.lerEntendimento('{"precisa_buscar": true}', 'Questão 1: 60 * 2 = ?\nA) 100\nB) 120').precisaBuscar === false || 'pesquisa da prova',
+        /const prova = nucleo\.questaoDeProva\(objetivo\);[\s\S]{0,200}!prova \? rotas\.escolherRota/.test(ler('src/agent/loop-nucleo.js')) || 'sem rota do código',
+        ['Está aí.', 'Está aí?', 'Jarvis, está aí?', 'Tá me ouvindo?', 'Alô?'].every((p) => nucleo.soCumprimento(p)) && !nucleo.soCumprimento('Está aí o relatório?') || 'está aí',
+        // texto longo: o modelo reescrevia tudo em "pergunta", o JSON cortava em 300 tokens e a reserva não pesquisava
+        /Se a ÚLTIMA MENSAGEM for longa \(mais de 400 letras/.test(nucleo.pedidoDeEntendimento({ pergunta: 'x', conversa: [], hoje: 'x' })) || 'mensagem longa: "pergunta" vazia',
+        nucleo.lerEntendimento('{"precisa_buscar": true, "buscas": ["corta aqui', `${prova}\nSegundo a Lei nº 8.906/94 e o Estatuto da OAB.`).precisaBuscar === true || 'JSON cortado: prova de direito pesquisa',
+        nucleo.lerEntendimento('{"precisa_buscar": true}', 'Questão 2: segundo a Lei nº 8.906/94, pode?\nA) Sim\nB) Não').precisaBuscar === true || 'número de lei não é conta',
+      ];
+    },
+  },
+  {
     nome: 'voz (30/10): fala curta que soa como a resposta que o AuGPT sugeriu vira ela ("Pais testa." → "pode testar"; "pode parar" não); pedido pela voz não sai "detalhado"',
     tipo: 'unidade',
     executar() {
