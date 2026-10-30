@@ -360,7 +360,7 @@ module.exports = [
     },
   },
   {
-    nome: 'revisão v4 (site): abrir_pagina/pesquisar antes do navegador é vetado com a instrução de navegar; depois do navegar, segue normal',
+    nome: 'revisão v4 (site): abrir_pagina do endereço vira navegar (30/10: sem veto, sem rodada perdida); não pergunta antes de tentar o login; segue normal',
     tipo: 'unidade',
     async executar() {
       const obtido = await executarCasoAgente({
@@ -378,8 +378,8 @@ module.exports = [
       });
       const gates = obtido.copiloto.filter((c) => c.gate === 'site-pelo-navegador').map((c) => c.nome);
       return [
-        gates[0] === 'abrir_pagina' || `vetos: ${gates}`,
-        /"nome": "navegar", "argumentos": \{"url": "https:\/\/portal\.exemplo\/Interno"/.test(obtido.promptDecisao.replace(/\\"/g, '"')) || 'instrução com a URL do pedido',
+        // 30/10: o abrir_pagina do endereço vira navegar com o mesmo endereço — sem veto e sem rodada perdida
+        !gates.includes('abrir_pagina') || `vetos: ${gates}`,
         !obtido.perguntouAoUsuario || 'perguntou antes de tentar o login',
         obtido.ok || obtido.motivo,
       ];

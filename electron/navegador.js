@@ -221,14 +221,30 @@ const SCRIPT_DE_LEITURA = `(() => {
  * esperar pela PRIMEIRA mudança — depois de clicar num botão, o resultado
  * costuma chegar da rede 2-3 s depois, sem nada mudar antes.
  */
+// 30/10 (op.gg do Davi: 10–20 s por clique): olha o TEXTO da página, não qualquer mudança no HTML — banner
+// animado, contador e anúncio mudam o tempo todo e seguravam a espera até o teto. Pronto quando o texto mudou e
+// ficou parado ~500 ms, ou não mudou nada até `primeiraMs`; teto de `primeiraMs` + 3 s.
 const scriptDeCalma = (primeiraMs) => `new Promise((pronto) => {
-  let fim = null;
-  const terminar = () => { clearTimeout(fim); clearTimeout(teto); obs.disconnect(); pronto(true); };
-  const obs = new MutationObserver(() => { clearTimeout(fim); fim = setTimeout(terminar, 700); });
-  obs.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-  fim = setTimeout(terminar, ${Number(primeiraMs) || 700});
-  const teto = setTimeout(terminar, ${(Number(primeiraMs) || 700) + 4000});
+  const medir = () => (document.body ? document.body.innerText.length : 0);
+  const inicio = medir();
+  const t0 = Date.now();
+  let ultimo = inicio;
+  let calmos = 0;
+  let mudou = false;
+  const id = setInterval(() => {
+    const agora = medir();
+    if (agora !== inicio) mudou = true;
+    calmos = agora === ultimo ? calmos + 1 : 0;
+    ultimo = agora;
+    const passou = Date.now() - t0;
+    if ((mudou && calmos >= 2) || (!mudou && passou >= ${Number(primeiraMs) || 700}) || passou >= ${(Number(primeiraMs) || 700) + 3000}) {
+      clearInterval(id);
+      pronto(true);
+    }
+  }, 250);
 })`;
+// a página "pronta para ler" (a estrutura carregou); anúncio e rastreador que seguem carregando não seguram mais
+const ESPERA_CARREGAR_MS = 8000;
 
 class SessaoNavegador {
   constructor({ visivel = true, timeout = 30000, obterConfig = () => ({}) } = {}) {
@@ -424,17 +440,25 @@ class SessaoNavegador {
     await this.aguardarEfeitos();
     if (!this.aberta) return;
     const wc = this.janela.webContents;
-    if (wc.isLoading()) {
+    // só a página PRINCIPAL carregando conta (30/10: com anúncio carregando, isLoading() ficava sempre verdadeiro e
+    // cada clique esperava os 8 s inteiros por um dom-ready que não vinha)
+    if (typeof wc.isLoadingMainFrame === 'function' ? wc.isLoadingMainFrame() : wc.isLoading()) {
+      // pronto quando a estrutura carregou (dom-ready) ou parou de carregar — teto de 8 s (antes: 30 s, e site com
+      // anúncio quase nunca "para de carregar")
       await new Promise((resolve) => {
-        const fim = setTimeout(resolve, this.timeout);
-        wc.once('did-stop-loading', () => {
+        const fim = setTimeout(feito, ESPERA_CARREGAR_MS);
+        function feito() {
           clearTimeout(fim);
+          wc.removeListener('dom-ready', feito);
+          wc.removeListener('did-stop-loading', feito);
           resolve();
-        });
+        }
+        wc.once('dom-ready', feito);
+        wc.once('did-stop-loading', feito);
       });
     }
     try {
-      await Promise.race([wc.executeJavaScript(scriptDeCalma(primeiraMudancaMs), true), new Promise((r) => setTimeout(r, primeiraMudancaMs + 5000))]);
+      await Promise.race([wc.executeJavaScript(scriptDeCalma(primeiraMudancaMs), true), new Promise((r) => setTimeout(r, primeiraMudancaMs + 4000))]);
     } catch {
       /* a página trocou no meio: a leitura seguinte pega a nova */
     }
@@ -443,13 +467,22 @@ class SessaoNavegador {
   async navegar(url) {
     this.abrir();
     let erro = null;
-    // loadURL nunca resolve em página que não termina de carregar: o teto é o timeout
+    // loadURL só resolve quando TUDO carregou (anúncio incluído): basta a estrutura pronta (dom-ready) e um
+    // instante para o conteúdo; o teto continua o timeout (30/10, op.gg do Davi)
+    const wc = this.janela.webContents;
+    let aoPronto = null;
+    const pronta = new Promise((r) => {
+      aoPronto = () => setTimeout(r, 800);
+      wc.once('dom-ready', aoPronto);
+    });
     await Promise.race([
       this.janela.loadURL(url).catch((e) => {
         erro = e;
       }),
+      pronta,
       new Promise((r) => setTimeout(r, this.timeout)),
     ]);
+    wc.removeListener('dom-ready', aoPronto);
     // ERR_ABORTED: redirecionamento ou download, não falha
     if (erro && !/ERR_ABORTED|\(-3\)/.test(`${erro.code || ''} ${erro.message || ''}`)) throw new Error(`falha ao carregar (${erro.code || erro.message})`);
     await this.aguardarPagina(0);

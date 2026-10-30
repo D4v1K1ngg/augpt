@@ -4,6 +4,8 @@ const { EventEmitter } = require('events');
 const path = require('path');
 const ollama = require('../llm/ollama');
 const { instrucoesQueValem } = require('./memoria-no-chat');
+// as ferramentas do navegador interativo (src/tools/navegador.js): a página delas não passa pelo resumo do modelo
+const FERRAMENTAS_DO_NAVEGADOR = new Set(['navegar', 'ver_pagina', 'clicar', 'preencher_campo', 'enviar_formulario', 'rolar_pagina', 'voltar_pagina']);
 const { ehModeloDeDecisao, ehModeloQuePensa } = require('../primeiro-uso');
 const tools = require('../tools');
 const prompts = require('./prompts');
@@ -1249,7 +1251,11 @@ class Agent extends EventEmitter {
         const chaveRetomada = retomavel ? Retomada.chaveDestilacao(pedidoDeDestilacao) : null;
         let destiladas = chaveRetomada ? ctx.retomada.destilacao(chaveRetomada) : null;
         if (destiladas) this.emit('destilacao-retomada', { url: fonte.url || null });
-        else {
+        else if (FERRAMENTAS_DO_NAVEGADOR.has(nome)) {
+          // página do navegador (30/10, op.gg do Davi: 7 resumos pelo modelo, 29 s, quase todos "[NADA]"): o agente
+          // precisa da página como ela está para o próximo clique — vão os trechos, sem chamar o modelo
+          destiladas = [await this._trechosDaPagina({ objetivo, foco, origem, texto: pedidoDeDestilacao.texto, url: fonte.url || '' })];
+        } else {
           destiladas = await this._destilarGrande(pedidoDeDestilacao);
           if (chaveRetomada) ctx.retomada.guardarDestilacao(chaveRetomada, destiladas);
         }
@@ -2777,6 +2783,11 @@ class Agent extends EventEmitter {
           this.emit('protocolo-recuperado', { via: veredicto.recuperado, ferramenta: plano.ferramenta.nome });
         }
 
+        // pedido de agir num site e o modelo quis só LER um endereço (30/10, op.gg do Davi: 3 abrir_pagina vetados, uma
+        // rodada de decisão perdida em cada): abre esse mesmo endereço no navegador, sem veto
+        if (this.tipoDoPedido === 'site' && ctx.navegador && plano.ferramenta.nome === 'abrir_pagina' && /^https?:\/\//i.test(String(plano.ferramenta.argumentos?.url || ''))) {
+          plano.ferramenta = { nome: 'navegar', argumentos: { url: String(plano.ferramenta.argumentos.url) } };
+        }
         const nome = plano.ferramenta.nome;
         const argumentos = plano.ferramenta.argumentos || {};
 
