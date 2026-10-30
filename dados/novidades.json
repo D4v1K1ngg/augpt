@@ -1,5 +1,41 @@
 [
   {
+    "versao": "0.40.0",
+    "data": "2026-10-30",
+    "pt": {
+      "titulo": "Um Jarvis de verdade: conversa, narra a pesquisa e responde mais rápido",
+      "itens": [
+        "**Conversa estilo Jarvis:** pelo \"Ei Jarvis\", ele diz \"Deixa comigo\" enquanto pensa, fala a resposta e continua ouvindo a sua réplica por alguns segundos, sem precisar chamar o nome de novo. Cumprimenta pelo horário (\"Boa tarde, Davi!\") e varia o jeito de falar.",
+        "**Narra a pesquisa:** num pedido pela voz, conta o que está fazendo — as buscas, o que achou em cada site (\"Olha só, achei no CanalTech…\"), \"ainda analisando\" e \"montando a resposta\".",
+        "**Dois modelos ao mesmo tempo:** escolha um modelo leve (qwen3.5:4b) em Ajustes → \"Conversar enquanto ele trabalha\". Ele roda no processador e conversa com você pela voz enquanto o principal pesquisa; o que precisa de pesquisa vai para a fila.",
+        "**Avisos falados:** lembretes, tarefas em segundo plano e novidades dos assuntos acompanhados também são ditos em voz alta — nunca no horário de silêncio, em tela cheia ou durante uma chamada.",
+        "**Conversar direto com o modelo:** opinião, desabafo, conselho e papo respondem na hora, sem pesquisar. Há também o modo \"Conversar\" no seletor de pesquisa, e pela voz: \"Ei Jarvis, vamos só conversar\".",
+        "**Mais rápido:** o modelo carrega antes da pergunta (ao abrir o app, no \"Ei Jarvis\" e ao digitar), e conversa simples começa a responder em menos de 1 segundo. Pedido pela voz não sai no modo \"detalhada\".",
+        "**Texto final mais limpo:** as fontes saem do meio do texto e ficam num bloco recolhido no fim; sem \"(preço não confirmado)\" no meio da frase, sem \"Aqui está uma explicação…\" e sem resumo que repete o começo.",
+        "**Os sites certos:** lojas falsas com o nome da marca e sites que imitam outros ficam fora da pesquisa; quando a pergunta cita uma marca ou um órgão, o site oficial vem primeiro.",
+        "**Busca mais completa e medida:** quando um buscador traz pouco, o próximo também é consultado e os resultados se juntam. O relatório de cada execução mostra quanto levou cada etapa, cada buscador e os sites lentos.",
+        "**Pronúncia:** \"3.1\", siglas no plural (GPUs), nomes de sites, modelos como B580 e 24H2, e palavras como Radeon, Black Friday e KaBuM saem certas.",
+        "**Correções:** Black Friday com o dia certo, \"promoção boa\" não vira busca do produto \"boa\", \"uns 4 mil\" depois de \"quer que eu fique de olho no preço?\" cria o alerta, e \"pode testar\" mal ouvido é reconhecido."
+      ]
+    },
+    "en": {
+      "titulo": "A real Jarvis: it chats, narrates the research and answers faster",
+      "itens": [
+        "**Jarvis-style conversation:** after \"Hey Jarvis\", it says \"Leave it to me\" while thinking, speaks the answer and keeps listening for your reply for a few seconds, no name needed. It greets you by the time of day and varies how it talks.",
+        "**Narrates the research:** on a voice request it tells you what it is doing — the searches, what it found on each site, \"still analyzing\" and \"putting the answer together\".",
+        "**Two models at once:** pick a light model (qwen3.5:4b) in Settings → \"Chat while it works\". It runs on the processor and talks with you by voice while the main model researches; anything that needs research goes to the queue.",
+        "**Spoken notifications:** reminders, background tasks and news on the subjects you follow are also spoken aloud — never during quiet hours, in full screen or during a call.",
+        "**Chat straight with the model:** opinions, venting, advice and small talk are answered right away, without research. There is also a \"Chat\" mode in the research selector, and by voice: \"Hey Jarvis, let us just chat\".",
+        "**Faster:** the model loads before the question (when the app opens, on \"Hey Jarvis\" and while typing), and simple chat starts answering in under 1 second. Voice requests do not use the \"detailed\" mode.",
+        "**Cleaner final text:** sources leave the middle of the text and go to a collapsed block at the end; no \"(price not confirmed)\" mid-sentence, no \"Here is a detailed explanation…\" and no summary repeating the start.",
+        "**The right sites:** fake stores using a brand name and sites imitating others are left out of the research; when the question names a brand or an institution, its official site comes first.",
+        "**Fuller, measured search:** when one search engine returns little, the next is also queried and the results are merged. Each run report shows how long each step, each search engine and slow sites took.",
+        "**Pronunciation:** \"3.1\", plural acronyms (GPUs), site names, models like B580 and 24H2, and words like Radeon, Black Friday and KaBuM are spoken correctly.",
+        "**Fixes:** Black Friday on the right weekday, \"promoção boa\" no longer searches for a product called \"boa\", \"about 4 thousand\" after \"want me to watch the price?\" creates the alert, and a misheard \"pode testar\" is recognized."
+      ]
+    }
+  },
+  {
     "versao": "0.39.0",
     "data": "2026-10-27",
     "pt": {
