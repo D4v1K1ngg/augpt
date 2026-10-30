@@ -31,4 +31,18 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'novato — a voz oferecida na boas-vindas: um botão instala o reconhecimento de fala, a escuta do nome e a voz, e liga o "Ei Jarvis"; o tamanho total; o nome que a escuta usa',
+    tipo: 'unidade',
+    executar() {
+      const bv = ler('renderer/boas-vindas.js');
+      return [
+        /titulo: t\('Falar com o AuGPT'\)/.test(bv) && bv.indexOf("t('Falar com o AuGPT')") < bv.indexOf("t('Busca na web (SearXNG embutido)')") || 'o primeiro dos opcionais',
+        /await api\.ditado\.instalar\(\)[\s\S]{0,300}await api\.ditado\.instalarEscuta\([\s\S]{0,300}await api\.voz\.instalar\(\)[\s\S]{0,200}api\.config\.set\(\{ ouvirChamada: true \}\)/.test(bv) || 'as três instalações e a escuta ligada',
+        /window\.escutaPorVoz\?\.nome\?\.\(\)/.test(bv) || 'o nome da escuta',
+        /\(megas \/ 1024\)\.toFixed\(1\)/.test(bv) || 'tamanho total',
+        /\[bv\.voz, bv\.ditado\] = await Promise\.all/.test(bv) || 'confere o que já está instalado',
+      ];
+    },
+  },
 ];

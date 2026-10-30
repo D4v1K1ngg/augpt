@@ -173,7 +173,28 @@ function pintar() {
     })
   );
 
-  // opcionais: busca, YouTube, texto de imagens, criar imagens
+  // opcionais: voz (30/10, o primeiro: era a parte mais legal do app e ficava escondida em Ajustes), busca,
+  // YouTube, texto de imagens, criar imagens
+  const voz = bv.voz || {};
+  const dit = bv.ditado || {};
+  // o mesmo nome que a escuta usa ("Ei GPT" quando ninguém escolheu outro; "Jarvis" quando escolheu)
+  const nomeDaChamada = window.escutaPorVoz?.nome?.() || String(config?.nomeDaChamada || '').trim() || 'Ei GPT';
+  const vozPronta = voz.instalada && dit.instalado && dit.escuta && config?.ouvirChamada === true;
+  // o total do que falta baixar ("583 MB" + "190 MB" + "408 MB" → "~1,2 GB")
+  const megas = [dit.instalado ? null : dit.tamanho, dit.escuta ? null : dit.tamanhoDaEscuta, voz.instalada ? null : `${voz.tamanhoMB || 410} MB`]
+    .filter(Boolean).reduce((s, x) => s + (Number(/([\d.,]+)\s*(GB|MB)/i.exec(String(x))?.[1]?.replace(',', '.')) || 0) * (/GB/i.test(String(x)) ? 1024 : 1), 0);
+  const tamanhoDaVoz = megas >= 1024 ? `~${(megas / 1024).toFixed(1).replace('.', ',')} GB` : megas ? `~${Math.round(megas)} MB` : '';
+  opcionais.append(
+    etapa({
+      titulo: t('Falar com o AuGPT'),
+      situacao: vozPronta ? 'ok' : 'opcional',
+      texto: vozPronta
+        ? t('Pronto — diga "{nome}, vai chover amanhã?" e ele responde em voz alta. Para ele reconhecer melhor a sua voz, faça o treino em Ajustes → "Treinar minha voz".', { nome: nomeDaChamada })
+        : t('Opcional: converse falando, como com um assistente de filme — "{nome}, vai chover amanhã?" — e ouça a resposta numa voz natural. Tudo roda no seu computador. Baixa o reconhecimento de fala e a voz ({tamanho}).', { nome: nomeDaChamada, tamanho: tamanhoDaVoz || '~600 MB' }),
+      progresso: bv.progressoVoz,
+      acoes: vozPronta ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarVoz }, t('Instalar a voz'))],
+    })
+  );
   const busca = e.busca || {};
   opcionais.append(
     etapa({
@@ -235,6 +256,8 @@ async function verificar() {
   pintar();
   try {
     bv.estado = await api.boasVindas.verificar();
+    // a voz e o reconhecimento de fala (o cartão "Falar com o AuGPT")
+    [bv.voz, bv.ditado] = await Promise.all([api.voz.estado().catch(() => ({})), api.ditado.estado().catch(() => ({}))]);
   } catch (err) {
     $('bvEtapas').replaceChildren(h('li', { class: 'bv-etapa falta' }, h('i', { class: 'bv-marca' }), h('div', { class: 'bv-conteudo' }, h('b', {}, t('Não consegui verificar o computador')), h('p', {}, String(err.message || err)))));
     return;
@@ -296,6 +319,45 @@ const instalarBusca = () => instalacao('progressoBusca', () => api.searxngRuntim
 const instalarYoutube = () => instalacao('progressoYoutube', () => api.componentes.instalarYtdlp(), 'yt-dlp instalado.');
 const instalarOcr = () => instalacao('progressoOcr', () => api.componentes.instalarTesseract(), 'Tesseract instalado.');
 const instalarImagem = () => instalacao('progressoImagem', () => api.componentes.instalarImagem(), 'Gerador de imagens instalado.');
+/*
+ * A voz numa tacada só (30/10, análise do novato): o reconhecimento de fala (Whisper), o modelo da escuta do nome e a
+ * voz (Kokoro) — antes eram três botões em dois lugares de Ajustes — e já liga o "Ei Jarvis".
+ */
+const instalarVoz = () =>
+  ocupar(async () => {
+    bv.instalandoVoz = true;
+    const passo = (n, texto, porcento) => {
+      bv.progressoVoz = { texto: `${n} de 3 · ${texto}`, porcento };
+      pintar();
+    };
+    try {
+      const d = await api.ditado.estado().catch(() => ({}));
+      if (!d.instalado) {
+        passo(1, t('reconhecimento de fala…'), 5);
+        const r = await api.ditado.instalar();
+        if (!r?.ok) throw new Error(r?.error || t('A instalação falhou.'));
+      }
+      if (!d.escuta) {
+        passo(2, t('a escuta do nome…'), 40);
+        const r = await api.ditado.instalarEscuta(config?.escutaModelo === 'base' ? 'base' : 'small');
+        if (!r?.ok) throw new Error(r?.error || t('A instalação falhou.'));
+      }
+      const v = await api.voz.estado().catch(() => ({}));
+      if (!v.instalada) {
+        passo(3, t('a voz do AuGPT…'), 60);
+        const r = await api.voz.instalar();
+        if (!r?.ok) throw new Error(r?.error || t('A instalação falhou.'));
+      }
+      config = await api.config.set({ ouvirChamada: true });
+      await window.escutaPorVoz?.ligar();
+      window.vozNosAjustes?.pintar();
+      bv.progressoVoz = { texto: t('Voz instalada e escuta ligada.'), porcento: 100 };
+    } catch (err) {
+      bv.progressoVoz = { texto: String(err.message || err), porcento: 0 };
+    } finally {
+      bv.instalandoVoz = false;
+    }
+  });
 
 // progresso que chega do processo principal (canal genérico, ver app-eventos.js api.onEvent)
 window.boasVindasEvento = (canal, dados = {}) => {
@@ -307,6 +369,7 @@ window.boasVindasEvento = (canal, dados = {}) => {
   } else if (canal === 'imagem-progresso') bv.progressoImagem = { texto: dados.texto, porcento: dados.porcento ?? bv.progressoImagem?.porcento ?? 10 };
   else if (canal === 'tesseract-progresso') bv.progressoOcr = { texto: dados.texto, porcento: 50 };
   else if (canal === 'ytdlp-progresso') bv.progressoYoutube = { texto: dados.texto, porcento: 50 };
+  else if ((canal === 'ditado-progresso' || canal === 'voz-progresso') && bv.instalandoVoz && dados.texto) bv.progressoVoz = { texto: `${(bv.progressoVoz?.texto || '').split(' · ')[0]} · ${dados.texto}`, porcento: bv.progressoVoz?.porcento ?? 10 };
   else if (canal === 'runtime-searxng-progresso') bv.progressoBusca = { texto: (typeof FASES_SX_EMBUTIDO !== 'undefined' && FASES_SX_EMBUTIDO[dados.fase]) || dados.fase, porcento: 50 };
   else return;
   pintar();
