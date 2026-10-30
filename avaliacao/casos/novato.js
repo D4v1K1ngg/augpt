@@ -45,4 +45,18 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'novato — a pesquisa andando na tela: no modo simples, frases ("Pesquisando: …", "Lendo CanalTech: …", "Escrevendo a resposta…") no lugar de "passo 1 de 6", "executando buscar_na_web" e dos medidores',
+    tipo: 'unidade',
+    executar() {
+      const simples = ler('renderer/modo-simples.js');
+      const css = ler('renderer/tema.css');
+      return [
+        /\/\^\(passo\|step\) \\d\+ \(de\|of\) \\d\+\$\/i\.test\(t\)\) return undefined;/.test(simples) || 'sem "passo N de M"',
+        /buscar_na_web: 'Pesquisando na internet…'/.test(simples) && /\(\?:executando\|running\) \(\[a-z_\]\+\)/.test(simples) || 'ferramenta vira frase',
+        ["embrulhar('fonte'", "embrulhar('achado'", "embrulhar('redigindo'", "embrulhar('nucleo-entendimento'"].every((x) => simples.includes(x)) || 'as frases de cada momento',
+        /body\.modo-simples \.turno-medidores,/.test(css) && /body\.modo-simples \.atividade > details\.detalhe/.test(css) || 'medidores e raciocínio fora da vista',
+      ];
+    },
+  },
 ];

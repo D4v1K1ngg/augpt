@@ -58,5 +58,54 @@
     setTimeout(aplicar, 0);
     return r;
   };
+  /*
+   * A pesquisa andando na tela (30/10, item 3 da análise do novato): no modo simples, em vez de "passo 1 de 6" e dos
+   * medidores (passos, tokens, contexto), uma frase do que ele está fazendo agora — a busca, o site que está lendo,
+   * a escrita. Os detalhes técnicos continuam no modo avançado.
+   */
+  const simplesAgora = () => document.body.classList.contains('modo-simples');
+  const situacaoOriginal = window.situacao;
+  // "executando buscar_na_web" → "Pesquisando na internet…"
+  const FERRAMENTAS = { buscar_na_web: 'Pesquisando na internet…', buscar_na_comunidade: 'Vendo o que a comunidade diz…', ler_pagina: 'Lendo uma página…', pesquisar_e_ler: 'Pesquisando e lendo…', abrir_pagina: 'Abrindo a página…', navegar: 'Abrindo o site…', clicar: 'Clicando na página…', preencher_campo: 'Preenchendo na página…', buscar_no_youtube: 'Procurando vídeos…', ver_video: 'Vendo o vídeo…', olhar_tela: 'Olhando a sua tela…', pronto: 'Juntando o que achei…' };
+  if (typeof situacaoOriginal === 'function') {
+    window.situacao = (texto) => {
+      const t = String(texto || '').trim();
+      if (!simplesAgora()) return situacaoOriginal(texto);
+      if (/^(passo|step) \d+ (de|of) \d+$/i.test(t)) return undefined;
+      const ferramenta = /^(?:executando|running) ([a-z_]+)/i.exec(t)?.[1];
+      if (ferramenta) return situacaoOriginal(tr(FERRAMENTAS[ferramenta] || 'Trabalhando nisso…'));
+      return situacaoOriginal(texto);
+    };
+  }
+  const site = (url) => {
+    try {
+      const h = new URL(url).hostname.replace(/^(www|m|pt|br)\./, '');
+      return h.split('.').filter((p) => !/^(com|org|net|gov|edu|br|co|io|info)$/.test(p)).pop() || h;
+    } catch {
+      return '';
+    }
+  };
+  const embrulhar = (canal, antes) => {
+    const original = manipuladores[canal];
+    manipuladores[canal] = (d = {}) => {
+      const r = original?.(d);
+      try {
+        if (simplesAgora() && agente?.rodando) antes(d);
+      } catch {
+        // a frase nunca atrapalha a tela
+      }
+      return r;
+    };
+  };
+  embrulhar('nucleo-entendimento', (d) => d.precisaBuscar && situacaoOriginal?.(tr('Entendi. Vou pesquisar isso na internet…')));
+  embrulhar('fonte', (d) => {
+    if (d.tipo === 'busca' && d.consultas?.[0]) situacaoOriginal?.(tr('Pesquisando: {q}', { q: String(d.consultas[0]).slice(0, 70) }));
+  });
+  embrulhar('redigindo', (d) => situacaoOriginal?.(d.fontes ? tr('Escrevendo a resposta com o que achei em {n} fontes…', { n: d.fontes }) : tr('Escrevendo a resposta…')));
+  embrulhar('achado', (d) => {
+    const s = site(`https://${d.site || ''}`) || d.site;
+    if (s) situacaoOriginal?.(d.titulo ? tr('Lendo {site}: {titulo}', { site: s, titulo: String(d.titulo).slice(0, 70) }) : tr('Lendo {site}…', { site: s }));
+  });
+
   window.modoSimples = { aplicar };
 })();
