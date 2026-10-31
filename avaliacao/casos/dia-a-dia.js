@@ -20,7 +20,58 @@ const audio = require('../../src/agent/audio-no-chat');
 const transcrito = (nome, duracao, texto, pergunta = 'O que diz este áudio?') => `${pergunta}\n\nTranscrição do áudio "${nome}" (${duracao}):\n"""\n${texto}\n"""`;
 const LONGO = 'Oi, tudo bem? Passa no mercado na volta do trabalho, por favor. Compra leite, pão e uma dúzia de ovos. E não esquece de pegar o remédio da sua mãe na farmácia até as seis da tarde, que depois fecha. A conta deu uns quarenta reais da última vez. Beijo, até mais tarde.';
 
+const timer = require('../../src/agent/timer-no-chat');
+
 module.exports = [
+  {
+    nome: 'timer: duração em número ou por extenso ("meia hora", "1h30", "vinte e cinco minutos", "um minuto e meio"), alarme no horário ("às 7 da noite", "às 5 e meia"), o nome ("pro miojo") e cancelar; "me lembra daqui a 20 min de…" fica com a agenda',
+    tipo: 'unidade',
+    executar() {
+      const p = (t) => JSON.stringify(timer.pedidoDeTimer(t));
+      const rotas = require('../../src/agent/rotas-do-codigo');
+      const casos = {
+        'timer de 10 minutos pro miojo': '{"acao":"criar","segundos":600,"rotulo":"miojo"}',
+        'Jarvis, coloca um timer de meia hora': '{"acao":"criar","segundos":1800,"rotulo":null}',
+        'timer de 1h30 para o bolo': '{"acao":"criar","segundos":5400,"rotulo":"bolo"}',
+        'temporizador de vinte e cinco minutos': '{"acao":"criar","segundos":1500,"rotulo":null}',
+        'timer de um minuto e meio': '{"acao":"criar","segundos":90,"rotulo":null}',
+        'cronômetro de 2 horas e 15 minutos': '{"acao":"criar","segundos":8100,"rotulo":null}',
+        'me acorda em 20 minutos': '{"acao":"criar","segundos":1200,"rotulo":null}',
+        'alarme às 7h': '{"acao":"criar","hora":7,"minuto":0,"rotulo":null}',
+        'alarme pras 7 da noite pra ir na academia': '{"acao":"criar","hora":19,"minuto":0,"rotulo":"ir na academia"}',
+        'despertador às 5 e meia': '{"acao":"criar","hora":5,"minuto":30,"rotulo":null}',
+        'cancela o timer': '{"acao":"cancelar"}',
+        'para o alarme': '{"acao":"cancelar"}',
+      };
+      const errados = Object.entries(casos).filter(([t, j]) => p(t) !== j).map(([t]) => `${t} → ${p(t)}`);
+      return [
+        !errados.length || errados.join(' | '),
+        ['me lembra daqui a 20 minutos de tirar o bolo', 'quanto tempo dura um timer?', 'o jogo começa às 7h', 'esse alarme do carro é chato', 'o PC demorou 10 minutos pra ligar'].every((t) => timer.pedidoDeTimer(t) === null) || 'o que não é timer',
+        rotas.escolherRota({ objetivo: 'me lembra daqui a 20 minutos de tirar o bolo', conversa: [] })?.rota?.id === 'agenda' && rotas.escolherRota({ objetivo: 'timer de 10 minutos pro miojo', conversa: [] })?.rota?.id === 'timer' || 'rotas',
+      ];
+    },
+  },
+  {
+    nome: 'timer: a resposta traz o cartão com o fim certo (alarme já passado vai para amanhã); cancelar avisa a tela pelo evento "timer", que o processo principal deixa passar',
+    tipo: 'unidade',
+    executar() {
+      const agora = new Date(2026, 9, 31, 13, 0, 0);
+      const eventos = [];
+      const deps = { emit: (e, d) => eventos.push([e, d]) };
+      const bloco = (r) => JSON.parse(/```timer\n([\s\S]*?)\n```/.exec(r.texto)[1]);
+      const t1 = timer.responderTimer({ pedido: { acao: 'criar', segundos: 600, rotulo: 'miojo' }, deps, agora });
+      const t2 = timer.responderTimer({ pedido: { acao: 'criar', hora: 7, minuto: 0, rotulo: null }, deps, agora });
+      timer.responderTimer({ pedido: { acao: 'cancelar' }, deps, agora });
+      const main = fs.readFileSync(path.join(__dirname, '../../electron/main.js'), 'utf8');
+      const md = fs.readFileSync(path.join(__dirname, '../../renderer/md.js'), 'utf8');
+      return [
+        /Timer de \*\*10 minutos\*\* para \*\*miojo\*\* — toca às 13:10/.test(t1.texto) && bloco(t1).fim === agora.getTime() + 600000 && bloco(t1).rotulo === 'miojo' || t1.texto,
+        /Alarme para as \*\*07:00\*\* de amanhã/.test(t2.texto) && bloco(t2).fim === new Date(2026, 10, 1, 7, 0, 0).getTime() && bloco(t2).alarme === true || t2.texto,
+        eventos.some(([e, d]) => e === 'timer' && d.acao === 'cancelar') || 'evento',
+        /'agenda-mudou',\n\s*\/\/[^\n]*\n\s*'timer',/.test(main.replace(/\r/g, '')) && /'midia', 'timer'\]/.test(md) || 'evento liberado e cartão registrado',
+      ];
+    },
+  },
   {
     nome: 'áudio anexado: a transcrição vira pedido da rota de áudio (a primeira: "vai chover" e "bom dia" no áudio não caem em outra rota); com outro anexo junto, fica com o agente',
     tipo: 'unidade',

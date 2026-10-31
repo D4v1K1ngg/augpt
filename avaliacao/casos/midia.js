@@ -94,7 +94,7 @@ module.exports = [
         enderecoValido('https://youtu.be/x') && !enderecoValido('file:///C:/x') && !enderecoValido('http://192.168.0.1/x') && !enderecoValido('http://localhost:3000') && !enderecoValido('calc.exe') || 'endereço',
         /const arquivo = midiaBaixada\.get\(String\(id \|\| ''\)\);[\s\S]{0,120}shell\.showItemInFolder\(arquivo\)/.test(main) || 'mostrar só o baixado',
         /\/\\\.\(mp4\|mp3\|m4a\|webm\|mkv\|opus\)\$\/i\.test\(arquivo\)/.test(main) || 'abrir só vídeo ou áudio',
-        /id: 'baixar_midia'/.test(ler('src/agent/rotas-do-codigo.js')) && /'compras', 'midia'\]/.test(ler('renderer/md.js')) || 'rota e cartão',
+        /id: 'baixar_midia'/.test(ler('src/agent/rotas-do-codigo.js')) && /'compras', 'midia'[,\]]/.test(ler('renderer/md.js')) || 'rota e cartão',
         /Baixe só o que você tem direito/.test(ler('renderer/midia.js')) || 'aviso de direitos',
       ];
     },

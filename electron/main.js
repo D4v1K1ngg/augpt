@@ -126,6 +126,8 @@ const EVENTOS = [
   'autoridade-descoberta',
   // a agenda mudou pelo chat (23/10): a tela da Agenda se atualiza
   'agenda-mudou',
+  // timers e alarmes (31/10): "cancela o timer" chega à tela (renderer/timer.js)
+  'timer',
   'tela-capturada',
   'conferencia',
   // Pedido de Davi 2026-09-23, mesma rodada: instrumentação por-chamada

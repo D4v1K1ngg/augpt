@@ -28,6 +28,7 @@ const midia = require('./midia-no-chat');
 const tocar = require('./tocar-no-chat');
 const resumo = require('./resumo-do-dia');
 const audio = require('./audio-no-chat');
+const timer = require('./timer-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -44,6 +45,13 @@ const ROTAS = [
     id: 'resumo_do_dia',
     detecta: ({ objetivo, conversa }) => resumo.pedidoDeResumo(objetivo, conversa),
     responde: ({ deps, config, pasta }, pedido) => resumo.responderResumo({ pedido: pedido || {}, deps, config, pasta }),
+  },
+  {
+    // "timer de 10 minutos pro miojo", "me acorda em 20 minutos", "alarme às 7h", "cancela o timer" (31/10):
+    // antes da agenda ("me lembra daqui a 20 minutos de…" não é timer e segue para ela)
+    id: 'timer',
+    detecta: ({ objetivo }) => timer.pedidoDeTimer(objetivo),
+    responde: ({ deps, config }, pedido) => timer.responderTimer({ pedido, deps, config }),
   },
   {
     // "me lembra sexta às 15h de ligar pro banco", "me avise quando a RTX 60 for lançada", "o que
