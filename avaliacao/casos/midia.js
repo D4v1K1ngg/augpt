@@ -13,7 +13,57 @@ const { Ffmpeg, acharBin } = require('../../src/ffmpeg');
 
 const ler = (f) => fs.readFileSync(path.join(__dirname, '../..', f), 'utf8');
 
+const tocar = require('../../src/agent/tocar-no-chat');
+
 module.exports = [
+  {
+    nome: 'tocar música: "toca X", "quero ouvir uma música do Y", "pausa/continua a música", "próxima música" — e "toca no assunto", "pausa" sozinho, "quero ouvir sua opinião" não',
+    tipo: 'unidade',
+    executar() {
+      const p = (t) => JSON.stringify(tocar.pedidoDeTocar(t));
+      const rotas = require('../../src/agent/rotas-do-codigo');
+      return [
+        p('Jarvis, toca Bohemian Rhapsody') === '{"acao":"tocar","consulta":"bohemian rhapsody"}' || p('Jarvis, toca Bohemian Rhapsody'),
+        p('quero ouvir uma música do Coldplay') === '{"acao":"tocar","consulta":"coldplay"}' || p('quero ouvir uma música do Coldplay'),
+        p('pode tocar Imagine Dragons?') === '{"acao":"tocar","consulta":"imagine dragons"}' || 'pergunta educada',
+        p('me toca uma música aleatória') === '{"acao":"tocar","consulta":""}' || 'ao acaso',
+        p('Jarvis, toca Believer no reprodutor do Windows') === '{"acao":"tocar","consulta":"believer"}' || 'sem o "reprodutor"',
+        ['pausa a música', 'continua a música', 'próxima música', 'pula essa música', 'música anterior'].map((t) => tocar.pedidoDeTocar(t)?.acao).join() === 'pausar,continuar,proxima,proxima,anterior' || 'controles',
+        ['toca no assunto', 'pausa', 'próxima', 'quero ouvir sua opinião', 'coloca isso numa tabela', 'O que toca na rádio?', 'toca um alarme às 7'].every((t) => tocar.pedidoDeTocar(t) === null) || 'o que não é tocar',
+        rotas.escolherRota({ objetivo: 'toca Paradise do Coldplay', conversa: [] })?.rota?.id === 'tocar_musica' && rotas.escolherRota({ objetivo: 'baixa a música Paradise', conversa: [] })?.rota?.id === 'baixar_midia' || 'rotas',
+      ];
+    },
+  },
+  {
+    nome: 'tocar música: acha pelo nome e pela pasta do artista, prefere áudio; sem achar, o cartão para baixar; pausar sem nada tocando avisa; só áudio e vídeo entram na lista',
+    tipo: 'unidade',
+    async executar() {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-tocar-'));
+      try {
+        fs.mkdirSync(path.join(dir, 'Queen'));
+        for (const f of ['Queen/Bohemian Rhapsody.mp3', 'Queen/Under Pressure.mp3', 'Bohemian Rhapsody (clipe) [abc].mp4', 'Believer [x1].m4a', 'notas.txt', 'virus.exe']) fs.writeFileSync(path.join(dir, f), '');
+        const lista = tocar.listarMidias([dir]);
+        const escolha = (c) => tocar.escolherMusica(lista, c, () => 0)?.escolhida.relativo;
+        const abertos = [];
+        const deps = { emit: () => {}, emTeste: true };
+        const tocou = await tocar.responderTocar({ pedido: { acao: 'tocar', consulta: 'believer' }, deps, pastas: [dir], abrir: async (a) => abertos.push(a) });
+        const pausa = await tocar.responderTocar({ pedido: { acao: 'pausar' }, deps, pastas: [dir], tecla: async () => 'nada' });
+        const proxima = await tocar.responderTocar({ pedido: { acao: 'proxima' }, deps, pastas: [dir], tecla: async () => 'ok' });
+        const semYtdlp = await tocar.responderTocar({ pedido: { acao: 'tocar', consulta: 'coldplay yellow' }, deps, pastas: [dir], pasta: dir, abrir: async (a) => abertos.push(a) });
+        return [
+          lista.length === 4 || `lista: ${lista.map((m) => m.relativo)}`,
+          escolha('bohemian rhapsody') === path.join('Queen', 'Bohemian Rhapsody.mp3') || escolha('bohemian rhapsody'),
+          escolha('queen') === path.join('Queen', 'Bohemian Rhapsody.mp3') || escolha('queen'),
+          escolha('coldplay') === undefined || 'não inventa',
+          abertos.length === 1 && abertos[0].endsWith('Believer [x1].m4a') && /Tocando \*\*Believer\*\*/.test(tocou.texto) || tocou.texto,
+          /Não tem nada tocando/.test(pausa.texto) && /Próxima/.test(proxima.texto) || `${pausa.texto} / ${proxima.texto}`,
+          /Não achei "coldplay yellow" no seu PC.*yt-dlp/.test(semYtdlp.texto) && abertos.length === 1 || semYtdlp.texto,
+        ];
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
   {
     nome: 'baixar mídia: o pedido com link ou nome vira download (vídeo ou áudio); "baixar o modelo", "baixou o preço", dúvida ("como baixar…?") e pergunta comum não',
     tipo: 'unidade',

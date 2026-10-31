@@ -349,6 +349,8 @@ const UTILITARIOS = [
   { id: 'calendario', rota: 'calendario', grupo: 'Dia a dia', icone: 'calendario', nome: 'Calendário e feriados', descricao: 'A data de hoje, os feriados nacionais, quantos dias faltam e em que dia da semana cai, num calendário para navegar.', exemplo: 'quais feriados temos este mês?' },
   { id: 'clima', rota: 'clima', grupo: 'Dia a dia', icone: 'nuvem', nome: 'Clima e previsão', descricao: 'O tempo agora, as próximas horas e os 7 dias de qualquer cidade (Open-Meteo).', exemplo: 'vai chover amanhã em Campinas?' },
   { id: 'mapa', rota: 'mapa', grupo: 'Dia a dia', icone: 'mapa', nome: 'Mapa e rotas', descricao: 'Mostra o lugar num globo e calcula a rota, a distância e o tempo de carro, a pé e de bicicleta (OpenStreetMap).', exemplo: 'quanto tempo de Campinas até São Paulo?' },
+  { id: 'baixar_midia', rota: 'baixar_midia', grupo: 'Dia a dia', icone: 'video', nome: 'Baixar vídeos e músicas', descricao: 'Vídeo até 1080p ou só o áudio em MP3, com link ou pelo nome, na pasta Downloads\\AuGPT.', exemplo: 'baixa a música Bohemian Rhapsody em MP3', precisa: 'youtube' },
+  { id: 'tocar_musica', rota: 'tocar_musica', grupo: 'Dia a dia', icone: 'som', nome: 'Tocar música', descricao: 'Acha a música no seu PC e toca no reprodutor do Windows; "pausa a música" e "próxima música" controlam.', exemplo: 'toca uma música do Queen', so: 'win32' },
   { id: 'memoria', rota: 'memoria', grupo: 'Você', icone: 'relatorio', nome: 'Memória sobre você', descricao: 'Guarda o que você pedir (nome, cidade, como prefere as respostas) e usa em todas as conversas. "Esqueça que…" apaga.', exemplo: 'lembre que eu prefiro respostas curtas e diretas' },
 ];
 

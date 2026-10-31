@@ -25,6 +25,7 @@ const mapa = require('./mapa-no-chat');
 const agenda = require('./agenda-no-chat');
 const compras = require('./compras-no-chat');
 const midia = require('./midia-no-chat');
+const tocar = require('./tocar-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -71,6 +72,13 @@ const ROTAS = [
     detecta: ({ objetivo }) => mapa.pedidoDeMapa(objetivo),
     intencao: (objetivo) => mapa.intencaoDeMapa(objetivo),
     responde: ({ objetivo, conversa, deps, config, pasta, ent }, pedido) => mapa.responderMapa({ pergunta: objetivo, conversa, deps, config, pasta, lugares: ent?.lugares, ...(pedido ? { pedido } : {}) }),
+  },
+  {
+    // "Jarvis, toca Bohemian Rhapsody", "pausa a música", "próxima música" (31/10): procura no PC e abre no
+    // reprodutor do Windows; sem achar, o cartão para baixar
+    id: 'tocar_musica',
+    detecta: ({ objetivo }) => tocar.pedidoDeTocar(objetivo),
+    responde: ({ deps, config, pasta, dirImagens }, pedido) => tocar.responderTocar({ pedido, deps, config, pasta, dirImagens }),
   },
   {
     // "baixa esse vídeo <link>", "baixa a música X em MP3" (30/10): o cartão com os botões Vídeo / Só o áudio;
