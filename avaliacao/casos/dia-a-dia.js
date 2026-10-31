@@ -40,6 +40,24 @@ const controle = require('../../src/agent/controle-do-pc');
 
 module.exports = [
   {
+    nome: 'pesquisa narrada no chat: número da frase que não está na página não passa (o "R$ 300" do pedido virando preço); o nome do site sai limpo; a abertura não dá números; a página narrada pela voz e pelo chat sai uma vez só',
+    tipo: 'unidade',
+    executar() {
+      const v = require('../../src/fala/voz-paralela');
+      const ler = (f) => fs.readFileSync(path.join(__dirname, '../..', f), 'utf8').replace(/\r/g, '');
+      const main = ler('electron/main.js');
+      const narra = ler('renderer/narracao-chat.js');
+      return [
+        JSON.stringify(v.numerosFora('achei o Moondrop Chu II a R$ 300', 'Moondrop Chu II Review — Priced at $19.99.')) === '["300"]' || 'o 300 de fora',
+        !v.numerosFora('a RTX 5070 é 71% mais rápida que a 3060 Ti', 'RTX 5070 vs RTX 3060 Ti: na média a RTX 5070 foi 71% mais rápida').length && !v.numerosFora('custa 19,99 dólares', 'Priced at $19.99').length && !v.numerosFora('aluguel de 1.850', 'R$ 1850,00').length || 'número igual escrito de outro jeito',
+        ['blog.waaw.com.br', 'forum.adrenaline.com.br', 'www.clubedohardware.com.br', 'www.reddit.com'].map(v.nomeDoSite).join() === 'waaw,adrenaline,clubedohardware,reddit' || ['blog.waaw.com.br', 'forum.adrenaline.com.br'].map(v.nomeDoSite).join(),
+        /Não responda o pedido, não dê números, preços, nomes de produtos ou opiniões/.test(v.sistemaDaAbertura('x')) && v.aberturaPadrao().length > 10 || 'a abertura',
+        /narradas\.has\(chave\)/.test(main) && /numerosFora\(texto, `\$\{achado\.titulo\} \$\{achado\.trecho\}`\)/.test(main) && /ipcMain\.handle\('narrador:abertura'/.test(main) || 'o processo principal',
+        /if \(!n\.aberta\) abrir\(\); \/\/ a primeira busca/.test(narra) && /QUIETO_MS = 15000/.test(narra) && /MAXIMO = 5/.test(narra) || 'a tela: começa na primeira busca, no máximo 5 frases, andamento quando fica quieto',
+      ];
+    },
+  },
+  {
     nome: 'barra da janela (Windows): a barra do AuGPT recebe os botões de minimizar, maximizar e fechar; arrasta a janela, os botões dela não; as cores seguem o tema e só a janela principal pode trocá-las (cor em hexadecimal)',
     tipo: 'unidade',
     executar() {

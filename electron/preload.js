@@ -60,6 +60,8 @@ contextBridge.exposeInMainWorld('augpt', {
     mostrar: (id) => ipcRenderer.invoke('midia:mostrar', id),
     abrir: (id) => ipcRenderer.invoke('midia:abrir', id),
   },
+  // a abertura da pesquisa narrada no chat (31/10)
+  narrador: { abertura: (dados) => ipcRenderer.invoke('narrador:abertura', dados) },
   voz: {
     estado: () => ipcRenderer.invoke('voz:estado'),
     instalar: () => ipcRenderer.invoke('voz:instalar'),

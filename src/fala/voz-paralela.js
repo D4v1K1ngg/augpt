@@ -81,7 +81,8 @@ const fraseDaFila = (usuario = '') => umaDe([`Pode deixar${comNome(usuario)}! An
  * a cada página lida, uma frase curta sobre o que ela trouxe. O modelo leve só reconta o trecho que a página
  * tem — sem concluir nem recomendar (a conclusão é do modelo principal, que leu tudo).
  */
-const nomeDoSite = (site) => String(site || '').replace(/^www\./, '').replace(/\.(com|net|org|gov|edu)(\.[a-z]{2})?$|\.[a-z]{2,3}$/i, '');
+// o nome do site, sem o subdomínio comum (31/10: "blog.waaw.com.br" virava "blog.waaw", "forum.adrenaline…" também)
+const nomeDoSite = (site) => String(site || '').replace(/^(www|blog|forum|forums|m|pt|br|en|news|noticias|community|comunidade)\./i, '').replace(/\.(com|net|org|gov|edu)(\.[a-z]{2})?$|\.[a-z]{2,3}$/i, '');
 
 function sistemaDaNarracao({ pedido = '', primeira = true, anterior = '' } = {}) {
   const comeco = String(anterior).split(/\s+/).slice(0, 2).join(' ');
@@ -92,6 +93,29 @@ Diga em UMA frase curta (até 20 palavras), em português do Brasil, o que a pá
 - Sem listas, sem markdown, sem aspas.`;
 }
 
+/**
+ * A abertura da narração no chat (31/10): o plano em uma frase, antes da pesquisa ("Vou buscar reviews e o que a
+ * comunidade diz…"). No teste (4b × 2b), o 4b acertou o tom sem inventar; nada de número, preço ou produto aqui.
+ */
+function sistemaDaAbertura(pedido = '') {
+  return `Você narra no chat, como o Jarvis, uma pesquisa que VAI começar agora sobre o pedido abaixo. Diga em UMA frase curta (até 25 palavras), em português do Brasil, o que vai fazer para responder — com calor humano, como um assistente contando o plano para um amigo. Não responda o pedido, não dê números, preços, nomes de produtos ou opiniões: só o plano (buscar, ler o que especialistas e a comunidade dizem, comparar…). Sem listas, sem markdown, sem aspas.
+
+Pedido: "${String(pedido).slice(0, 300)}"`;
+}
+const ABERTURAS = ['Vou pesquisar isso e já te conto o que encontrar.', 'Deixa comigo: vou buscar boas fontes e comparar o que elas dizem.', 'Vou dar uma olhada nas melhores fontes sobre isso.'];
+const aberturaPadrao = () => umaDe(ABERTURAS);
+
+/**
+ * Os números da frase que não estão na fonte (31/10, teste do 4b: pôs o "R$ 300" do pedido como preço do fone, que
+ * na página custava US$ 19,99). "19,99", "19.99" e "1.850" valem iguais; frase com número de fora é trocada pela do
+ * código.
+ */
+function numerosFora(frase, fonte) {
+  const limpar = (n) => n.replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.').replace(/\.0+$/, '');
+  const daFonte = new Set((String(fonte).match(/\d+(?:[.,]\d+)*/g) || []).map(limpar));
+  return (String(frase).match(/\d+(?:[.,]\d+)*/g) || []).map(limpar).filter((n) => !daFonte.has(n));
+}
+
 /** Sem o modelo leve (ou ele falhou): a frase sai pelo código. */
 function narracaoPadrao({ titulo = '', site = '' } = {}, primeira = true) {
   const s = nomeDoSite(site) || 'um site';
@@ -100,4 +124,4 @@ function narracaoPadrao({ titulo = '', site = '' } = {}, primeira = true) {
   return umaDe([`Encontrei mais um, no ${s}${t ? `: ${t}` : ''}.`, `Esse outro é do ${s}${t ? `: ${t}` : ''}.`, `Mais uma fonte boa, no ${s}.`]);
 }
 
-module.exports = { sistemaDaNarracao, narracaoPadrao, nomeDoSite, sistemaDaVozParalela, lerRespostaParalela, precisaDoPrincipal, FRASE_DA_FILA, fraseDaFila, perguntaDeAndamento, respostaDeAndamento };
+module.exports = { sistemaDaAbertura, aberturaPadrao, numerosFora, sistemaDaNarracao, narracaoPadrao, nomeDoSite, sistemaDaVozParalela, lerRespostaParalela, precisaDoPrincipal, FRASE_DA_FILA, fraseDaFila, perguntaDeAndamento, respostaDeAndamento };

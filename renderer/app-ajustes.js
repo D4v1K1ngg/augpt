@@ -932,6 +932,7 @@ $('cfgNomeDaChamada').addEventListener('change', (e) => trocarNomeDaChamada(e.ta
 /* ---------- o atalho Ctrl+Alt+A da tela (25/10) ---------- */
 async function pintarAtalhoDaTela() {
   $('cfgAtalhoDaTela').checked = config.atalhoDaTela !== false;
+  if ($('cfgNarrarNoChat')) $('cfgNarrarNoChat').checked = config.narrarNoChat !== false; // a pesquisa narrada no chat (31/10)
   const r = await api.tela.atalho().catch(() => null);
   $('atalhoDaTelaStatus').textContent = r?.estado === 'ocupado' ? tr('Outro programa já usa o Ctrl+Alt+A — o botão ao lado do + continua funcionando.') : '';
 }

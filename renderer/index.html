@@ -673,6 +673,10 @@
           <div class="linha voz-opcao" hidden><span class="linha-texto"><span>Horário de silêncio</span><small>Nesse horário os avisos ficam só escritos. Deixe vazio para não ter.</small></span>
             <span class="microfone-escolha"><input type="time" id="cfgSilencioDe" /> <span>até</span> <input type="time" id="cfgSilencioAte" /></span>
           </div>
+          <!-- 31/10: a pesquisa narrada no chat (renderer/narracao-chat.js) -->
+          <label class="linha"><span class="linha-texto"><span>Contar no chat o que está fazendo</span><small>Enquanto pesquisa, o AuGPT escreve no chat o que vai fazer e o que achou em cada página ("Vou buscar reviews…", "O Clube do Hardware diz que…"), com os passos recolhidos logo ao lado. Com o modelo leve escolhido em Voz do AuGPT, as frases ficam mais naturais; sem ele, saem prontas.</small></span>
+            <input type="checkbox" id="cfgNarrarNoChat" class="caixa" />
+          </label>
           <!-- 25/10: "o que tem na minha tela?" -->
           <label class="linha"><span class="linha-texto"><span>Atalho Ctrl+Alt+A: perguntar sobre a tela</span><small>De qualquer programa, Ctrl+Alt+A congela a tela e você escolhe a área (Enter = a tela inteira, Esc cancela). A imagem vira anexo do Agente, pronta para a pergunta. Também pelo botão ao lado do + ou falando "Ei GPT, o que é isso na tela?".</small><small id="atalhoDaTelaStatus" class="ajuste-status"></small></span>
             <input type="checkbox" id="cfgAtalhoDaTela" class="caixa" />
@@ -1390,6 +1394,7 @@
 <script src="celular.js"></script>
 <script src="segundo-plano.js"></script>
 <script src="fala.js"></script>
+<script src="narracao-chat.js"></script>
 <script src="modo-simples.js"></script>
 </body>
 </html>

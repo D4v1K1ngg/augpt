@@ -1167,20 +1167,46 @@ ipcMain.handle('voz:paralela', async (_e, { texto, objetivo = '', etapa = '', re
   }
 });
 // narrar a pesquisa (28/10): uma frase sobre a página que acabou de ser lida — pelo modelo leve, ou pelo código
-ipcMain.handle('voz:narrar', async (_e, { pedido = '', achado = {}, primeira = true, anterior = '' } = {}) => {
-  const { sistemaDaNarracao, narracaoPadrao } = require('../src/fala/voz-paralela');
+// a mesma página narrada pela voz e no chat (31/10) sai uma vez só: a segunda chamada espera a primeira
+const narradas = new Map();
+ipcMain.handle('voz:narrar', (_e, { pedido = '', achado = {}, primeira = true, anterior = '' } = {}) => {
+  const chave = `${achado.site}|${achado.titulo}|${String(achado.trecho || '').slice(0, 60)}`;
+  if (!narradas.has(chave)) {
+    if (narradas.size > 60) narradas.delete(narradas.keys().next().value);
+    narradas.set(chave, narrarPagina({ pedido, achado, primeira, anterior }));
+  }
+  return narradas.get(chave);
+});
+async function narrarPagina({ pedido, achado, primeira, anterior }) {
+  const { sistemaDaNarracao, narracaoPadrao, numerosFora, nomeDoSite } = require('../src/fala/voz-paralela');
   const padrao = narracaoPadrao(achado, primeira);
-  if (!String(config.data.modeloDaVoz || '').trim()) return { ok: true, texto: padrao };
+  if (!String(config.data.modeloDaVoz || '').trim()) return { ok: true, texto: padrao, pelo: 'codigo' };
   try {
     const r = await vozParalela([
       { role: 'system', content: sistemaDaNarracao({ pedido, primeira, anterior }) },
-      { role: 'user', content: `Site: ${achado.site || '?'}\nTítulo: ${achado.titulo || '?'}\nTrecho: ${String(achado.trecho || '').slice(0, 320)}` },
+      // o nome do site, não o endereço (31/10: com "blog.waaw.com.br" o modelo escreveu "blog.waaw")
+      { role: 'user', content: `Site: ${nomeDoSite(achado.site) || achado.site || '?'}\nTítulo: ${achado.titulo || '?'}\nTrecho: ${String(achado.trecho || '').slice(0, 320)}` },
     ], 60);
     // "forum.adrenaline.com.br" vira "adrenaline": o nome do site, não o endereço
     const texto = String(r.content || '').replace(/[*_#`"]/g, '').replace(/\b(?:[\w-]+\.)*([\w-]+)\.(?:com|net|org|gov|edu)(?:\.br)?\b/gi, '$1').replace(/\s+/g, ' ').trim();
-    return { ok: true, texto: texto.length >= 8 && texto.length <= 260 ? texto : padrao };
+    // número que não está na página (o "R$ 300" do pedido virando preço): vale a frase do código
+    const confere = texto.length >= 8 && texto.length <= 260 && !numerosFora(texto, `${achado.titulo} ${achado.trecho}`).length;
+    return confere ? { ok: true, texto, pelo: 'modelo' } : { ok: true, texto: padrao, pelo: 'codigo' };
   } catch {
-    return { ok: true, texto: padrao };
+    return { ok: true, texto: padrao, pelo: 'codigo' };
+  }
+}
+// a abertura da narração no chat (31/10): o plano em uma frase, sem número que não esteja no pedido
+ipcMain.handle('narrador:abertura', async (_e, { pedido = '' } = {}) => {
+  const { sistemaDaAbertura, aberturaPadrao, numerosFora } = require('../src/fala/voz-paralela');
+  if (!String(config.data.modeloDaVoz || '').trim()) return { ok: true, texto: aberturaPadrao(), pelo: 'codigo' };
+  try {
+    const r = await vozParalela([{ role: 'system', content: sistemaDaAbertura(pedido) }, { role: 'user', content: 'Escreva a frase.' }], 70);
+    const texto = String(r.content || '').replace(/[*_#`"]/g, '').replace(/\s+/g, ' ').trim();
+    const confere = texto.length >= 12 && texto.length <= 220 && !numerosFora(texto, pedido).length;
+    return confere ? { ok: true, texto, pelo: 'modelo' } : { ok: true, texto: aberturaPadrao(), pelo: 'codigo' };
+  } catch {
+    return { ok: true, texto: aberturaPadrao(), pelo: 'codigo' };
   }
 });
 // carrega o modelo leve antes da primeira conversa (a primeira carga leva ~6 s)
