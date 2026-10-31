@@ -16,7 +16,54 @@ const RSS = `<?xml version="1.0"?><rss><channel><title>Agência Brasil</title>
 <item><title>Sem link seguro</title><link>http://exemplo.com/c</link></item>
 </channel></rss>`;
 
+const audio = require('../../src/agent/audio-no-chat');
+const transcrito = (nome, duracao, texto, pergunta = 'O que diz este áudio?') => `${pergunta}\n\nTranscrição do áudio "${nome}" (${duracao}):\n"""\n${texto}\n"""`;
+const LONGO = 'Oi, tudo bem? Passa no mercado na volta do trabalho, por favor. Compra leite, pão e uma dúzia de ovos. E não esquece de pegar o remédio da sua mãe na farmácia até as seis da tarde, que depois fecha. A conta deu uns quarenta reais da última vez. Beijo, até mais tarde.';
+
 module.exports = [
+  {
+    nome: 'áudio anexado: a transcrição vira pedido da rota de áudio (a primeira: "vai chover" e "bom dia" no áudio não caem em outra rota); com outro anexo junto, fica com o agente',
+    tipo: 'unidade',
+    executar() {
+      const rotas = require('../../src/agent/rotas-do-codigo');
+      const p = audio.pedidoDeAudio(transcrito('PTT-WA0003.opus', '0:42', 'Bom dia! Vai chover amanhã em Campinas, leva guarda-chuva.'));
+      const comPergunta = audio.pedidoDeAudio(transcrito('a.opus', '0:10', 'x', 'até que horas?') + transcrito('b.ogg', '1:05', 'y', ''));
+      const main = fs.readFileSync(path.join(__dirname, '../../electron/main.js'), 'utf8');
+      return [
+        p?.audios?.[0]?.nome === 'PTT-WA0003.opus' && p.audios[0].duracao === '0:42' && p.pergunta === '' || JSON.stringify(p),
+        comPergunta?.audios?.length === 2 && comPergunta.pergunta === 'até que horas?' || JSON.stringify(comPergunta),
+        rotas.escolherRota({ objetivo: transcrito('a.opus', '0:42', 'Bom dia! Vai chover amanhã em Campinas?'), conversa: [] })?.rota?.id === 'audio_transcrito' || 'rota',
+        audio.pedidoDeAudio(`${transcrito('a.opus', '0:10', 'x')}\n\nArquivos anexados, já copiados para a pasta de trabalho:\n- planilha.xlsx\nUse ler_arquivo para abri-los.`) === null || 'com outro anexo',
+        audio.pedidoDeAudio('O que diz este áudio?') === null || 'sem transcrição',
+        /EXTENSOES_AUDIO = new Set\(\['\.opus', '\.ogg'/.test(main) && /audio: true, bytes: fs\.readFileSync\(origem\)/.test(main) || 'o anexo leva os bytes do áudio',
+      ];
+    },
+  },
+  {
+    nome: 'áudio anexado: curto sai só a transcrição (sem chamar o modelo); longo leva um resumo; com pergunta, a resposta vem pelo que foi dito; sem fala, avisa',
+    tipo: 'unidade',
+    async executar() {
+      const pedidos = [];
+      const chamar = async (msgs) => {
+        pedidos.push(msgs);
+        return { content: /Pergunta:/.test(msgs[1].content) ? 'Leite, pão e ovos, e o remédio até as 18h.' : '<think>x</think>Pedem para passar no mercado e pegar o remédio até as 18h.' };
+      };
+      const pedacos = [];
+      const deps = { chamar, emit: (e, d) => e === 'resposta-token' && pedacos.push(d.pedaco) };
+      const curto = await audio.responderAudio({ pedido: audio.pedidoDeAudio(transcrito('a.opus', '0:04', 'Tô chegando, abre o portão.')), deps });
+      const chamadasDoCurto = pedidos.length;
+      const longo = await audio.responderAudio({ pedido: audio.pedidoDeAudio(transcrito('PTT.opus', '0:18', LONGO)), deps });
+      const pergunta = await audio.responderAudio({ pedido: audio.pedidoDeAudio(transcrito('PTT.opus', '0:18', LONGO, 'o que eu preciso comprar?')), deps });
+      const mudo = await audio.responderAudio({ pedido: audio.pedidoDeAudio(transcrito('z.opus', '0:03', '(sem fala no áudio)')), deps });
+      return [
+        chamadasDoCurto === 0 && /🎙️ \*\*a\.opus\*\* \(0:04\)\n\n> Tô chegando, abre o portão\./.test(curto.texto) || curto.texto,
+        /^\*\*Resumo:\*\* Pedem para passar no mercado/.test(longo.texto) && !/think/.test(longo.texto) && /> Oi, tudo bem\?/.test(longo.texto) || longo.texto,
+        /^Leite, pão e ovos/.test(pergunta.texto) && /Pergunta: o que eu preciso comprar\?/.test(pedidos.at(-1)[1].content) && /Use SÓ o que foi dito/.test(pedidos.at(-1)[0].content) || pergunta.texto,
+        /^Não ouvi fala neste áudio/.test(mudo.texto) && pedidos.length === 2 || mudo.texto,
+        pedacos.length === 4 && pedacos[1] === longo.texto || `pedaços: ${pedacos.length}`,
+      ];
+    },
+  },
   {
     nome: 'resumo do dia: "bom dia, Jarvis" no começo da conversa e "resumo do dia" sempre; "bom dia" no meio da conversa, "bom dia, me ajuda com…" e "o que eu tenho pra hoje?" (agenda) não',
     tipo: 'unidade',

@@ -11,7 +11,7 @@ async function enviarPedido() {
     await api.agent.stop();
     return;
   }
-  const pedido = el.aEntrada.value.trim();
+  const pedido = el.aEntrada.value.trim() || (anexos.agente.some((a) => a.audio && !a.erro) ? tr('O que diz este áudio?') : '');
   if (!pedido) return;
   // "em segundo plano: …" (27/10): vai para a fila e a caixa fica livre
   const deFundo = await api.fundo.detectar(pedido).catch(() => null);
@@ -32,6 +32,8 @@ async function enviarPedido() {
   // itens individuais (caminho na pasta de trabalho) pro painel "Arquivos" da
   // lateral direita, que consumirAnexos não devolve (só o rótulo/contexto
   // pro prompt).
+  // o áudio ainda sendo transcrito (31/10): o envio espera
+  await Promise.all(anexos.agente.map((a) => a.pronto).filter(Boolean));
   const anexosParaPainel = anexos.agente.filter((a) => !a.erro && a.relativo);
   const { rotulo, contexto } = consumirAnexos('agente');
   const pedidoCompleto = pedido + contexto;
@@ -318,13 +320,14 @@ async function enviarMensagem() {
     await api.chat.stop();
     return;
   }
-  const texto = el.cEntrada.value.trim();
+  const texto = el.cEntrada.value.trim() || (anexos.chat.some((a) => a.audio && !a.erro) ? tr('Resuma este áudio.') : '');
   if (!texto) return;
   if (!config.model) {
     bolha('assistant', 'Ainda não há um modelo de IA pronto. Abra a aba Agente: a tela inicial mostra o que falta e baixa o modelo pra você.', 'erro');
     return;
   }
 
+  await Promise.all(anexos.chat.map((a) => a.pronto).filter(Boolean));
   const { rotulo, contexto } = consumirAnexos('chat');
 
   el.cEntrada.value = '';

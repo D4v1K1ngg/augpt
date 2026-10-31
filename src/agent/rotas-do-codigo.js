@@ -27,10 +27,18 @@ const compras = require('./compras-no-chat');
 const midia = require('./midia-no-chat');
 const tocar = require('./tocar-no-chat');
 const resumo = require('./resumo-do-dia');
+const audio = require('./audio-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
 const ROTAS = [
+  {
+    // áudio anexado e já transcrito pela tela (31/10): a primeira — o texto do áudio tem palavra de tudo
+    // ("vai chover", "bom dia") e não pode cair em outra rota
+    id: 'audio_transcrito',
+    detecta: ({ objetivo }) => audio.pedidoDeAudio(objetivo),
+    responde: ({ deps, config }, pedido) => audio.responderAudio({ pedido, deps, config }),
+  },
   {
     // "bom dia, Jarvis" no começo da conversa, "resumo do dia" (31/10): data e feriado, tempo, agenda e manchetes
     id: 'resumo_do_dia',

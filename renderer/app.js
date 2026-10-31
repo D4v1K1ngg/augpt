@@ -132,13 +132,24 @@ function pintarAnexos(modo) {
     chip.title = a.erro || (a.relativo ? `copiado para a pasta de trabalho: ${a.relativo}` : `${kb(a.tamanho)}`);
     chip.innerHTML = `<span class="anexo-nome"></span><span class="anexo-tam"></span><button aria-label="Remover">✕</button>`;
     chip.querySelector('.anexo-nome').textContent = a.nome;
-    chip.querySelector('.anexo-tam').textContent = a.erro ? 'erro' : kb(a.tamanho);
+    chip.querySelector('.anexo-tam').textContent = a.erro ? 'erro' : a.transcrevendo != null ? `${tr('transcrevendo…')} ${a.transcrevendo}%` : a.transcricao != null ? `🎙️ ${window.audioAnexo.duracao(a.segundos || 0)}` : kb(a.tamanho);
     chip.querySelector('button').addEventListener('click', () => {
       anexos[modo].splice(i, 1);
       pintarAnexos(modo);
     });
     alvo.appendChild(chip);
   });
+}
+
+/** Áudio anexado (31/10): transcrito aqui, pelo Whisper local; o envio espera (`pronto`). */
+function prepararAudio(arquivo, modo) {
+  if (arquivo.audio && !arquivo.erro) {
+    arquivo.transcrevendo = 0;
+    arquivo.pronto = window.audioAnexo.transcreverAudio(arquivo.bytes, { progresso: (p) => { arquivo.transcrevendo = p; pintarAnexos(modo); } })
+      .then((r) => { arquivo.transcricao = r.texto; arquivo.segundos = r.segundos; })
+      .catch((err) => { arquivo.erro = /nao-instalado/.test(err.message) ? tr('para transcrever áudio, instale o Ditado por voz em Ajustes → Componentes') : `${tr('não consegui transcrever o áudio')}: ${err.message}`; })
+      .finally(() => { delete arquivo.transcrevendo; delete arquivo.bytes; pintarAnexos(modo); });
+  }
 }
 
 async function anexar(modo) {
@@ -148,10 +159,11 @@ async function anexar(modo) {
     const r = await api.files.attach(modo);
     if (!r.ok) return;
     for (const arquivo of r.arquivos) {
-      if (modo === 'chat' && !arquivo.ehTexto) {
+      if (modo === 'chat' && !arquivo.ehTexto && !arquivo.audio) {
         arquivo.erro = 'a aba Conversa só lê arquivos de texto — use a aba Agente para este formato';
       }
       anexos[modo].push(arquivo);
+      prepararAudio(arquivo, modo);
     }
     pintarAnexos(modo);
   } finally {
@@ -167,12 +179,16 @@ function consumirAnexos(modo) {
   if (!lista.length) return { rotulo: '', contexto: '' };
 
   const rotulo = lista.map((a) => a.nome).join(', ');
+  // o áudio vai como transcrição (31/10): a rota audio-no-chat.js resume e responde
+  const transcricoes = lista.filter((a) => a.transcricao != null).map((a) => `\n\nTranscrição do áudio "${a.nome}" (${window.audioAnexo.duracao(a.segundos || 0)}):\n"""\n${a.transcricao || '(sem fala no áudio)'}\n"""`).join('');
 
   if (modo === 'agente') {
-    const linhas = lista.map((a) => `- ${a.relativo}${a.tamanho ? ` (${kb(a.tamanho)})` : ''}`).join('\n');
+    const outros = lista.filter((a) => a.transcricao == null);
+    if (!outros.length) return { rotulo, contexto: transcricoes };
+    const linhas = outros.map((a) => `- ${a.relativo}${a.tamanho ? ` (${kb(a.tamanho)})` : ''}`).join('\n');
     return {
       rotulo,
-      contexto: `\n\nArquivos anexados, já copiados para a pasta de trabalho:\n${linhas}\nUse ler_arquivo para abri-los.`,
+      contexto: `\n\nArquivos anexados, já copiados para a pasta de trabalho:\n${linhas}\nUse ler_arquivo para abri-los.${transcricoes}`,
     };
   }
 
@@ -180,7 +196,7 @@ function consumirAnexos(modo) {
     .filter((a) => a.texto)
     .map((a) => `--- ${a.nome} ---\n${a.texto}${a.truncado ? '\n[…arquivo truncado]' : ''}`)
     .join('\n\n');
-  return { rotulo, contexto: blocos ? `\n\nConteúdo dos arquivos anexados:\n\n${blocos}` : '' };
+  return { rotulo, contexto: (blocos ? `\n\nConteúdo dos arquivos anexados:\n\n${blocos}` : '') + transcricoes };
 }
 
 $('btnAnexoAgente').addEventListener('click', () => anexar('agente'));

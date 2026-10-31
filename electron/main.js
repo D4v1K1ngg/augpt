@@ -2444,6 +2444,8 @@ ipcMain.handle('tools:openFile', (_e, name) => {
 
 // ----------------------------- anexos -----------------------------
 
+// o que a tela (Chromium) decodifica: opus/ogg do WhatsApp, mp3, m4a/aac, wav, webm, flac
+const EXTENSOES_AUDIO = new Set(['.opus', '.ogg', '.oga', '.mp3', '.m4a', '.aac', '.wav', '.webm', '.flac']);
 const EXTENSOES_TEXTO = new Set([
   '.txt', '.md', '.csv', '.tsv', '.json', '.xml', '.yml', '.yaml', '.log', '.ini', '.env',
   '.js', '.jsx', '.ts', '.tsx', '.py', '.rb', '.go', '.rs', '.java', '.c', '.h', '.cpp',
@@ -2494,7 +2496,9 @@ ipcMain.handle('files:attach', async (_e, { modo } = {}) => {
         relativo = sandbox.relative(destino);
       }
 
-      arquivos.push({ nome, relativo, tamanho: stat.size, ehTexto, texto, truncado: Boolean(texto) && stat.size > 120_000 });
+      // áudio (31/10, mensagem de voz do WhatsApp): os bytes vão para a tela, que decodifica e manda ao Whisper
+      const audio = EXTENSOES_AUDIO.has(ext) && stat.size <= 40_000_000;
+      arquivos.push({ nome, relativo, tamanho: stat.size, ehTexto, texto, truncado: Boolean(texto) && stat.size > 120_000, ...(audio ? { audio: true, bytes: fs.readFileSync(origem) } : {}) });
     } catch (err) {
       arquivos.push({ nome: path.basename(origem), erro: err.message });
     }
