@@ -26,10 +26,17 @@ const agenda = require('./agenda-no-chat');
 const compras = require('./compras-no-chat');
 const midia = require('./midia-no-chat');
 const tocar = require('./tocar-no-chat');
+const resumo = require('./resumo-do-dia');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
 const ROTAS = [
+  {
+    // "bom dia, Jarvis" no começo da conversa, "resumo do dia" (31/10): data e feriado, tempo, agenda e manchetes
+    id: 'resumo_do_dia',
+    detecta: ({ objetivo, conversa }) => resumo.pedidoDeResumo(objetivo, conversa),
+    responde: ({ deps, config, pasta }, pedido) => resumo.responderResumo({ pedido: pedido || {}, deps, config, pasta }),
+  },
   {
     // "me lembra sexta às 15h de ligar pro banco", "me avise quando a RTX 60 for lançada", "o que
     // eu tenho amanhã?" (23/10): antes da memória ("lembre QUE…" é memória; "me lembra DE…" é agenda)
