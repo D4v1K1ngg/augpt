@@ -42,7 +42,7 @@ function pedidoDoPc(texto) {
   if (new RegExp(`^(bloqueia|bloqueie|trava|trave|tranca|tranque) (a tela|${PC})$`).test(t)) return { acao: 'bloquear' };
   // abrir programa: "abre o Discord" — site, arquivo e pasta ficam com o agente
   const abre = /^(?:(?:pode |voce pode )?(?:abre|abra|abrir|inicia|inicie|executa|execute|roda|rode|liga|ligue))(?: o| a| meu| minha)? (.{2,40})$/.exec(t);
-  if (abre && !/\b(site|pagina|link|arquivo|pasta|planilha|documento|pdf|foto|imagem|video|https?|www|aba|janela do|conversa|chat|agenda|ajustes|configurac|luz|tv|ar condicionado|porta|portao)\b|\.[a-z]{2,4}\b/.test(abre[1])) return { acao: 'abrir', nome: abre[1].replace(/\b(pra mim|para mim|ai|aqui|agora)$/, '').trim() };
+  if (abre && !/\b(site|pagina|link|arquivo|pasta|planilha|documento|pdf|foto|imagem|video|https?|www|aba|janela do|conversa|chat|agenda|ajustes|configurac|luz|tv|ar condicionado|porta|portao|contrato|comprovante|curriculo|boleto|nota fiscal|recibo|print|exame|laudo|fatura|extrato|relatorio|trabalho de|garantia|passagem|meu|minha)\b|\.[a-z]{2,4}\b/.test(abre[1])) return { acao: 'abrir', nome: abre[1].replace(/\b(pra mim|para mim|ai|aqui|agora)$/, '').trim() };
   return null;
 }
 

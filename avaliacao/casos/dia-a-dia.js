@@ -202,7 +202,7 @@ module.exports = [
         /Timer de \*\*10 minutos\*\* para \*\*miojo\*\* — toca às 13:10/.test(t1.texto) && bloco(t1).fim === agora.getTime() + 600000 && bloco(t1).rotulo === 'miojo' || t1.texto,
         /Alarme para as \*\*07:00\*\* de amanhã/.test(t2.texto) && bloco(t2).fim === new Date(2026, 10, 1, 7, 0, 0).getTime() && bloco(t2).alarme === true || t2.texto,
         eventos.some(([e, d]) => e === 'timer' && d.acao === 'cancelar') || 'evento',
-        /'agenda-mudou',\n\s*\/\/[^\n]*\n\s*'timer',/.test(main.replace(/\r/g, '')) && /'midia', 'timer'\]/.test(md) || 'evento liberado e cartão registrado',
+        /'agenda-mudou',\n\s*\/\/[^\n]*\n\s*'timer',/.test(main.replace(/\r/g, '')) && /'midia', 'timer'[,\]]/.test(md) || 'evento liberado e cartão registrado',
       ];
     },
   },

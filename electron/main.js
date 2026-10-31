@@ -128,6 +128,8 @@ const EVENTOS = [
   'agenda-mudou',
   // timers e alarmes (31/10): "cancela o timer" chega à tela (renderer/timer.js)
   'timer',
+  // a busca nos seus arquivos lendo as pastas (31/10)
+  'busca-local-progresso',
   'tela-capturada',
   'conferencia',
   // Pedido de Davi 2026-09-23, mesma rodada: instrumentação por-chamada
@@ -543,6 +545,7 @@ function filtrarPatchDeConfig(patch) {
   delete seguro.mcpServidores; // só por `mcp:save`, que confirma cada programa novo
   delete seguro.dominiosPersonalizados; // só por `domains:save`
   delete seguro.acessoCelularCodigo; // só por `remoto:novoCodigo`
+  delete seguro.buscaLocalPastas; // só pela janela de escolher pasta (`buscaLocal:adicionarPasta`)
   if (seguro.autonomy === 'auto' && config.data.autonomy !== 'auto') {
     const escolha = dialog.showMessageBoxSync(win, {
       type: 'warning',
@@ -2310,6 +2313,89 @@ ipcMain.handle('midia:abrir', async (_e, id) => {
   const erro = await shell.openPath(arquivo);
   return erro ? { ok: false, error: erro } : { ok: true };
 });
+
+// o aviso do Windows do timer (31/10): a janela não tem permissão de notificação (negarPermissoes) — sai daqui
+ipcMain.handle('timer:avisar', (_e, { titulo, corpo } = {}) => {
+  avisar(String(titulo || 'AuGPT').slice(0, 120), String(corpo || '').slice(0, 300), null, () => enviar('timer', { acao: 'parar-som' }));
+  return true;
+});
+
+/* ------------------------------ busca nos seus arquivos (31/10, src/busca-local.js) ------------------------------ */
+// Só as pastas que você escolhe em Ajustes; a leitura roda em segundo plano (2 min depois de abrir e a cada 6 h),
+// pausa com jogo ou apresentação em tela cheia e com o agente trabalhando. Abrir e Mostrar na pasta: só o que
+// está no índice e dentro das pastas escolhidas.
+const { BuscaLocal, DOCUMENTOS: DOCS_DA_BUSCA, IMAGENS: IMGS_DA_BUSCA } = require('../src/busca-local');
+let buscaLocal = null;
+let buscaLocalAbort = null;
+const pastasDaBusca = () => (Array.isArray(config.data.buscaLocalPastas) ? config.data.buscaLocalPastas.filter((p) => typeof p === 'string' && p) : []);
+function criarBuscaLocal() {
+  const { vetorDe } = require('../src/agent/embeddings');
+  const { estadoDoPc } = require('../src/pc-ocupado');
+  buscaLocal = BuscaLocal.de(path.join(app.getPath('userData'), 'busca-local'), {
+    vetor: (t) => vetorDe(t, { host: config.data.host, embedModel: config.data.embedModel || 'nomic-embed-text' }),
+    ocr: (arquivo) => (tesseract().instalado() ? tesseract().lerTexto(arquivo) : ''),
+    ocupado: async () => Boolean(agent?.rodando) || /tela cheia|jogo|apresenta/.test((await estadoDoPc()).motivo || ''),
+  });
+}
+function atualizarBuscaLocal() {
+  const pastas = pastasDaBusca().filter((p) => fs.existsSync(p));
+  if (!buscaLocal || !pastas.length) return Promise.resolve(null);
+  buscaLocalAbort = new AbortController();
+  return buscaLocal.atualizar(pastas, { comImagens: config.data.buscaLocalImagens === true, emitir: (p) => enviar('busca-local-progresso', p), signal: buscaLocalAbort.signal }).catch((err) => {
+    enviar('busca-local-progresso', { fim: true, erro: err.message });
+    return null;
+  });
+}
+const estadoDaBusca = () => ({ pastas: pastasDaBusca(), imagens: config.data.buscaLocalImagens === true, ocr: tesseract().instalado(), ...(buscaLocal ? buscaLocal.estado() : { arquivos: 0 }) });
+const dentroDaBusca = (arquivo) => {
+  const p = path.resolve(String(arquivo || ''));
+  const ext = path.extname(p).toLowerCase();
+  return Boolean(buscaLocal?.carregar().arquivos[p]) && pastasDaBusca().some((pasta) => p.toLowerCase().startsWith(`${path.resolve(pasta).toLowerCase()}${path.sep}`)) && (DOCS_DA_BUSCA.has(ext) || IMGS_DA_BUSCA.has(ext)) && fs.existsSync(p) ? p : null;
+};
+ipcMain.handle('buscaLocal:estado', () => estadoDaBusca());
+ipcMain.handle('buscaLocal:adicionarPasta', async () => {
+  const r = await dialog.showOpenDialog(win, { title: 'Escolha uma pasta para o AuGPT procurar', properties: ['openDirectory'] });
+  if (r.canceled || !r.filePaths[0]) return estadoDaBusca();
+  const nova = path.resolve(r.filePaths[0]);
+  // a raiz do disco ou a pasta do Windows: lenta e cheia de arquivo de sistema
+  if (/^[a-z]:\\?$/i.test(nova) || /\\windows(\\|$)|\\program files/i.test(nova)) return { ...estadoDaBusca(), erro: 'Escolha uma pasta sua (Documentos, Downloads…), não o disco inteiro nem a pasta do Windows.' };
+  if (!pastasDaBusca().some((p) => path.resolve(p).toLowerCase() === nova.toLowerCase())) config.save({ buscaLocalPastas: [...pastasDaBusca(), nova] });
+  atualizarBuscaLocal();
+  return estadoDaBusca();
+});
+ipcMain.handle('buscaLocal:removerPasta', (_e, pasta) => {
+  config.save({ buscaLocalPastas: pastasDaBusca().filter((p) => p !== pasta) });
+  buscaLocalAbort?.abort();
+  setTimeout(atualizarBuscaLocal, 500); // tira do índice o que era dela
+  return estadoDaBusca();
+});
+ipcMain.handle('buscaLocal:imagens', (_e, ligado) => {
+  config.save({ buscaLocalImagens: ligado === true });
+  if (ligado === true) atualizarBuscaLocal();
+  return estadoDaBusca();
+});
+ipcMain.handle('buscaLocal:atualizar', () => {
+  atualizarBuscaLocal();
+  return estadoDaBusca();
+});
+ipcMain.handle('buscaLocal:apagar', () => {
+  buscaLocalAbort?.abort();
+  buscaLocal?.apagar();
+  config.save({ buscaLocalPastas: [] });
+  return estadoDaBusca();
+});
+ipcMain.handle('buscaLocal:abrir', async (_e, arquivo) => {
+  const p = dentroDaBusca(arquivo);
+  if (!p) return { ok: false, error: 'o arquivo não está mais lá' };
+  const erro = await shell.openPath(p);
+  return erro ? { ok: false, error: erro } : { ok: true };
+});
+ipcMain.handle('buscaLocal:mostrar', (_e, arquivo) => {
+  const p = dentroDaBusca(arquivo);
+  if (!p) return { ok: false, error: 'o arquivo não está mais lá' };
+  shell.showItemInFolder(p);
+  return { ok: true };
+});
 ipcMain.handle('componentes:voltarFfmpeg', async () => {
   try {
     return { ok: true, estado: await ffmpeg().voltar() };
@@ -2610,6 +2696,9 @@ app.whenReady().then(() => {
       .catch((err) => registrarErro('faxina', err));
   }, 2 * 60000);
   ditado = new Ditado(path.join(app.getPath('userData'), 'componentes'));
+  criarBuscaLocal();
+  setTimeout(atualizarBuscaLocal, 2 * 60_000);
+  setInterval(atualizarBuscaLocal, 6 * 3600_000);
   voz = new Voz(path.join(app.getPath('userData'), 'componentes', 'voz'));
   carregarRegistroDaEscuta();
   aplicarNomeDaChamada();

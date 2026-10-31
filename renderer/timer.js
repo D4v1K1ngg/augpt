@@ -66,10 +66,8 @@
     repintar(spec.id);
     bipar();
     const L = T[spec.idioma === 'en' ? 'en' : 'pt'];
-    try {
-      const n = new Notification(`⏰ ${spec.rotulo || L.aviso}`, { body: `${spec.alarme ? L.alarme : L.timer} — ${hora(spec.fim, spec.idioma === 'en')}`, requireInteraction: true });
-      n.onclick = () => { window.focus(); pararSom(); n.close(); };
-    } catch {}
+    // pelo processo principal: a janela não tem permissão de notificação (31/10, o aviso não aparecia)
+    api.timer?.avisar({ titulo: `⏰ ${spec.rotulo || L.aviso}`, corpo: `${spec.alarme ? L.alarme : L.timer} — ${hora(spec.fim, spec.idioma === 'en')}` }).catch(() => {});
   }
 
   function agendar(spec) {
@@ -143,6 +141,7 @@
   if (typeof manipuladores !== 'undefined') {
     Object.assign(manipuladores, {
       timer({ acao } = {}) {
+        if (acao === 'parar-som') return pararSom(); // clicou no aviso do Windows
         if (acao !== 'cancelar') return;
         // "para o alarme" com um tocando: só cala; os outros seguem contando
         if ([...estado.values()].includes('tocando')) return pararSom();

@@ -855,6 +855,21 @@
       <!-- ---------------- Memória ---------------- -->
       <div class="ajustes-painel" id="ajMemoria" hidden>
         <header class="pagina-topo"><div><h1>Memória</h1><p>O que o agente guarda entre as conversas — e o botão para esquecer.</p></div></header>
+        <!-- 31/10: "onde está aquilo?" (src/busca-local.js, renderer/busca-local.js) -->
+        <section class="grupo">
+          <h2>Busca nos seus arquivos <span class="contador" id="buscaLocalTotal">0</span></h2>
+          <p class="dica">Escolha as pastas e pergunte no chat: "acha o contrato do aluguel", "onde está o meu currículo?", "qual o valor da minha conta de luz de setembro?". O AuGPT lê os PDFs, Word, Excel, PowerPoint e textos dessas pastas aqui no PC — nada sai dele — e atualiza sozinho a cada 6 horas, pausando durante jogos.</p>
+          <ul class="operacional" id="buscaLocalPastas"></ul>
+          <label class="linha"><span class="linha-texto"><span>Ler o texto de fotos e prints</span><small>Pelo leitor de texto em imagens (Tesseract). Mais lento.</small><small id="buscaLocalImagensDica" class="ajuste-status"></small></span>
+            <input type="checkbox" id="cfgBuscaLocalImagens" class="caixa" />
+          </label>
+          <div class="linha-botoes">
+            <button class="btn-primario" id="btnBuscaLocalPasta">Adicionar pasta</button>
+            <button class="btn-secundario" id="btnBuscaLocalAtualizar" hidden>Atualizar agora</button>
+            <button class="btn-secundario" id="btnBuscaLocalApagar" hidden>Apagar o índice</button>
+          </div>
+          <div class="teste-resultado" id="buscaLocalStatus"></div>
+        </section>
         <section class="grupo">
           <h2>Memória <span class="contador" id="memTotal">0</span></h2>
           <p class="dica"><b>Só nas tarefas</b> (pedidos com arquivo, pasta, site ou comando). Fatos e resultados guardados entre os passos e entre execuções, aprendidos em paralelo enquanto o agente trabalha.</p>
@@ -1365,6 +1380,7 @@
 <script src="boas-vindas.js"></script>
 <script src="agenda.js"></script>
 <script src="timer.js"></script>
+<script src="busca-local.js"></script>
 <script src="ditado.js"></script>
 <script src="voz.js"></script>
 <script src="escuta.js"></script>

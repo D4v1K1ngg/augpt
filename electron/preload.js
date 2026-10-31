@@ -34,6 +34,19 @@ contextBridge.exposeInMainWorld('augpt', {
     mostrarNaPasta: (caminho) => ipcRenderer.invoke('imagem:mostrarNaPasta', { caminho }),
   },
   // a voz do AuGPT (27/10)
+  // busca nos seus arquivos (31/10, src/busca-local.js)
+  buscaLocal: {
+    estado: () => ipcRenderer.invoke('buscaLocal:estado'),
+    adicionarPasta: () => ipcRenderer.invoke('buscaLocal:adicionarPasta'),
+    removerPasta: (pasta) => ipcRenderer.invoke('buscaLocal:removerPasta', pasta),
+    imagens: (ligado) => ipcRenderer.invoke('buscaLocal:imagens', ligado),
+    atualizar: () => ipcRenderer.invoke('buscaLocal:atualizar'),
+    apagar: () => ipcRenderer.invoke('buscaLocal:apagar'),
+    abrir: (arquivo) => ipcRenderer.invoke('buscaLocal:abrir', arquivo),
+    mostrar: (arquivo) => ipcRenderer.invoke('buscaLocal:mostrar', arquivo),
+  },
+  // o aviso do Windows no fim do timer (31/10)
+  timer: { avisar: (dados) => ipcRenderer.invoke('timer:avisar', dados) },
   // baixar vídeos e músicas (30/10, src/midia.js)
   midia: {
     estado: () => ipcRenderer.invoke('midia:estado'),

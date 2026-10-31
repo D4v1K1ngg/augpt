@@ -188,6 +188,9 @@ const DEFAULTS = {
   escutaNiveis: [], // o volume de cada "Ei GPT" dos treinos (até 30)
   // 25/10: Ctrl+Alt+A captura uma área da tela e anexa ao Agente ("o que tem na minha tela?")
   atalhoDaTela: true,
+  // 31/10: "onde está aquilo?" — as pastas que o AuGPT lê para a busca nos seus arquivos (vazio = desligado)
+  buscaLocalPastas: [],
+  buscaLocalImagens: false, // ler o texto de fotos e prints (OCR, mais lento)
   // 25/10: o nome que chama o assistente pela voz ("GPT" = "Ei GPT"; escolhido na boas-vindas e em Ajustes)
   nomeDaChamada: 'GPT',
   // 26/10: acesso pelo celular na rede da casa (src/remoto.js) — desligado por padrão; o código vai no QR

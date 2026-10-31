@@ -1419,6 +1419,7 @@ async function carregarMemoria() {
   el.memTotal.textContent = total;
   carregarOperacional();
   carregarCentral();
+  window.buscaLocalUi?.carregar(); // a busca nos seus arquivos (31/10)
 }
 
 async function carregarCentral() {

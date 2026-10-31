@@ -31,6 +31,7 @@ const audio = require('./audio-no-chat');
 const timer = require('./timer-no-chat');
 const boleto = require('./boleto-no-chat');
 const controleDoPc = require('./controle-do-pc');
+const buscaLocal = require('./busca-local-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -54,6 +55,13 @@ const ROTAS = [
     id: 'boleto',
     detecta: ({ objetivo, config }) => boleto.pedidoDeBoleto(objetivo, { workspace: config?.workspace }) || boleto.pedidoDeContas(objetivo),
     responde: ({ deps, config, pasta }, pedido) => boleto.responderBoleto({ pedido, deps, config, pasta }),
+  },
+  {
+    // "acha o contrato do aluguel", "onde está o meu currículo?", "qual o valor da minha conta de luz de setembro?"
+    // (31/10): o índice das pastas escolhidas em Ajustes; antes do "abre o Discord" ("abre o contrato" é arquivo)
+    id: 'busca_local',
+    detecta: ({ objetivo }) => buscaLocal.pedidoDeBuscaLocal(objetivo),
+    responde: ({ objetivo, deps, config, pasta }, pedido) => buscaLocal.responderBuscaLocal({ pedido, deps, config, pasta, pergunta: objetivo }),
   },
   {
     // "aumenta o volume", "abre o Discord", "desliga o PC daqui a 1 hora", "cancela o desligamento", "bloqueia o PC"
