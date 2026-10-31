@@ -7,6 +7,11 @@ const { contextBridge, ipcRenderer } = require('electron');
  * do lado da interface — tudo passa por estes canais nomeados.
  */
 contextBridge.exposeInMainWorld('augpt', {
+  // a barra do topo é a barra da janela no Windows (31/10): os botões do Windows ficam sobre ela, na cor do tema
+  barraDaJanela: {
+    windows: process.platform === 'win32',
+    cores: (dados) => ipcRenderer.invoke('janela:coresDaBarra', dados),
+  },
   config: {
     get: () => ipcRenderer.invoke('config:get'),
     set: (patch) => ipcRenderer.invoke('config:set', patch),

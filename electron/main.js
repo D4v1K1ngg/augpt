@@ -184,6 +184,9 @@ function criarJanela() {
     icon: ICONE,
     show: false,
     autoHideMenuBar: true,
+    // no Windows, a barra do AuGPT é a barra da janela (31/10, pedido do Davi): os botões de minimizar,
+    // maximizar e fechar ficam sobre ela; a tela manda as cores do tema (janela:coresDaBarra)
+    ...(process.platform === 'win32' ? { titleBarStyle: 'hidden', titleBarOverlay: { color: '#101311', symbolColor: '#d6dad2', height: 52 } } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -1579,6 +1582,18 @@ function aplicarAtalhoDaTela() {
 }
 let estadoDoAtalho = false;
 ipcMain.handle('tela:atalho', () => ({ atalho: 'Ctrl+Alt+A', estado: estadoDoAtalho }));
+
+// as cores dos botões do Windows na barra do topo, no tema da tela (31/10)
+ipcMain.handle('janela:coresDaBarra', (e, { fundo, simbolos } = {}) => {
+  const cor = (c) => (/^#[0-9a-f]{6}$/i.test(String(c || '').trim()) ? String(c).trim() : null);
+  if (!win || win.isDestroyed() || e.sender !== win.webContents || process.platform !== 'win32' || !cor(fundo) || !cor(simbolos)) return false;
+  try {
+    win.setTitleBarOverlay({ color: cor(fundo), symbolColor: cor(simbolos), height: 52 });
+    return true;
+  } catch {
+    return false;
+  }
+});
 
 ipcMain.handle('janela:trazer', () => {
   if (!win || win.isDestroyed()) return false;

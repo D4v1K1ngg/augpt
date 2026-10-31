@@ -40,6 +40,22 @@ const controle = require('../../src/agent/controle-do-pc');
 
 module.exports = [
   {
+    nome: 'barra da janela (Windows): a barra do AuGPT recebe os botões de minimizar, maximizar e fechar; arrasta a janela, os botões dela não; as cores seguem o tema e só a janela principal pode trocá-las (cor em hexadecimal)',
+    tipo: 'unidade',
+    executar() {
+      const ler = (f) => fs.readFileSync(path.join(__dirname, '../..', f), 'utf8').replace(/\r/g, '');
+      const main = ler('electron/main.js');
+      const css = ler('renderer/tema.css');
+      const tema = ler('renderer/tema.js');
+      return [
+        /process\.platform === 'win32' \? \{ titleBarStyle: 'hidden', titleBarOverlay: \{ color: '#101311', symbolColor: '#d6dad2', height: 52 \} \}/.test(main) || 'a janela sem a barra do Windows',
+        /e\.sender !== win\.webContents/.test(main.slice(main.indexOf("'janela:coresDaBarra'"))) && /\^#\[0-9a-f\]\{6\}\$/.test(main) || 'a guarda das cores',
+        /\.barra-do-windows \.barra \{ -webkit-app-region: drag;/.test(css) && /\.barra-do-windows \.barra button,/.test(css) && /-webkit-app-region: no-drag/.test(css) && /env\(titlebar-area-width/.test(css) || 'o arrastar e o espaço dos botões',
+        /barra\.cores\(\{ fundo: css\.getPropertyValue\('--void'\)/.test(tema) && /pintarBotoesDoWindows\(\);\n\s*const botao/.test(tema) || 'as cores no tema',
+      ];
+    },
+  },
+  {
     nome: 'PC pela voz: volume, mudo, abrir programa, desligar com hora ou duração, cancelar e bloquear; site, arquivo, pasta, "abre a porta", "o que abre com o Windows?" e "desliga o pc da tomada?" não',
     tipo: 'unidade',
     executar() {

@@ -602,3 +602,14 @@ body.com-boas-vindas { overflow: hidden; }
   .bv-campo + .bv-campo { border-left: 0; border-top: 1px solid var(--line); }
 }
 @media (prefers-reduced-motion: reduce) { .bv-tela { animation: none; } }
+
+/* A barra do topo é a barra da janela no Windows (31/10, pedido do Davi): arrasta a janela (dois cliques
+   maximizam) e os botões do Windows (minimizar, maximizar, fechar) ficam à direita, sobre ela — o espaço deles
+   vem do próprio Windows (env titlebar-area); sem ele, os 138 px dos três botões. */
+.barra-do-windows .barra { -webkit-app-region: drag; padding-right: calc(8px + 100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100vw - 138px))); }
+.barra-do-windows .barra button,
+.barra-do-windows .barra input,
+.barra-do-windows .barra select,
+.barra-do-windows .barra a,
+.barra-do-windows .barra .painel-execucao,
+.barra-do-windows .barra .titulo-conversa { -webkit-app-region: no-drag; }
