@@ -36,7 +36,75 @@ function montarLinha({ banco = '341', vencimento, valor, livre = '17900101043510
 }
 const anexado = (nome, pergunta = 'o que é isso?') => `${pergunta}\n\nArquivos anexados, já copiados para a pasta de trabalho:\n- ${nome} (2 KB)\nUse ler_arquivo para abri-los.`;
 
+const controle = require('../../src/agent/controle-do-pc');
+
 module.exports = [
+  {
+    nome: 'PC pela voz: volume, mudo, abrir programa, desligar com hora ou duração, cancelar e bloquear; site, arquivo, pasta, "abre a porta", "o que abre com o Windows?" e "desliga o pc da tomada?" não',
+    tipo: 'unidade',
+    executar() {
+      const p = (t) => JSON.stringify(controle.pedidoDoPc(t));
+      const rotas = require('../../src/agent/rotas-do-codigo');
+      const casos = {
+        'aumenta o volume': '{"acao":"volume","passo":10}',
+        'Jarvis, abaixa o volume': '{"acao":"volume","passo":-10}',
+        'volume em 30%': '{"acao":"volume","nivel":30}',
+        'volume no máximo': '{"acao":"volume","nivel":100}',
+        'muta o som': '{"acao":"mudo"}',
+        'abre o Discord': '{"acao":"abrir","nome":"discord"}',
+        'abra a calculadora': '{"acao":"abrir","nome":"calculadora"}',
+        'desliga o pc daqui a 1 hora': '{"acao":"desligar","reiniciar":false,"segundos":3600,"hora":null}',
+        'desliga o computador às 23h': '{"acao":"desligar","reiniciar":false,"segundos":null,"hora":{"hora":23,"minuto":0}}',
+        'reinicia o pc em 10 minutos': '{"acao":"desligar","reiniciar":true,"segundos":600,"hora":null}',
+        'cancela o desligamento': '{"acao":"cancelar_desligar"}',
+        'bloqueia o pc': '{"acao":"bloquear"}',
+      };
+      const errados = Object.entries(casos).filter(([t, j]) => p(t) !== j).map(([t]) => `${t} → ${p(t)}`);
+      return [
+        !errados.length || errados.join(' | '),
+        ['abre o site da kabum', 'abre o arquivo gastos.xlsx', 'abre a pasta downloads', 'abre a porta', 'liga o ar condicionado', 'o que abre com o windows?', 'desliga o pc da tomada?'].every((t) => controle.pedidoDoPc(t) === null) || 'o que não é controle do PC',
+        rotas.escolherRota({ objetivo: 'abre o Discord', conversa: [] })?.rota?.id === 'controle_do_pc' && rotas.escolherRota({ objetivo: 'tenho o Discord instalado?', conversa: [] })?.rota?.id === 'consultar_pc' || 'rotas',
+      ];
+    },
+  },
+  {
+    nome: 'PC pela voz: o programa vem do menu Iniciar (apelido, nome igual, começo; desinstalador fora); o desligamento sem hora espera 1 min e diz como desfazer; cancelar sem nada marcado avisa; volume exato zera e sobe',
+    tipo: 'unidade',
+    async executar() {
+      const lista = [{ nome: 'Discord', id: 'com.squirrel.Discord.Discord' }, { nome: 'Calculadora', id: 'Microsoft.WindowsCalculator_8wekyb3d8bbwe!App' }, { nome: 'WhatsApp', id: '5319275A.WhatsAppDesktop!App' }, { nome: 'Steam', id: 'Steam.exe' }, { nome: 'Steam Support Center', id: 'x' }];
+      const chamadas = [];
+      const win = {
+        rodar: async (exe, args) => {
+          chamadas.push([exe, ...args].join(' '));
+          if (args[0] === '/a' && chamadas.filter((c) => c.endsWith('/a')).length > 1) throw new Error('1116');
+          return '';
+        },
+        teclasDeVolume: async (l) => chamadas.push(`teclas ${JSON.stringify(l)}`),
+        appsDoIniciar: async () => lista,
+        abrirApp: (id) => chamadas.push(`abrir ${id}`),
+      };
+      const deps = { emTeste: true };
+      const agora = new Date(2026, 9, 31, 13, 0);
+      const r = async (t) => (await controle.responderPc({ pedido: controle.pedidoDoPc(t), deps, agora, win })).texto;
+      const abriu = await r('abre o zap');
+      const steam = await r('abre o steam');
+      const nada = await r('abre o fortnite');
+      const desliga = await r('desliga o pc');
+      const as23 = await r('desliga o computador às 23h');
+      const cancela1 = await r('cancela o desligamento');
+      const cancela2 = await r('cancela o desligamento');
+      await r('volume em 30%');
+      return [
+        /Abrindo \*\*WhatsApp\*\*/.test(abriu) && chamadas.includes('abrir 5319275A.WhatsAppDesktop!App') && /Abrindo \*\*Steam\*\*/.test(steam) || `${abriu} / ${steam}`,
+        /Não achei \*\*fortnite\*\* no menu Iniciar/.test(nada) || nada,
+        chamadas.includes('shutdown.exe /s /t 60') && /desligar às \*\*13:01\*\*.*cancela o desligamento/.test(desliga) || desliga,
+        chamadas.includes('shutdown.exe /s /t 36000') && /às \*\*23:00\*\*/.test(as23) || as23,
+        /Cancelei o desligamento/.test(cancela1) && /Não havia desligamento marcado/.test(cancela2) || `${cancela1} / ${cancela2}`,
+        chamadas.includes('teclas [[174,50],[175,15]]') || chamadas.join(' | '),
+        controle.acharApp([{ nome: 'Uninstall Discord', id: 'u' }, ...lista], 'discord')?.id === 'com.squirrel.Discord.Discord' || 'nome igual antes',
+      ];
+    },
+  },
   {
     nome: 'boleto: os dígitos de verificação batem com exemplos públicos (Itaú e contas de consumo); um número errado não vira boleto; o fator de vencimento usa a base nova (22/02/2025) ou a antiga, a que fica mais perto de hoje',
     tipo: 'unidade',

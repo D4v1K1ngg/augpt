@@ -30,6 +30,7 @@ const resumo = require('./resumo-do-dia');
 const audio = require('./audio-no-chat');
 const timer = require('./timer-no-chat');
 const boleto = require('./boleto-no-chat');
+const controleDoPc = require('./controle-do-pc');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -53,6 +54,13 @@ const ROTAS = [
     id: 'boleto',
     detecta: ({ objetivo, config }) => boleto.pedidoDeBoleto(objetivo, { workspace: config?.workspace }) || boleto.pedidoDeContas(objetivo),
     responde: ({ deps, config, pasta }, pedido) => boleto.responderBoleto({ pedido, deps, config, pasta }),
+  },
+  {
+    // "aumenta o volume", "abre o Discord", "desliga o PC daqui a 1 hora", "cancela o desligamento", "bloqueia o PC"
+    // (31/10): a tecla de volume, o menu Iniciar e o shutdown do Windows — nenhuma configuração muda
+    id: 'controle_do_pc',
+    detecta: ({ objetivo }) => controleDoPc.pedidoDoPc(objetivo),
+    responde: ({ deps, config }, pedido) => controleDoPc.responderPc({ pedido, deps, config }),
   },
   {
     // "timer de 10 minutos pro miojo", "me acorda em 20 minutos", "alarme às 7h", "cancela o timer" (31/10):
