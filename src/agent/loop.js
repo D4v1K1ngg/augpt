@@ -1660,7 +1660,9 @@ class Agent extends EventEmitter {
     // vai pelo núcleo de pesquisa novo; o caminho antigo fica de reserva
     const anexadas = imagensAnexadas(objetivo);
     const regraDoPedido = tipoDoPedido(anexadas ? anexadas.pedido : objetivo);
-    if (this.config.nucleoDePesquisa === true && !this.skillForcada && !tarefaAnterior && !['local', 'site'].includes(regraDoPedido.tipo) && !regraDoPedido.arquivoDeSaida) {
+    // o PDF anexado que é boleto (31/10): vai pelo núcleo, onde a rota do boleto responde (os outros PDFs, o agente lê)
+    const ehBoleto = Boolean(require('./boleto-no-chat').pedidoDeBoleto(objetivo, { workspace: this.config.workspace }));
+    if (this.config.nucleoDePesquisa === true && !this.skillForcada && !tarefaAnterior && (ehBoleto || (!['local', 'site'].includes(regraDoPedido.tipo) && !regraDoPedido.arquivoDeSaida))) {
       const pronta = await this.responderPeloNucleo({ objetivo: anexadas ? anexadas.pedido : objetivo, conversa, imagens: anexadas?.arquivos || [] });
       if (pronta !== null) return pronta;
     }

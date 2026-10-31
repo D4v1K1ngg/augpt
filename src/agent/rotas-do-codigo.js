@@ -29,6 +29,7 @@ const tocar = require('./tocar-no-chat');
 const resumo = require('./resumo-do-dia');
 const audio = require('./audio-no-chat');
 const timer = require('./timer-no-chat');
+const boleto = require('./boleto-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -45,6 +46,13 @@ const ROTAS = [
     id: 'resumo_do_dia',
     detecta: ({ objetivo, conversa }) => resumo.pedidoDeResumo(objetivo, conversa),
     responde: ({ deps, config, pasta }, pedido) => resumo.responderResumo({ pedido: pedido || {}, deps, config, pasta }),
+  },
+  {
+    // o PDF do boleto anexado (31/10): valor, vencimento, linha digitável conferida e o lembrete na Agenda;
+    // "quais contas eu tenho este mês?" soma os guardados
+    id: 'boleto',
+    detecta: ({ objetivo, config }) => boleto.pedidoDeBoleto(objetivo, { workspace: config?.workspace }) || boleto.pedidoDeContas(objetivo),
+    responde: ({ deps, config, pasta }, pedido) => boleto.responderBoleto({ pedido, deps, config, pasta }),
   },
   {
     // "timer de 10 minutos pro miojo", "me acorda em 20 minutos", "alarme às 7h", "cancela o timer" (31/10):

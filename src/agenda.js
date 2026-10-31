@@ -68,6 +68,8 @@ class Agenda {
       avisado: false,
       criado: new Date().toISOString(),
       // `limite` (24/10): alerta de preço — confere as lojas (sem modelo) e avisa abaixo do valor
+      // `conta` (31/10): o boleto lido do PDF (boleto-no-chat.js) — "quais contas eu tenho este mês?" soma estas
+      ...(tipo === 'lembrete' && dados.conta ? { conta: { linha: String(dados.conta.linha || '').slice(0, 80), valor: Number(dados.conta.valor) || null, vencimento: /^\d{4}-\d{2}-\d{2}$/.test(dados.conta.vencimento) ? dados.conta.vencimento : null, beneficiario: dados.conta.beneficiario ? String(dados.conta.beneficiario).slice(0, 80) : null } } : {}),
       ...(tipo === 'acompanhar' ? { acompanhar: { assunto: String(dados.assunto || titulo).trim().slice(0, 120), status: 'ativo', ultimaVerificacao: 0, resumo: '', data: null, ...(Number(dados.limite) > 0 ? { limite: Number(dados.limite), menor: null, link: null } : {}) } } : {}),
     };
     if (item.tipo === 'lembrete' && !item.quando) item.tipo = 'ideia';

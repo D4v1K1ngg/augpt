@@ -22,7 +22,73 @@ const LONGO = 'Oi, tudo bem? Passa no mercado na volta do trabalho, por favor. C
 
 const timer = require('../../src/agent/timer-no-chat');
 
+const boleto = require('../../src/agent/boleto-no-chat');
+const { gerarPdf } = require('../../src/formatos/pdf-escrita');
+
+/** Uma linha digitável válida (os DVs calculados), para o boleto de teste. */
+function montarLinha({ banco = '341', vencimento, valor, livre = '1790010104351004791020150' }) {
+  const fator = String(1000 + Math.round((Date.UTC(...vencimento) - Date.UTC(2025, 1, 22)) / 86400000)).padStart(4, '0');
+  const v = String(Math.round(valor * 100)).padStart(10, '0');
+  const dv = boleto.modulo11Banco(`${banco}9${fator}${v}${livre}`);
+  const barras = `${banco}9${dv}${fator}${v}${livre}`;
+  const c = [barras.slice(0, 4) + barras.slice(19, 24), barras.slice(24, 34), barras.slice(34, 44)];
+  return `${c[0]}${boleto.modulo10(c[0])}${c[1]}${boleto.modulo10(c[1])}${c[2]}${boleto.modulo10(c[2])}${dv}${fator}${v}`;
+}
+const anexado = (nome, pergunta = 'o que é isso?') => `${pergunta}\n\nArquivos anexados, já copiados para a pasta de trabalho:\n- ${nome} (2 KB)\nUse ler_arquivo para abri-los.`;
+
 module.exports = [
+  {
+    nome: 'boleto: os dígitos de verificação batem com exemplos públicos (Itaú e contas de consumo); um número errado não vira boleto; o fator de vencimento usa a base nova (22/02/2025) ou a antiga, a que fica mais perto de hoje',
+    tipo: 'unidade',
+    executar() {
+      const itau = boleto.lerLinhaBancaria('34191.09008 63571.277308 71444.640008 5 81310000020000', new Date(2026, 9, 31));
+      const luz = boleto.lerLinhaArrecadacao('836200000005 667800481000 180975657313 001589636081');
+      const errado = boleto.lerLinhaBancaria('34191.09008 63571.277308 71444.640008 5 81310000020001');
+      return [
+        itau?.valor === 200 && itau.vencimentoDoFator === '2020-01-11' || JSON.stringify(itau),
+        luz?.valor === 66.78 && luz.tipo === 'arrecadacao' || JSON.stringify(luz),
+        boleto.lerLinhaArrecadacao('846700000017 435900240209 024050002435 842210108119')?.valor === 143.59 || 'segunda conta',
+        errado === null && boleto.lerLinhaArrecadacao('836200000005 667800481000 180975657313 001589636082') === null || 'DV errado passou',
+        boleto.dataDoFator(1623, new Date(2026, 9, 31)) === '2026-11-07' && boleto.dataDoFator(9999, new Date(2024, 0, 1)) === '2025-02-21' || 'fator',
+        boleto.lerLinhaBancaria(montarLinha({ vencimento: [2026, 10, 7], valor: 187.45 }))?.valor === 187.45 || 'a linha montada no teste',
+      ];
+    },
+  },
+  {
+    nome: 'boleto: o PDF anexado vira valor, vencimento, quem cobra e a linha conferida, com o lembrete às 9h da véspera (sem repetir); vencido avisa de juros e não lembra; "resuma este contrato" e PDF que não é boleto ficam com o agente; "quais contas eu tenho?" soma',
+    tipo: 'unidade',
+    async executar() {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-boleto-'));
+      try {
+        const linha = montarLinha({ vencimento: [2026, 10, 7], valor: 187.45 });
+        fs.writeFileSync(path.join(dir, 'boleto.pdf'), gerarPdf({ conteudo: `Banco Itaú | 341-7 | ${linha.slice(0, 5)}.${linha.slice(5, 10)} ${linha.slice(10, 15)}.${linha.slice(15, 21)} ${linha.slice(21, 26)}.${linha.slice(26, 32)} ${linha[32]} ${linha.slice(33)}\n\nBeneficiário: ENEL DISTRIBUIÇÃO SÃO PAULO CNPJ 61.695.227/0001-93\n\nVencimento\n07/11/2026\n\nValor do Documento\nR$ 187,45` }));
+        fs.writeFileSync(path.join(dir, 'contrato.pdf'), gerarPdf({ conteudo: 'Contrato de locação. Valor do aluguel R$ 1.200,00, vencimento todo dia 10.' }));
+        const agora = new Date(2026, 9, 31, 10);
+        const p = boleto.pedidoDeBoleto(anexado('boleto.pdf'), { workspace: dir, agora });
+        const deps = { emit: () => {} };
+        const r1 = boleto.responderBoleto({ pedido: p, deps, pasta: dir, agora });
+        const r2 = boleto.responderBoleto({ pedido: p, deps, pasta: dir, agora });
+        const { Agenda } = require('../../src/agenda');
+        const itens = new Agenda(dir).listar();
+        const vencido = boleto.responderBoleto({ pedido: { acao: 'ler', boletos: [{ ...p.boletos[0], linha: 'outra', vencimento: '2026-10-20' }] }, deps, pasta: dir, agora });
+        const lista = boleto.responderBoleto({ pedido: boleto.pedidoDeContas('quais contas eu tenho este mês?'), deps, pasta: dir, agora });
+        const rotas = require('../../src/agent/rotas-do-codigo');
+        const loop = fs.readFileSync(path.join(__dirname, '../../src/agent/loop.js'), 'utf8');
+        return [
+          p?.boletos?.[0]?.valor === 187.45 && p.boletos[0].vencimento === '2026-11-07' && p.boletos[0].beneficiario === 'ENEL DISTRIBUIÇÃO SÃO PAULO' || JSON.stringify(p),
+          /R\$ 187,45\*\*, vence \*\*sábado, 07\/11\/2026\*\* \(daqui a 7 dias\)\. Te lembro sexta-feira às 09:00/.test(r1.texto) && /```\n34191\./.test(r1.texto) && /golpe do boleto/.test(r1.texto) || r1.texto,
+          itens.length === 1 && itens[0].quando === '2026-11-06T09:00' && itens[0].conta?.valor === 187.45 && /já estava na sua agenda/.test(r2.texto) || JSON.stringify(itens),
+          /\*\*venceu\*\* em .*há 11 dias.*juros e multa/.test(vencido.texto) && new Agenda(dir).listar().length === 1 || vencido.texto,
+          /Contas a pagar[\s\S]*ENEL DISTRIBUIÇÃO SÃO PAULO: R\$ 187,45[\s\S]*Total: R\$ 187,45/.test(lista.texto) || lista.texto,
+          boleto.pedidoDeBoleto(anexado('boleto.pdf', 'resuma este contrato'), { workspace: dir }) === null && boleto.pedidoDeBoleto(anexado('contrato.pdf'), { workspace: dir }) === null || 'o que não é boleto',
+          boleto.pedidoDeBoleto(anexado('../fora.pdf'), { workspace: dir }) === null || 'fora da pasta de trabalho',
+          rotas.escolherRota({ objetivo: anexado('boleto.pdf'), conversa: [], config: { workspace: dir } })?.rota?.id === 'boleto' && /ehBoleto \|\| \(!\['local', 'site'\]/.test(loop) || 'a rota e a porta do núcleo',
+        ];
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
   {
     nome: 'timer: duração em número ou por extenso ("meia hora", "1h30", "vinte e cinco minutos", "um minuto e meio"), alarme no horário ("às 7 da noite", "às 5 e meia"), o nome ("pro miojo") e cancelar; "me lembra daqui a 20 min de…" fica com a agenda',
     tipo: 'unidade',
