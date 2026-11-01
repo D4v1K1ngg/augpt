@@ -386,18 +386,8 @@
     if (!e.instalando) status.textContent = pronta ? tr('Instalada ✓') : tr('Não instalada — baixa uma vez cerca de {mb} MB.', { mb: e.tamanhoMB || 410 });
     $id('btnVozInstalar').disabled = Boolean(e.instalando);
     const sel = $id('cfgVozNome');
-    if (sel && e.vozes && sel.options.length !== Object.keys(e.vozes).length) {
-      sel.replaceChildren(...Object.entries(e.vozes).map(([chave, v]) => new Option(tr(v.nome), chave)));
-    }
-    // a voz natural (1/11): instalar, o andamento, remover; o Kokoro fica de reserva
-    const n = e.natural;
-    if ($id('linhaVozNatural')) {
-      $id('linhaVozNatural').hidden = !pronta || !n;
-      $id('btnVozNaturalInstalar').hidden = Boolean(n?.instalada);
-      $id('btnVozNaturalInstalar').disabled = Boolean(n?.instalando) || n?.suportado === false;
-      $id('btnVozNaturalRemover').hidden = !n?.instalada;
-      if (!n?.instalando) $id('vozNaturalStatus').textContent = n?.instalada ? tr('Instalada ✓ — escolha uma das vozes "natural" na lista de vozes.') : n?.suportado === false ? tr('Precisa do Windows com uma placa de vídeo NVIDIA.') : '';
-      else if (n.progresso) $id('vozNaturalStatus').textContent = tr(n.progresso);
+    if (sel && e.vozes && !sel.options.length) {
+      for (const [chave, v] of Object.entries(e.vozes)) sel.append(new Option(tr(v.nome), chave));
     }
     if (sel) sel.value = config.vozNome || 'pm_alex';
     $id('cfgVozFalar').value = config.vozFalar || 'voz';
@@ -419,22 +409,6 @@
   }
   window.vozNosAjustes = { pintar: pintarVoz };
 
-  manipuladores['voz-natural-progresso'] = ({ texto } = {}) => {
-    if ($id('vozNaturalStatus') && texto) $id('vozNaturalStatus').textContent = texto;
-  };
-  $id('btnVozNaturalInstalar')?.addEventListener('click', async () => {
-    if (!confirm(tr('Instalar a voz natural? Baixa cerca de 7 GB (Python, PyTorch e o modelo de voz) e pode levar uns 15 minutos.'))) return;
-    $id('btnVozNaturalInstalar').disabled = true;
-    const r = await api.voz.naturalInstalar();
-    if (!r.ok) $id('vozNaturalStatus').textContent = tr('A instalação falhou: {erro}', { erro: r.error });
-    pintarVoz();
-  });
-  $id('btnVozNaturalRemover')?.addEventListener('click', async () => {
-    if (!confirm(tr('Remover a voz natural? Os cerca de 7 GB são apagados; a voz volta a ser a do Kokoro.'))) return;
-    await api.voz.naturalRemover();
-    config = await api.config.get();
-    pintarVoz();
-  });
   manipuladores['voz-progresso'] = ({ texto } = {}) => {
     if ($id('vozStatus')) $id('vozStatus').textContent = texto || '';
   };
