@@ -581,6 +581,7 @@ ipcMain.handle('config:set', (_e, patch) => {
   if (patch && 'nomeDoUsuario' in patch) gravarNomeNaMemoria(patch.nomeDoUsuario);
   if (patch && 'atalhoDaTela' in patch) estadoDoAtalho = aplicarAtalhoDaTela();
   if (patch && 'acessoCelular' in patch) aplicarAcessoCelular().catch(() => {});
+  if (patch && 'vozNome' in patch) setTimeout(prepararFrasesProntas, 1500); // a voz natural nova grava as frases prontas
   if (patch && 'nomeDaChamada' in patch) aplicarNomeDaChamada({ zerar: String(patch.nomeDaChamada || '') !== nomeAntesDoPatch });
   if (agent) Object.assign(agent.config, configParaAgente());
   return dados;
@@ -989,6 +990,8 @@ ipcMain.handle('skills:preview', async (_e, texto) => {
 
 ipcMain.handle('agent:start', async (_e, { objetivo, conversa, idConversa, porVoz = false } = {}) => {
   if (agent?.rodando) return { ok: false, error: 'Já existe uma execução em andamento.' };
+  // resposta que vai ser falada, com a voz natural: ela carrega agora (~9 s), enquanto o modelo trabalha (1/11)
+  if ((porVoz === true || config.data.vozFalar === 'sempre') && vozNaturalEscolhida()) vozNatural.iniciar().catch(() => {});
   pararConferencia(); // a checagem da agenda em segundo plano não disputa o modelo com você
   await garantirBuscaEmbutida();
   criarAgente(idConversa);
@@ -1093,7 +1096,39 @@ let ditado = null;
 const { Voz, textoParaFalar } = require('../src/fala/voz');
 let voz = null;
 let falaAtual = 0;
-ipcMain.handle('voz:estado', () => (voz ? voz.estado() : { instalada: false }));
+// a voz natural (1/11, src/fala/voz-qwen.js): o Qwen3-TTS na placa, escolhido em Ajustes ("qwen:ryan"…)
+const { VozQwen } = require('../src/fala/voz-qwen');
+let vozNatural = null;
+let gpusDoPc = null;
+const gpus = async () => (gpusDoPc ||= (await verificadorDeHardware.verificarComputador().catch(() => null))?.gpus || []);
+const vozNaturalEscolhida = () => (String(config.data.vozNome || '').startsWith('qwen:') && vozNatural?.instalada() ? String(config.data.vozNome).slice(5) : null);
+ipcMain.handle('voz:estado', async () => {
+  const e = voz ? voz.estado() : { instalada: false };
+  const natural = vozNatural ? vozNatural.estado(await gpus()) : null;
+  // a lista de vozes da tela: as do Kokoro e, com a voz natural instalada, as 9 do Qwen
+  return { ...e, natural, vozes: { ...(e.vozes || {}), ...(natural?.instalada ? natural.vozes : {}) } };
+});
+ipcMain.handle('voz:naturalInstalar', async () => {
+  try {
+    const estado = await vozNatural.instalar({ emitir: (p) => enviar('voz-natural-progresso', p), gpus: await gpus() });
+    vozNatural.parar(); // o teste da instalação deixou o processo ligado: desliga até ser escolhida
+    return { ok: true, estado };
+  } catch (err) {
+    enviar('voz-natural-progresso', { texto: '' });
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('voz:naturalRemover', async () => {
+  if (String(config.data.vozNome || '').startsWith('qwen:')) config.save({ vozNome: 'pm_alex' });
+  await vozNatural.remover();
+  return { ok: true };
+});
+// as frases ditas enquanto o modelo principal escreve, gravadas na voz escolhida (com o modelo parado)
+async function prepararFrasesProntas() {
+  const v = vozNaturalEscolhida();
+  if (!v || agent?.rodando) return;
+  await vozNatural.prepararFrases(v, { ocupado: () => Boolean(agent?.rodando) }).catch(() => {});
+}
 ipcMain.handle('voz:instalar', async () => {
   try {
     return { ok: true, estado: await voz.instalar({ emitir: (p) => enviar('voz-progresso', p) }) };
@@ -1105,15 +1140,32 @@ ipcMain.handle('voz:instalar', async () => {
 // `continuar` (no fim) fala só o que falta do resumo, na mesma fila — sem repetir e sem cortar o que toca.
 // Se o começo dito não bate com a resposta final (a conferência mudou algo), o resto não é dito.
 let falado = []; // as frases já mandadas para tocar nesta fala
+let falaAdiada = 0; // a fala da voz natural guardada para o fim da escrita (1/11)
 let cadeia = Promise.resolve();
 const semEspaco = (t) => String(t || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 function gerarFrases(id, frases, { ultimo }) {
   falado.push(...frases);
-  const opcoes = { voz: config.data.vozNome || 'pm_alex', velocidade: Number(config.data.vozVelocidade) || 1, cancelado: () => falaAtual !== id };
+  const natural = vozNaturalEscolhida();
+  // sem a voz natural (ou com ela escolhida e a voz do Kokoro guardada como "qwen:…"): a do Kokoro
+  const vozKokoro = String(config.data.vozNome || '').startsWith('qwen:') ? 'pm_alex' : config.data.vozNome || 'pm_alex';
+  const opcoes = { voz: vozKokoro, velocidade: Number(config.data.vozVelocidade) || 1, cancelado: () => falaAtual !== id };
   cadeia = cadeia.then(async () => {
     try {
       for (const frase of frases) {
         if (falaAtual !== id) return;
+        let feita = false;
+        if (natural) {
+          try {
+            for await (const { pcm } of vozNatural.falar(frase, { voz: natural, cancelado: opcoes.cancelado })) {
+              if (falaAtual !== id) return;
+              enviar('voz-audio', { id, pcm, taxa: vozNatural.taxa || 24000 });
+            }
+            feita = true;
+          } catch (err) {
+            console.warn('voz natural:', err.message); // a voz natural falhou: esta frase sai pelo Kokoro
+          }
+        }
+        if (feita) continue;
         for await (const { pcm } of voz.falar(frase, opcoes)) {
           if (falaAtual !== id) return;
           enviar('voz-audio', { id, pcm, taxa: 24000 });
@@ -1128,12 +1180,38 @@ function gerarFrases(id, frases, { ultimo }) {
 ipcMain.handle('voz:falar', async (_e, { texto, resumir = true, parcial = false, continuar = false } = {}) => {
   if (!voz?.instalada()) return { ok: false, error: 'a voz não está instalada' };
   const { frasesParaFalar } = require('../src/fala/voz');
-  if (continuar && falado.length) {
+  if (continuar && (falado.length || falaAdiada === falaAtual)) {
     const id = falaAtual;
+    falaAdiada = 0;
     const frases = frasesParaFalar(textoParaFalar(texto));
     const iguais = falado.every((f, i) => semEspaco(f) === semEspaco(frases[i]));
     gerarFrases(id, iguais ? frases.slice(falado.length) : [], { ultimo: true });
     return { ok: true, id, continuou: iguais };
+  }
+  const natural = vozNaturalEscolhida();
+  // a voz natural e o modelo principal não geram juntos (medido: o 9b cai de 53 para 20 tokens/s e a voz fica
+  // abaixo do tempo real). Com ele escrevendo:
+  if (natural && agent?.rodando) {
+    // - a fala que começaria no meio da escrita espera o fim (o "continuar" fala tudo, com o mesmo id)
+    if (parcial) {
+      const id = (falaAtual += 1);
+      falado = [];
+      cadeia = Promise.resolve();
+      falaAdiada = id;
+      vozNatural.iniciar().catch(() => {}); // carrega enquanto ele escreve (~9 s)
+      return { ok: true, id, adiada: true };
+    }
+    // - confirmação ("Deixa comigo"): a frase já gravada; o resto (a narração) fica só no chat
+    if (!resumir) {
+      const gravada = vozNatural.frasePronta(String(texto || ''), natural, primeiroNome());
+      if (!gravada) return { ok: false, error: 'a voz natural espera o modelo principal terminar' };
+      const id = (falaAtual += 1);
+      falado = [];
+      cadeia = Promise.resolve();
+      enviar('voz-audio', { id, pcm: gravada, taxa: vozNatural.taxa || 24000 });
+      enviar('voz-audio', { id, fim: true });
+      return { ok: true, id, gravada: true };
+    }
   }
   const id = (falaAtual += 1);
   falado = [];
@@ -1241,6 +1319,7 @@ ipcMain.handle('voz:aquecer', async () => {
 });
 ipcMain.handle('voz:parar', () => {
   falaAtual += 1;
+  falaAdiada = 0;
   falado = [];
   cadeia = Promise.resolve();
   return { ok: true };
@@ -2741,6 +2820,8 @@ app.whenReady().then(() => {
   setTimeout(atualizarBuscaLocal, 2 * 60_000);
   setInterval(atualizarBuscaLocal, 6 * 3600_000);
   voz = new Voz(path.join(app.getPath('userData'), 'componentes', 'voz'));
+  vozNatural = new VozQwen(path.join(app.getPath('userData'), 'componentes', 'voz-natural'));
+  setTimeout(prepararFrasesProntas, 60_000); // as frases já gravadas da voz escolhida (uma vez, se faltar)
   carregarRegistroDaEscuta();
   aplicarNomeDaChamada();
   // 25/10: sai do treino o que não soa como "GPT" ("somdebarulho" — o teclado — chamava o AuGPT)
@@ -2779,6 +2860,7 @@ app.on('window-all-closed', () => {
 app.on('will-quit', () => require('electron').globalShortcut.unregisterAll());
 
 app.on('before-quit', () => {
+  vozNatural?.parar();
   remoto?.desligar();
   fundo.pararTudo();
   agent?.parar();

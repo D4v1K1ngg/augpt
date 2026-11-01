@@ -655,6 +655,10 @@
           <label class="linha voz-opcao" hidden><span class="linha-texto"><span>Voz</span></span>
             <select id="cfgVozNome"></select>
           </label>
+          <!-- 1/11: a voz natural (Qwen3-TTS, src/fala/voz-qwen.js) -->
+          <div class="linha voz-opcao" id="linhaVozNatural" hidden><span class="linha-texto"><span>Voz natural (Qwen3-TTS)</span><small>Vozes com entonação de gente, na placa de vídeo (NVIDIA): 9 vozes que falam português. Ela só fala quando o modelo principal termina de escrever — os dois juntos deixariam a resposta bem mais lenta —, e enquanto ele escreve toca frases já gravadas ("Deixa comigo"). Liga quando precisa e desliga depois de 15 minutos sem falar. Baixa uma vez cerca de 7 GB (Python, PyTorch e o modelo), tudo na pasta do AuGPT.</small><small id="vozNaturalStatus" class="ajuste-status"></small></span>
+            <span class="microfone-escolha"><button type="button" class="btn-secundario" id="btnVozNaturalInstalar">Instalar a voz natural</button><button type="button" class="btn-secundario" id="btnVozNaturalRemover" hidden>Remover</button></span>
+          </div>
           <label class="linha voz-opcao" hidden><span class="linha-texto"><span>Velocidade</span><small id="vozVelocidadeValor"></small></span>
             <input type="range" id="cfgVozVelocidade" min="0.8" max="1.3" step="0.05" />
           </label>
