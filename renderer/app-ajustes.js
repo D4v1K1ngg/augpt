@@ -32,7 +32,7 @@ async function carregarConfig() {
 
 /** "O que você precisa, Davi?" na tela inicial quando há nome (22/10). */
 function pintarSaudacao() {
-  const titulo = document.querySelector('#deckAbertura .deck-head h1');
+  const titulo = document.querySelector('#inicioAgente h1');
   if (!titulo) return;
   const nome = String(config?.nomeDoUsuario || '').trim();
   titulo.textContent = nome ? tr('O que você precisa, {nome}?', { nome }) : tr('O que você precisa?');
@@ -933,6 +933,7 @@ $('cfgNomeDaChamada').addEventListener('change', (e) => trocarNomeDaChamada(e.ta
 async function pintarAtalhoDaTela() {
   $('cfgAtalhoDaTela').checked = config.atalhoDaTela !== false;
   if ($('cfgNarrarNoChat')) $('cfgNarrarNoChat').checked = config.narrarNoChat !== false; // a pesquisa narrada no chat (31/10)
+  window.ondasDoInicio?.pintar(); // o fundo da tela inicial (1/11)
   const r = await api.tela.atalho().catch(() => null);
   $('atalhoDaTelaStatus').textContent = r?.estado === 'ocupado' ? tr('Outro programa já usa o Ctrl+Alt+A — o botão ao lado do + continua funcionando.') : '';
 }

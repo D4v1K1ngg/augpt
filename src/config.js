@@ -167,6 +167,8 @@ const DEFAULTS = {
   narrarPesquisa: true,
   // 31/10: a pesquisa narrada também no chat, por escrito (renderer/narracao-chat.js)
   narrarNoChat: true,
+  // 1/11: as ondas da tela inicial — 'auto' segue o "Efeitos de animação" do Windows; 'animado' ou 'parado'
+  ondasInicio: 'auto',
   // 30/10: modo simples para quem está começando (falso): Ajustes só com o essencial, dois modos de pesquisa e o
   // menu enxuto; ligado, aparece tudo (renderer/modo-simples.js)
   modoAvancado: false,
