@@ -232,6 +232,15 @@ const PEDE_A_TELA = /\b(na|nessa|nesta|minha|desta|dessa|aqui na)\s+tela\b|\bo q
 const TELA_EM_GERAL = /\btela (azul|preta|branca|do celular|do notebook|do monitor|de bloqueio|de carregamento|cheia|dividida|touch|de \d)|\btela d[oa] (meu |minha |seu |sua )?(celular|notebook|monitor|tv|televis|tablet|carro)|\b(melhor|trocar|troca|comprar|consertar|limpar|protetor de|pel[ií]cula d[ae])\s+(a |uma |de )?tela\b|\bprint ?screen\b/i;
 // olhar a tela e pedir solução ("que erro é esse?", "como resolvo isso?") pesquisa; só olhar ("dá uma
 // olhada aqui, o que você acha?") responde pelo que se vê (27/10: buscou na web e citou site sem relação)
+/*
+ * Análise de preço (2/11, conversa real: "faz uma análise do preço da RTX 5070 Ti desde o lançamento" e "você
+ * estimaria que ela fique em qual faixa na Black Friday?" viraram cartões de compra — "#### 1. Palit…, Onde comprar,
+ * Pontos fortes" — e a estimativa usou o preço da RTX 5070, sem o Ti). O histórico, a evolução e a previsão do
+ * preço de UM produto são análise: texto com a linha do tempo, a média e a faixa estimada, não a lista de opções.
+ */
+const ANALISE_DE_PRECO = /\b(analis\w*|hist[oó]ric\w*|evolu[cç][aã]o|varia[cç][aã]o|desde (o|seu|a) lan[cç]amento|ao longo d[oa]s? (tempo|meses|anos)|tend[eê]ncia|previs[aã]o|estimativ\w*|estimaria|estime|projec?[cç][aã]o|m[eé]dia de pre[cç]o)\b[\s\S]{0,80}\b(pre[cç]os?|valor(es)?|custo)\b|\b(pre[cç]os?|valor(es)?)\b[\s\S]{0,80}\b(desde o lan[cç]amento|hist[oó]ric\w*|evolu[cç][aã]o|vai (ficar|cair|baixar|subir)|deve (ficar|cair|baixar)|na black friday|previs[aã]o|estimativ\w*)\b|\b(vai|deve|tende a) (ficar|cair|baixar|custar)\b[\s\S]{0,60}\bblack friday\b/i;
+const ehAnaliseDePreco = (pergunta) => ANALISE_DE_PRECO.test(String(pergunta || ''));
+
 const PEDE_SOLUCAO = /\b(erro|error|problema|bug|falha|travou|como (resolvo|resolver|conserto|consertar|corrijo|corrigir|arrumo|arrumar|fa[cç]o)|por que|porque|pesquis\w*|procur\w*|busqu\w*|pre[cç]o|quanto custa)\b/i;
 const pedeATela = (pergunta) => PEDE_A_TELA.test(String(pergunta || '')) && !TELA_EM_GERAL.test(String(pergunta || ''));
 
@@ -251,7 +260,8 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     return {
       precisaBuscar,
       conversa,
-      produto: j.produto === true,
+      // análise e previsão de preço não é pedido de produto (2/11): sem os cartões de compra
+      produto: j.produto === true && !ehAnaliseDePreco(pergunta),
       criarImagem: (j.criar_imagem === true && !pedeVisual(pergunta) && !pedeGrafico(pergunta)) || pedeImagem(pergunta),
       atual: precisaBuscar && (j.muda_com_o_tempo === true || PISTA_DE_ATUAL.test(pergunta)),
       sobreOUsuario: j.sobre_o_usuario === true || PISTA_DO_USUARIO.test(pergunta),
@@ -1082,12 +1092,16 @@ const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="$
 function conferirAnos(texto, { material = '', pergunta = '', hoje = '' } = {}) {
   const permitidos = new Set(`${material} ${pergunta} ${hoje}`.match(/\b(1[0-9]{3}|20[0-9]{2})\b/g) || []);
   const faltam = new Set();
-  // não é ano: resolução ("1440p", "2560x1440", "1080i") — 15/10, a RTX ganhava "1440 ⚠p"
-  const marcado = String(texto || '').replace(/(^|[^\d/.\-x×])(1[0-9]{3}|20[0-9]{2})(?![\dpPi×x])/g, (m, antes, ano) => {
-    if (permitidos.has(ano)) return m;
-    faltam.add(ano);
-    return `${antes}${ano} ⚠`;
-  });
+  // não é ano: resolução ("1440p", "2560x1440", "1080i") — 15/10, a RTX ganhava "1440 ⚠p"; nem pedaço de
+  // palavra, código de produto ou endereço (2/11: o link "…-gb2031" virou "gb2031 ⚠a" e quebrou)
+  const marcado = String(texto || '')
+    .split(/(```[\s\S]*?```|\]\([^)]*\)|https?:\/\/\S+|`[^`]*`)/)
+    .map((p, i) => (i % 2 === 1 ? p : p.replace(/(^|[^\p{L}\d/.\-x×_])(1[0-9]{3}|20[0-9]{2})(?![\p{L}\d×_])/gu, (m, antes, ano) => {
+      if (permitidos.has(ano)) return m;
+      faltam.add(ano);
+      return `${antes}${ano} ⚠`;
+    })))
+    .join('');
   if (!faltam.size) return { texto: marcado, faltam: [] };
   const lista = [...faltam].sort();
   return { texto: `${marcado}\n\n*⚠ ${lista.length === 1 ? 'Este ano não aparece' : 'Estes anos não aparecem'} nas fontes lidas: ${lista.join(', ')}. Vale conferir.*`, faltam: lista };
@@ -1142,7 +1156,9 @@ function conferirResposta(texto, { numeros = [], material = '', produto = false 
    * do fim diz quantos preços saíram.
    */
   const semOsPrecosTirados = (texto) => {
-    const filtrar = (s) => s.split(/(?<=[.!?…])\s+/).filter((f) => !f.includes('⁢')).join(' ').trim();
+    // (2/11) as citações que vinham logo depois da frase tirada saem com ela: a resposta começava "[11][22]."
+    const soCitacao = (f) => /^(\s*\[\d+\])+\s*[.,;:]?\s*$/.test(f);
+    const filtrar = (s) => s.split(/(?<=[.!?…])\s+/).filter((f, i, todas) => !f.includes('⁢') && !(soCitacao(f) && i > 0 && todas[i - 1].includes('⁢'))).join(' ').trim();
     return texto.split('\n').map((linha) => {
       if (!linha.includes('⁢')) return linha;
       if (/^\s*\|.*\|\s*$/.test(linha)) return linha.split('|').map((c) => (c.includes('⁢') ? ' — ' : c)).join('|');
@@ -1168,6 +1184,10 @@ function conferirResposta(texto, { numeros = [], material = '', produto = false 
     return TIRADO;
   });
   t = semOsPrecosTirados(t.replace(/\u2062(\s*(?:a|até|e|ou|-|–|—|\/)\s*\u2062)+/g, TIRADO)).replace(/\u2062/g, '');
+  // resposta (ou parágrafo) que ficou começando só com citações soltas
+  t = t.replace(/(^|\n\n)(?:\s*\[\d+\])+\s*[.,;:]?[ \t]*(?=\n|$)/g, '$1').replace(/^\s+/, '');
+  // a marcação interna do cartão de outra resposta ("[cartão de compras: …]") que o modelo copiou (2/11)
+  t = t.replace(/^\s*[-*+]\s*\[cart[aã]o de [^\]\n]*\]\s*$\n?/gm, '').replace(/\s?\[cart[aã]o de [^\]\n]*\]/g, '');
 
   const notas = [];
   if (removidos.length) {
@@ -1222,7 +1242,8 @@ function conferirFatos(texto, { material = '', extra = '', semNumeros = false } 
         numeros.add(m);
         return `${m} ⚠`;
       });
-      q = q.replace(/(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)(%?)/g, (m, valor, pct, offset, str) => {
+      // a unidade logo depois vai junto: o ⚠ fica depois dela (2/11: "63g" virava "63 ⚠g")
+      q = q.replace(/(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)(%?)(\s?(?:km\/h|kwh|mah|ghz|mhz|khz|hz|fps|dpi|nits?|kg|mg|mm|cm|km|ml|kw|wh|gb|mb|tb|kb|nm|ms|°c|ºc|g|m|l|w|v|h|s|x)(?![\p{L}\d]))?/giu, (m, valor, pct, _unidade, offset, str) => {
         const antes = str.slice(Math.max(0, offset - 5), offset);
         const depois = str.slice(offset + m.length, offset + m.length + 3);
         if (semNumeros) return m; // prova de exatas: os números são as contas, não fatos com fonte
@@ -1545,7 +1566,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
-    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pergunta },
+    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.)` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pergunta },
   ];
   const limparEscrita = (t) =>
     semParagrafosDeAnuncio(semImagens(t))
@@ -1647,7 +1668,8 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const conferido = fontes.length ? conferirAnos(String(escrito || '').trim(), { material, pergunta, hoje }) : { texto: String(escrito || '').trim(), faltam: [] };
   if (conferido.faltam.length) emit('aviso', { texto: `conferência: ano(s) sem fonte na resposta: ${conferido.faltam.join(', ')}` });
   if (fontes.length) {
-    const r = conferirResposta(conferido.texto, { numeros: usadas.map((f) => f.n), material, produto: ent.produto });
+    // o preço que o próprio AuGPT mostrou antes na conversa (o cartão de compras) vale (2/11: "Tirei R$ 8.886")
+    const r = conferirResposta(conferido.texto, { numeros: usadas.map((f) => f.n), material: `${material} ${extraDaConferencia}`, produto: ent.produto });
     conferido.texto = r.texto;
     if (r.removidos.length) emit('aviso', { texto: `conferência: opções sem fonte: ${r.removidos.join(', ')}` });
     if (r.precosSemFonte.length) emit('aviso', { texto: `conferência: preços sem fonte: ${r.precosSemFonte.join(', ')}` });
