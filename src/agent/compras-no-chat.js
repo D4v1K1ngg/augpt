@@ -34,7 +34,12 @@ const limpar = (s) => String(s || '')
 
 /** { produto } ou null. */
 /** O produto como escrito no pedido de preço (inclusive a referência: "dessa placa"), ou null. */
+// previsão de preço é pesquisa, não loja (2/11: "será que ela vai ficar com qual valor na black friday?" virou
+// o produto "na black friday desse mes")
+const PREVISAO = /\b(vai|v[aã]o|deve|devem|tende a|ser[aá]|iria) (ficar|cair|baixar|subir|custar|chegar)\b|\bprevis[aã]o\b|\bestimativ|\bestim(e|aria|ar)\b|\bproje[cç][aã]o\b/i;
+
 function produtoDoPedido(pergunta) {
+  if (PREVISAO.test(String(pergunta || ''))) return null;
   const p = produtoDoTexto(pergunta);
   if (!p) return null;
   // "quanto está essa placa usada?" (26/10): "usado" é o que se quer ver, não parte do nome

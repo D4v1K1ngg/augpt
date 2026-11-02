@@ -67,6 +67,17 @@ module.exports = [
     },
   },
   {
+    nome: 'previsão de preço é pesquisa, não loja: "será que ela vai ficar com qual valor na black friday?" (virou o produto "na black friday desse mes") e "qual a previsão de preço da rtx 5080" não vão para as compras; "quanto está a rtx 5080?" vai',
+    tipo: 'unidade',
+    executar() {
+      const compras = require('../../src/agent/compras-no-chat');
+      return [
+        ['sera que ela vai ficar com qual valor na black friday desse mes ?', 'qual a previsão de preço da rtx 5080?', 'quanto a rtx 5080 deve custar no natal?'].every((t) => !compras.pedidoDeCompras(t) && !compras.intencaoDeCompras(t)) || 'previsão',
+        compras.pedidoDeCompras('quanto está a rtx 5080?')?.produto === 'rtx 5080' || JSON.stringify(compras.pedidoDeCompras('quanto está a rtx 5080?')),
+      ];
+    },
+  },
+  {
     nome: '"o que falta?": o entendimento pede as partes da resposta (até 4); o pesquisador confere antes de parar, uma vez, em pergunta de 2+ partes, e busca o que faltou',
     tipo: 'unidade',
     executar() {

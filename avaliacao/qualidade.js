@@ -245,7 +245,7 @@ async function responder(pergunta, { cfg, modelo }) {
   const inicio = Date.now();
   try {
     const obtido = await executarCasoAgente(
-      { nome: `qualidade-${pergunta.id}`, pedido: pergunta.pedido, config: cfg, render: RENDER },
+      { nome: `qualidade-${pergunta.id}`, pedido: pergunta.pedido, conversa: pergunta.conversa || [], config: cfg, render: RENDER },
       { real: true, host: HOST, modelo, modeloRedacao: cfg.modelRedacao || '', gravarRegistro: null }
     );
     const r = obtido.registro || {};
