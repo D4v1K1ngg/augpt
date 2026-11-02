@@ -75,7 +75,10 @@ function pedidoDeTimer(texto) {
   // o que vem depois: "pro miojo", "para tirar o bolo", "pra ir na academia"
   const resto = t.slice(pedido.fim).trim();
   const r = /^(?:(?:pr[oa]s?|para|pra)(?: o| a| os| as)?|do|da|de)\s+(.{2,40})$/.exec(resto);
-  const rotulo = r ? r[1].replace(/\b(por favor|pra mim|para mim|ai|agora)\b/g, '').trim() : '';
+  let rotulo = r ? r[1].replace(/\b(por favor|pra mim|para mim|ai|agora)\b/g, '').trim() : '';
+  // com acento, como foi escrito ("café", não "cafe"): as últimas palavras do texto original, se forem as mesmas
+  const original = String(texto).replace(/[?!.]+$/, '').trim().split(/\s+/).slice(-rotulo.split(' ').length).join(' ');
+  if (rotulo && semAcento(original) === rotulo) rotulo = original;
   delete pedido.fim;
   return { ...pedido, rotulo: rotulo || null };
 }

@@ -199,6 +199,7 @@ module.exports = [
       const rotas = require('../../src/agent/rotas-do-codigo');
       const casos = {
         'timer de 10 minutos pro miojo': '{"acao":"criar","segundos":600,"rotulo":"miojo"}',
+        'coloca um timer de 10 minutos pro café': '{"acao":"criar","segundos":600,"rotulo":"café"}',
         'Jarvis, coloca um timer de meia hora': '{"acao":"criar","segundos":1800,"rotulo":null}',
         'timer de 1h30 para o bolo': '{"acao":"criar","segundos":5400,"rotulo":"bolo"}',
         'temporizador de vinte e cinco minutos': '{"acao":"criar","segundos":1500,"rotulo":null}',

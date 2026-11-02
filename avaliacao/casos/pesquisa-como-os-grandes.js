@@ -78,6 +78,17 @@ module.exports = [
     },
   },
   {
+    nome: 'a instrução do formato de produto não vaza na resposta (2/11: "Não há blocos \\"#### N. Marca Modelo\\" disponíveis nas fontes…"): a frase sai, os títulos "#### 1." ficam',
+    tipo: 'unidade',
+    executar() {
+      const t = nucleo.conferirResposta('A diferença está no MLO. Não há blocos "#### N. Marca Modelo" disponíveis nas fontes, portanto apresento as diferenças. O Wi-Fi 7 usa 320 MHz.\n\n#### 1. TP-Link Archer BE800\n**Para quem:** quem quer o mais novo.', { material: 'MLO 320 MHz TP-Link Archer BE800' }).texto;
+      return [
+        !/Marca Modelo|N\. Marca/.test(t) || t,
+        /A diferença está no MLO\. O Wi-Fi 7 usa 320 MHz\./.test(t) && /#### 1\. TP-Link Archer BE800/.test(t) || t,
+      ];
+    },
+  },
+  {
     nome: '"o que falta?": o entendimento pede as partes da resposta (até 4); o pesquisador confere antes de parar, uma vez, em pergunta de 2+ partes, e busca o que faltou',
     tipo: 'unidade',
     executar() {
