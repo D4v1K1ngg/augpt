@@ -97,12 +97,17 @@ function pedidoDeEntendimento({ pergunta, conversa = [], hoje }) {
     .slice(-6)
     .map((m) => `${m.role === 'user' ? 'Usuário' : 'Assistente'}: ${String(m.content || '').slice(0, 400)}`)
     .join('\n');
+  // "será que ELA vai ficar com qual valor?" (2/11, conversa real: o dólar no começo, a RTX 5070 Ti logo antes —
+  // o "ela" foi lido como o dólar e as 8 buscas foram de câmbio): o pronome é do assunto MAIS RECENTE
+  const anterior = [...conversa].reverse().find((m) => m.role === 'user')?.content;
+  const temPronome = /\b(ela|ele|elas|eles|dela|dele|delas|deles|nela|nele|isso|isto|essa|esse|essas|esses|este|esta|aquela|aquele|o mesmo|a mesma|it|its|this|that|they|them)\b/i.test(String(pergunta || ''));
+  const dicaDoPronome = anterior && temPronome ? `\nATENÇÃO: a última mensagem usa pronome ("ela", "dele", "isso"…). Ele se refere ao assunto da mensagem MAIS RECENTE do usuário antes desta — "${String(anterior).slice(0, 200)}" —, não ao começo da conversa. Use esse assunto na "pergunta" reescrita e nas "buscas".\n` : '';
   return `Hoje é ${hoje}. Leia a conversa e a última mensagem do usuário.
-${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}
+${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}${dicaDoPronome}
 ÚLTIMA MENSAGEM: ${String(pergunta).slice(0, 1500)}
 
 Responda SÓ com um JSON:
-{"precisa_buscar": true ou false, "conversa": true ou false, "produto": true ou false, "criar_imagem": true ou false, "muda_com_o_tempo": true ou false, "sobre_o_usuario": true ou false, "sobre_a_tela": true ou false, "imagem_ajuda": true ou false, "acao": "", "sugerir": "", "assuntos": ["..."], "lugares": ["..."], "buscas": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
+{"precisa_buscar": true ou false, "conversa": true ou false, "produto": true ou false, "criar_imagem": true ou false, "muda_com_o_tempo": true ou false, "sobre_o_usuario": true ou false, "sobre_a_tela": true ou false, "imagem_ajuda": true ou false, "acao": "", "sugerir": "", "assuntos": ["..."], "lugares": ["..."], "buscas": ["..."], "partes": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
 
 - O AuGPT roda no computador do usuário e EXECUTA estas ações:
 ${capacidades.listaParaEntender()}
@@ -124,6 +129,7 @@ ${capacidades.listaParaEntender()}
 
 - "conversa" é true quando o usuário quer CONVERSAR com você, não saber um dado: sua opinião ("você acha que vale a pena aprender violão depois dos 30?"), como ele se sente ("estou cansado hoje"), um conselho pessoal, ajuda para pensar ou decidir algo da vida dele, ideias, piada, papo. Pedido de fato, número, notícia, produto ou de algo atual: false. Com "conversa" true, "precisa_buscar" é false.
 - "precisa_buscar" é true para qualquer pedido de informação: produto, preço, recomendação, comparação, notícia, pessoa, lugar, história, ciência, como algo funciona, dado ou número. Seu conhecimento pode estar desatualizado, então mesmo o que você sabe vale conferir.
+- "partes": quando "precisa_buscar" é true, as coisas que a resposta precisa trazer para responder TUDO o que foi pedido, de 1 a 4, curtas e concretas (ex.: "faz uma análise do preço da RTX 5070 Ti desde o lançamento e estime o da Black Friday" → ["preço de lançamento da RTX 5070 Ti", "preço de hoje da RTX 5070 Ti", "estimativa de preço da RTX 5070 Ti na Black Friday"]). Pergunta de uma coisa só: uma parte. Senão, [].
 - "buscas": quando "precisa_buscar" é true, de 1 a 3 buscas curtas para a web (como alguém digitaria no Google), de ângulos diferentes, com as condições que o usuário deu (modelo, ano, país, orçamento); para tecnologia e produtos, uma delas em inglês. Senão, [].
 - "precisa_buscar" é false SÓ para: conversa, saudação ou agradecimento, conta de matemática, tradução ou revisão de um texto que o usuário mandou, escrever um texto criativo, ou algo que a própria conversa já respondeu. Na dúvida, true.
 - Em "pergunta", troque "ele", "isso", "o outro" pelo que eles são na conversa e traga o que a conversa já disse: por exemplo, depois de "qual o melhor <tipo de produto> para <uso>?", a mensagem "e quanto ao <modelo>?" vira "o <modelo> é bom como <tipo de produto> para <uso>, e quanto custa?" (use os nomes reais da conversa, nunca os deste exemplo). Mantenha o resto como o usuário escreveu.
@@ -268,6 +274,8 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
       sobreATela: !comImagem && !TELA_EM_GERAL.test(String(pergunta || '')) && (j.sobre_a_tela === true || pedeATela(pergunta)),
       // as primeiras buscas (27/10): o código as faz antes da 1ª rodada do pesquisador (uma decisão a menos)
       buscas: (Array.isArray(j.buscas) ? j.buscas : []).map((b) => String(b || '').trim()).filter((b) => b.length >= 3 && b.length <= 120).slice(0, 3),
+      // as partes que a resposta precisa trazer (2/11): o pesquisador confere, antes de parar, se alguma ficou sem material
+      partes: (Array.isArray(j.partes) ? j.partes : []).map((b) => String(b || '').trim()).filter((b) => b.length >= 3 && b.length <= 140).slice(0, 4),
       imagemAjuda: !exatas && j.imagem_ajuda !== false,
       acao: acaoValida(j.acao, pergunta) || ((PEDE_QUE_FACA.test(String(pergunta || '')) || RESPONDEM.has(j.sugerir)) ? acaoValida(j.sugerir, pergunta) : null),
       sugerir: acaoValida(j.acao, pergunta) || PEDE_QUE_FACA.test(String(pergunta || '')) || RESPONDEM.has(j.sugerir) ? null : acaoValida(j.sugerir, pergunta),
@@ -513,7 +521,7 @@ const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || d
  */
 const PEDE_APARENCIA = /\b(apar[eê]ncia|aparenta|visual|design|cor|cores|bonit\w*|feio|feia|formato|estilo|layout|como (é|e|são|sao|fica|ficou) (o|a|os|as) (visual|design|cor|traseira|frente|dianteira|lateral|interior|painel|cara|parte de tr[aá]s)|onde fica (o|a) (bot[aã]o|porta|entrada|sa[ií]da|pe[cç]a|conector|tecla)|diferen[cç]a visual|parece com|fotos?|imagens?|como ele é|como ela é)\b/i;
 
-async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [], imagemAnexada = '', atual = false, sobreOUsuario = '', linksDoUsuario = [], buscasIniciais = [] }) {
+async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, assuntos = [], conversa = [], imagemAnexada = '', atual = false, sobreOUsuario = '', linksDoUsuario = [], buscasIniciais = [], partes = [] }) {
   const { chamar, buscar, lerPagina, embed, emit = () => {}, signal, buscarNaComunidade } = deps;
   const oficiais = oficiaisDaPergunta(pergunta);
   // comunidade (15/10, pedido do Davi): em pedido de produto, Reddit e fóruns entram sempre
@@ -773,6 +781,37 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     historico.push({ role: 'user', content: `Primeiras buscas, já feitas (${buscasIniciais.join(' · ')}):\n${resultado}\n\nContinue: leia com ler_pagina as páginas mais promissoras (2 ou 3 de uma vez, de sites diferentes), busque um ângulo que falte, ou chame pronto.` });
   }
 
+  /*
+   * "O que falta?" (2/11, plano de chegar perto do ChatGPT na pesquisa): antes de parar, uma vez, uma chamada curta
+   * confere quais PARTES da pergunta (listadas no entendimento) ainda não têm nada no material lido. Faltando,
+   * uma busca por elas e mais uma rodada para ler. Só em pergunta de 2+ partes, e só se sobrar rodada.
+   */
+  let conferiuPartes = false;
+  let lacunaAberta = false;
+  async function antesDeParar(rodada) {
+    if (conferiuPartes || partes.length < 2 || rodada >= total || signal?.aborted) return false;
+    conferiuPartes = true;
+    const material = fontes
+      .filter((f) => !f.imagem)
+      .slice(0, 12)
+      .map((f) => `[${f.n}] ${f.titulo || ''}: ${(f.trechos.length ? f.trechos.join(' … ') : f.resumo || '').replace(/\s+/g, ' ').slice(0, 350)}`)
+      .join('\n');
+    let faltam = [];
+    try {
+      const r = await chamar([{ role: 'user', content: `Pergunta: ${pergunta}\n\nPartes que a resposta precisa trazer:\n${partes.map((p, i) => `${i + 1}. ${p}`).join('\n')}\n\nMaterial lido até agora:\n${material.slice(0, 4500)}\n\nQuais partes AINDA NÃO têm nenhuma informação nesse material? Responda só com um JSON: {"faltam": [números das partes]}. Se todas têm algo, {"faltam": []}.` }], { json: true, numPredict: 60 });
+      const j = safeJson(String(r?.content || '').slice(String(r?.content || '').indexOf('{')));
+      faltam = (Array.isArray(j?.faltam) ? j.faltam : []).map((n) => partes[Number(n) - 1]).filter(Boolean).slice(0, 2);
+    } catch {
+      return false;
+    }
+    if (!faltam.length) return false;
+    emit('aviso', { texto: `ainda faltava: ${faltam.join(' · ')} — mais uma busca` });
+    const resultado = await executarBusca(faltam);
+    historico.push({ role: 'user', content: `Ainda falta material sobre: ${faltam.join('; ')}. Resultados de uma busca por isso:\n${resultado}\n\nLeia com ler_pagina 1 ou 2 páginas que tragam isso (se nenhuma trouxer, chame pronto).` });
+    lacunaAberta = true;
+    return true;
+  }
+
   for (let rodada = 1; rodada <= total; rodada += 1) {
     if (signal?.aborted) break;
     const minimos = buscasFeitas >= regras.minBuscas && lidas() >= regras.minLeituras && fontes.length > 0;
@@ -782,7 +821,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     // rodada a mais quase sempre era só o modelo dizendo "pronto" (15 tokens, 1,4–1,9 s)
     const sitesLidos = new Set(fontes.filter((f) => f.trechos.length).map((f) => dominio(f.url))).size;
     const bastaNaNormal = modo !== 'profundo' && sitesLidos >= 2;
-    if (rodada > 1 && minimos && (leiturasFeitas >= regras.leituras || semNovidade >= 1 || bastaNaNormal || rodada > rodadaDosMinimos + 1)) {
+    if (rodada > 1 && minimos && !lacunaAberta && (leiturasFeitas >= regras.leituras || semNovidade >= 1 || bastaNaNormal || rodada > rodadaDosMinimos + 1) && !(await antesDeParar(rodada))) {
       emit('aviso', { texto: `pesquisa encerrada na rodada ${rodada - 1} de ${total}: ${leiturasFeitas >= regras.leituras ? 'as leituras desta pesquisa se esgotaram' : semNovidade >= 1 ? 'a última rodada não trouxe nada novo' : bastaNaNormal ? 'mínimos cumpridos, com leitura de vários sites' : 'os mínimos do modo já estavam cumpridos'}` });
       break;
     }
@@ -812,6 +851,7 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
         historico.push({ role: 'user', content: falta });
         continue;
       }
+      if (await antesDeParar(rodada)) continue; // o que falta? (2/11)
       break;
     }
     historico.push({ role: 'assistant', content: r.content || '', tool_calls: r.chamadas });
@@ -836,12 +876,14 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
     leituraDaRodada = null;
     chamadas.forEach((c, i) => historico.push({ role: 'tool', tool_name: c.nome, content: saidas[i] }));
     semNovidade = fontes.length === antesDaRodada.fontes && lidas() === antesDaRodada.lidas ? semNovidade + 1 : 0;
+    lacunaAberta = false; // a rodada extra do "o que falta?" já leu
     if (chamadas.some((c) => c.nome === 'pronto')) {
       const falta = aindaECedo(rodada);
       if (falta) {
         historico.push({ role: 'user', content: falta });
         continue;
       }
+      if (await antesDeParar(rodada)) continue; // o que falta? (2/11)
       break;
     }
   }
@@ -1549,7 +1591,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const linksDoUsuario = [...new Set(String(pergunta || '').match(/https?:\/\/[^\s'"<>)\]]+/g) || [])];
   etapa('entendimento', inicioDoEntendimento);
   const inicioDaPesquisa = Date.now();
-  const fontes = ent.precisaBuscar || linksDoUsuario.length ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa, imagemAnexada: vista, atual: ent.atual, sobreOUsuario, linksDoUsuario, buscasIniciais: ent.buscas || [] }) : [];
+  const fontes = ent.precisaBuscar || linksDoUsuario.length ? await pesquisar({ pergunta: ent.pergunta, modo: modoUsado, deps, hoje, produto: ent.produto, assuntos: ent.assuntos || [], conversa, imagemAnexada: vista, atual: ent.atual, sobreOUsuario, linksDoUsuario, buscasIniciais: ent.buscas || [], partes: ent.partes || [] }) : [];
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
   etapa('pesquisa', inicioDaPesquisa);
   const inicioDoMaterial = Date.now();

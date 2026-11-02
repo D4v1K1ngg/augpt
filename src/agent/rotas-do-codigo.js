@@ -32,6 +32,7 @@ const timer = require('./timer-no-chat');
 const boleto = require('./boleto-no-chat');
 const controleDoPc = require('./controle-do-pc');
 const buscaLocal = require('./busca-local-no-chat');
+const cotacao = require('./cotacao-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -42,6 +43,13 @@ const ROTAS = [
     id: 'audio_transcrito',
     detecta: ({ objetivo }) => audio.pedidoDeAudio(objetivo),
     responde: ({ deps, config }, pedido) => audio.responderAudio({ pedido, deps, config }),
+  },
+  {
+    // "qual a cotação do dólar hoje?", "100 dólares em reais", "dólar turismo", "bitcoin" (2/11): os dados (AwesomeAPI e
+    // a PTAX do Banco Central), não sites; antes das compras ("quanto está o euro" não é produto)
+    id: 'cotacao',
+    detecta: ({ objetivo }) => cotacao.pedidoDeCotacao(objetivo),
+    responde: ({ deps, config }, pedido) => cotacao.responderCotacao({ pedido, deps, config }),
   },
   {
     // "bom dia, Jarvis" no começo da conversa, "resumo do dia" (31/10): data e feriado, tempo, agenda e manchetes

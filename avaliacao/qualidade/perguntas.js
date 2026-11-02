@@ -604,6 +604,127 @@ module.exports = [
       ...checagensDeTexto(),
     ],
   },
+
+  /* ------------------------------ as conversas reais de 1-2/11 ------------------------------ */
+  // (pesquisa na web e respostas com os dados coletados: atualidade, preço ao longo do tempo, continuação)
+  {
+    id: 'dolar-hoje',
+    tipo: 'fato',
+    pedido: 'Qual a cotação do dolar hoje ?',
+    criterios: [
+      'traz um valor do dólar em reais (R$)',
+      'diz de quando é o valor (hoje, a data ou o horário)',
+      'diz de onde veio o valor (a fonte)',
+    ],
+    checagens: [
+      { nome: 'um valor em R$ entre 3 e 9', ok: (r) => (r.match(/R\$\s?(\d+),(\d{2})/g) || []).some((v) => { const n = Number(v.replace(/[^\d,]/g, '').replace(',', '.')); return n > 3 && n < 9; }) },
+      ...checagensDaResposta(),
+    ],
+  },
+  {
+    id: 'rtx5070ti-analise',
+    tipo: 'fato',
+    pedido: 'faz uma analise do preço da rtx 5070 ti desde o lançamento ate o momento atual',
+    criterios: [
+      'é uma análise em texto da evolução do preço, não uma lista de produtos para comprar',
+      'traz o preço de lançamento (ou o mais antigo citado), com a data',
+      'traz um preço atual ou recente, com a data',
+      'diz se o preço subiu ou caiu ao longo do tempo',
+      'fala só da RTX 5070 Ti, sem misturar com a RTX 5070 (sem o Ti) como se fosse a mesma',
+    ],
+    checagens: [
+      { nome: 'sem cartões de compra (#### 1. …)', ok: (r) => !/^#### \d+\./m.test(r) },
+      { nome: 'pelo menos 2 preços em R$ ou US$', ok: (r) => (r.match(/(R\$|US\$)\s?\d/g) || []).length >= 2 },
+      ...checagensDaResposta(),
+    ],
+  },
+  {
+    id: 'rtx5070ti-black-friday',
+    tipo: 'fato',
+    pedido: 'sera que ela vai ficar com qual valor na black friday desse mes ?',
+    conversa: [
+      { role: 'user', content: 'qual o valor da rtx 5070 ti hoje ?' },
+      { role: 'assistant', content: '**RTX 5070 TI**: o menor preço agora é **R$ 8.886,28** na **KaBuM!** — Placa De Vídeo Msi Nvidia Geforce RTX 5070 Ti Ventus 3x Oc, 16gb. Encontrei 11 ofertas em 2 lojas, de R$ 8.886,28 a R$ 16.676,14.' },
+    ],
+    criterios: [
+      'entende que "ela" é a RTX 5070 Ti e fala dela (não do comércio eletrônico em geral)',
+      'dá uma faixa ou estimativa de preço para a Black Friday, ou explica com dados por que não dá',
+      'deixa claro que é estimativa, não preço confirmado',
+      'usa o preço de hoje (cerca de R$ 8.886) como ponto de partida',
+    ],
+    checagens: [
+      { nome: 'não tira o preço que o próprio AuGPT mostrou', ok: (r) => !/Tirei[^.]*8\.886/.test(r) },
+      ...checagensDaResposta(),
+    ],
+  },
+  {
+    id: 'midterms-2026',
+    tipo: 'fato',
+    pedido: 'Quem sera que vai ganhar as eleições de meio de ano nos EUA ? os republicanos ou os democratas ?',
+    criterios: [
+      'diz que são as eleições de meio de mandato (midterms) de novembro de 2026',
+      'diz o que está em disputa (a Câmara inteira e parte do Senado)',
+      'traz o que as pesquisas recentes indicam, com a fonte',
+      'não afirma um vencedor como certo',
+    ],
+    checagens: [...checagensDaResposta()],
+  },
+  {
+    id: 'amoled',
+    tipo: 'explicacao',
+    pedido: 'Como funciona uma tela amoled ?',
+    fatos: [
+      'cada pixel emite a própria luz',
+      'não precisa de luz de fundo (backlight), ao contrário do LCD',
+      'usa diodos orgânicos que emitem luz (OLED)',
+      'a matriz ativa usa transistores (TFT) para controlar cada pixel',
+      'o pixel apagado não emite luz, o que dá preto real e contraste alto',
+    ],
+    errada: 'A tela AMOLED funciona com uma lâmpada fluorescente atrás de cristais líquidos, igual às TVs de tubo. Os pixels não acendem sozinhos e o preto é sempre cinza.',
+    checagens: [
+      { nome: 'sem explicação dentro de outro parêntese', ok: (r) => !/\([^()]*\([^()]*\)[^()]*\)/.test(r.replace(/\]\([^)]*\)/g, '')) },
+      ...checagensDaResposta(), ...checagensDeTexto(),
+    ],
+  },
+  {
+    id: 'wifi',
+    tipo: 'explicacao',
+    pedido: 'Como funciona o wifi ?',
+    fatos: [
+      'transmite dados por ondas de rádio, sem fio',
+      'o roteador (ponto de acesso) conecta os aparelhos à rede e à internet',
+      'usa frequências como 2,4 GHz e 5 GHz (ou 6 GHz)',
+      'segue os padrões IEEE 802.11',
+    ],
+    errada: 'O Wi-Fi funciona por cabos de fibra ótica escondidos no ar, e a velocidade depende só da cor do roteador. Foi criado em 2015 pela Apple.',
+    checagens: [...checagensDaResposta(), ...checagensDeTexto()],
+  },
+  {
+    id: 'processador-funciona',
+    tipo: 'explicacao',
+    pedido: 'Eu queria saber como funciona exatamente um processador ?',
+    fatos: [
+      'executa instruções de programas',
+      'é formado por bilhões de transistores',
+      'segue o ciclo buscar, decodificar e executar instruções',
+      'tem unidades como a de controle e a lógica e aritmética (ULA)',
+      'o clock (frequência) marca o ritmo das operações',
+    ],
+    errada: 'O processador funciona com engrenagens mecânicas de metal que giram para fazer as contas, e não tem transistores. Ele guarda todos os arquivos do computador.',
+    checagens: [...checagensDaResposta(), ...checagensDeTexto()],
+  },
+  {
+    id: 'celular-gamer',
+    tipo: 'produto',
+    pedido: 'Qual o melhor celular gamer do mundo ?',
+    criterios: [
+      'recomenda celulares específicos, com marca e modelo',
+      'explica o que importa em celular para jogos (processador, tela de alta taxa, refrigeração, bateria)',
+      'diz de onde vêm as recomendações (fontes)',
+      'deixa claro qual é a primeira recomendação ou que depende do orçamento',
+    ],
+    checagens: [...checagensDaResposta()],
+  },
 ];
 
 /**
@@ -611,6 +732,15 @@ module.exports = [
  * o núcleo novo escreve livre): título "### 1. Nome"/"#### 1. Nome", lista
  * "1. **Nome**" ou linha de tabela "| 1 | **Nome** |". Sem repetição.
  */
+/** Os defeitos de formato achados nas conversas de 2/11 (a conferência pelo código), em qualquer resposta. */
+function checagensDaResposta() {
+  return [
+    { nome: 'não começa com citações soltas', ok: (r) => !/^\s*(\[\(?\d+\)?\](\([^)]*\))?\s*)+[.,;]?\s*(\n|$)/.test(r) },
+    { nome: 'nenhum ⚠ entre número e unidade nem dentro de link', ok: (r) => !/\d ⚠[a-zA-Z]/.test(r) && !/\]\([^)]*⚠/.test(r) },
+    { nome: 'nenhuma marcação interna ("[cartão de …]")', ok: (r) => !/\[cart[aã]o de /.test(r) },
+  ];
+}
+
 function nomesDasOpcoes(r) {
   const nomes = [...String(r).matchAll(/^#{2,4} \d+[.)] \**([^*\n]+?)\**\s*$|^\d+\. \*\*([^*]+)\*\*|^\|\s*\**\d+\**[.º°]?\s*\|\s*\**([^|*]+?)\**\s*\|/gm)].map((m) => (m[1] || m[2] || m[3]).trim());
   return [...new Set(nomes)];

@@ -92,4 +92,25 @@ function linhaOndeComprar(achados, hoje = new Date().toLocaleDateString('pt-BR')
   return `**Onde comprar (preços de ${hoje}):** ${itens.join(' · ')}`;
 }
 
-module.exports = { ondeComprar, linhaOndeComprar, casa, LOJAS };
+/**
+ * O preço "atual" do texto contra o de hoje nas lojas (2/11, conversa real: a análise da RTX 5070 Ti disse "faixa
+ * atual de R$ 5.299 a R$ 7.199" com as lojas a R$ 9.005 na linha de cima — as páginas lidas eram antigas). Se os
+ * preços que o texto chama de atuais/de hoje/recentes ficam todos abaixo de 80% do menor de hoje, um aviso. → '' ou a nota.
+ */
+function avisoDePrecoAntigo(texto, achados = []) {
+  const deHoje = achados.map((a) => Number(a.avista || a.preco)).filter((v) => v > 0);
+  if (!deHoje.length) return '';
+  const menor = Math.min(...deHoje);
+  const valor = (s) => Number(s.replace(/\./g, '').replace(',', '.'));
+  const ditos = String(texto || '')
+    .replace(/\*\*Onde comprar[^\n]*/g, '')
+    .split(/(?<=[.!?;])\s+|\n/)
+    .filter((frase) => /\b(atual|atuais|atualmente|hoje|agora|recentes?|recentemente|neste momento|no momento)\b/i.test(frase))
+    .flatMap((frase) => [...frase.matchAll(/R\$\s?(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:,\d{2})?)/g)].map((m) => valor(m[1])))
+    .filter((v) => v >= menor * 0.2); // acessório, frete, parcela: fora
+  if (!ditos.length || Math.max(...ditos) >= menor * 0.8) return '';
+  const quem = achados.find((a) => Number(a.avista || a.preco) === menor);
+  return `*Atenção: os preços citados como atuais (até ${reais(Math.max(...ditos))}) vêm de páginas antigas — hoje, nas lojas, o menor é ${reais(menor)}${quem ? ` (${quem.loja})` : ''}.*`;
+}
+
+module.exports = { ondeComprar, linhaOndeComprar, avisoDePrecoAntigo, casa, LOJAS };

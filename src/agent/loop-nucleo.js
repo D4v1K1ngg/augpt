@@ -21,7 +21,7 @@ const search = require('../tools/search');
 const { lerComCache } = require('../tools/web');
 const nucleo = require('./nucleo');
 const { investigar } = require('./nucleo/investigacao');
-const { ondeComprar, linhaOndeComprar } = require('./onde-comprar');
+const { ondeComprar, linhaOndeComprar, avisoDePrecoAntigo } = require('./onde-comprar');
 const { protegerGraficos } = require('./nucleo/graficos');
 const catalogo = require('./capacidades');
 const rotas = require('./rotas-do-codigo');
@@ -411,9 +411,13 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // pergunta de preço de UM produto, sem cartões (18/10: "melhor preço para a rtx 5080" saiu com
     // preços inventados e sem link): o preço de hoje nas lojas vai no topo, pelo assunto entendido
     const pedePreco = /\b(pre[çc]os?|quanto custa|onde comprar|link de compra|mais barat\w*|comprar)\b/i.test(objetivo);
-    const linhaDoAssunto = !nomes.length && pedePreco && cfg.ondeComprar !== false && r.assuntos?.length
-      ? linhaOndeComprar((await imagens.comLimite(Promise.all(r.assuntos.slice(0, 2).map((a) => ondeComprar(a, { ler: (url) => lerComCache(url, ctxWeb) }).catch(() => []))), 30000, [])).find((x) => x.length) || [])
-      : '';
+    const achadosDoAssunto = !nomes.length && pedePreco && cfg.ondeComprar !== false && r.assuntos?.length
+      ? (await imagens.comLimite(Promise.all(r.assuntos.slice(0, 2).map((a) => ondeComprar(a, { ler: (url) => lerComCache(url, ctxWeb) }).catch(() => []))), 30000, [])).find((x) => x.length) || []
+      : [];
+    const linhaDoAssunto = linhaOndeComprar(achadosDoAssunto);
+    // o "atual" do texto bem abaixo do preço de hoje nas lojas: as páginas lidas eram antigas (2/11)
+    const precoAntigo = avisoDePrecoAntigo(r.texto, achadosDoAssunto);
+    if (precoAntigo) r.texto = `${r.texto.trim()}\n\n${precoAntigo}`;
     // 21/10: resposta visual que não é de produto ("os 5 setups mais bonitos", "lugares para visitar"):
     // com itens numerados e o entendimento dizendo que imagem ajuda, cada item ganha a sua foto
     const RE_ITEM = /^(#{2,4})\s+(\d+)\.\s+(.+)$/gm;
