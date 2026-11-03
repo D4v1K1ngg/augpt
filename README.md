@@ -13,7 +13,7 @@ O modelo roda na sua máquina, pelo [Ollama](https://ollama.com): nenhuma conver
 [![Ollama](https://img.shields.io/badge/IA%20local-Ollama-1f1f1f?logo=ollama)](https://ollama.com)
 [![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-3b8a3e)](LICENSE)
 
-[**⬇️ Baixar**](https://github.com/D4v1K1ngg/augpt/releases) · [Recursos](#-o-que-ele-faz) · [Instalação](#-instalação) · [Segurança](#-segurança-e-rede) · [Como funciona](docs/ARQUITETURA.md)
+[**⬇️ Baixar**](https://github.com/D4v1K1ngg/augpt/releases) · [Recursos](#-o-que-ele-faz) · [Instalação](#-instalação) · [Segurança](#-segurança-e-rede) · [Como funciona](docs/ARQUITETURA.md) · [🇺🇸 English](README.en.md)
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/midia/inicio-claro.png">
