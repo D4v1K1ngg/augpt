@@ -1,5 +1,45 @@
 [
   {
+    "versao": "0.41.0",
+    "data": "2026-11-03",
+    "pt": {
+      "titulo": "O AuGPT no dia a dia: timers, boletos, áudios, música, downloads e uma tela inicial nova",
+      "itens": [
+        "**Tela inicial nova:** o orbe \"Au\", \"O que você precisa?\" e quatro atalhos — Pesquisar, Comprar e comparar, Seus arquivos e Dia a dia — sobre ondas douradas (animadas ou paradas, em Ajustes).",
+        "**Barra da janela integrada:** no Windows, minimizar, maximizar e fechar ficam na mesma linha da barra do AuGPT, na cor do tema.",
+        "**Timers e alarmes:** \"timer de 10 minutos pro café\", \"me acorda em 20 minutos\", \"alarme às 7h\" — um cartão com a contagem, o bipe e o aviso do Windows no fim. \"Cancela o timer\" também funciona.",
+        "**Contas e boletos:** anexe o PDF do boleto e ele mostra o valor, o vencimento, quem cobra e a linha digitável conferida, e lembra na véspera.",
+        "**Transcrever áudio:** anexe a mensagem de voz do WhatsApp (ou uma gravação) e receba o texto e um resumo, pelo Whisper no seu computador.",
+        "**Baixar vídeos e músicas:** \"baixa esse vídeo <link>\" ou pelo nome — vídeo até 1080p ou só o MP3, com o yt-dlp e o ffmpeg instalados por um clique.",
+        "**Tocar música:** \"toca Legião Urbana\" acha a música no seu PC e toca no reprodutor do Windows; \"pausa\", \"continua\" e \"próxima\" pela voz.",
+        "**Resumo do dia:** diga \"bom dia\" ao abrir uma conversa: a data, o próximo feriado, o tempo da sua cidade, a agenda de hoje e as manchetes.",
+        "**Onde está aquilo?:** a busca nos seus arquivos — só nas pastas que você escolher, lidas no seu PC — responde citando o arquivo (\"onde está o contrato do aluguel?\").",
+        "**O PC pela voz:** volume, mudo, abrir programas, desligar ou reiniciar com hora marcada, cancelar e bloquear a tela.",
+        "**Cotação na hora:** dólar, euro, libra, bitcoin e conversões (\"100 dólares em reais\") vêm direto dos dados, com a PTAX do Banco Central, em menos de 1 segundo.",
+        "**Pesquisa mais confiável:** a pesquisa é narrada no chat enquanto acontece; preço \"atual\" tirado de página antiga ganha aviso; o \"ela\" da conversa é entendido; antes de parar, ele confere se cada parte da pergunta foi respondida; previsão de preço (\"vai ficar quanto na Black Friday?\") vira análise, não lista de lojas.",
+        "**Correções:** o timer mantém o acento (\"café\"), links e unidades não ganham ⚠ por engano e instruções internas não aparecem mais na resposta."
+      ]
+    },
+    "en": {
+      "titulo": "AuGPT for everyday life: timers, bills, voice messages, music, downloads and a new start screen",
+      "itens": [
+        "**New start screen:** the \"Au\" orb, \"What do you need?\" and four shortcuts — Research, Shop and compare, Your files and Everyday — over golden waves (animated or still, in Settings).",
+        "**Integrated title bar:** on Windows, minimize, maximize and close sit on the same line as the AuGPT bar, in the theme color.",
+        "**Timers and alarms:** \"10-minute timer for the coffee\", \"wake me up in 20 minutes\", \"alarm at 7am\" — a countdown card, a beep and a Windows notification. \"Cancel the timer\" works too.",
+        "**Bills:** attach a boleto PDF and it shows the amount, due date, payee and the verified barcode line, with a reminder the day before.",
+        "**Audio transcription:** attach a WhatsApp voice message (or a recording) and get the text and a summary, via Whisper on your computer.",
+        "**Download videos and music:** \"download this video <link>\" or by name — video up to 1080p or MP3 only, with yt-dlp and ffmpeg installed in one click.",
+        "**Play music:** \"play Coldplay\" finds it on your PC and plays it in the Windows player; \"pause\", \"resume\" and \"next\" by voice.",
+        "**Morning briefing:** say \"good morning\" when you open a conversation: the date, the next holiday, your city's weather, today's agenda and the headlines.",
+        "**Where is that file?:** search your files — only in the folders you choose, read on your PC — with answers that cite the file.",
+        "**Control the PC by voice:** volume, mute, open programs, scheduled shutdown or restart, cancel and lock the screen.",
+        "**Instant exchange rates:** dollar, euro, pound, bitcoin and conversions come straight from data APIs, with the Central Bank of Brazil rate, in under a second.",
+        "**More reliable research:** the research is narrated in the chat as it happens; \"current\" prices taken from old pages get a warning; pronouns in the conversation are understood; before stopping, it checks that every part of the question was answered; price forecasts become an analysis, not a store list.",
+        "**Fixes:** timer labels keep their accents, links and units no longer get a ⚠ by mistake, and internal instructions no longer leak into the answer."
+      ]
+    }
+  },
+  {
     "versao": "0.40.0",
     "data": "2026-10-30",
     "pt": {
