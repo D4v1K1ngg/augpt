@@ -1,5 +1,35 @@
 [
   {
+    "versao": "0.42.0",
+    "data": "2026-11-05",
+    "pt": {
+      "titulo": "Mini AuGPT, explicações na hora e preços que antes \"não eram encontrados\"",
+      "itens": [
+        "**Mini AuGPT:** o chat numa janelinha sempre por cima das outras, no canto da tela — como o \"picture in picture\" do navegador. Botão na barra do topo ou Ctrl+Shift+M; o mesmo atalho volta à janela inteira, do tamanho e no lugar de antes.",
+        "**Explicações na hora:** \"como funciona o Wi-Fi?\", \"o que é um buraco negro?\", \"por que o céu é azul?\" são respondidas com o que o AuGPT já sabe, como uma pessoa que entende do assunto explicaria — em 10 a 20 segundos, sem pesquisar. No fim, ele oferece pesquisar em fontes atuais, se você quiser. Produto, notícia, preço, pessoas, datas e o que é recente continuam pesquisados.",
+        "**Respostas de produto mais rápidas:** até 3 opções bem escolhidas, com campos curtos (cerca de 20% mais rápido). Pediu \"top 5\"? Vêm 5.",
+        "**Preços que sumiam:** nomes de modelo escritos juntos ou com hífen (RM1000x, RX7600XT, RTX5070Ti, WH-1000XM5) e anúncios \"com cabo\" eram descartados por engano — agora entram. A fonte Corsair RM1000x, que saía \"sem preço\", sai em 2 segundos com o preço da loja.",
+        "**Quando a loja não tem o modelo:** a resposta diz o que veio (\"62 ofertas, nenhuma desse modelo — as mais parecidas: …\") em vez de só \"não encontrei\".",
+        "**Documentos:** \"o que você acha desse currículo?\" recebe uma avaliação — pontos fortes, o que melhorar e o que falta — e não uma tabela de campos.",
+        "**Imagens:** \"crie uma imagem dessa placa\" entende de qual placa a conversa falava, e a revisão não refaz a imagem por causa de um logo ilegível.",
+        "**Correções:** \"hoje (31/10)\" com a data de uma página antiga vira \"em 31/10\"; uma oferta só não aparece mais como \"1 ofertas em 1 lojas\"."
+      ]
+    },
+    "en": {
+      "titulo": "Mini AuGPT, instant explanations and prices that used to go \"missing\"",
+      "itens": [
+        "**Mini AuGPT:** the chat in a small always-on-top window in the corner of the screen — like a browser's picture-in-picture. Button in the top bar or Ctrl+Shift+M; the same shortcut brings back the full window, at its previous size and place.",
+        "**Instant explanations:** \"how does Wi-Fi work?\", \"what is a black hole?\", \"why is the sky blue?\" are answered from what AuGPT already knows, the way someone who understands the topic would explain it — in 10 to 20 seconds, without searching. At the end it offers to check current sources, if you want. Products, news, prices, people, dates and recent things are still researched.",
+        "**Faster product answers:** up to 3 well-chosen options with short fields (about 20% faster). Asked for a \"top 5\"? You get 5.",
+        "**Prices that went missing:** model names written together or with a hyphen (RM1000x, RX7600XT, RTX5070Ti, WH-1000XM5) and \"with cable\" listings were wrongly discarded — now they count. The Corsair RM1000x, which came out \"without a price\", now shows the store price in 2 seconds.",
+        "**When stores don't have the model:** the answer says what came back (\"62 offers, none of this model — the closest: …\") instead of just \"not found\".",
+        "**Documents:** \"what do you think of this résumé?\" gets an assessment — strengths, what to improve and what is missing — instead of a table of fields.",
+        "**Images:** \"create an image of that card\" understands which card the conversation was about, and the review no longer redoes an image because of an unreadable logo.",
+        "**Fixes:** \"today (10/31)\" taken from an old page becomes \"on 10/31\"; a single offer no longer shows as \"1 offers in 1 stores\"."
+      ]
+    }
+  },
+  {
     "versao": "0.41.0",
     "data": "2026-11-03",
     "pt": {
