@@ -77,4 +77,53 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'lojas sem o modelo e resposta repetida (5/11): a nota diz o que veio nas lojas; 90% das palavras iguais é repetição, 58% (as duas respostas da Corsair) não; o alerta acende para a página do produto tirada e o "não encontrei o preço"',
+    tipo: 'unidade',
+    executar() {
+      const { notaSemNasLojas } = require('../../src/agent/compras-no-chat');
+      const { mesmaResposta } = require('../../src/agent/resposta-repetida');
+      const { alertasDe } = require('../alertas');
+      const base = Array.from({ length: 60 }, (_, i) => `palavra${i}`).join(' ');
+      const metade = Array.from({ length: 60 }, (_, i) => (i % 2 ? `outra${i}` : `palavra${i}`)).join(' ');
+      const nota = notaSemNasLojas({ produto: 'Fonte Corsair RM1000X', total: 62, parecidos: ['Fonte Corsair CX650'] });
+      const alertas = alertasDe({
+        objetivo: 'qual o preço hoje da fonte corsair rm1000x',
+        resposta: 'Não encontrei nas fontes pesquisadas o preço exato de hoje.',
+        avisos: ['fora do assunto, ficaram de fora da resposta: Corsair RM1000x 1000W: Preço Hoje e Histórico | Hardware Barato · Fonte Corsair RM850x'],
+        duracaoMs: 81000,
+      });
+      return [
+        /trouxe 62 ofertas, nenhuma desse modelo exato — as mais parecidas: Fonte Corsair CX650/.test(nota) || nota,
+        mesmaResposta(base, `${base} fim`) && !mesmaResposta(base, metade) && !mesmaResposta('curta', 'curta') || 'repetição',
+        alertas.length === 2 && /filtro tirou 1 página\(s\) do produto: Corsair RM1000x/.test(alertas[0]) && /não achou/.test(alertas[1]) || JSON.stringify(alertas),
+        /if \(deps\.diagnostico\?\.lojas && r\.rota === 'pesquisa'/.test(ler('src/agent/loop-nucleo.js')) || 'ligado na resposta',
+      ];
+    },
+  },
+  {
+    nome: 'nomes difíceis de produto (4/11): colado, com hífen ou separado — rm1000x, i5-12400F, RX7600XT, WH1000XM5, 7800X3D, SN850X, B580, RTX5070Ti — casam no filtro de assunto e nas lojas; os vizinhos (RM850x, RX 7600, WH-1000XM4, 13400F, SN850X 2TB, RTX 5070) não',
+    tipo: 'unidade',
+    executar() {
+      const { produtosDoPedido } = require('../../src/agent/serie-de-precos');
+      const { normalizar } = require('../../src/agent/nucleo/ranking');
+      const CASOS = [
+        ['qual o preço da fonte corsair rm1000x', 'corsair rm1000x', ['Fonte Corsair RM1000x, 1000W, 80 Plus Gold, Com Cabo', 'Corsair RM1000x Shift 1000W'], ['Fonte Corsair RM850x 850W', 'Fonte Corsair RM1000e']],
+        ['quanto custa o i5-12400f', 'i5-12400f', ['Processador Intel Core i5-12400F, 2.5GHz, LGA1700', 'Intel Core i5 12400F Box'], ['Processador Intel Core i5-12400, 2.5GHz', 'Intel Core i5-13400F']],
+        ['preço da rx 7600 xt', 'rx 7600 xt', ['Placa de Vídeo ASRock Radeon RX 7600 XT Challenger 16GB', 'Sapphire Pulse RX7600XT 16GB'], ['Placa de Vídeo ASRock Radeon RX 7600 Challenger 8GB']],
+        ['quanto está o fone sony wh-1000xm5', 'sony wh-1000xm5', ['Fone de Ouvido Sony WH-1000XM5 Bluetooth, Preto', 'Headphone Sony WH1000XM5'], ['Fone de Ouvido Sony WH-1000XM4', 'Capa para Sony WH-1000XM5']],
+        ['preço do ryzen 7 7800x3d', 'ryzen 7 7800x3d', ['Processador AMD Ryzen 7 7800X3D, 4.2GHz, AM5', 'AMD Ryzen 7 7800X3D Box'], ['Processador AMD Ryzen 7 7700X', 'AMD Ryzen 9 7950X3D']],
+        ['quanto custa o ssd wd black sn850x 1tb', 'wd black sn850x 1tb', ['SSD WD Black SN850X 1TB NVMe M.2', 'SSD 1TB WD_BLACK SN850X, PCIe 4.0'], ['SSD WD Black SN770 1TB', 'SSD WD Black SN850X 2TB']],
+        ['preço da intel arc b580', 'intel arc b580', ['Placa de Vídeo Intel Arc B580 12GB', 'ASRock Intel Arc B580 Challenger OC'], ['Placa de Vídeo Intel Arc B570 10GB']],
+        ['quanto está a rtx 5070 ti', 'rtx 5070 ti', ['Placa de Vídeo MSI GeForce RTX 5070 Ti Ventus 3X OC 16GB', 'Gigabyte RTX5070Ti Gaming OC'], ['Placa de Vídeo MSI GeForce RTX 5070 12GB', 'PC Gamer RTX 5070 Ti Ryzen 7']],
+      ];
+      const erros = [];
+      for (const [pergunta, produto, sim, nao] of CASOS) {
+        const pads = produtosDoPedido(pergunta).map((e) => nucleo.padraoDoProduto(e?.nome || e)).filter(Boolean);
+        for (const t of sim) if (!(pads.every((re) => re.test(normalizar(t))) && precos.ehOProduto(t, produto) && casa(t, produto))) erros.push('devia casar: ' + t);
+        for (const t of nao) if (precos.ehOProduto(t, produto)) erros.push('não devia: ' + t);
+      }
+      return [erros.length === 0 || erros.join(' · ')];
+    },
+  },
 ];

@@ -942,8 +942,9 @@ function padraoDoProduto(nome) {
   const i = partes.findIndex((p) => /\d/.test(p));
   if (i < 0) return null;
   // 4/11 (no app): "rm1000x" vira "RM 1000x" no nome e a página escreve "RM1000x" — o prefixo pode vir colado
-  // ou separado; sem isso, todas as páginas certas saíam como "fora do assunto"
-  if (partes[i].replace(/\D/g, '').length >= 3) return new RegExp(i > 0 ? `(?:\\b${partes[i - 1]} ?|\\b)${partes[i]}\\b` : `\\b${partes[i]}\\b`);
+  // ou separado; sem isso, todas as páginas certas saíam como "fora do assunto". Depois do número, o sufixo
+  // pode vir colado ("RX7600XT", "RTX5070Ti"): só outro dígito encerra o modelo ("50800" não é a 5080)
+  if (partes[i].replace(/\D/g, '').length >= 3) return new RegExp(i > 0 ? `(?:\\b${partes[i - 1]} ?|\\b)${partes[i]}(?!\\d)` : `\\b${partes[i]}(?!\\d)`);
   return i > 0 ? new RegExp(`\\b${partes[i - 1]} ?${partes[i]}(\\d{2})?\\b`) : null;
 }
 

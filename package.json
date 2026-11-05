@@ -27,7 +27,8 @@
     "qualidade": "node avaliacao/qualidade.js",
     "qualidade:app": "electron avaliacao/qualidade.js",
     "qualidade:agendar": "node avaliacao/agendar-qualidade.js",
-    "atualizar-dominios": "node ferramentas/_atualizar-dominios.js"
+    "atualizar-dominios": "node ferramentas/_atualizar-dominios.js",
+    "alertas": "node avaliacao/alertas.js"
   },
   "devDependencies": {
     "electron": "^44.9.3",

@@ -722,7 +722,7 @@ module.exports = [
     criterios: [
       'dá o preço de hoje em reais, com a loja',
       'fala da Corsair RM1000x (pode citar a versão Shift), não de outro modelo',
-      'não diz que não encontrou o preço',
+      'responde com o preço encontrado (não com "não encontrei")',
     ],
     checagens: [
       { nome: 'traz um preço em reais', ok: (r) => /R\$\s?\d/.test(r) },

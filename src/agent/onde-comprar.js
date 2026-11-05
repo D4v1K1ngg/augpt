@@ -41,7 +41,22 @@ function casa(nomeDaOferta, produto) {
   const colada = oferta.replace(/ /g, '');
   // colado só para termo de 3+ caracteres ("k552" em "Kumara K-552"); "2" sozinho
   // precisa ser palavra inteira, senão o "Superlight 2" casa com o "Superlight 2c"
-  const tem = (t) => oferta.includes(` ${t} `) || (/\d/.test(t) && t.length >= 3 && colada.includes(t));
+  // o modelo escrito junto (4/11): "RX7600XT", "RTX5070Ti", "WH1000XM5" × "rx 7600 xt", "rtx 5070 ti", "wh-1000xm5".
+  // Os termos curtos em volta do número formam o modelo; ele vale se 1 a 3 palavras seguidas da oferta, juntas,
+  // dão exatamente ele — "RTX 5070 12GB" não dá "rtx5070ti"
+  const i = termos.findIndex((t) => /\d/.test(t));
+  const juntos = new Set();
+  if (i >= 0) {
+    let a = i;
+    let b = i;
+    while (a > 0 && termos[a - 1].length <= 3) a -= 1;
+    while (b < termos.length - 1 && termos[b + 1].length <= 3) b += 1;
+    const modelo = termos.slice(a, b + 1).join('');
+    const palavras = oferta.trim().split(' ');
+    const janelas = palavras.flatMap((_, k) => [1, 2, 3].map((n) => palavras.slice(k, k + n).join('')));
+    if (b > a && janelas.includes(modelo)) for (let k = a; k <= b; k += 1) juntos.add(k);
+  }
+  const tem = (t, k) => juntos.has(k) || oferta.includes(` ${t} `) || (/\d/.test(t) && t.length >= 3 && colada.includes(t));
   if (!termos.every(tem)) return false;
   // "… com cabo", "acompanha suporte": o que vem junto não faz do anúncio um acessório (4/11)
   return !ACESSORIO.test(oferta.replace(/ (com|c|inclui|incluso|acompanha|with) (cabos?|cable|suportes?|adaptador\w*|capas?|cases?) /g, ' ')) || ACESSORIO.test(normalizar(produto));

@@ -32,6 +32,8 @@ const { Tesseract } = require('../tesseract');
 const { GeradorDeImagens, pastaPadrao } = require('../gerador-de-imagens');
 const { explicarTermos } = require('./glossario');
 const { comLinks } = require('./escritor-de-cartoes');
+const { notaSemNasLojas } = require('./compras-no-chat');
+const { mesmaResposta } = require('./resposta-repetida');
 
 /**
  * Imagem no tamanho que o modelo lê bem (16/10, foto de 474 px de um EPOS H6PRO:
@@ -322,6 +324,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // tela em inglês (23/10): as rotas entendem e escrevem português. O pedido em inglês vira
     // português para a rota, e o texto dela não vai direto para a tela: sai traduzido no fim
     const emIngles = cfg.idiomaEfetivo === 'en';
+    // o que as rotas viram e não responderam (5/11: as lojas sem o modelo exato) — o objeto vai por referência
+    deps.diagnostico = {};
     // (a lista de utilitários já escreve em inglês: mostra na hora, ver noIdioma)
     const depsDasRotas = emIngles ? { ...deps, emit: (e, d) => (e === 'resposta-token' && !d?.noIdioma ? undefined : deps.emit(e, d)) } : deps;
     const emPortugues = async (texto) => (emIngles && traducao.pareceIngles(texto) ? (await traducao.paraPortugues(texto, deps.chamar)) || texto : texto);
@@ -418,6 +422,15 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // o "atual" do texto bem abaixo do preço de hoje nas lojas: as páginas lidas eram antigas (2/11)
     const precoAntigo = avisoDePrecoAntigo(r.texto, achadosDoAssunto);
     if (precoAntigo) r.texto = `${r.texto.trim()}\n\n${precoAntigo}`;
+    // 5/11 (no app): as lojas não tinham o modelo e a pesquisa também ficou sem preço — o motivo aparece
+    if (deps.diagnostico?.lojas && r.rota === 'pesquisa' && !/R\$\s?\d/.test(r.texto)) r.texto = `${r.texto.trim()}\n\n${notaSemNasLojas(deps.diagnostico.lojas, emIngles)}`;
+    // a mesma resposta da vez anterior (4/11: "qual o preço hoje dessa fonte?" abriu igual à anterior): só o aviso
+    const anterior = [...conversa].reverse().find((m) => m.role === 'assistant')?.content;
+    if (r.rota === 'pesquisa' && mesmaResposta(anterior, r.texto)) {
+      r.texto = emIngles
+        ? '*I searched again and found nothing new: my previous answer still stands. Try other words — the exact model, a store or a site.*'
+        : '*Pesquisei de novo e não apareceu nada novo: a resposta anterior continua valendo. Tente com outras palavras — o modelo exato, uma loja ou um site.*';
+    }
     // 21/10: resposta visual que não é de produto ("os 5 setups mais bonitos", "lugares para visitar"):
     // com itens numerados e o entendimento dizendo que imagem ajuda, cada item ganha a sua foto
     const RE_ITEM = /^(#{2,4})\s+(\d+)\.\s+(.+)$/gm;

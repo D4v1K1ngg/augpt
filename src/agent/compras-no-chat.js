@@ -101,6 +101,12 @@ async function responderCompras({ pergunta, deps = {}, config = {}, dirImagens, 
     return null;
   }
   const exatos = r.ofertas.filter((o) => o.exato);
+  if (!exatos.length && !nota && deps.diagnostico) {
+    // 5/11: o motivo vai para a resposta se a pesquisa também ficar sem preço (antes: 80 s e "não encontrei")
+    const parecidos = [...new Set(r.ofertas.map((o) => curto(o.nome).replace(/,.*$/, '')))].slice(0, 3);
+    deps.diagnostico.lojas = { produto: comoSeEscreve(p.produto), total: r.ofertas.length, parecidos };
+    deps.emit?.('aviso', { texto: `lojas: ${r.ofertas.length} ofertas para "${p.produto}", nenhuma do modelo exato` });
+  }
   if (!exatos.length) {
     // 26/10 (no app): "Asus ROG Astral RTX 5080" não estava nas lojas que dá para ler — a pesquisa respondia
     // e o modelo inventou que a placa "ainda não foi lançada". Sem o modelo exato, vale o modelo-base (RTX
@@ -159,4 +165,10 @@ async function responderCompras({ pergunta, deps = {}, config = {}, dirImagens, 
   return { ...SEM_PESQUISA, texto: completo, modo: 'compras', noIdioma: en };
 }
 
-module.exports = { pedidoDeCompras, responderCompras, intencaoDeCompras: (p) => Boolean(produtoDoPedido(p)) };
+/** "*Nas lojas que consigo ler…, nenhuma desse modelo — as mais parecidas: …*" (5/11) */
+function notaSemNasLojas({ produto, total, parecidos = [] }, en = false) {
+  if (en) return `*In the stores I can read (KaBuM!, Zoom, Buscapé, Americanas), the search for **${produto}** returned ${total ? `${total} offers, none of this exact model${parecidos.length ? ` — the closest: ${parecidos.join(', ')}` : ''}` : 'no offers'}. Try the exact model name, or another spelling.*`;
+  return `*Nas lojas que consigo ler (KaBuM!, Zoom, Buscapé, Americanas), a busca por **${produto}** ${total ? `trouxe ${total} ofertas, nenhuma desse modelo exato${parecidos.length ? ` — as mais parecidas: ${parecidos.join(', ')}` : ''}` : 'não trouxe nenhuma oferta'}. Tente o nome exato do modelo, ou outra grafia.*`;
+}
+
+module.exports = { pedidoDeCompras, responderCompras, notaSemNasLojas, intencaoDeCompras: (p) => Boolean(produtoDoPedido(p)) };
