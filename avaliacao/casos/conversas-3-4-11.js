@@ -115,6 +115,25 @@ module.exports = [
     },
   },
   {
+    nome: 'explicação estável de memória (5/11, "ele sempre tenta pesquisar"): como funciona / o que é / por que / diferença entre saem sem busca mesmo com o modelo marcando busca; produto, modelo com número, "hoje", ano, link e pedido de pesquisa continuam pesquisando; a escrita é de pessoa e oferece a pesquisa',
+    tipo: 'unidade',
+    executar() {
+      const modeloQuerBuscar = JSON.stringify({ precisa_buscar: true, muda_com_o_tempo: true, produto: false });
+      const sem = ['Como funciona o wifi ?', 'Por que o céu é azul?', 'Qual a diferença entre SSD e HD?', 'O que é fotossíntese?', 'me explica como funciona um alto falante'];
+      const com = ['como funciona a RTX 5070 Ti?', 'o que é o DLSS 4?', 'como funciona o wifi 7 hoje?', 'o que é o Pix Automático lançado em 2025?', 'pesquise como funciona um ssd', 'Me conte quem foi nicola tesla', 'o que é isso https://exemplo.com'];
+      const errados = [
+        ...sem.filter((q) => nucleo.lerEntendimento(modeloQuerBuscar, q).precisaBuscar).map((q) => `pesquisou: ${q}`),
+        ...com.filter((q) => !nucleo.lerEntendimento(modeloQuerBuscar, q).precisaBuscar).map((q) => `não pesquisou: ${q}`),
+        ...(nucleo.lerEntendimento(JSON.stringify({ produto: true }), 'o que é a melhor placa de vídeo até 3 mil?').precisaBuscar ? [] : ['produto sem busca']),
+      ];
+      const indice = ler('src/agent/nucleo/index.js');
+      return [
+        errados.length === 0 || errados.join(' · '),
+        /Agora é uma EXPLICAÇÃO, sem pesquisa/.test(indice) && /if \(ent\.explicacao && !usadas\.length && !oferta\)/.test(indice) || 'escrita de pessoa e a oferta',
+      ];
+    },
+  },
+  {
     nome: 'nomes difíceis de produto (4/11): colado, com hífen ou separado — rm1000x, i5-12400F, RX7600XT, WH1000XM5, 7800X3D, SN850X, B580, RTX5070Ti — casam no filtro de assunto e nas lojas; os vizinhos (RM850x, RX 7600, WH-1000XM4, 13400F, SN850X 2TB, RTX 5070) não',
     tipo: 'unidade',
     executar() {

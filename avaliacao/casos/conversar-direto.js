@@ -32,7 +32,9 @@ module.exports = [
         conversa('E aí, tudo bem?') || 'cumprimento no tom de conversa',
         !conversa('Você acha que a RTX 5070 vale a pena?', '{"precisa_buscar": true, "produto": true}') || 'produto pesquisa',
         !conversa('O que você acha das notícias de hoje?') || 'notícia pesquisa',
-        ent('Como funciona a fotossíntese?').precisaBuscar === true || 'ciência pesquisa',
+        // 5/11: explicação de ciência estável sai de memória (como uma pessoa explicaria); ciência atual pesquisa
+        ent('Como funciona a fotossíntese?').precisaBuscar === false && ent('Como funciona a fotossíntese?').explicacao === true || 'explicação estável sem busca',
+        ent('o que a NASA anunciou sobre Marte este ano?').precisaBuscar === true || 'ciência atual pesquisa',
         !conversa('Pesquise o que você acha de Python', '{"conversa": true}') || '"pesquise" pesquisa',
         /Agora é uma CONVERSA/.test(escritor) && /Sem títulos, sem listas/.test(escritor) || 'tom de conversa',
         !/Agora é uma CONVERSA/.test(nucleo.sistemaDoEscritor({ hoje: 'x', comFontes: true })) || 'pesquisa normal sem o tom',

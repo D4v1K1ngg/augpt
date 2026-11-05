@@ -107,7 +107,8 @@ module.exports = [
       const texto = 'A fase clara gera ATP e NADPH, e o ciclo de Calvin fixa o CO2 em 12 etapas, segundo Melvin Calvin [1].';
       const m = modelo({ entendimento: { precisa_buscar: true, muda_com_o_tempo: false }, textos: [texto] });
       const x = deps(m);
-      const r = await nucleo.responder({ pergunta: 'como funciona a fotossíntese?', modo: 'rapido', deps: x.d, hoje: '18/10/2026' });
+      // "pesquise": a explicação estável sem o pedido sai de memória (5/11); aqui o teste é a conferência COM fontes
+      const r = await nucleo.responder({ pergunta: 'pesquise como funciona a fotossíntese', modo: 'rapido', deps: x.d, hoje: '18/10/2026' });
       const inventada = 'Em 14 de outubro foi baixado o AI n.º 16 pelo Congresso Nacional [1], com 61.000.000 de votos.';
       const m2 = modelo({ entendimento: { precisa_buscar: true, muda_com_o_tempo: true }, textos: [inventada, `${inventada} E o Senado Federal também.`] });
       const x2 = deps(m2);

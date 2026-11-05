@@ -128,10 +128,10 @@ ${capacidades.listaParaEntender()}
 - "produto" é true quando o usuário quer escolher, comparar, avaliar ou conhecer produtos ou itens para comprar ou usar (fone, mouse, celular, geladeira, carro, um modelo específico…). Para explicação, notícia, pessoa, história ou como algo funciona, false.
 
 - "conversa" é true quando o usuário quer CONVERSAR com você, não saber um dado: sua opinião ("você acha que vale a pena aprender violão depois dos 30?"), como ele se sente ("estou cansado hoje"), um conselho pessoal, ajuda para pensar ou decidir algo da vida dele, ideias, piada, papo. Pedido de fato, número, notícia, produto ou de algo atual: false. Com "conversa" true, "precisa_buscar" é false.
-- "precisa_buscar" é true para qualquer pedido de informação: produto, preço, recomendação, comparação, notícia, pessoa, lugar, história, ciência, como algo funciona, dado ou número. Seu conhecimento pode estar desatualizado, então mesmo o que você sabe vale conferir.
+- "precisa_buscar" é true para pedido de informação que você pode não ter ou que pode ter mudado: produto, preço, recomendação, notícia, pessoa, lugar, história, dado ou número. Seu conhecimento pode estar desatualizado, então isso vale conferir. (A explicação de um conceito estável é a exceção — veja abaixo.)
 - "partes": quando "precisa_buscar" é true, as coisas que a resposta precisa trazer para responder TUDO o que foi pedido, de 1 a 4, curtas e concretas (ex.: "faz uma análise do preço da RTX 5070 Ti desde o lançamento e estime o da Black Friday" → ["preço de lançamento da RTX 5070 Ti", "preço de hoje da RTX 5070 Ti", "estimativa de preço da RTX 5070 Ti na Black Friday"]). Pergunta de uma coisa só: uma parte. Senão, [].
 - "buscas": quando "precisa_buscar" é true, de 1 a 3 buscas curtas para a web (como alguém digitaria no Google), de ângulos diferentes, com as condições que o usuário deu (modelo, ano, país, orçamento); para tecnologia e produtos, uma delas em inglês. Senão, [].
-- "precisa_buscar" é false SÓ para: conversa, saudação ou agradecimento, conta de matemática, tradução ou revisão de um texto que o usuário mandou, escrever um texto criativo, ou algo que a própria conversa já respondeu. Na dúvida, true.
+- "precisa_buscar" é false SÓ para: conversa, saudação ou agradecimento, conta de matemática, tradução ou revisão de um texto que o usuário mandou, escrever um texto criativo, algo que a própria conversa já respondeu, ou a EXPLICAÇÃO de um conceito que não muda com o tempo e que você conhece bem — como algo funciona em geral ("como funciona um SSD?", "como funciona o Wi-Fi?"), o que é uma coisa ("o que é uma tela AMOLED?"), por que algo acontece ("por que o céu é azul?"). Continua true se a explicação depende de um produto ou modelo específico, de algo lançado ou mudado nos últimos anos, de datas, números ou pessoas, ou se você não tem certeza. Na dúvida, true.
 - Em "pergunta", troque "ele", "isso", "o outro" pelo que eles são na conversa e traga o que a conversa já disse: por exemplo, depois de "qual o melhor <tipo de produto> para <uso>?", a mensagem "e quanto ao <modelo>?" vira "o <modelo> é bom como <tipo de produto> para <uso>, e quanto custa?" (use os nomes reais da conversa, nunca os deste exemplo). Mantenha o resto como o usuário escreveu.
 - Se a ÚLTIMA MENSAGEM for longa (mais de 400 letras: um texto ou uma prova colada), devolva "pergunta": "" — o AuGPT usa a mensagem como veio (reescrever um texto longo não cabe na resposta).`;
 }
@@ -183,6 +183,20 @@ const conversaPeloCodigo = (pergunta) => {
   if (soCumprimento(t)) return true;
   return CONVERSA.test(t) && ehConversa(t, {}) && !NOME_DE_MODELO.test(t) && !PALAVRA_DE_COMPRA.test(t);
 };
+// explicação de conceito estável (5/11): "como funciona um SSD?", "o que é uma tela AMOLED?", "por que o céu é azul?"
+const EXPLICACAO = /^(?:e\s+|mas\s+|me\s+)?(?:como\s+funciona[m]?|como\s+[eé]\s+que\s+funciona|o\s+que\s+(?:[eé]|s[aã]o|significa)|pra\s+que\s+serve|para\s+que\s+serve[m]?|por\s*qu[eê]|qual\s+a\s+diferen[cç]a\s+entre|explica|explique|me\s+explica|como\s+(?:um|uma|o|a|os|as)\s+[^?]{2,40}?\s+(?:funciona[m]?|(?:[eé]|s[aã]o)\s+(?:feit|fabricad|produzid|formad)[oa]s?))(?![a-zà-ú])/i;
+const TIPO_DE_PRODUTO = /(?<![a-zà-ú])(fones?|headsets?|mouses?|teclados?|monitor(es)?|placas? de (v[ií]deo|som|rede)|celular(es)?|smartphones?|notebooks?|tablets?|consoles?|carros?|motos?|t[eê]nis|c[aâ]meras?|rel[oó]gios?|smartwatch|caixas? de som|cadeiras?|apps?|aplicativos?|sites?|empresas?|marcas?|filmes?|s[eé]ries?|animes?|livros?|bandas?|cantor(a|es)?|jogos?|games?|modelos?|vers[aã]o|lan[cç]amento)(?![a-zà-ú])/i;
+function explicacaoEstavel(pergunta, j = {}, comImagem = false) {
+  const t = String(pergunta || '').trim();
+  // medido em 5/11: o 9B marca precisa_buscar e muda_com_o_tempo true até em "por que o céu é azul?" — quem decide é o
+  // código; o modelo só barra marcando produto. O que muda com o tempo o código pega pelas palavras (atual, ano, modelo)
+  // nome próprio de produto sem número também pesquisa (15/10: sem busca, o "Dunu Titan S" "não existia"):
+  // tipo de produto, duas palavras com maiúscula seguidas, letra solta de modelo ("titan s")
+  const depoisDaPrimeira = t.replace(/^\S+\s*/, '');
+  if (TIPO_DE_PRODUTO.test(t) || /[A-ZÀ-Ú][a-zà-ú]+\s+[A-ZÀ-Ú][a-zà-ú]+/.test(depoisDaPrimeira) || /(?<![a-zà-ú-])(?![aeoy]\b)[a-z](?![a-zà-ú-])/i.test(depoisDaPrimeira.replace(/[?!.,]/g, ' '))) return false;
+  return !comImagem && EXPLICACAO.test(t) && j.produto !== true && !PISTA_DO_USUARIO.test(t)
+    && !NOME_DE_MODELO.test(t) && !PISTA_DE_ATUAL.test(t) && !PEDE_PESQUISA.test(t) && !/\b(19|20)\d\d\b/.test(t) && !/https?:\/\//.test(t);
+}
 const podeFicarSemBusca = (pergunta) => {
   const t = String(pergunta || '').trim();
   return SEM_BUSCA.test(t) || soCumprimento(t) || SOBRE_MIM.test(t) || QUESTAO_DE_EXATAS(t) || SOBRE_O_AUGPT.test(t) || CONTA_DIRETA.test(t);
@@ -269,13 +283,19 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     const assuntos = (Array.isArray(j.assuntos) ? j.assuntos : []).map((a) => String(a || '').trim()).filter((a) => a.length >= 2 && a.length <= 80).slice(0, 4);
     // o modelo só decide "sem busca" no que é claramente conversa; um nome solto ("Dragon Ball Super Beerus") pesquisa
     const exatas = QUESTAO_DE_EXATAS(String(pergunta || ''));
-    const conversa = !comImagem && (ehConversa(pergunta, j) || soCumprimento(pergunta));
-    const semBusca = exatas || conversa || soCumprimento(pergunta) || SOBRE_MIM.test(String(pergunta || '')) || SOBRE_O_AUGPT.test(String(pergunta || '')) || CONTA_DIRETA.test(String(pergunta || '')) || (comImagem && (soSobreAImagem(pergunta) || (pedeATela(pergunta) && !PEDE_SOLUCAO.test(String(pergunta || '')))));
+    // 5/11 (o usuário: "ele sempre tenta pesquisar"): explicação de conceito estável sai de memória, como uma
+    // pessoa que entende do assunto explicaria — quem decide é o código (o 9B marca busca até em "céu azul")
+    const explicacao = explicacaoEstavel(pergunta, j, comImagem);
+    // e não é conversa: o 9B marca "conversa" em "o que é um buraco negro?", e o modo conversa (2 a 5 frases,
+    // terminando com pergunta) tirava a explicação — o buraco negro saiu sem o horizonte de eventos
+    const conversa = !explicacao && !comImagem && (ehConversa(pergunta, j) || soCumprimento(pergunta));
+    const semBusca = explicacao || exatas || conversa || soCumprimento(pergunta) || SOBRE_MIM.test(String(pergunta || '')) || SOBRE_O_AUGPT.test(String(pergunta || '')) || CONTA_DIRETA.test(String(pergunta || '')) || (comImagem && (soSobreAImagem(pergunta) || (pedeATela(pergunta) && !PEDE_SOLUCAO.test(String(pergunta || '')))));
     // (vale antes do "sem busca": "Lei nº 8.906/94" tem "906/94", que a regra de exatas lê como conta)
     const precisaBuscar = provaDeDireito || (!semBusca && (j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta))));
     return {
       precisaBuscar,
       conversa,
+      explicacao,
       // análise e previsão de preço não é pedido de produto (2/11): sem os cartões de compra
       produto: j.produto === true && !ehAnaliseDePreco(pergunta),
       criarImagem: (j.criar_imagem === true && !pedeVisual(pergunta) && !pedeGrafico(pergunta)) || pedeImagem(pergunta),
@@ -1095,8 +1115,18 @@ const SEM_ANUNCIO_NEM_REPETICAO = `- Não anuncie o que vai escrever ("Aqui est�
 const PARAGRAFO_DE_ANUNCIO = /^(?:aqui (?:est[áa]|est[ãa]o|vai|v[ãa]o)\s+(?:uma?|as?|os?)\s+(?:[\wà-ú]+\s+){0,2}?(?:explica[çc][ãa]o|resumo|lista|compara[çc][ãa]o|guia|an[áa]lise|detalh\w*|vis[ãa]o|op[çc][õo]es|principais|passos?|informa[çc][õo]es|respostas?|resolu[çc][õo]es|solu[çc][õo]es)|abaixo,?\s+(?:detalho|est[ãa]o|seguem?|listo|apresento|explico|voc[êe]|veja|confira|mostro|trago)|a seguir,?\s+(?:veja|confira|detalho|explico|apresento|est[ãa]o|seguem?|listo|mostro|trago)|segue(?:m)?\s+(?:abaixo|uma|um|a|o|as|os)\s|vou (?:te )?(?:explicar|detalhar|mostrar|apresentar)|vamos (?:ver|entender|detalhar))[^\n]{0,160}[:.]$/i;
 const semParagrafosDeAnuncio = (t) => String(t).split(/\n{2,}/).filter((p) => !PARAGRAFO_DE_ANUNCIO.test(p.trim()) || /\d|\*\*|\[/.test(p)).join('\n\n');
 
-function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal', atual = false, sobreOUsuario = '', capacidadesNaEscrita = '', preferencias = '', idioma = 'pt', conversa = false }) {
-  return `Você é o AuGPT, um assistente que pesquisa na web e escreve respostas completas, claras e bem explicadas, em ${idioma === 'en' ? 'INGLÊS (en-US): a resposta inteira em inglês, inclusive títulos, tabelas e cartões, mesmo com o material em português' : 'português do Brasil'}. Hoje é ${hoje}.${conversa ? '' : TAMANHO_DA_RESPOSTA[tamanho] || ''}
+// 5/11: explicação de conceito estável, de memória — como uma pessoa que entende do assunto explicaria
+const EXPLICACAO_DE_PESSOA = `Agora é uma EXPLICAÇÃO, sem pesquisa: responda com o que você sabe, como uma pessoa que entende do assunto explicaria para um amigo curioso.
+- Comece pela ideia central em uma ou duas frases simples, sem rodeio ("Um SSD guarda os dados em chips de memória, sem nenhuma peça girando").
+- Depois explique o MECANISMO: as partes e as etapas de como aquilo funciona, com os termos técnicos que a pessoa vai encontrar por aí (cada um explicado entre parênteses na hora em que aparece — ex.: "horizonte de eventos (o limite de onde nada volta)"). Uma comparação do dia a dia ajuda.
+- De 3 a 5 parágrafos curtos e conversados. Um parágrafo só é pouco: quem pergunta "como funciona" quer entender o porquê, não só a definição.
+- Sem título no topo. Lista só se forem passos ou itens de verdade; tabela só se for comparação. Nada de cara de relatório.
+- Não termine com pergunta ao usuário nem com comentário como "é fascinante, não acha?": termine na explicação.
+- Não invente números, datas, nomes de modelos nem estatísticas: o que você não tem certeza, deixe de fora ou diga que pode variar.
+- Não cite fontes nem diga que pesquisou.`;
+
+function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal', atual = false, sobreOUsuario = '', capacidadesNaEscrita = '', preferencias = '', idioma = 'pt', conversa = false, explicacao = false }) {
+  return `Você é o AuGPT, um assistente que pesquisa na web e escreve respostas completas, claras e bem explicadas, em ${idioma === 'en' ? 'INGLÊS (en-US): a resposta inteira em inglês, inclusive títulos, tabelas e cartões, mesmo com o material em português' : 'português do Brasil'}. Hoje é ${hoje}.${conversa || explicacao ? '' : TAMANHO_DA_RESPOSTA[tamanho] || ''}
 
 ${
   conversa
@@ -1128,6 +1158,8 @@ ${SEM_ANUNCIO_NEM_REPETICAO}
 - Todo número, data e nome que você escrever tem de estar nas fontes. O que elas não trazem, você não afirma.${INSTRUCAO_DE_GRAFICO}${INSTRUCAO_DE_VISUAL}${
         atual ? `\n- Esta pergunta depende de QUANDO: diga a data dos fatos que citar ("em 5 de outubro de ${String(hoje).slice(-4)}…") e deixe claro o que já aconteceu e o que ainda não, olhando a data de hoje.` : ''
       }${produto ? FORMATO_DE_PRODUTO : ''}`
+    : explicacao
+    ? `${EXPLICACAO_DE_PESSOA}\n${SEM_ANUNCIO_NEM_REPETICAO}`
     : `- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.\n${SEM_ANUNCIO_NEM_REPETICAO}${INSTRUCAO_DE_GRAFICO}${INSTRUCAO_DE_VISUAL}`
 }${capacidadesNaEscrita ? `\n\n${capacidadesNaEscrita}` : ''}${preferencias ? `\n\n<preferencias_do_usuario>\n${preferencias}\n</preferencias_do_usuario>\nO usuário pediu para você guardar isto: siga as preferências e use os fatos quando ajudarem, sem citá-los à toa. Uma linha "Quando o assunto for X: …" é instrução só para pedidos sobre X: siga-a quando a pergunta for sobre X (mesmo com outras palavras) e ignore-a nas outras. Só isto está guardado: nunca diga que algo é \"preferência registrada\" ou está guardado se não estiver nesta lista, e não cite este bloco como fonte.` : ''}${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 1500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou), e não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
 }
@@ -1638,7 +1670,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   emit('redigindo', { fontes: usadas.length });
   const preferencias = typeof deps.preferencias === 'function' ? String((await Promise.resolve(deps.preferencias(ent.pergunta || pergunta)).catch(() => '')) || '') : '';
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length, explicacao: ent.explicacao === true && !usadas.length })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
     // 30/10 (medido: ~5 s entre o fim da pesquisa e a 1ª palavra era o modelo lendo o material): das respostas
     // anteriores vai só o começo, sem a lista de fontes — o assunto da conversa fica, o texto inteiro não precisa
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
@@ -1770,6 +1802,11 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const oferta = ent.sugerir && capacidades.ofertaDe(ent.sugerir, deps.idioma);
   const jaOfereceu = oferta && conversa.slice(-4).some((m) => m.role === 'assistant' && String(m.content || '').includes(oferta.slice(0, 40)));
   if (oferta && !jaOfereceu) conferido.texto = `${conferido.texto.trim()}\n\n${oferta}`;
+  // 5/11: a explicação de memória termina oferecendo a pesquisa — o "sim" a dispara (capacidades.aceitouOferta)
+  if (ent.explicacao && !usadas.length && !oferta) {
+    const assunto = String(ent.pergunta || pergunta).replace(/[?!.\s]+$/, '').replace(/^(e|mas|me)\s+/i, '').trim();
+    conferido.texto = `${conferido.texto.trim()}\n\n${capacidades.ofertaDePesquisa(assunto.charAt(0).toLowerCase() + assunto.slice(1), deps.idioma)}`;
+  }
   const comGraficos = recolocarGraficos(conferido.texto, graf.graficos);
   const avisoDaFoto = deps.idioma === 'en' ? '*From the photo, the model was recognized by its looks: its name is not written in the image, so it may be a similar one from the same line.*' : '*Pela foto, o modelo foi reconhecido pela aparência — o nome dele não está escrito na imagem, então pode ser outro parecido da mesma linha.*';
   const comFoto = pelaAparencia ? `${avisoDaFoto}\n\n${comGraficos}` : comGraficos;
