@@ -126,6 +126,7 @@ Everything below also appears in the **Utilities** tab, with a button for each f
 | 📂 | **"Where is that file?"** — finds documents in the folders you choose and answers what's in them |
 | 🖥️ | **PC specs, disks, Windows updates, GPU driver, peripherals, installed programs, startup apps** |
 | 🎛️ | **Voice control** — volume, mute, open programs, scheduled shutdown |
+| 🪟 | **Mini AuGPT** — the chat in a small always-on-top window in the corner of the screen, like a browser's picture-in-picture (button in the top bar or `Ctrl+Shift+M`) |
 | 📸 | **"What's on my screen?"** — `Ctrl+Alt+A` captures an area and attaches it to the chat |
 | 🔬 | **Read other PC data** — chipset, registry, services… AuGPT writes the PowerShell command and the code only lets read-only commands run ([see Security](#-security-and-network)) |
 

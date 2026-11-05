@@ -128,6 +128,7 @@ Tudo isto também aparece na aba **Utilitários**, com um botão para usar cada 
 | 🔄 | **Windows atualizado?** e **driver da placa de vídeo** — e pesquisa o mais novo se estiver antigo |
 | 🖱️ | **Periféricos, som, programas instalados e o que abre com o Windows** |
 | 🎛️ | **Controlar o PC pela voz** — volume, mudo, abrir programas, desligar com hora marcada |
+| 🪟 | **Mini AuGPT** — o chat numa janelinha sempre por cima das outras, no canto da tela, como o "picture in picture" do navegador (botão na barra ou `Ctrl+Shift+M`) |
 | 📸 | **"O que tem na minha tela?"** — `Ctrl+Alt+A` captura uma área e anexa ao chat |
 | 🔬 | **Ler outros dados do PC** — chipset, registro, serviços… O AuGPT escreve o comando de PowerShell e o código só deixa rodar o que é leitura ([veja Segurança](#-segurança-e-rede)) |
 

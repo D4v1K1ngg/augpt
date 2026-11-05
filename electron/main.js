@@ -220,7 +220,8 @@ function criarJanela() {
   win.on('close', (event) => {
     // lembra se estava maximizada, para abrir do mesmo jeito da próxima vez
     try {
-      if (!fechandoComLimpeza && config) config.save({ janelaMaximizada: win.isMaximized() });
+      // fechada no modo mini: vale como estava antes dele, e o lugar do mini fica guardado
+      if (!fechandoComLimpeza && config) config.save(antesDoMini ? { janelaMaximizada: antesDoMini.maximizada, janelaMini: win.getBounds() } : { janelaMaximizada: win.isMaximized() });
     } catch {
       /* sem gravar: abre maximizada, que é o padrão */
     }
@@ -1611,16 +1612,70 @@ let estadoDoAtalho = false;
 ipcMain.handle('tela:atalho', () => ({ atalho: 'Ctrl+Alt+A', estado: estadoDoAtalho }));
 
 // as cores dos botões do Windows na barra do topo, no tema da tela (31/10)
+let coresDaBarra = { color: '#101311', symbolColor: '#d6dad2' };
+const alturaDaBarra = () => (antesDoMini ? 40 : 52);
 ipcMain.handle('janela:coresDaBarra', (e, { fundo, simbolos } = {}) => {
   const cor = (c) => (/^#[0-9a-f]{6}$/i.test(String(c || '').trim()) ? String(c).trim() : null);
   if (!win || win.isDestroyed() || e.sender !== win.webContents || process.platform !== 'win32' || !cor(fundo) || !cor(simbolos)) return false;
   try {
-    win.setTitleBarOverlay({ color: cor(fundo), symbolColor: cor(simbolos), height: 52 });
+    coresDaBarra = { color: cor(fundo), symbolColor: cor(simbolos) };
+    win.setTitleBarOverlay({ ...coresDaBarra, height: alturaDaBarra() });
     return true;
   } catch {
     return false;
   }
 });
+
+/*
+ * Mini AuGPT (5/11, pedido do Davi: "igual ao picture in picture do Firefox"): a MESMA janela vira um cartão
+ * de chat pequeno, sempre por cima das outras, no canto da tela — a conversa, o agente e a voz continuam os
+ * mesmos (os eventos do agente vão para esta janela). Ao voltar, a janela volta ao tamanho e ao lugar de antes.
+ * O tamanho e o lugar do mini ficam guardados (config.janelaMini) para a próxima vez.
+ */
+let antesDoMini = null;
+const MINI = { largura: 380, altura: 600, minLargura: 320, minAltura: 420 };
+function lugarDoMini() {
+  const { screen } = require('electron');
+  const salvo = config?.data?.janelaMini;
+  // o lugar guardado só vale se ainda cabe numa tela (o monitor pode ter mudado)
+  if (salvo && screen.getAllDisplays().some(({ workArea: a }) => salvo.x >= a.x - 8 && salvo.y >= a.y - 8 && salvo.x + 120 <= a.x + a.width && salvo.y + 120 <= a.y + a.height)) {
+    return { x: Math.round(salvo.x), y: Math.round(salvo.y), width: Math.max(MINI.minLargura, Math.round(salvo.width)), height: Math.max(MINI.minAltura, Math.round(salvo.height)) };
+  }
+  const a = screen.getDisplayMatching(win.getBounds()).workArea;
+  return { x: a.x + a.width - MINI.largura - 16, y: a.y + a.height - MINI.altura - 16, width: MINI.largura, height: MINI.altura };
+}
+function modoMini(ligar) {
+  if (!win || win.isDestroyed()) return false;
+  if (ligar && !antesDoMini) {
+    antesDoMini = { maximizada: win.isMaximized(), bounds: win.isMaximized() || win.isFullScreen() ? win.getNormalBounds() : win.getBounds() };
+    if (win.isFullScreen()) win.setFullScreen(false);
+    if (win.isMaximized()) win.unmaximize();
+    win.setMinimumSize(MINI.minLargura, MINI.minAltura);
+    win.setBounds(lugarDoMini());
+    win.setAlwaysOnTop(true, 'floating');
+  } else if (!ligar && antesDoMini) {
+    try {
+      config?.save({ janelaMini: win.getBounds() });
+    } catch {
+      /* sem gravar: o mini volta ao canto da próxima vez */
+    }
+    const antes = antesDoMini;
+    antesDoMini = null;
+    win.setAlwaysOnTop(false);
+    win.setMinimumSize(1040, 680);
+    win.setBounds(antes.bounds);
+    if (antes.maximizada) win.maximize();
+  }
+  if (process.platform === 'win32') {
+    try {
+      win.setTitleBarOverlay({ ...coresDaBarra, height: alturaDaBarra() });
+    } catch {
+      /* versão do Windows sem a barra integrada */
+    }
+  }
+  return Boolean(antesDoMini);
+}
+ipcMain.handle('janela:mini', (e, { ligar } = {}) => (win && !win.isDestroyed() && e.sender === win.webContents ? modoMini(Boolean(ligar)) : false));
 
 ipcMain.handle('janela:trazer', () => {
   if (!win || win.isDestroyed()) return false;

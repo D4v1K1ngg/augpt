@@ -92,6 +92,13 @@
   <!-- O que o agente está fazendo agora ("pronto", "executando…") — também
        saiu de baixo do campo de digitação. -->
   <div class="estado-barra" id="rodapeAgente">pronto</div>
+  <!-- mini AuGPT (5/11): a janela vira um cartão de chat pequeno, sempre por cima (renderer/mini.js) -->
+  <button type="button" class="btn-tema btn-mini" id="btnMini" title="Mini AuGPT: o chat numa janelinha sempre por cima (Ctrl+Shift+M)" aria-label="Abrir o Mini AuGPT">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4" width="19" height="15" rx="2.5"/><rect x="12" y="11" width="7" height="5.5" rx="1.2" fill="currentColor" fill-opacity="0.25"/></svg>
+  </button>
+  <button type="button" class="btn-tema btn-sair-mini" id="btnSairMini" title="Voltar à janela inteira (Ctrl+Shift+M)" aria-label="Voltar à janela inteira">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg>
+  </button>
   <!-- coluna da direita (Progresso, Arquivos, Parágrafos): recolhida por padrão (20/10) -->
   <button type="button" class="btn-tema" id="btnPainelDireito" title="Progresso, arquivos e parágrafos" aria-label="Mostrar ou ocultar a coluna da direita" aria-expanded="false">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M15 4v16"/></svg>
@@ -1406,5 +1413,6 @@
 <script src="fala.js"></script>
 <script src="narracao-chat.js"></script>
 <script src="modo-simples.js"></script>
+<script src="mini.js"></script>
 </body>
 </html>

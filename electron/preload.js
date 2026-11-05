@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('augpt', {
   barraDaJanela: {
     windows: process.platform === 'win32',
     cores: (dados) => ipcRenderer.invoke('janela:coresDaBarra', dados),
+    // mini AuGPT (5/11): a janela vira um cartão de chat pequeno, sempre por cima → true se ficou no mini
+    mini: (ligar) => ipcRenderer.invoke('janela:mini', { ligar }),
   },
   config: {
     get: () => ipcRenderer.invoke('config:get'),
