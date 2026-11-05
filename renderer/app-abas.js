@@ -35,7 +35,8 @@ async function enviarPedido() {
   // o áudio ainda sendo transcrito (31/10): o envio espera
   await Promise.all(anexos.agente.map((a) => a.pronto).filter(Boolean));
   const anexosParaPainel = anexos.agente.filter((a) => !a.erro && a.relativo);
-  const { rotulo, contexto } = consumirAnexos('agente');
+  const enviados = anexos.agente.filter((a) => !a.erro).map(({ nome, relativo, tamanho, miniatura }) => ({ nome, relativo, tamanho, miniatura }));
+  const { contexto } = consumirAnexos('agente');
   const pedidoCompleto = pedido + contexto;
 
   el.aEntrada.value = '';
@@ -46,12 +47,8 @@ async function enviarPedido() {
   agente.rodando = true;
 
   const turno = criarTurno(pedido);
-  if (rotulo) {
-    const marca = document.createElement('div');
-    marca.className = 'anexos-enviados';
-    marca.textContent = `anexos: ${rotulo}`;
-    turno.caixa.previousElementSibling.querySelector('.msg-corpo').appendChild(marca);
-  }
+  // os anexos como cartões, acima do texto (5/11)
+  anexosNaMensagem(turno.caixa.previousElementSibling.querySelector('.msg-corpo'), enviados);
   anexosParaPainel.forEach((a) => adicionarSaida({ caminho: a.relativo, tamanho: a.tamanho, tipo: 'anexado' }));
   agente.conversa.push({ role: 'user', content: pedidoCompleto });
 
@@ -328,17 +325,13 @@ async function enviarMensagem() {
   }
 
   await Promise.all(anexos.chat.map((a) => a.pronto).filter(Boolean));
-  const { rotulo, contexto } = consumirAnexos('chat');
+  const enviados = anexos.chat.filter((a) => !a.erro).map(({ nome, tamanho }) => ({ nome, tamanho }));
+  const { contexto } = consumirAnexos('chat');
 
   el.cEntrada.value = '';
   autoAltura(el.cEntrada);
   const corpoUsuario = bolha('user', texto);
-  if (rotulo) {
-    const marca = document.createElement('div');
-    marca.className = 'anexos-enviados';
-    marca.textContent = `anexos: ${rotulo}`;
-    corpoUsuario.appendChild(marca);
-  }
+  anexosNaMensagem(corpoUsuario, enviados);
   chat.historico.push({ role: 'user', content: texto + contexto });
 
   chat.ocupado = true;

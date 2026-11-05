@@ -1,6 +1,6 @@
 'use strict';
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 /**
  * Superfície mínima exposta ao renderer. Nada de `require`, `fs` ou `child_process`
@@ -215,9 +215,22 @@ contextBridge.exposeInMainWorld('augpt', {
   },
   files: {
     attach: (modo) => ipcRenderer.invoke('files:attach', { modo }),
+    // 5/11: arquivos arrastados ou colados — o caminho sai do próprio File (webUtils), não de um texto da tela;
+    // sem caminho (um print colado, imagem copiada do navegador), os bytes viram uma imagem na pasta de trabalho
+    anexarArquivos: async (arquivos, modo) => {
+      const lista = [...(arquivos || [])];
+      const caminhos = lista.map((f) => { try { return webUtils.getPathForFile(f); } catch { return ''; } });
+      const comCaminho = caminhos.filter(Boolean);
+      const r = comCaminho.length ? await ipcRenderer.invoke('files:anexarCaminhos', { caminhos: comCaminho, modo }) : { arquivos: [] };
+      const soltos = lista.filter((f, i) => !caminhos[i] && /^image\//.test(f.type));
+      const imagens = await Promise.all(soltos.map(async (f) => (await ipcRenderer.invoke('files:colarImagem', { bytes: new Uint8Array(await f.arrayBuffer()), tipo: f.type, modo })).arquivos || []));
+      return { ok: true, arquivos: [...(r.arquivos || []), ...imagens.flat()] };
+    },
+    colar: (modo) => ipcRenderer.invoke('files:colar', { modo }),
   },
   arquivos: {
     previa: (caminho) => ipcRenderer.invoke('arquivos:previa', caminho),
+    miniatura: (caminho) => ipcRenderer.invoke('arquivos:miniatura', caminho),
     salvarComo: (caminho) => ipcRenderer.invoke('arquivos:salvarComo', caminho),
     abrirExterno: (caminho) => ipcRenderer.invoke('arquivos:abrirExterno', caminho),
   },

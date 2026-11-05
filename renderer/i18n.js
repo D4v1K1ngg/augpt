@@ -655,7 +655,7 @@
     'O seu julgamento vence a base pública: você conhece os sites do seu assunto melhor que uma lista genérica.': 'Your judgment beats the public list: you know the sites in your field better than a generic list.',
     'domínio (ex.: portalx.com.br)': 'domain (e.g. example.com)', 'confiável — sobe na fila': 'reliable: moves up', 'apuração fraca — desce um pouco': 'weak fact-checking: moves down a little',
     'não confiável — desce muito': 'unreliable: moves down a lot', 'sátira — não é notícia real': 'satire: not real news', 'motivo (aparece no material)': 'reason (shown with the source)',
-    'confiável': 'reliable', 'apuração fraca': 'weak fact-checking', 'não confiável': 'unreliable', 'sátira': 'satire', 'Remover': 'Remove',
+    'confiável': 'reliable', 'apuração fraca': 'weak fact-checking', 'não confiável': 'unreliable', 'sátira': 'satire', 'Remover': 'Remove', 'imagem': 'image', 'documento': 'document', 'apresentação': 'presentation', 'áudio': 'audio', 'vídeo': 'video', 'compactado': 'archive', 'código': 'code', 'texto': 'text', 'arquivo': 'file', 'na pasta de trabalho': 'in the work folder',
     'peso maior é lido primeiro; negativo desce para o fim da fila': 'higher weight is read first; negative goes to the end of the queue', 'bloqueio judicial no Brasil': 'court block in Brazil',
 
     /* ---------- Ajustes: Memória ---------- */

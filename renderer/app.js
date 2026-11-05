@@ -120,6 +120,64 @@ const anexos = { agente: [], chat: [] };
 
 const kb = (n) => (n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 1024)} KB` : `${(n / 1048576).toFixed(1)} MB`);
 
+/*
+ * Os cartões dos anexos (5/11, pedido do Davi: "as imagens poderiam ficar igual ficam aqui no seu chat"): imagem
+ * vira miniatura; arquivo vira cartão com o tipo (ícone colorido), o nome e o tamanho. Os mesmos cartões vão para
+ * a mensagem enviada e voltam ao reabrir a conversa (lidos do bloco "Arquivos anexados" do pedido).
+ */
+const TIPOS_DE_ANEXO = [
+  { re: /\.(png|jpe?g|webp|gif|bmp)$/i, rotulo: 'IMG', cor: 'img', imagem: true },
+  { re: /\.pdf$/i, rotulo: 'PDF', cor: 'pdf' },
+  { re: /\.(docx?|odt|rtf)$/i, rotulo: 'DOC', cor: 'doc' },
+  { re: /\.(xlsx?|ods|csv)$/i, rotulo: 'XLS', cor: 'xls' },
+  { re: /\.(pptx?|odp)$/i, rotulo: 'PPT', cor: 'ppt' },
+  { re: /\.(opus|ogg|oga|mp3|m4a|aac|wav|webm|flac)$/i, rotulo: '♪', cor: 'audio' },
+  { re: /\.(mp4|mkv|mov|avi)$/i, rotulo: '▶', cor: 'video' },
+  { re: /\.(zip|rar|7z|tar|gz)$/i, rotulo: 'ZIP', cor: 'zip' },
+  { re: /\.(js|ts|py|json|html?|css|java|c|cpp|cs|go|rs|php|sh|ps1|bat|sql|xml|ya?ml)$/i, rotulo: '</>', cor: 'codigo' },
+  { re: /\.(txt|md|log)$/i, rotulo: 'TXT', cor: 'txt' },
+];
+const tipoDoAnexo = (nome) => TIPOS_DE_ANEXO.find((t) => t.re.test(String(nome || ''))) || { rotulo: (String(nome).split('.').pop() || 'ARQ').slice(0, 4).toUpperCase(), cor: 'outro' };
+const descricaoDoTipo = (nome) => ({ img: tr('imagem'), pdf: 'PDF', doc: tr('documento'), xls: tr('planilha'), ppt: tr('apresentação'), audio: tr('áudio'), video: tr('vídeo'), zip: tr('compactado'), codigo: tr('código'), txt: tr('texto') }[tipoDoAnexo(nome).cor] || tr('arquivo'));
+
+/** Um cartão de anexo: miniatura (imagem) ou ícone + nome + detalhe. `aoRemover` põe o ✕. */
+function cartaoDeAnexo(a, { aoRemover = null, detalhe = '', grande = false } = {}) {
+  const tipo = tipoDoAnexo(a.nome);
+  const cartao = document.createElement(a.relativo && !aoRemover ? 'button' : 'div');
+  if (cartao.tagName === 'BUTTON') cartao.type = 'button';
+  cartao.title = a.erro || (a.relativo ? `${a.nome} — ${tr('na pasta de trabalho')}: ${a.relativo}` : a.nome);
+  if (tipo.imagem && !a.erro) {
+    cartao.className = `anexo-img${grande ? ' grande' : ''}`;
+    const img = document.createElement('img');
+    img.alt = a.nome;
+    img.loading = 'lazy';
+    cartao.appendChild(img);
+    const pintar = (src) => (src ? (img.src = src) : cartao.classList.add('sem-previa'));
+    if (a.miniatura) pintar(a.miniatura);
+    else if (a.relativo) api.arquivos.miniatura(a.relativo).then((r) => pintar(r?.dataUrl)).catch(() => pintar(null));
+    else pintar(null);
+  } else {
+    cartao.className = `anexo-arq${a.erro ? ' falha' : ''}`;
+    cartao.innerHTML = '<span class="anexo-icone"></span><span class="anexo-texto"><span class="anexo-nome"></span><span class="anexo-tam"></span></span>';
+    const icone = cartao.querySelector('.anexo-icone');
+    icone.textContent = tipo.rotulo;
+    icone.dataset.tipo = tipo.cor;
+    cartao.querySelector('.anexo-nome').textContent = a.nome;
+    cartao.querySelector('.anexo-tam').textContent = a.erro ? tr('erro') : detalhe || [descricaoDoTipo(a.nome), a.tamanho ? kb(a.tamanho) : ''].filter(Boolean).join(' · ');
+  }
+  if (a.relativo && !aoRemover) cartao.addEventListener('click', () => abrirPreviaArquivo(a.relativo, a.nome));
+  if (aoRemover) {
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'anexo-remover';
+    x.setAttribute('aria-label', tr('Remover'));
+    x.textContent = '✕';
+    x.addEventListener('click', aoRemover);
+    cartao.appendChild(x);
+  }
+  return cartao;
+}
+
 function pintarAnexos(modo) {
   const alvo = $(modo === 'agente' ? 'anexosAgente' : 'anexosChat');
   const lista = anexos[modo];
@@ -127,17 +185,74 @@ function pintarAnexos(modo) {
   if (!lista.length) return;
 
   lista.forEach((a, i) => {
-    const chip = document.createElement('span');
-    chip.className = `anexo${a.erro ? ' falha' : ''}`;
-    chip.title = a.erro || (a.relativo ? `copiado para a pasta de trabalho: ${a.relativo}` : `${kb(a.tamanho)}`);
-    chip.innerHTML = `<span class="anexo-nome"></span><span class="anexo-tam"></span><button aria-label="Remover">✕</button>`;
-    chip.querySelector('.anexo-nome').textContent = a.nome;
-    chip.querySelector('.anexo-tam').textContent = a.erro ? 'erro' : a.transcrevendo != null ? `${tr('transcrevendo…')} ${a.transcrevendo}%` : a.transcricao != null ? `🎙️ ${window.audioAnexo.duracao(a.segundos || 0)}` : kb(a.tamanho);
-    chip.querySelector('button').addEventListener('click', () => {
-      anexos[modo].splice(i, 1);
-      pintarAnexos(modo);
-    });
-    alvo.appendChild(chip);
+    const detalhe = a.erro ? '' : a.transcrevendo != null ? `${tr('transcrevendo…')} ${a.transcrevendo}%` : a.transcricao != null ? `🎙️ ${window.audioAnexo.duracao(a.segundos || 0)}` : '';
+    alvo.appendChild(cartaoDeAnexo(a, { detalhe, aoRemover: () => { anexos[modo].splice(i, 1); pintarAnexos(modo); } }));
+  });
+}
+
+/** Os anexos enviados, como cartões, na mensagem do usuário (acima do texto). */
+function anexosNaMensagem(corpo, lista) {
+  if (!lista?.length) return;
+  const caixa = document.createElement('div');
+  caixa.className = 'anexos-da-mensagem';
+  for (const a of lista) caixa.appendChild(cartaoDeAnexo(a, { grande: lista.length === 1 }));
+  // fora da bolha, logo acima dela (como no chat do Claude); sem mensagem em volta, dentro
+  if (corpo.parentElement) corpo.parentElement.insertBefore(caixa, corpo);
+  else corpo.prepend(caixa);
+}
+
+/** O bloco "Arquivos anexados, já copiados…" de um pedido salvo → { texto sem o bloco, anexos }. */
+function anexosDoPedido(conteudo) {
+  const m = /\n\nArquivos anexados, já copiados para a pasta de trabalho:\n([\s\S]*?)\nUse ler_arquivo para abri-los\./.exec(String(conteudo || ''));
+  if (!m) return { texto: conteudo, anexos: [] };
+  const lista = m[1].split('\n').map((l) => /^- (.+?)(?: \(([\d.,]+ (?:B|KB|MB))\))?$/.exec(l.trim())).filter(Boolean).map(([, relativo]) => ({ nome: relativo.split(/[\\/]/).pop(), relativo }));
+  return { texto: String(conteudo).replace(m[0], '').replace(/\n\nTranscrição do áudio "[\s\S]*$/, '').trim(), anexos: lista };
+}
+
+/** Põe na fila os arquivos que chegaram (botão, colar ou arrastar). */
+function adicionarAnexos(modo, arquivos = []) {
+  for (const arquivo of arquivos) {
+    if (modo === 'chat' && !arquivo.ehTexto && !arquivo.audio) {
+      arquivo.erro = 'a aba Conversa só lê arquivos de texto — use a aba Agente para este formato';
+    }
+    anexos[modo].push(arquivo);
+    prepararAudio(arquivo, modo);
+  }
+  pintarAnexos(modo);
+}
+
+/*
+ * Colar e arrastar (5/11, "se eu copiar algum arquivo deveria ser possível colar dentro do AuGPT"): Ctrl+V com
+ * arquivos copiados no Explorador, com um print (Win+Shift+S) ou com uma imagem copiada do navegador; e soltar
+ * arquivos em cima da conversa. Texto colado continua indo para a caixa, como sempre.
+ */
+async function colarAnexos(e, modo) {
+  const dados = e.clipboardData;
+  const arquivos = [...(dados?.files || [])];
+  if (arquivos.length) {
+    e.preventDefault();
+    adicionarAnexos(modo, (await api.files.anexarArquivos(arquivos, modo)).arquivos);
+    return;
+  }
+  // arquivos copiados no Explorador nem sempre chegam como File: a lista vem do Windows (sem texto para colar)
+  if (!(dados?.getData('text/plain') || '').length) {
+    const r = await api.files.colar(modo).catch(() => null);
+    if (r?.arquivos?.length) adicionarAnexos(modo, r.arquivos);
+  }
+}
+function soltarAnexos(alvo, modo) {
+  const temArquivos = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
+  alvo.addEventListener('dragover', (e) => {
+    if (!temArquivos(e)) return;
+    e.preventDefault();
+    alvo.classList.add('soltando');
+  });
+  alvo.addEventListener('dragleave', (e) => { if (!alvo.contains(e.relatedTarget)) alvo.classList.remove('soltando'); });
+  alvo.addEventListener('drop', async (e) => {
+    alvo.classList.remove('soltando');
+    if (!temArquivos(e)) return;
+    e.preventDefault();
+    adicionarAnexos(modo, (await api.files.anexarArquivos([...e.dataTransfer.files], modo)).arquivos);
   });
 }
 
@@ -158,14 +273,7 @@ async function anexar(modo) {
   try {
     const r = await api.files.attach(modo);
     if (!r.ok) return;
-    for (const arquivo of r.arquivos) {
-      if (modo === 'chat' && !arquivo.ehTexto && !arquivo.audio) {
-        arquivo.erro = 'a aba Conversa só lê arquivos de texto — use a aba Agente para este formato';
-      }
-      anexos[modo].push(arquivo);
-      prepararAudio(arquivo, modo);
-    }
-    pintarAnexos(modo);
+    adicionarAnexos(modo, r.arquivos);
   } finally {
     botao.disabled = false;
   }
@@ -201,6 +309,10 @@ function consumirAnexos(modo) {
 
 $('btnAnexoAgente').addEventListener('click', () => anexar('agente'));
 $('btnAnexoChat').addEventListener('click', () => anexar('chat'));
+$('entradaAgente').addEventListener('paste', (e) => colarAnexos(e, 'agente'));
+$('entradaChat').addEventListener('paste', (e) => colarAnexos(e, 'chat'));
+soltarAnexos($('viewAgente'), 'agente');
+soltarAnexos($('viewConversa'), 'chat');
 
 /* ============================ turno do agente ============================ */
 

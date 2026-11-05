@@ -231,8 +231,11 @@ function restaurarTurno(m) {
   div.innerHTML = `<div class="msg-quem">${m.role === 'user' ? 'você' : 'agente'}</div><div class="msg-corpo"></div>`;
   const corpo = div.querySelector('.msg-corpo');
   if (m.role === 'user') {
-    corpo.textContent = m.content;
-    registrarParagrafo(div, m.content);
+    // os anexos voltam como cartões (5/11), sem o bloco "Arquivos anexados, já copiados…" no meio do texto
+    const { texto, anexos: enviados } = anexosDoPedido(m.content);
+    corpo.textContent = texto;
+    anexosNaMensagem(corpo, enviados);
+    registrarParagrafo(div, texto);
   } else {
     corpo.innerHTML = window.md.render(m.content);
     window.md.montarGraficos(corpo);

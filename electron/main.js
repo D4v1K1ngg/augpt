@@ -2650,14 +2650,96 @@ ipcMain.handle('files:attach', async (_e, { modo } = {}) => {
     properties: ['openFile', 'multiSelections'],
   });
   if (r.canceled || !r.filePaths.length) return { ok: true, arquivos: [] };
+  return { ok: true, arquivos: anexarCaminhos(r.filePaths, modo) };
+});
 
+// arrastar ou colar arquivos (5/11): os caminhos vêm do preload (webUtils.getPathForFile), de arquivos que a
+// pessoa soltou ou colou — nunca de um texto da tela
+ipcMain.handle('files:anexarCaminhos', async (e, { caminhos, modo } = {}) => {
+  if (!win || e.sender !== win.webContents) return { ok: false, arquivos: [] };
+  const lista = (Array.isArray(caminhos) ? caminhos : []).filter((c) => typeof c === 'string' && path.isAbsolute(c)).slice(0, 20);
+  return { ok: true, arquivos: anexarCaminhos(lista, modo) };
+});
+
+// Ctrl+V com arquivos copiados no Explorador (5/11): a lista de arquivos da área de transferência do Windows
+ipcMain.handle('files:colar', async (e, { modo } = {}) => {
+  if (!win || e.sender !== win.webContents) return { ok: false, arquivos: [] };
+  const caminhos = await arquivosDaAreaDeTransferencia();
+  return { ok: true, arquivos: caminhos.length ? anexarCaminhos(caminhos, modo) : [] };
+});
+
+// print colado (5/11): a imagem da área de transferência vira um PNG na pasta de trabalho
+ipcMain.handle('files:colarImagem', async (e, { bytes, tipo, modo } = {}) => {
+  if (!win || e.sender !== win.webContents) return { ok: false, arquivos: [] };
+  try {
+    const buf = Buffer.from(bytes || []);
+    if (!buf.length || buf.length > 25_000_000) return { ok: false, arquivos: [] };
+    const ext = /jpe?g/.test(String(tipo)) ? '.jpg' : /webp/.test(String(tipo)) ? '.webp' : /gif/.test(String(tipo)) ? '.gif' : '.png';
+    const agora = new Date();
+    const carimbo = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}-${String(agora.getHours()).padStart(2, '0')}${String(agora.getMinutes()).padStart(2, '0')}${String(agora.getSeconds()).padStart(2, '0')}`;
+    const temp = path.join(app.getPath('temp'), `imagem-colada-${carimbo}${ext}`);
+    fs.writeFileSync(temp, buf);
+    const arquivos = anexarCaminhos([temp], modo);
+    fs.rmSync(temp, { force: true });
+    return { ok: true, arquivos };
+  } catch (err) {
+    return { ok: false, arquivos: [], error: err.message };
+  }
+});
+
+// miniatura de uma imagem da pasta de trabalho (5/11): o cartão do anexo na mensagem, também ao reabrir a conversa
+ipcMain.handle('arquivos:miniatura', async (_e, relativo) => {
+  try {
+    return { ok: true, dataUrl: miniaturaDe(new Sandbox(config.data.workspace).resolve(String(relativo || ''))) };
+  } catch {
+    return { ok: false };
+  }
+});
+
+const EXTENSOES_IMAGEM_ANEXO = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp']);
+/** Miniatura em JPEG (até 360 px de largura) como data URL, ou null. */
+function miniaturaDe(caminho) {
+  if (!EXTENSOES_IMAGEM_ANEXO.has(path.extname(caminho).toLowerCase())) return null;
+  const { nativeImage } = require('electron');
+  const img = nativeImage.createFromPath(caminho);
+  if (img.isEmpty()) return null;
+  const { width } = img.getSize();
+  const menor = width > 360 ? img.resize({ width: 360, quality: 'good' }) : img;
+  return `data:image/jpeg;base64,${menor.toJPEG(82).toString('base64')}`;
+}
+
+/** Os arquivos copiados no Explorador (Ctrl+C): a lista de arquivos da área de transferência do Windows. */
+async function arquivosDaAreaDeTransferencia() {
+  if (process.platform !== 'win32') return [];
+  const { clipboard } = require('electron');
+  if (!clipboard.availableFormats().some((f) => /FileName|HDROP|uri-list|FileGroupDescriptor/i.test(f))) {
+    // sem formato de arquivo: nada a colar como arquivo (o texto segue o caminho normal)
+    if (!clipboard.has('FileNameW')) return [];
+  }
+  // a lista inteira (vários arquivos) vem do próprio Windows; o FileNameW traz só o primeiro
+  const lista = await new Promise((ok) => {
+    const ps = require('child_process').spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-Clipboard -Format FileDropList | ForEach-Object { $_.FullName }'], { windowsHide: true });
+    let saida = '';
+    ps.stdout.on('data', (d) => (saida += d));
+    ps.on('error', () => ok([]));
+    ps.on('close', () => ok(saida.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)));
+    setTimeout(() => { ps.kill(); ok([]); }, 6000);
+  });
+  if (lista.length) return lista.filter((c) => fs.existsSync(c) && fs.statSync(c).isFile()).slice(0, 20);
+  const um = clipboard.readBuffer('FileNameW').toString('utf16le').replace(/\0+$/, '').trim();
+  return um && fs.existsSync(um) && fs.statSync(um).isFile() ? [um] : [];
+}
+
+/** Copia os arquivos para a pasta de trabalho (no Agente) e devolve o que a tela mostra de cada um. */
+function anexarCaminhos(caminhos, modo) {
   const sandbox = new Sandbox(config.data.workspace);
   const arquivos = [];
 
-  for (const origem of r.filePaths) {
+  for (const origem of caminhos) {
     try {
       const nome = path.basename(origem);
       const stat = fs.statSync(origem);
+      if (!stat.isFile()) throw new Error('é uma pasta, não um arquivo');
       const ext = path.extname(nome).toLowerCase();
       const ehTexto = EXTENSOES_TEXTO.has(ext);
 
@@ -2683,15 +2765,17 @@ ipcMain.handle('files:attach', async (_e, { modo } = {}) => {
 
       // áudio (31/10, mensagem de voz do WhatsApp): os bytes vão para a tela, que decodifica e manda ao Whisper
       const audio = EXTENSOES_AUDIO.has(ext) && stat.size <= 40_000_000;
-      arquivos.push({ nome, relativo, tamanho: stat.size, ehTexto, texto, truncado: Boolean(texto) && stat.size > 120_000, ...(audio ? { audio: true, bytes: fs.readFileSync(origem) } : {}) });
+      // imagem (5/11): a miniatura vai junto, para o cartão do anexo mostrar a foto
+      const miniatura = EXTENSOES_IMAGEM_ANEXO.has(ext) && stat.size <= 40_000_000 ? miniaturaDe(origem) : null;
+      arquivos.push({ nome, relativo, tamanho: stat.size, ehTexto, texto, truncado: Boolean(texto) && stat.size > 120_000, ...(miniatura ? { miniatura } : {}), ...(audio ? { audio: true, bytes: fs.readFileSync(origem) } : {}) });
     } catch (err) {
       arquivos.push({ nome: path.basename(origem), erro: err.message });
     }
   }
 
-  if (modo === 'agente') enviar('workspace-changed', {});
-  return { ok: true, arquivos };
-});
+  if (modo === 'agente' && arquivos.some((a) => a.relativo)) enviar('workspace-changed', {});
+  return arquivos;
+}
 
 // ----------------------------- conversa -----------------------------
 

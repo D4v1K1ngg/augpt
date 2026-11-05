@@ -594,3 +594,40 @@ body.com-boas-vindas { overflow: hidden; }
 .modo-mini .inicio-atalho span { display: none; }
 /* os medidores da execução (passos, tokens, tempo) não cabem na largura do mini: ficam no "relatório" */
 .modo-mini .medidores { display: none !important; }
+
+/* Anexos como cartões (5/11, "as imagens poderiam ficar igual ficam aqui no seu chat"): imagem em miniatura,
+   arquivo com o tipo em cor, o nome e o tamanho; o ✕ aparece ao passar o mouse. Na mensagem, os mesmos cartões. */
+.anexos:not(:empty) { gap: 8px; align-items: flex-end; }
+.anexo-img, .anexo-arq { position: relative; animation: entrar 0.18s ease-out; font: inherit; color: inherit; }
+.anexo-img { width: 64px; height: 64px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line-forte); background: var(--panel-2); padding: 0; flex: none; }
+.anexo-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.anexo-img.sem-previa::after { content: 'IMG'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; color: var(--muted); }
+.anexo-arq { display: inline-flex; align-items: center; gap: 10px; max-width: 260px; min-width: 170px; padding: 8px 12px 8px 8px; border-radius: 12px; border: 1px solid var(--line-forte); background: var(--panel-2); text-align: left; }
+.anexo-arq.falha { border-color: rgba(224, 90, 78, 0.55); }
+.anexo-arq.falha .anexo-tam { color: var(--red); }
+.anexo-icone { flex: none; width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; color: #fff; background: #6b7280; }
+.anexo-icone[data-tipo="pdf"] { background: #d64545; }
+.anexo-icone[data-tipo="doc"] { background: #2f6fd6; }
+.anexo-icone[data-tipo="xls"] { background: #1f8f4e; }
+.anexo-icone[data-tipo="ppt"] { background: #d4692a; }
+.anexo-icone[data-tipo="audio"] { background: #8a4fd6; font-size: 15px; }
+.anexo-icone[data-tipo="video"] { background: #c2417a; font-size: 13px; }
+.anexo-icone[data-tipo="zip"] { background: #8a6d2f; }
+.anexo-icone[data-tipo="codigo"] { background: #3d4a5c; }
+.anexo-icone[data-tipo="txt"] { background: #5b6472; }
+.anexo-texto { display: grid; min-width: 0; gap: 2px; }
+.anexo-arq .anexo-nome { font-size: 12.5px; color: var(--text-forte, var(--text)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.anexo-arq .anexo-tam { font-size: 11px; color: var(--fraco); }
+.anexo-remover { position: absolute; top: -7px; right: -7px; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line-forte); background: var(--panel); color: var(--muted); font-size: 10px; cursor: pointer; display: grid; place-items: center; opacity: 0; transition: opacity 0.15s; padding: 0; }
+.anexo-img:hover .anexo-remover, .anexo-arq:hover .anexo-remover, .anexo-remover:focus-visible { opacity: 1; }
+.anexo-remover:hover { color: var(--text-forte, var(--text)); background: var(--line-forte); }
+/* na mensagem enviada: acima do texto, clicáveis (abrem a prévia) */
+.anexos-da-mensagem { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; justify-content: flex-end; }
+.anexos-da-mensagem .anexo-img { width: 96px; height: 96px; cursor: zoom-in; }
+.anexos-da-mensagem .anexo-img.grande { width: auto; height: auto; max-width: min(320px, 100%); max-height: 260px; }
+.anexos-da-mensagem .anexo-img.grande img { width: auto; height: auto; max-width: 100%; max-height: 260px; object-fit: contain; }
+.anexos-da-mensagem .anexo-arq { cursor: pointer; }
+.anexos-da-mensagem button.anexo-arq:hover, .anexos-da-mensagem button.anexo-img:hover { border-color: var(--accent, #c9962b); }
+/* arrastando arquivos para a conversa */
+.conversa.soltando { outline: 2px dashed var(--accent, #c9962b); outline-offset: -10px; border-radius: 14px; }
+.modo-mini .anexos-da-mensagem .anexo-img.grande { max-width: 100%; max-height: 200px; }
