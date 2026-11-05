@@ -773,12 +773,54 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     historico.push({ role: 'user', content: `O usuário mandou este link na pergunta e ele já foi lido (é a fonte [${f.n}]):\n${String(lido).slice(0, 3500)}` });
   }
 
+  // a fonte fala de algum assunto da pergunta? (16/10: o fórum devolveu "Adata é uma marca confiável?
+  // Esse SSD vale a pena?" para o Dunu Titan S, a garantia leu, e a resposta comentou o tópico de SSD)
+  const citaAssunto = (f) => !assuntos.length || assuntos.some((a) => tituloCita(`${f.titulo} ${f.resumo}`, a));
+  // garantia: pedido de produto sem a comunidade lida — o código busca e lê os tópicos que faltam
+  const garantirComunidade = async () => {
+    if (!comComunidade || signal?.aborted) return;
+    if (!fontes.some((f) => f.comunidade)) await executarBusca([pergunta], { comunidade: true });
+    const lidos = fontes.filter((f) => f.comunidade && f.trechos.length).length;
+    const faltam = fontes.filter((x) => x.comunidade && !x.trechos.length && citaAssunto(x)).slice(0, Math.max(0, regras.comunidade - lidos));
+    await Promise.all(faltam.map((f) => executarLeitura({ fonte: f.n, foco: 'o que quem usa recomenda, elogia e critica' }, { garantia: true })));
+  };
+  // garantia de leitura: o código lê as fontes mais ligadas à pergunta, um site por vez, até o mínimo
+  // (página que não abre não conta; no máximo o dobro das que faltam, para não travar em site fora do ar)
+  const lerAsMaisLigadas = async () => {
+    if (lidas() >= regras.minLeituras || signal?.aborted) return;
+    const faltam = regras.minLeituras - lidas();
+    const naoLidas = fontes.filter((f) => !f.trechos.length && !f.alerta).map((f) => ({ f, url: f.url, texto: `${f.titulo} ${f.resumo}` }));
+    const ordenadas = comCredibilidade(await ordenar(pergunta, naoLidas, { embed }), { comunidade: false, maximo: Infinity, porSite: Infinity, oficiais }).map((x) => x.f);
+    // só página que cita o assunto: faltando, lê menos — completar a conta com página fora do assunto
+    // (17/10, um tópico de SSD num pedido de fone) piora a resposta em vez de melhorar
+    const ordem = ordenadas.filter(citaAssunto);
+    const sites = new Set(fontes.filter((f) => f.trechos.length).map((f) => dominio(f.url)));
+    const primeiroDeCadaSite = ordem.filter((f) => !sites.has(dominio(f.url)) && sites.add(dominio(f.url)));
+    const candidatas = [...new Set([...primeiroDeCadaSite, ...ordem])].slice(0, faltam * 2);
+    let i = 0;
+    while (i < candidatas.length && lidas() < regras.minLeituras && !signal?.aborted) {
+      const lote = candidatas.slice(i, i + regras.minLeituras - lidas());
+      i += lote.length;
+      novaRodadaDeLeitura();
+      await Promise.all(lote.map((f) => executarLeitura({ fonte: f.n, foco: pergunta }, { garantia: true })));
+      leituraDaRodada = null;
+    }
+  };
+
   // as primeiras buscas vêm do entendimento (27/10, análise do Davi: a 1ª rodada do pesquisador quase
   // sempre era só "buscar" — uma decisão inteira, ~2 s com 3 mil tokens, para escolher as buscas). O
   // código já busca; o pesquisador começa decidindo o que ler, e as 2 primeiras páginas já vão sendo lidas.
   if (buscasIniciais.length && !signal?.aborted) {
     const resultado = await executarBusca(buscasIniciais);
-    historico.push({ role: 'user', content: `Primeiras buscas, já feitas (${buscasIniciais.join(' · ')}):\n${resultado}\n\nContinue: leia com ler_pagina as páginas mais promissoras (2 ou 3 de uma vez, de sites diferentes), busque um ângulo que falte, ou chame pronto.` });
+    // 5/11 (registros: produto levava 5 rodadas e a 1ª palavra saía entre 38 e 59 s): em pedido de produto o
+    // código já lê, em paralelo, as páginas mais ligadas à pergunta e os tópicos da comunidade — o que antes só
+    // fazia no fim, para completar o mínimo. O pesquisador começa com o material lido e só completa os ângulos.
+    let jaLidas = '';
+    if (produto && !signal?.aborted) {
+      await Promise.all([lerAsMaisLigadas(), garantirComunidade()]);
+      jaLidas = fontes.filter((f) => f.trechos.length).map((f) => `[${f.n}] ${f.titulo || f.url}`).join(' · ');
+    }
+    historico.push({ role: 'user', content: `Primeiras buscas, já feitas (${buscasIniciais.join(' · ')}):\n${resultado}\n\n${jaLidas ? `Já lidas pelo código: ${jaLidas}. Leia outra só se faltar um ângulo (preço de hoje, opinião de quem usa, comparação), busque o que falta, ou chame pronto.` : 'Continue: leia com ler_pagina as páginas mais promissoras (2 ou 3 de uma vez, de sites diferentes), busque um ângulo que falte, ou chame pronto.'}` });
   }
 
   /*
@@ -887,38 +929,9 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
       break;
     }
   }
-  // a fonte fala de algum assunto da pergunta? (16/10: o fórum devolveu "Adata é uma marca confiável?
-  // Esse SSD vale a pena?" para o Dunu Titan S, a garantia leu, e a resposta comentou o tópico de SSD)
-  const citaAssunto = (f) => !assuntos.length || assuntos.some((a) => tituloCita(`${f.titulo} ${f.resumo}`, a));
-  // garantia: pedido de produto sem a comunidade lida — o código busca e lê 2 tópicos antes da escrita
-  if (comComunidade && !signal?.aborted) {
-    if (!fontes.some((f) => f.comunidade)) await executarBusca([pergunta], { comunidade: true });
-    const lidos = fontes.filter((f) => f.comunidade && f.trechos.length).length;
-    for (const f of fontes.filter((x) => x.comunidade && !x.trechos.length && citaAssunto(x)).slice(0, Math.max(0, regras.comunidade - lidos))) {
-      await executarLeitura({ fonte: f.n, foco: 'o que quem usa recomenda, elogia e critica' }, { garantia: true });
-    }
-  }
-  // garantia de leitura: o código lê as fontes mais ligadas à pergunta, um site por vez, até o mínimo
-  // (página que não abre não conta; no máximo o dobro das que faltam, para não travar em site fora do ar)
-  if (lidas() < regras.minLeituras && !signal?.aborted) {
-    const faltam = regras.minLeituras - lidas();
-    const naoLidas = fontes.filter((f) => !f.trechos.length && !f.alerta).map((f) => ({ f, url: f.url, texto: `${f.titulo} ${f.resumo}` }));
-    const ordenadas = comCredibilidade(await ordenar(pergunta, naoLidas, { embed }), { comunidade: false, maximo: Infinity, porSite: Infinity, oficiais }).map((x) => x.f);
-    // só página que cita o assunto: faltando, lê menos — completar a conta com página fora do assunto
-    // (17/10, um tópico de SSD num pedido de fone) piora a resposta em vez de melhorar
-    const ordem = ordenadas.filter(citaAssunto);
-    const sites = new Set(fontes.filter((f) => f.trechos.length).map((f) => dominio(f.url)));
-    const primeiroDeCadaSite = ordem.filter((f) => !sites.has(dominio(f.url)) && sites.add(dominio(f.url)));
-    const candidatas = [...new Set([...primeiroDeCadaSite, ...ordem])].slice(0, faltam * 2);
-    let i = 0;
-    while (i < candidatas.length && lidas() < regras.minLeituras && !signal?.aborted) {
-      const lote = candidatas.slice(i, i + regras.minLeituras - lidas());
-      i += lote.length;
-      novaRodadaDeLeitura();
-      await Promise.all(lote.map((f) => executarLeitura({ fonte: f.n, foco: pergunta }, { garantia: true })));
-      leituraDaRodada = null;
-    }
-  }
+  // as garantias do fim (comunidade e mínimo de leituras): o que a pesquisa ainda não leu
+  await garantirComunidade();
+  await lerAsMaisLigadas();
   escrevendo = true; // daqui em diante a escrita começa: página que chegar tarde não muda as fontes
   return fontes;
 }
