@@ -102,6 +102,19 @@ module.exports = [
     },
   },
   {
+    nome: 'produto em até 3 opções (5/11, mais rápido), mas o número do usuário manda: "top 5" = 5, "três teclados" = 3, "top dez" = 10; "monitor de 27 polegadas" e "melhor mouse" não pedem número',
+    tipo: 'unidade',
+    executar() {
+      const casos = { 'Me recomende um top 5 melhores fones intra auriculares': 5, 'os 10 melhores iems para música': 10, 'me indica três teclados': 3, 'top dez jogos de 2026': 10, 'monitor de 27 polegadas 144hz': null, 'Qual o melhor mouse para jogos de tiro até R$ 300?': null };
+      const errados = Object.entries(casos).filter(([q, n]) => nucleo.opcoesPedidas(q) !== n).map(([q]) => `${q} → ${nucleo.opcoesPedidas(q)}`);
+      const indice = ler('src/agent/nucleo/index.js');
+      return [
+        errados.length === 0 || errados.join(' · '),
+        /No máximo 3 opções — as melhores para o pedido/.test(indice) && /O usuário pediu \$\{opcoesPedidas\(pergunta\)\} opções/.test(indice) || 'as regras na escrita',
+      ];
+    },
+  },
+  {
     nome: 'nomes difíceis de produto (4/11): colado, com hífen ou separado — rm1000x, i5-12400F, RX7600XT, WH1000XM5, 7800X3D, SN850X, B580, RTX5070Ti — casam no filtro de assunto e nas lojas; os vizinhos (RM850x, RX 7600, WH-1000XM4, 13400F, SN850X 2TB, RTX 5070) não',
     tipo: 'unidade',
     executar() {

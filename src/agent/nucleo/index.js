@@ -247,6 +247,16 @@ const TELA_EM_GERAL = /\btela (azul|preta|branca|do celular|do notebook|do monit
 const ANALISE_DE_PRECO = /\b(analis\w*|hist[oó]ric\w*|evolu[cç][aã]o|varia[cç][aã]o|desde (o|seu|a) lan[cç]amento|ao longo d[oa]s? (tempo|meses|anos)|tend[eê]ncia|previs[aã]o|estimativ\w*|estimaria|estime|projec?[cç][aã]o|m[eé]dia de pre[cç]o)\b[\s\S]{0,80}\b(pre[cç]os?|valor(es)?|custo)\b|\b(pre[cç]os?|valor(es)?)\b[\s\S]{0,80}\b(desde o lan[cç]amento|hist[oó]ric\w*|evolu[cç][aã]o|vai (ficar|cair|baixar|subir)|deve (ficar|cair|baixar)|na black friday|previs[aã]o|estimativ\w*)\b|\b(vai|deve|tende a) (ficar|cair|baixar|custar)\b[\s\S]{0,60}\bblack friday\b/i;
 const ehAnaliseDePreco = (pergunta) => ANALISE_DE_PRECO.test(String(pergunta || ''));
 
+// quantas opções o usuário pediu (5/11: "top 5 melhores fones" saiu com 3 depois do limite de 3 opções) → número ou null
+const POR_EXTENSO = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10 };
+function opcoesPedidas(pergunta) {
+  const t = String(pergunta || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const m = /\btop\s*(\d{1,2}|[a-z]+)\b/.exec(t)
+    || /\b(\d{1,2}|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)\s+(?:melhores|opcoes|modelos|sugestoes|indicacoes|alternativas|produtos|fones|mouses|teclados|monitores|headsets|placas|celulares|notebooks|iems|jogos|cadeiras|ssds)\b/.exec(t);
+  const n = m ? Number(m[1]) || POR_EXTENSO[m[1]] : null;
+  return n >= 1 && n <= 15 ? n : null;
+}
+
 const PEDE_SOLUCAO = /\b(erro|error|problema|bug|falha|travou|como (resolvo|resolver|conserto|consertar|corrijo|corrigir|arrumo|arrumar|fa[cç]o)|por que|porque|pesquis\w*|procur\w*|busqu\w*|pre[cç]o|quanto custa)\b/i;
 const pedeATela = (pergunta) => PEDE_A_TELA.test(String(pergunta || '')) && !TELA_EM_GERAL.test(String(pergunta || ''));
 
@@ -1128,13 +1138,14 @@ const FORMATO_DE_PRODUTO = `
 
 FORMATO (pedido de produto):
 - Comece com a resposta direta: qual você recomenda e por quê, em 2 ou 3 frases.
-- Depois, um bloco por opção, cada um começando com um título exatamente assim: "#### 1. Marca Modelo" (um produto só também leva "#### 1."). Em cada bloco, nesta ordem:
+- No máximo 3 opções — as melhores para o pedido (se o usuário pediu outro número, use o dele). Menos opções bem escolhidas valem mais que uma lista longa.
+- Depois, um bloco por opção, cada um começando com um título exatamente assim: "#### 1. Marca Modelo" (um produto só também leva "#### 1."). Em cada bloco, nesta ordem, cada campo com 1 ou 2 frases:
   **Faixa de preço:** o preço que as fontes trazem (diga de onde, e se é em dólar).
   **Pontos fortes:** explicado com as suas palavras.
   **Pontos fracos:** o que as fontes e quem usa criticam (se ninguém criticou, diga isso).
   **Na comunidade:** o que quem usa no Reddit e nos fóruns relata, resumido com as suas palavras, citando a fonte. Não cole o comentário.
   **Para quem:** para quem essa opção faz mais sentido.
-- Se forem 2 ou mais opções, termine com "### Comparação" (uma tabela) e "### Qual escolher".`;
+- Se forem 2 ou mais opções, termine com "### Comparação" (uma tabela curta) e "### Qual escolher" (2 ou 3 frases).`;
 
 const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="${String(f.titulo || dominio(f.url)).replace(/"/g, "'")}" site="${dominio(f.url)}"${f.data ? ` data="${dataBr(f.data)}"` : f.recente ? ' data="último mês"' : ''}>\n${f.conteudo}\n</fonte>`).join('\n');
 
@@ -1633,7 +1644,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
-    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**. Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pergunta },
+    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pergunta },
   ];
   const limparEscrita = (t) =>
     semParagrafosDeAnuncio(semImagens(t))
@@ -1769,4 +1780,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
