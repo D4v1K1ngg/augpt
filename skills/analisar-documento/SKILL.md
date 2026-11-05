@@ -41,11 +41,14 @@ Se vier "sem texto extraível", o PDF é digitalizado de verdade e só OCR resol
 
 ## Como responder
 
-Tabela de campo e valor para os dados principais, e depois duas ou três linhas com o que realmente importa: quanto pagar, até quando, e o que muda se atrasar.
+Responda o que foi perguntado — o formato depende do pedido:
+
+- **Pedido de dados** ("quanto é", "qual o vencimento", "resuma", "o que diz"): tabela de campo e valor com os dados principais, e depois duas ou três linhas com o que realmente importa — quanto pagar, até quando, o que muda se atrasar.
+- **Pedido de opinião ou de melhoria** ("o que você acha", "está bom?", "como melhorar", "revise", "o que falta"): uma avaliação, sem tabela de campos. Comece pelo veredito em uma frase; depois **pontos fortes**, **o que melhorar** (cada item com o trecho do documento e a sugestão concreta, reescrita se ajudar) e **o que está faltando**. Num currículo: resultados com números, palavras-chave da área, clareza do resumo, tamanho e marcadores de modelo esquecidos ("[mês/ano]", "[nível]").
 
 Reproduza número exatamente como está no documento. Valor, data, CPF e linha digitável errados por um dígito são piores que resposta nenhuma.
 
-Não dê conselho jurídico nem financeiro. Aponte o que o documento diz, não o que a pessoa deveria fazer.
+Não dê conselho jurídico nem financeiro sobre contratos, boletos e extratos: aponte o que o documento diz. Opinião sobre a escrita de um documento (currículo, carta, texto) pode e deve ser dada quando pedida.
 
 ## Privacidade
 

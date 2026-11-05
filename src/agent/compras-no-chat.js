@@ -124,12 +124,12 @@ async function responderCompras({ pergunta, deps = {}, config = {}, dirImagens, 
   let texto;
   const melhor = novo || usado;
   if (en) {
-    texto = `${nome}: the lowest price right now is **${reais(melhor.preco, true)}** at **${melhor.loja}**${novo ? '' : ' (used)'} — ${curto(melhor.nome)}. I found ${exatos.length} offers in ${lojas.length} stores, from ${reais(Math.min(...faixa), true)} to ${reais(Math.max(...faixa), true)}.`;
+    texto = `${nome}: the lowest price right now is **${reais(melhor.preco, true)}** at **${melhor.loja}**${novo ? '' : ' (used)'} — ${curto(melhor.nome)}. ${exatos.length === 1 ? 'It was the only offer I found.' : `I found ${exatos.length} offers in ${lojas.length} ${lojas.length === 1 ? 'store' : 'stores'}, from ${reais(Math.min(...faixa), true)} to ${reais(Math.max(...faixa), true)}.`}`;
     if (novo && usado && usado.preco < novo.preco) texto += ` Used: from ${reais(usado.preco, true)} (${usado.loja}).`;
     if (suspeitos.length) texto += `\n\n⚠ ${suspeitos.length} offer(s) far below the others — could be a scam; check the store before buying.`;
     texto += `\n\nTo be notified when it drops, say: **"let me know when ${p.produto} goes below R$ ${Math.floor((melhor.preco * 0.9) / 100) * 100}"**.`;
   } else {
-    texto = `${nome}: o menor preço agora é **${reais(melhor.preco)}** na **${melhor.loja}**${novo ? '' : ' (usado)'} — ${curto(melhor.nome)}. Encontrei ${exatos.length} ofertas em ${lojas.length} lojas, de ${reais(Math.min(...faixa))} a ${reais(Math.max(...faixa))}.`;
+    texto = `${nome}: o menor preço agora é **${reais(melhor.preco)}** na **${melhor.loja}**${novo ? '' : ' (usado)'} — ${curto(melhor.nome)}. ${exatos.length === 1 ? 'Foi a única oferta que encontrei.' : `Encontrei ${exatos.length} ofertas em ${lojas.length} ${lojas.length === 1 ? 'loja' : 'lojas'}, de ${reais(Math.min(...faixa))} a ${reais(Math.max(...faixa))}.`}`;
     if (novo && usado && usado.preco < novo.preco) texto += ` Usado: a partir de ${reais(usado.preco)} (${usado.loja}).`;
     if (suspeitos.length) texto += `\n\n⚠ ${suspeitos.length === 1 ? '1 oferta muito abaixo das outras' : `${suspeitos.length} ofertas muito abaixo das outras`} — pode ser golpe; confira a loja antes de comprar.`;
     texto += `\n\nPara ser avisado quando baixar, diga: **"me avise quando ${p.produto} ficar abaixo de R$ ${(Math.floor((melhor.preco * 0.9) / 100) * 100).toLocaleString('pt-BR')}"**.`;

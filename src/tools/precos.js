@@ -16,6 +16,8 @@ const { casa } = require('../agent/onde-comprar');
 
 const ACESSORIO = /\b(capas?|cases?|pel[ií]culas?|suportes?|cabos?|adaptador\w*|backplate|waterblock|water block|bracket|riser|ventoinhas?|fans?|kit de|pasta t[ée]rmica|protetor\w*|skins?|adesivos?)\b/i;
 const semAcento = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+// "Fonte Corsair RM1000x … Com Cabo" (4/11, no app): o que vem junto não faz do anúncio um acessório
+const semItensInclusos = (t) => String(t || '').replace(/\b(com|c\/|inclui|incluso|acompanha|with)\s+(cabos?|cable|suporte|adaptador\w*|capa|case)\b/gi, ' ');
 // um computador inteiro com a peça pedida não é a peça ("PC Gamer … RTX 5080" a R$ 57.600)
 const SISTEMA = /\b(pc gamer|computador|notebook|desktop|kit upgrade|workstation|all in one|laptop)\b|\bssd\s*\d+\s*(gb|tb)\b[\s\S]*\b(ram|ddr\d)\b|\b(ram|ddr\d)\b[\s\S]*\bssd\s*\d+\s*(gb|tb)\b|\b(zephyrus|stealth|legion|predator|nitro v|katana|raider|omen|alienware|vivobook|ideapad|aspire)\b/i;
 // o tipo do item é a primeira palavra do anúncio: "Tampa para Console PlayStation 5 Slim" é tampa
@@ -58,7 +60,7 @@ function ehOProduto(nome, produto) {
   const tipoAnuncio = tipoDe(nome, { inicio: true });
   if (tipoPedido && tipoAnuncio && tipoPedido !== tipoAnuncio) return false;
   return casa(apelidos(nome), apelidos(semTipo(produto)))
-    && (!ACESSORIO.test(nome) || ACESSORIO.test(produto))
+    && (!ACESSORIO.test(semItensInclusos(nome)) || ACESSORIO.test(produto))
     && (!SISTEMA.test(nome) || SISTEMA.test(produto) || tipoPedido === 'notebook')
     && !tipoAcessorio(nome, produto)
     && !ehPecaPara(nome, produto);

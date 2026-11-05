@@ -43,7 +43,8 @@ function casa(nomeDaOferta, produto) {
   // precisa ser palavra inteira, senão o "Superlight 2" casa com o "Superlight 2c"
   const tem = (t) => oferta.includes(` ${t} `) || (/\d/.test(t) && t.length >= 3 && colada.includes(t));
   if (!termos.every(tem)) return false;
-  return !ACESSORIO.test(oferta) || ACESSORIO.test(normalizar(produto));
+  // "… com cabo", "acompanha suporte": o que vem junto não faz do anúncio um acessório (4/11)
+  return !ACESSORIO.test(oferta.replace(/ (com|c|inclui|incluso|acompanha|with) (cabos?|cable|suportes?|adaptador\w*|capas?|cases?) /g, ' ')) || ACESSORIO.test(normalizar(produto));
 }
 
 const comLimite = (promessa, ms) => Promise.race([promessa, new Promise((ok) => setTimeout(() => ok(null), ms))]);

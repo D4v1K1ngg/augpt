@@ -941,7 +941,9 @@ function padraoDoProduto(nome) {
   const partes = normalizarTermos(nome).split(' ');
   const i = partes.findIndex((p) => /\d/.test(p));
   if (i < 0) return null;
-  if (partes[i].replace(/\D/g, '').length >= 3) return new RegExp(`\\b${partes[i]}\\b`);
+  // 4/11 (no app): "rm1000x" vira "RM 1000x" no nome e a página escreve "RM1000x" — o prefixo pode vir colado
+  // ou separado; sem isso, todas as páginas certas saíam como "fora do assunto"
+  if (partes[i].replace(/\D/g, '').length >= 3) return new RegExp(i > 0 ? `(?:\\b${partes[i - 1]} ?|\\b)${partes[i]}\\b` : `\\b${partes[i]}\\b`);
   return i > 0 ? new RegExp(`\\b${partes[i - 1]} ?${partes[i]}(\\d{2})?\\b`) : null;
 }
 
@@ -1161,7 +1163,7 @@ function conferirAnos(texto, { material = '', pergunta = '', hoje = '' } = {}) {
  */
 const inteiroDoPreco = (t) => String(t).replace(/[.\s](?=\d{3}\b)/g, '').replace(/[,.]\d{1,2}$/, '').replace(/\D/g, '');
 
-function conferirResposta(texto, { numeros = [], material = '', produto = false } = {}) {
+function conferirResposta(texto, { numeros = [], material = '', produto = false, hoje = new Date() } = {}) {
   const validos = new Set(numeros);
   let t = String(texto || '').replace(/\[(\d+)\]/g, (m, n) => (validos.has(Number(n)) ? m : ''));
   t = t.replace(/\(\s*fontes?:?\s*\)/gi, '').replace(/[ \t]+([.,;])/g, '$1');
@@ -1230,6 +1232,9 @@ function conferirResposta(texto, { numeros = [], material = '', produto = false 
   t = t.replace(/(^|\n\n)(?:\s*\[\d+\])+\s*[.,;:]?[ \t]*(?=\n|$)/g, '$1').replace(/^\s+/, '');
   // a instrução do formato de produto comentada na resposta (2/11: 'Não há blocos "#### N. Marca Modelo" disponíveis nas fontes…')
   t = t.split('\n').map((l) => (/#### ?N\.|Marca Modelo\b/.test(l) ? l.split(/(?<=[.!?])\s+/).filter((f) => !/#### ?N\.|Marca Modelo\b/.test(f)).join(' ') : l)).join('\n');
+  // "Hoje (31/10/2026), o menor preço…" no dia 3/11 (no app): a data é da página, não de hoje
+  const dataDeHoje = `${String(hoje.getDate()).padStart(2, '0')}/${String(hoje.getMonth() + 1).padStart(2, '0')}/${hoje.getFullYear()}`;
+  t = t.replace(/\b(hoje|atualmente|neste momento)\s*\((\d{2}\/\d{2}\/\d{4})\)/gi, (m, palavra, data) => (data === dataDeHoje ? m : `${palavra[0] === palavra[0].toUpperCase() ? 'Em' : 'em'} ${data}`));
   // a marcação interna do cartão de outra resposta ("[cartão de compras: …]") que o modelo copiou (2/11)
   t = t.replace(/^\s*[-*+]\s*\[cart[aã]o de [^\]\n]*\]\s*$\n?/gm, '').replace(/\s?\[cart[aã]o de [^\]\n]*\]/g, '');
 
@@ -1382,8 +1387,10 @@ const FORMATOS = { quadrado: [1024, 1024], paisagem: [1216, 832], retrato: [832,
 
 function pedidoDePrompt({ pergunta, conversa = [], vista = '', editar = false }) {
   const antes = conversa.filter((m) => m.role === 'user').slice(-3).map((m) => `- ${String(m.content || '').slice(0, 200)}`).join('\n');
+  // 4/11 (no app): "crie uma imagem DESSA placa de som" — o nome (Sound BlasterX G6) estava só na resposta anterior
+  const ultimaResposta = String([...conversa].reverse().find((m) => m.role === 'assistant')?.content || '').replace(/!\[[^\]]*\]\([^)]*\)|```[\s\S]*?```/g, '').replace(/\s+/g, ' ').trim().slice(0, 500);
   return `Você escreve o prompt para o gerador de imagens FLUX.2 Klein. O usuário pediu: "${String(pergunta).slice(0, 1500)}"
-${antes ? `\nO que ele pediu antes nesta conversa:\n${antes}\n` : ''}${vista ? `\nImagem anexada${editar ? ' (é para editar esta imagem)' : ''} — o que se vê nela:\n${vista.slice(0, 1200)}\n` : ''}
+${antes ? `\nO que ele pediu antes nesta conversa:\n${antes}\n` : ''}${ultimaResposta ? `\nSua última resposta (quando o pedido diz "dessa", "desse", "isso", o assunto está aqui — use o nome exato do modelo):\n${ultimaResposta}\n` : ''}${vista ? `\nImagem anexada${editar ? ' (é para editar esta imagem)' : ''} — o que se vê nela:\n${vista.slice(0, 1200)}\n` : ''}
 Responda SÓ com um JSON:
 {"prompt": "...", "formato": "quadrado" | "paisagem" | "retrato"${editar ? ' | "igual"' : ''}, "legenda": "uma frase em português dizendo o que a imagem mostra"${editar ? '' : ', "referencia": "busca de foto real para o gerador copiar a aparência, ou vazio"'}}
 
@@ -1392,6 +1399,8 @@ Regras do prompt:
 - texto que deve aparecer na imagem vai entre aspas duplas, exatamente como deve ser escrito, e curto (até umas 4 palavras) — o gerador erra texto longo;
 - o gerador erra letra acentuada (16/10: "Pão" saiu "Pãno"): no texto entre aspas, escreva sem acento ("Pao Dourado");
 - não peça rótulos, legendas nem muitos textos: infográfico com muitas palavras sai ilegível;
+- sem parâmetros de outros geradores ("--v 5", "--ar 16:9", "8k"): o FLUX não usa e eles viram ruído;
+- descreva o produto como ele é (externo ou interno, cor, formato): não invente peça que ele não tem;
 ${editar ? '- é uma EDIÇÃO da imagem anexada: diga a mudança pedida e o que deve ser mantido (ex.: "turn this photo into a cartoon, keep the same pose, face and composition"); formato "igual" mantém o tamanho dela;\n' : ''}- formato: paisagem para cenários amplos e banners, retrato para pessoa de corpo inteiro e cartazes, quadrado no resto.${editar ? '' : `
 - "referencia": quando a imagem precisa mostrar fiel um objeto, produto, veículo, prédio ou lugar REAL e específico que o gerador pode não conhecer (um modelo de carro, de fone, uma edição, um monumento), escreva a busca de foto dele (ex.: "Chevrolet Vectra GT 2008 hatch"). Vazio para coisa genérica (um gato, um farol, uma paisagem) e SEMPRE vazio para pessoas.`}`;
 }
@@ -1399,7 +1408,7 @@ ${editar ? '- é uma EDIÇÃO da imagem anexada: diga a mudança pedida e o que 
 function lerPrompt(texto, pergunta) {
   try {
     const j = JSON.parse(String(texto).slice(String(texto).indexOf('{'), String(texto).lastIndexOf('}') + 1));
-    const prompt = String(j.prompt || '').trim();
+    const prompt = String(j.prompt || '').replace(/\s--[a-z]+(\s+[\w:.]+)?/gi, '').trim();
     if (prompt.length >= 10) return { prompt, formato: FORMATOS[j.formato] || j.formato === 'igual' ? j.formato : 'quadrado', legenda: String(j.legenda || '').trim(), referencia: String(j.referencia || '').trim().slice(0, 120) };
   } catch {
     /* sem JSON: usa o pedido como veio */
@@ -1430,7 +1439,7 @@ Prompt usado: "${String(prompt).slice(0, 1200)}"
 Confira olhando a imagem: o assunto e os detalhes pedidos estão lá? O texto pedido (se houver) está escrito certo? Há defeito grave (rosto ou mão deformados, objeto pedido faltando, coisa sem sentido)?
 Responda SÓ com um JSON:
 {"ok": true ou false, "problemas": "o que está errado, ou vazio", "prompt": "se não está ok: o prompt em inglês corrigido para gerar de novo; se está ok: vazio"}
-Seja exigente só com o que importa para o pedido: detalhe pequeno não é motivo para refazer.`;
+Seja exigente só com o que importa para o pedido: detalhe pequeno não é motivo para refazer. Logo, marca ou letreiro ilegível NÃO é motivo para refazer quando o usuário não pediu um texto escrito — o gerador não escreve marcas, e refazer não conserta.`;
 }
 
 function lerRevisao(texto) {

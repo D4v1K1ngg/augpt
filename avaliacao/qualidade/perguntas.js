@@ -714,6 +714,23 @@ module.exports = [
     checagens: [...checagensDaResposta(), ...checagensDeTexto()],
   },
   {
+    // 4/11 (no app): três vezes "não encontrei o preço" — as páginas certas saíam como "fora do assunto"
+    // ("rm1000x" × "RM 1000x") e o anúncio "… Com Cabo" era tratado como acessório
+    id: 'fonte-corsair-preco',
+    tipo: 'produto',
+    pedido: 'qual o preço hoje da fonte corsair rm1000x',
+    criterios: [
+      'dá o preço de hoje em reais, com a loja',
+      'fala da Corsair RM1000x (pode citar a versão Shift), não de outro modelo',
+      'não diz que não encontrou o preço',
+    ],
+    checagens: [
+      { nome: 'traz um preço em reais', ok: (r) => /R\$\s?\d/.test(r) },
+      { nome: 'não diz que não achou o preço', ok: (r) => !/n[aã]o encontrei[^.]{0,60}pre[cç]o/i.test(r) },
+      ...checagensDaResposta(),
+    ],
+  },
+  {
     id: 'celular-gamer',
     tipo: 'produto',
     pedido: 'Qual o melhor celular gamer do mundo ?',

@@ -90,7 +90,8 @@ module.exports = [
       const md = fs.readFileSync(path.join(__dirname, '../../renderer/md.js'), 'utf8');
       return [
         ['rtx 60 series', 'rtx 6090', 'rtx60'].every((t) => re.test(normalizar(t))) && !['rtx 3060', '60 fps'].some((t) => re.test(normalizar(t))) || 'padrão do produto',
-        String(padraoDoProduto('RTX 5080')) === '/\\b5080\\b/' && padraoDoProduto('PS5') === null || 'número longo basta; sem linha, sem regra',
+        // 4/11: o prefixo pode vir colado ("rtx5080", "rm1000x"); o número sozinho continua valendo
+        ['5080', 'rtx 5080', 'rtx5080'].every((t) => padraoDoProduto('RTX 5080').test(t)) && !padraoDoProduto('RTX 5080').test('50800') && padraoDoProduto('PS5') === null || 'número longo basta; sem linha, sem regra',
         JSON.stringify(rtx) === '["rumor","RTX 60 vs 50"]' || `rtx: ${rtx}`,
         JSON.stringify(bufferbloat) === '["Bufferbloat","Redes"]' || `bufferbloat: ${bufferbloat}`,
         semEmbed.length === 2 || 'sem embeddings não corta',
