@@ -322,6 +322,16 @@ function semBlocoDePensamento(texto) {
 let pensarPadrao = null;
 
 /*
+ * O campo `think` de cada modelo (8/11, gpt-oss:20b na RTX 5070 Ti): o gpt-oss IGNORA think: false (medido:
+ * 408 caracteres de raciocínio do mesmo jeito) e só aceita o nível — "low" pensa ~40. Desligar = "low" nele.
+ */
+function campoThink(model, valor) {
+  if (valor === null || valor === undefined) return {};
+  if (/gpt-oss/i.test(String(model || ''))) return { think: valor === false ? 'low' : valor === true ? 'medium' : valor };
+  return { think: valor };
+}
+
+/*
  * Camadas na placa por servidor e modelo (calibracao-gpu.js, 19/10): TODA chamada a um modelo
  * calibrado manda o mesmo num_gpu (outro valor faria o Ollama recarregar o modelo). Se a placa
  * ficar sem memória (um jogo aberto, outro modelo carregado), o ajuste sai e a chamada é
@@ -416,7 +426,7 @@ async function chat({
     keep_alive: manterVivo,
     ...(formato ? { format: formato } : {}),
     ...(Array.isArray(tools) && tools.length ? { tools } : {}),
-    ...(pensar === undefined ? (pensarPadrao === null ? {} : { think: pensarPadrao }) : { think: pensar }),
+    ...campoThink(model, pensar === undefined ? pensarPadrao : pensar),
     options: {
       temperature,
       num_ctx: numCtx,
@@ -507,7 +517,7 @@ async function chatStreamUmaVez({
       keep_alive: manterVivo,
       // 10/10 (SR-71 com qwen3.5:9b): sem `think: false` o modelo que pensa
       // gastava os 3.072 tokens da redação raciocinando e a resposta saía vazia
-      ...(pensar === undefined ? (pensarPadrao === null ? {} : { think: pensarPadrao }) : { think: pensar }),
+      ...campoThink(model, pensar === undefined ? pensarPadrao : pensar),
       options: { temperature, num_ctx: contextoSemRecarga(host, model, numCtx), num_predict: numPredict, ...(numGpu === undefined ? {} : { num_gpu: numGpu }) },
     }),
     signal,
@@ -645,6 +655,7 @@ async function decidir({ host = DEFAULT_HOST, model, state, questions, keepAlive
 }
 
 module.exports = {
+  campoThink,
   contextoSemRecarga,
   sistemaNoInicio,
   DEFAULT_HOST, health, listModels, psModels, unloadModel, embed, pullModel, suportaEsquema, semBlocoDePensamento, definirPensarPadrao,
