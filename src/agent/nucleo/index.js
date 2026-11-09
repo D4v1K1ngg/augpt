@@ -184,7 +184,9 @@ const conversaPeloCodigo = (pergunta) => {
   return CONVERSA.test(t) && ehConversa(t, {}) && !NOME_DE_MODELO.test(t) && !PALAVRA_DE_COMPRA.test(t);
 };
 // explicação de conceito estável (5/11): "como funciona um SSD?", "o que é uma tela AMOLED?", "por que o céu é azul?"
-const EXPLICACAO = /^(?:e\s+|mas\s+|me\s+)?(?:como\s+funciona[m]?|como\s+[eé]\s+que\s+funciona|o\s+que\s+(?:[eé]|s[aã]o|significa)|pra\s+que\s+serve|para\s+que\s+serve[m]?|por\s*qu[eê]|qual\s+a\s+diferen[cç]a\s+entre|explica|explique|me\s+explica|como\s+(?:um|uma|o|a|os|as)\s+[^?]{2,40}?\s+(?:funciona[m]?|(?:[eé]|s[aã]o)\s+(?:feit|fabricad|produzid|formad)[oa]s?))(?![a-zà-ú])/i;
+// 9/11 (régua): "Eu queria saber como funciona exatamente um processador?" não era explicação — virou conversa
+// (4 frases, "trilhões de transistores") — o pedido pode vir depois de "eu queria saber", "você sabe", "me diz"
+const EXPLICACAO = /^(?:(?:oi|ol[aá]|bom dia|boa tarde|boa noite|ei|jarvis)[,!.\s]+)?(?:(?:eu\s+)?(?:queria|quero|gostaria\s+de|preciso)\s+(?:saber|entender|aprender)\s+|(?:voc[eê]|vc)\s+(?:sabe|pode\s+(?:me\s+)?(?:explicar|dizer))\s+|me\s+(?:diz|diga|conta|conte|fala|fale)\s+|sabe\s+)?(?:e\s+|mas\s+|me\s+)?(?:como\s+(?:exatamente\s+)?funciona[m]?|como\s+[eé]\s+que\s+funciona|o\s+que\s+(?:[eé]|s[aã]o|significa)|pra\s+que\s+serve|para\s+que\s+serve[m]?|por\s*qu[eê]|qual\s+a\s+diferen[cç]a\s+entre|explica|explique|me\s+explica|como\s+(?:um|uma|o|a|os|as)\s+[^?]{2,40}?\s+(?:funciona[m]?|(?:[eé]|s[aã]o)\s+(?:feit|fabricad|produzid|formad)[oa]s?))(?![a-zà-ú])/i;
 const TIPO_DE_PRODUTO = /(?<![a-zà-ú])(fones?|headsets?|mouses?|teclados?|monitor(es)?|placas? de (v[ií]deo|som|rede)|celular(es)?|smartphones?|notebooks?|tablets?|consoles?|carros?|motos?|t[eê]nis|c[aâ]meras?|rel[oó]gios?|smartwatch|caixas? de som|cadeiras?|apps?|aplicativos?|sites?|empresas?|marcas?|filmes?|s[eé]ries?|animes?|livros?|bandas?|cantor(a|es)?|jogos?|games?|modelos?|vers[aã]o|lan[cç]amento)(?![a-zà-ú])/i;
 function explicacaoEstavel(pergunta, j = {}, comImagem = false) {
   const t = String(pergunta || '').trim();

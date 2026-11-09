@@ -119,7 +119,8 @@ module.exports = [
     tipo: 'unidade',
     executar() {
       const modeloQuerBuscar = JSON.stringify({ precisa_buscar: true, muda_com_o_tempo: true, produto: false });
-      const sem = ['Como funciona o wifi ?', 'Por que o céu é azul?', 'Qual a diferença entre SSD e HD?', 'O que é fotossíntese?', 'me explica como funciona um alto falante'];
+      // 9/11: o pedido também vem depois de "eu queria saber", "você sabe", "me diz", "oi," (o processador virou conversa)
+      const sem = ['Como funciona o wifi ?', 'Por que o céu é azul?', 'Qual a diferença entre SSD e HD?', 'O que é fotossíntese?', 'me explica como funciona um alto falante', 'Eu queria saber como funciona exatamente um processador ?', 'você sabe como funciona um ssd?', 'me diz o que é inflação', 'oi, como funciona o wifi?'];
       const com = ['como funciona a RTX 5070 Ti?', 'o que é o DLSS 4?', 'como funciona o wifi 7 hoje?', 'o que é o Pix Automático lançado em 2025?', 'pesquise como funciona um ssd', 'Me conte quem foi nicola tesla', 'o que é isso https://exemplo.com'];
       const errados = [
         ...sem.filter((q) => nucleo.lerEntendimento(modeloQuerBuscar, q).precisaBuscar).map((q) => `pesquisou: ${q}`),
