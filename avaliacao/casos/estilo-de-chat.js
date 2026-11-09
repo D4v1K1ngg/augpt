@@ -32,3 +32,23 @@ module.exports = [
     },
   },
 ];
+
+module.exports.push({
+  nome: 'aparência (9/11): "> 💡 Dica" vira caixa dourada e "> ⚠️ Atenção" caixa âmbar; "### 💡 Dica:" + parágrafo também vira caixa; tabela dentro de uma caixa que rola; "99Freelas" não ganha ⚠; o "Au" também na conversa reaberta',
+  tipo: 'unidade',
+  executar() {
+    global.window = global;
+    delete require.cache[require.resolve('../../renderer/md.js')];
+    require('../../renderer/md.js');
+    const html = global.md.render('Resposta.\n\n### 💡 Dica:\nUse o SSD para o sistema.\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n> ⚠️ **Atenção:** cuidado.\n\n> 💡 **Dica:** outra.');
+    const fatos = nucleo.conferirFatos('Cadastre-se no 99Freelas e cobre 45 reais.', { material: 'x' }).texto;
+    const css = fs.readFileSync(path.join(__dirname, '../../renderer/tema.css'), 'utf8');
+    return [
+      /<blockquote><p>💡 <strong>Dica:<\/strong> Use o SSD para o sistema\.<\/p><\/blockquote>/.test(html) || 'dica-título vira caixa',
+      /<div class="tabela-resposta"><table>[\s\S]*<\/table><\/div>/.test(html) || 'tabela na caixa que rola',
+      /<blockquote class="aviso">\s*<p>⚠️/.test(html) && /<blockquote>\s*<p>💡 <strong>Dica:<\/strong> outra/.test(html) || 'aviso âmbar e dica dourada',
+      /99Freelas e cobre 45 ⚠/.test(fatos) || fatos,
+      /\.msg\.ia \.msg-quem::before \{/.test(css) && !/\.msg\.ia\.turno \.msg-quem::before/.test(css) || 'o Au também na conversa reaberta',
+    ];
+  },
+});

@@ -82,7 +82,7 @@ html, body { font-size: 14px; line-height: 1.6; }
 .marca { align-items: center; gap: 10px; padding: 2px 4px 4px; letter-spacing: 0; }
 .marca b { font: 600 17px/1 var(--serif); color: var(--text-forte); letter-spacing: -.01em; }
 .marca-sub { margin-left: auto; padding: 0; border: 0; font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--muted); }
-.msg.ia.turno .msg-quem::before {
+.msg.ia .msg-quem::before {
   content: "Au"; display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 9px; vertical-align: middle;
   border-radius: 6px; background: var(--ingot); color: var(--on-gold); font: 600 11px/1 var(--serif); letter-spacing: 0; text-transform: none;
   box-shadow: 0 1px 0 rgba(255, 255, 255, .35) inset;
@@ -631,3 +631,33 @@ body.com-boas-vindas { overflow: hidden; }
 /* arrastando arquivos para a conversa */
 .conversa.soltando { outline: 2px dashed var(--accent, #c9962b); outline-offset: -10px; border-radius: 14px; }
 .modo-mini .anexos-da-mensagem .anexo-img.grande { max-width: 100%; max-height: 200px; }
+
+/* Respostas mais escaneáveis (9/11, pedido do Davi: "liberdade criativa para melhorar a aparência do chat"):
+   títulos com hierarquia, a resposta direta em destaque, caixas de dica e de aviso, tabela legível e o "Au" também
+   nas conversas reabertas (a regra acima valia só para .turno, e a conversa reaberta perdia o rosto). */
+.msg.ia .msg-corpo { line-height: 1.7; }
+.msg.ia .msg-corpo > h2, .msg.ia .msg-corpo > h3 { font: 600 19px/1.3 var(--serif); color: var(--text-forte); margin: 30px 0 12px; padding-bottom: 7px; border-bottom: 1px solid color-mix(in srgb, var(--gold) 34%, transparent); }
+.msg.ia .msg-corpo > h4 { font-size: 16px; font-weight: 650; line-height: 1.35; color: var(--text-forte); margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid color-mix(in srgb, var(--gold) 26%, transparent); }
+.msg.ia .msg-corpo > :is(h2, h3, h4):first-child { margin-top: 4px; }
+/* o markdown desce um nível ("##" vira h3, "###" vira h4); o h4 dos cartões de produto fica dentro do cartão */
+/* a resposta direta: o primeiro parágrafo, com a barra dourada */
+.msg.ia .msg-corpo > p:first-child:not(:has(img, .cartao-imagens)),
+.msg.ia .msg-corpo > :is(h3, h4):first-child + p:not(:has(img)) { font-size: 15px; line-height: 1.65; color: var(--text-forte); padding: 2px 0 2px 14px; border-left: 3px solid var(--gold); }
+/* caixas de destaque: "> 💡 Dica" (dourada) e "> ⚠️ Atenção" (âmbar) */
+.msg.ia .msg-corpo blockquote { margin: 16px 0; padding: 11px 15px; border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); border-left: 4px solid var(--gold); border-radius: 4px 12px 12px 4px; background: color-mix(in srgb, var(--gold) 9%, transparent); color: var(--text); }
+.msg.ia .msg-corpo blockquote.aviso { border-color: rgba(214, 120, 40, .4); border-left-color: #d6782a; background: rgba(214, 120, 40, .1); }
+.msg.ia .msg-corpo blockquote p { margin: 0; }
+.msg.ia .msg-corpo blockquote p + p { margin-top: 6px; }
+/* tabela: sem quebrar palavra no meio ("Flexibilid/ade"), cantos redondos, linhas alternadas, a 1ª coluna em destaque */
+.msg.ia .msg-corpo table { border-collapse: separate; border-spacing: 0; border: 1px solid var(--line-forte); border-radius: 12px; margin: 14px 0 18px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.msg.ia .msg-corpo th, .msg.ia .msg-corpo td { overflow-wrap: normal; word-break: normal; min-width: 92px; vertical-align: top; border: 0; border-bottom: 1px solid var(--line); padding: 9px 13px; }
+.msg.ia .msg-corpo th { background: var(--panel-2); color: var(--text-forte); font-weight: 600; font-size: 12.5px; }
+.msg.ia .msg-corpo tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--panel-2) 50%, transparent); }
+.msg.ia .msg-corpo tbody tr:last-child td { border-bottom: 0; }
+.msg.ia .msg-corpo td:first-child { font-weight: 600; color: var(--text-forte); }
+.msg.ia .msg-corpo thead th:first-child { border-top-left-radius: 11px; }
+.msg.ia .msg-corpo thead th:last-child { border-top-right-radius: 11px; }
+.msg.ia .msg-corpo hr { border: 0; border-top: 1px solid var(--line); margin: 22px 0; }
+/* a tabela dentro de uma caixa que rola: a tabela ocupa a largura toda (o display:block antigo deixava sobra à direita) */
+.msg.ia .msg-corpo .tabela-resposta { overflow-x: auto; margin: 14px 0 18px; border: 1px solid var(--line-forte); border-radius: 12px; }
+.msg.ia .msg-corpo .tabela-resposta table { display: table; width: 100%; margin: 0; border: 0; border-radius: 0; }

@@ -291,7 +291,14 @@
 
     return blocoDeFontes(saida
       .join('\n')
-      .replace(/\u0000BLOCO(\d+)\u0000/g, (_, i) => blocos[Number(i)]));
+      .replace(/\u0000BLOCO(\d+)\u0000/g, (_, i) => blocos[Number(i)]))
+      // caixas de destaque (9/11): a citação que começa com ⚠️ / "Atenção" / "Cuidado" é aviso (âmbar); as outras, dica (dourada)
+      .replace(/<blockquote>(\s*<p>\s*(?:⚠|<strong>\s*(?:⚠|Aten[cç][aã]o|Cuidado|Importante|Warning|Caution)))/g, '<blockquote class="aviso">$1')
+      // "### 💡 Dica:" + parágrafo (o modelo às vezes escreve a dica como título): vira a caixa também
+      .replace(/<h[34]>\s*(💡\s*)?(Dica|Tip)\s*:?\s*<\/h[34]>\n<p>([\s\S]*?)<\/p>/g, (m, emoji, rotulo, texto) => `<blockquote><p>💡 <strong>${rotulo}:</strong> ${texto}</p></blockquote>`)
+      // a tabela rola sozinha quando não cabe (janela estreita, mini AuGPT) e ocupa a largura toda quando cabe
+      .replace(/<table>/g, '<div class="tabela-resposta"><table>')
+      .replace(/<\/table>/g, '</table></div>');
   }
 
   /**

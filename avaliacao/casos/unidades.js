@@ -29,6 +29,8 @@ function carregarMd() {
 const TAGS_PERMITIDAS = new Set([
   'p', 'h2', 'h3', 'h4', 'h5', 'ul', 'ol', 'li', 'strong', 'em', 'del', 'code', 'pre',
   'blockquote', 'hr', 'a', 'span', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+  // 9/11: <div class="tabela-resposta"> em volta de cada tabela — gerado pelo md.js, nunca a partir do texto
+  'div',
 ]);
 
 module.exports = [

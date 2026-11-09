@@ -1129,7 +1129,8 @@ const semParagrafosDeAnuncio = (t) => String(t).split(/\n{2,}/).filter((p) => !P
 const ESTILO_DE_ASSISTENTE = `- Organize para ler fácil, como os bons assistentes de chat: quando o assunto tem partes, seções curtas com ### (o título pode começar com um emoji que combine, ex.: "### 📡 As frequências"), tópicos para itens, **negrito** nos termos-chave, parágrafos de 2 a 4 linhas. Tabela quando comparar coisas.
 - Emojis com moderação: de 2 a 5 na resposta inteira, nos títulos ou em destaques — nunca um por frase. Nenhum em assunto sério (doença grave, morte, tragédia, problema jurídico ou dinheiro perdido).
 - Tom próximo e simpático, de quem gosta de explicar; trate o usuário por "você".
-- Feche com algo que acrescente — uma dica prática ou uma curiosidade, em 1 ou 2 frases —, sem repetir o começo.`;
+- Não comece com título: o primeiro parágrafo é a resposta direta, em 1 a 3 frases curtas — os títulos vêm depois, nas seções do detalhe.
+- Feche com algo que acrescente — uma dica prática ou uma curiosidade, em 1 ou 2 frases —, sem repetir o começo. Escreva a dica como citação, que vira uma caixa de destaque: "> 💡 **Dica:** …". Um cuidado importante também pode ir numa: "> ⚠️ **Atenção:** …".`;
 
 const EXPLICACAO_DE_PESSOA = `Agora é uma EXPLICAÇÃO, sem pesquisa: responda com o que você sabe, como alguém que entende do assunto explicaria para um amigo curioso.
 - Comece pela ideia central em uma ou duas frases simples, sem rodeio ("Um SSD guarda os dados em chips de memória, sem nenhuma peça girando").
@@ -1371,6 +1372,7 @@ function conferirFatos(texto, { material = '', extra = '', semNumeros = false } 
         const depois = str.slice(offset + m.length, offset + m.length + 3);
         if (semNumeros) return m; // prova de exatas: os números são as contas, não fatos com fonte
         if (/[\d\p{L}.\u2063]$/u.test(antes) || /^[\d.\u2063]/.test(depois) || /^\s?⚠/.test(depois)) return m; // pedaço de nome ("RTX5080"), de versão ou já marcado
+        if (!_unidade && /^\p{L}/u.test(depois)) return m; // nome que começa com número ("99Freelas", 9/11: virava "99 ⚠Freelas")
         if (/(R\$|US\$|U\$|€|£)\s?$/.test(antes)) return m; // preço: conferirResposta cuida
         if (pct && /^(0|100)$/.test(valor)) return m;
         // número de modelo logo depois do nome ("Ryzen 5000", "RTX 4090", "Windows 11")
