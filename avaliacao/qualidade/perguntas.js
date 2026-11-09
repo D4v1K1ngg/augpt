@@ -57,7 +57,9 @@ module.exports = [
       'é um avião de reconhecimento estratégico',
       'foi fabricado pela Lockheed (divisão Skunk Works)',
       'voava acima de Mach 3',
-      'o primeiro voo foi em 1964',
+      // 9/11: três modelos levaram "contradito" por citar o A-12 (o antecessor, que voou em 1962) ou o início das
+      // operações (1966) — o que é verdade e não contradiz o primeiro voo do SR-71
+      'o primeiro voo do SR-71 foi em 1964 (citar o A-12, que voou em 1962, ou o início das operações, em 1966, não contradiz isso)',
       'operava a altitudes muito altas, em torno de 25 km (85 mil pés)',
       'foi usado pela Força Aérea dos Estados Unidos',
     ],
