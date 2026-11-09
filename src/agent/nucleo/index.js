@@ -1120,12 +1120,24 @@ const PARAGRAFO_DE_ANUNCIO = /^(?:aqui (?:est[áa]|est[ãa]o|vai|v[ãa]o)\s+(?:u
 const semParagrafosDeAnuncio = (t) => String(t).split(/\n{2,}/).filter((p) => !PARAGRAFO_DE_ANUNCIO.test(p.trim()) || /\d|\*\*|\[/.test(p)).join('\n\n');
 
 // 5/11: explicação de conceito estável, de memória — como uma pessoa que entende do assunto explicaria
-const EXPLICACAO_DE_PESSOA = `Agora é uma EXPLICAÇÃO, sem pesquisa: responda com o que você sabe, como uma pessoa que entende do assunto explicaria para um amigo curioso.
+/*
+ * O estilo dos bons assistentes de chat (9/11, pedido do Davi: "no chat do Ollama eles respondem mais, usam emojis,
+ * parecido com o ChatGPT e o Gemini"). Comparado lado a lado: o modelo puro organizava a explicação em seções, tópicos e
+ * negrito; o AuGPT entregava um bloco corrido (a regra "sem título, lista só se forem passos" de 5/11). Vale para a
+ * explicação de memória e para a resposta com fontes.
+ */
+const ESTILO_DE_ASSISTENTE = `- Organize para ler fácil, como os bons assistentes de chat: quando o assunto tem partes, seções curtas com ### (o título pode começar com um emoji que combine, ex.: "### 📡 As frequências"), tópicos para itens, **negrito** nos termos-chave, parágrafos de 2 a 4 linhas. Tabela quando comparar coisas.
+- Emojis com moderação: de 2 a 5 na resposta inteira, nos títulos ou em destaques — nunca um por frase. Nenhum em assunto sério (doença grave, morte, tragédia, problema jurídico ou dinheiro perdido).
+- Tom próximo e simpático, de quem gosta de explicar; trate o usuário por "você".
+- Feche com algo que acrescente — uma dica prática ou uma curiosidade, em 1 ou 2 frases —, sem repetir o começo.`;
+
+const EXPLICACAO_DE_PESSOA = `Agora é uma EXPLICAÇÃO, sem pesquisa: responda com o que você sabe, como alguém que entende do assunto explicaria para um amigo curioso.
 - Comece pela ideia central em uma ou duas frases simples, sem rodeio ("Um SSD guarda os dados em chips de memória, sem nenhuma peça girando").
 - Depois explique o MECANISMO: as partes e as etapas de como aquilo funciona, com os termos técnicos que a pessoa vai encontrar por aí (cada um explicado entre parênteses na hora em que aparece — ex.: "horizonte de eventos (o limite de onde nada volta)"). Uma comparação do dia a dia ajuda.
-- De 3 a 5 parágrafos curtos e conversados. Um parágrafo só é pouco: quem pergunta "como funciona" quer entender o porquê, não só a definição.
-- Sem título no topo. Lista só se forem passos ou itens de verdade; tabela só se for comparação. Nada de cara de relatório.
-- Não termine com pergunta ao usuário nem com comentário como "é fascinante, não acha?": termine na explicação.
+- Uma pergunta simples pede uma resposta média, de umas 3 ou 4 seções curtas — não um artigo, e não um parágrafo só.
+${ESTILO_DE_ASSISTENTE}
+- Não termine com pergunta ao usuário nem com comentário vazio como "é fascinante, não acha?".
+- Não fale do AuGPT nem do que ele sabe fazer: é uma explicação, não uma oferta.
 - Não invente números, datas, nomes de modelos nem estatísticas: o que você não tem certeza, deixe de fora ou diga que pode variar.
 - Não cite fontes nem diga que pesquisou.`;
 
@@ -1135,7 +1147,7 @@ function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal
 ${
   conversa
     ? `Agora é uma CONVERSA: o usuário quer falar com você, não um relatório.
-- Responda como numa conversa entre amigos: natural, caloroso e direto, em 2 a 5 frases (mais só se ele pedir). Sem títulos, sem listas e sem tabelas.
+- Responda como numa conversa entre amigos: natural, caloroso e direto, em 2 a 5 frases (mais só se ele pedir). Sem títulos, sem listas e sem tabelas. Um ou dois emojis combinam com conversa, quando o assunto não é sério.
 - Quando ele pedir sua opinião, dê a sua, com o porquê. Quando ele contar como se sente, acolha primeiro e só depois sugira algo.
 - Pode terminar com uma pergunta para continuar a conversa, quando fizer sentido.
 - Fale do assunto dele: não traga a data de hoje, o computador dele nem o que o AuGPT sabe fazer, se ele não perguntou.
@@ -1145,7 +1157,8 @@ ${
     : comFontes
     ? `Responda à pergunta do usuário usando as fontes abaixo.
 - Respeite exatamente as condições do pedido (plataforma, tipo de produto, orçamento, quantidade de opções). Fonte que trata de outra coisa (outra plataforma, outro tipo de produto) não serve de base para a recomendação.
-- Comece respondendo diretamente à pergunta: a primeira frase já é a resposta. Depois desenvolva, com seções (##) só quando o assunto pedir.
+- Comece respondendo diretamente à pergunta: a primeira frase já é a resposta. Depois desenvolva.
+${produto ? '' : ESTILO_DE_ASSISTENTE /* produto tem o formato próprio, dos cartões "#### N." — com o estilo, os cartões viravam "### 🎧 1." (9/11) */}
 ${SEM_ANUNCIO_NEM_REPETICAO}
 - Não comece com a data ("Hoje é…"), com "Com base nas fontes…", "Como o AuGPT…" nem com título de relatório ("# Relatório…"). Sem título no topo de resposta curta.
 - Explique os termos técnicos para quem não é especialista.
@@ -1674,7 +1687,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   emit('redigindo', { fontes: usadas.length });
   const preferencias = typeof deps.preferencias === 'function' ? String((await Promise.resolve(deps.preferencias(ent.pergunta || pergunta)).catch(() => '')) || '') : '';
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length, explicacao: ent.explicacao === true && !usadas.length })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa || ent.explicacao ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length, explicacao: ent.explicacao === true && !usadas.length })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
     // 30/10 (medido: ~5 s entre o fim da pesquisa e a 1ª palavra era o modelo lendo o material): das respostas
     // anteriores vai só o começo, sem a lista de fontes — o assunto da conversa fica, o texto inteiro não precisa
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
