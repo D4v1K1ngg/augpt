@@ -290,7 +290,9 @@ function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     const explicacao = explicacaoEstavel(pergunta, j, comImagem);
     // e não é conversa: o 9B marca "conversa" em "o que é um buraco negro?", e o modo conversa (2 a 5 frases,
     // terminando com pergunta) tirava a explicação — o buraco negro saiu sem o horizonte de eventos
-    const conversa = !explicacao && !comImagem && (ehConversa(pergunta, j) || soCumprimento(pergunta));
+    // e pedido com forma de explicação nunca é conversa (9/11: "me explique a relatividade de Albert Einstein" — o
+    // nome próprio barrou a explicação de memória e o modo conversa respondeu com 4 frases): ou explicação, ou pesquisa
+    const conversa = !explicacao && !EXPLICACAO.test(String(pergunta || '').trim()) && !comImagem && (ehConversa(pergunta, j) || soCumprimento(pergunta));
     const semBusca = explicacao || exatas || conversa || soCumprimento(pergunta) || SOBRE_MIM.test(String(pergunta || '')) || SOBRE_O_AUGPT.test(String(pergunta || '')) || CONTA_DIRETA.test(String(pergunta || '')) || (comImagem && (soSobreAImagem(pergunta) || (pedeATela(pergunta) && !PEDE_SOLUCAO.test(String(pergunta || '')))));
     // (vale antes do "sem busca": "Lei nº 8.906/94" tem "906/94", que a regra de exatas lê como conta)
     const precisaBuscar = provaDeDireito || (!semBusca && (j.precisa_buscar !== false || j.produto === true || (!comImagem && !podeFicarSemBusca(pergunta))));

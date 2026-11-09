@@ -126,6 +126,8 @@ module.exports = [
         ...sem.filter((q) => nucleo.lerEntendimento(modeloQuerBuscar, q).precisaBuscar).map((q) => `pesquisou: ${q}`),
         ...com.filter((q) => !nucleo.lerEntendimento(modeloQuerBuscar, q).precisaBuscar).map((q) => `não pesquisou: ${q}`),
         ...(nucleo.lerEntendimento(JSON.stringify({ produto: true }), 'o que é a melhor placa de vídeo até 3 mil?').precisaBuscar ? [] : ['produto sem busca']),
+        // 9/11: pedido com forma de explicação nunca vira conversa — com nome próprio, pesquisa
+        ...['Me explique como que funciona a teoria da relatividade de Albert Einstein', 'Me explique como funciona o fone Dunu Titan S'].filter((q) => { const e = nucleo.lerEntendimento(JSON.stringify({ precisa_buscar: false, conversa: true }), q); return e.conversa || !e.precisaBuscar; }).map((q) => `virou conversa: ${q}`),
       ];
       const indice = ler('src/agent/nucleo/index.js');
       return [
