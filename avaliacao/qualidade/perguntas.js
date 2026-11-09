@@ -661,13 +661,19 @@ module.exports = [
     id: 'midterms-2026',
     tipo: 'fato',
     pedido: 'Quem sera que vai ganhar as eleições de meio de ano nos EUA ? os republicanos ou os democratas ?',
+    // 9/11: a eleição foi em 3/11/2026 — a pergunta no futuro pede o resultado, não a previsão (antes de 3/11 os
+    // critérios eram "pesquisas recentes" e "não afirma vencedor"; o gpt-oss:20b leu G1 e BBC e deu o resultado)
     criterios: [
-      'diz que são as eleições de meio de mandato (midterms) de novembro de 2026',
-      'diz o que está em disputa (a Câmara inteira e parte do Senado)',
-      'traz o que as pesquisas recentes indicam, com a fonte',
-      'não afirma um vencedor como certo',
+      'percebe que as eleições de meio de mandato de novembro de 2026 já aconteceram e responde com o resultado, não com previsão',
+      'diz quem ficou com a Câmara e quem ficou com o Senado, citando as fontes',
+      'os números de cadeiras são coerentes (a Câmara tem 435 cadeiras e o Senado 100) ou ficam de fora se as fontes não trazem',
+      'deixa claro se a contagem ainda é parcial ou projeção',
     ],
-    checagens: [...checagensDaResposta()],
+    checagens: [
+      // "237 assentos … 139 assentos" (gpt-oss, 8/11): placar da Câmara que não fecha
+      { nome: 'placar da Câmara não passa de 435', ok: (r) => [...String(r).matchAll(/(\d{2,3})\s+(?:assentos|cadeiras)/g)].map((m) => Number(m[1])).every((n) => n <= 435) },
+      ...checagensDaResposta(),
+    ],
   },
   {
     id: 'amoled',
