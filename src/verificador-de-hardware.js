@@ -106,6 +106,10 @@ const MODELOS = {
   '4b': { nome: 'qwen3.5:4b', rotulo: 'Qwen3.5 4B', downloadGB: 3.3, precisaVramGB: 4.5 },
   '2b': { nome: 'qwen3.5:2b', rotulo: 'Qwen3.5 2B', downloadGB: 2.7, precisaVramGB: 3 },
   '0.8b': { nome: 'qwen3.5:0.8b', rotulo: 'Qwen3.5 0.8B', downloadGB: 1.2, precisaVramGB: 1.5 },
+  // 9/11, medidos na régua com uma RTX 5070 Ti (16 GB), 32 perguntas: o 9B teve a melhor nota (9,6); estes dois são
+  // as alternativas para placas de 16 GB — o Ministral 3 14B, o Qwen 3.8 27B e o qwen3.5:35b-a3b não compensaram
+  gemma4: { nome: 'gemma4:26b-a4b-it-qat', rotulo: 'Gemma 4 26B', downloadGB: 15.6, precisaVramGB: 15, motivo: 'alternativa para placas de 16 GB: escreve mais rápido e com mais fluidez, com nota quase igual à do 9B nos testes' },
+  gptoss: { nome: 'gpt-oss:20b', rotulo: 'gpt-oss 20B', downloadGB: 14, precisaVramGB: 14, motivo: 'alternativa para placas de 16 GB: o mais rápido de todos, mas erra mais fatos que o 9B nos testes' },
 };
 const EMBEDDING = { nome: 'nomic-embed-text', rotulo: 'Nomic Embed Text', downloadGB: 0.3, motivo: 'escolhe os melhores trechos das páginas lidas (obrigatório, leve)' };
 
@@ -128,6 +132,7 @@ function recomendarModelos({ vramGB = 0, ramTotalGB = 0, discoLivreGB = null, gp
   if (antiga && vramGB >= 4.5) [chave, motivo] = ['4b', `sua placa AMD tem ${vramGB} GB, mas é de uma geração antiga (sem ROCm): o Ollama usa o Vulkan dela, mais devagar — o 4B é o equilíbrio entre qualidade e velocidade`];
   else if (antiga) [chave, motivo] = ['2b', `sua placa AMD tem ${vramGB} GB e é de uma geração antiga: o 2B (2,6 GB) cabe nela e roda pelo Vulkan`];
   else if (vramGB >= 20) [chave, motivo] = ['27b', `sua placa tem ${vramGB} GB: cabe o modelo grande, o de melhor qualidade`];
+  else if (vramGB >= 14) [chave, motivo] = ['9b', `sua placa tem ${vramGB} GB: o 9B teve a melhor nota nos testes e sobra memória para a voz e as imagens — o Gemma 4 26B e o gpt-oss 20B são alternativas mais rápidas`];
   else if (vramGB >= 7.5) [chave, motivo] = ['9b', `sua placa tem ${vramGB} GB: o 9B cabe inteiro nela — é o que o AuGPT foi ajustado e medido`];
   else if (vramGB >= 4.5) [chave, motivo] = ['4b', `sua placa tem ${vramGB} GB: o 4B cabe inteiro; o 9B ficaria lento`];
   // 17/10, medido: o 2B ocupa 2,6 GB na placa e teve a mesma nota do 4B (9,5) na metade do tempo
@@ -135,7 +140,8 @@ function recomendarModelos({ vramGB = 0, ramTotalGB = 0, discoLivreGB = null, gp
   else if (ramTotalGB >= 8) [chave, motivo] = ['2b', `sem placa de vídeo com memória suficiente: roda no processador, usando a RAM (${ramTotalGB} GB); o 2B é o mais indicado aí — nos testes teve a mesma nota do 4B na metade do tempo`];
   else [chave, motivo] = ['0.8b', `memória muito limitada (${ramTotalGB} GB): só o menor modelo roda, com qualidade baixa`];
   const principal = { ...MODELOS[chave], motivo };
-  const ordem = ['27b', '9b', '4b', '2b', '0.8b'];
+  // as alternativas de 16 GB só aparecem para quem tem placa para elas
+  const ordem = ['27b', '9b', ...(vramGB >= 14 && !antiga ? ['gemma4', 'gptoss'] : []), '4b', '2b', '0.8b'];
   const alternativas = ordem.filter((k) => k !== chave).map((k) => ({ ...MODELOS[k], cabe: vramGB >= MODELOS[k].precisaVramGB || (!vramGB && ramTotalGB >= MODELOS[k].precisaVramGB * 2) }));
   const avisos = [];
   const total = principal.downloadGB + EMBEDDING.downloadGB;

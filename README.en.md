@@ -161,6 +161,7 @@ Everything below also appears in the **Utilities** tab, with a button for each f
 | no dedicated GPU, or under 4.5 GB | `qwen3.5:2b` | Works, but makes more mistakes and each search takes minutes |
 | 4.5 to 7 GB (or an older AMD, like the RX 580) | `qwen3.5:4b` | Good for everyday use |
 | 8 to 16 GB | `qwen3.5:9b` | ⭐ Recommended: far fewer mistakes than the 4B |
+| 16 GB, if you want more speed | `gemma4:26b-a4b-it-qat` or `gpt-oss:20b` | Alternatives tested on an RTX 5070 Ti: Gemma writes faster with almost the same score; gpt-oss is the fastest but gets more facts wrong |
 | 20 GB or more | `qwen3.5:27b` | Better answers, slower |
 
 ## 📦 Installation

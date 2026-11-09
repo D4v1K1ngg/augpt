@@ -169,6 +169,7 @@ Tudo isto também aparece na aba **Utilitários**, com um botão para usar cada 
 | sem placa dedicada, ou menos de 4,5 GB | `qwen3.5:2b` | Funciona, mas erra mais e cada pesquisa leva minutos |
 | 4,5 a 7 GB (ou AMD antiga, como a RX 580) | `qwen3.5:4b` | Bom para o dia a dia |
 | 8 a 16 GB | `qwen3.5:9b` | ⭐ O recomendado: erra bem menos que o 4B |
+| 16 GB, se quiser mais velocidade | `gemma4:26b-a4b-it-qat` ou `gpt-oss:20b` | Alternativas testadas numa RTX 5070 Ti: o Gemma escreve mais rápido com nota quase igual; o gpt-oss é o mais rápido, mas erra mais fatos |
 | 20 GB ou mais | `qwen3.5:27b` | Respostas melhores, mais lento |
 
 Os modelos Qwen 3.5 também enxergam imagens (fotos e prints anexados).

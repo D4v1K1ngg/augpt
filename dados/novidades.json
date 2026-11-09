@@ -1,5 +1,29 @@
 [
   {
+    "versao": "0.43.0",
+    "data": "2026-11-09",
+    "pt": {
+      "titulo": "Cole arquivos e prints no AuGPT, anexos como no chat, e novos modelos para placas de 16 GB",
+      "itens": [
+        "**Colar no AuGPT:** Ctrl+V com arquivos copiados no Explorador, com um print (Win+Shift+S) ou com uma imagem copiada do navegador — entram como anexos. Arrastar arquivos para a conversa também funciona. Texto colado continua indo para a caixa.",
+        "**Anexos como cartões:** imagem vira miniatura; arquivo vira um cartão com o tipo em cor (PDF, Word, planilha, áudio, código…), o nome e o tamanho. Na mensagem enviada, eles ficam acima do texto e abrem a prévia com um clique — também ao reabrir conversas antigas.",
+        "**Novos modelos para placas de 16 GB:** testamos 7 modelos em 32 perguntas numa RTX 5070 Ti. O qwen3.5:9b continua o recomendado (a melhor nota); o Gemma 4 26B (escreve mais rápido, nota quase igual) e o gpt-oss 20B (o mais rápido, erra mais fatos) aparecem como alternativas na escolha de modelo.",
+        "**gpt-oss mais rápido:** ele ignorava o pedido para não raciocinar antes de responder; agora o AuGPT pede o nível mínimo de raciocínio.",
+        "**Explicações reconhecidas em mais jeitos de perguntar:** \"eu queria saber como funciona…\", \"você sabe…\", \"me diz o que é…\" e \"oi, como funciona…\" saem como explicação, não como papo curto. E um pedido de explicação nunca vira bate-papo: com nome próprio (\"…a relatividade de Albert Einstein\"), ele pesquisa."
+      ]
+    },
+    "en": {
+      "titulo": "Paste files and screenshots into AuGPT, chat-style attachments, and new models for 16 GB cards",
+      "itens": [
+        "**Paste into AuGPT:** Ctrl+V with files copied in File Explorer, a screenshot (Win+Shift+S) or an image copied from the browser — they come in as attachments. Dragging files into the conversation works too. Pasted text still goes into the box.",
+        "**Attachments as cards:** an image becomes a thumbnail; a file becomes a card with its type in color (PDF, Word, spreadsheet, audio, code…), name and size. In the sent message they sit above the text and open the preview with a click — also when you reopen old conversations.",
+        "**New models for 16 GB cards:** we tested 7 models on 32 questions on an RTX 5070 Ti. qwen3.5:9b is still the recommendation (best score); Gemma 4 26B (writes faster, almost the same score) and gpt-oss 20B (the fastest, more factual mistakes) show up as alternatives in the model picker.",
+        "**Faster gpt-oss:** it ignored the request not to reason before answering; AuGPT now asks for the minimum reasoning level.",
+        "**Explanations recognized in more ways of asking:** \"I wanted to know how … works\", \"do you know…\", \"tell me what … is\" and \"hi, how does … work\" are answered as explanations, not short small talk. And an explanation request never becomes small talk: with a proper name (\"…Albert Einstein's relativity\"), it researches."
+      ]
+    }
+  },
+  {
     "versao": "0.42.0",
     "data": "2026-11-05",
     "pt": {
