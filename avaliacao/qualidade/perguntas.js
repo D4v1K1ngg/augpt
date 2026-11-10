@@ -739,6 +739,42 @@ module.exports = [
     ],
   },
   {
+    // 10/11 (teste do Davi entre 12 modelos): com o 9B, "sansung" (erro de digitação) virou o padrão do produto e TODAS as
+    // fontes saíram como "fora do assunto" — a resposta disse que os aparelhos "ainda não foram lançados"
+    id: 's26-ou-iphone18',
+    tipo: 'produto',
+    pedido: 'Qual é o melhor sansung s26 ultra ou iphone 18 pro max ?',
+    criterios: [
+      'compara o Samsung Galaxy S26 Ultra com o iPhone 18 Pro Max (os dois aparelhos, pelo nome)',
+      'traz diferenças concretas vindas das fontes (câmera, tela, bateria, desempenho ou preço)',
+      'diz qual escolher, ou para quem cada um é melhor',
+      'não diz que os aparelhos ainda não foram lançados nem que não encontrou informações',
+    ],
+    checagens: [
+      { nome: 'não diz que não foram lançados', ok: (r) => !/ainda n[aã]o (foram|foi) lan[cç]ad|n[aã]o encontrei nas buscas/i.test(r) },
+      { nome: 'cita os dois aparelhos', ok: (r) => /s26/i.test(r) && /iphone 18/i.test(r) },
+      ...checagensDaResposta(),
+    ],
+  },
+  {
+    // 10/11 (teste do Davi): dúvida de escolha ("24 ou 27 mil BTUs?") — o 9B marcou a ação "compras" e vieram 14 mil
+    // caracteres de cartões de preço, sem responder qual escolher
+    id: 'gree-btus',
+    tipo: 'produto',
+    pedido: 'Eu estou pensando eu comprar um ar condiciona da marca gree, porem não sei ao certo se pretendo comprar um de 24 ou 27 mil btus. Esse ar condicionado será usado na casa inteira',
+    criterios: [
+      'ajuda a escolher entre 24 mil e 27 mil BTUs (não é só uma lista de preços)',
+      'explica como dimensionar: área do ambiente, número de pessoas, sol ou regra de BTUs por metro quadrado',
+      'avisa que um aparelho só dificilmente climatiza a casa inteira (cômodos separados), ou pergunta/considera o tamanho da casa',
+      'fala de modelos ou linhas da Gree',
+    ],
+    checagens: [
+      { nome: 'não é só o cartão de preços', ok: (r) => !/: o menor preço agora é/.test(String(r).slice(0, 200)) },
+      { nome: 'fala de BTUs e de área', ok: (r) => /btu/i.test(r) && /(m²|metros? quadrad|área|ambiente|c[ôo]modo)/i.test(r) },
+      ...checagensDaResposta(),
+    ],
+  },
+  {
     id: 'celular-gamer',
     tipo: 'produto',
     pedido: 'Qual o melhor celular gamer do mundo ?',

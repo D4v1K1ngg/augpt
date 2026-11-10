@@ -162,3 +162,27 @@ module.exports = [
     },
   },
 ];
+
+// 10/11 — o teste do Davi entre 12 modelos (S26 Ultra × iPhone 18 Pro Max; ar-condicionado Gree de 24 ou 27 mil BTUs)
+module.exports.push({
+  nome: 'teste de 10/11: "sansung s26 ultra ou iphone 18 pro max" — o erro de digitação não derruba as fontes (padrão "s26"), "iphone 18" em minúsculas é produto, a página em inglês que cita os dois fica; "comprar… 24 ou 27 mil BTUs" não vira a ação de compras; "como uma placa de vídeo é montada" é explicação',
+  tipo: 'unidade',
+  executar() {
+    const { produtosDoPedido } = require('../../src/agent/serie-de-precos');
+    const q = 'Qual é o melhor sansung s26 ultra ou iphone 18 pro max ?';
+    const it = (t, s, p = 1) => ({ f: { titulo: t, n: 1 }, texto: t, semelhanca: s, palavras: p });
+    const ficou = nucleo.semFontesForaDoAssunto(q, [it('Galaxy S26 Ultra ou iPhone 18 Pro Max: qual o melhor?', 0.82), it('Apple iPhone 18 Pro Max vs Samsung Galaxy S26 Ultra: Comparison', 0.55, 0), it('Galaxy S25 Ultra review', 0.6), it('Receita de bolo', 0.5, 0)]).map((x) => x.f.titulo);
+    const acao = (p) => nucleo.lerEntendimento(JSON.stringify({ precisa_buscar: true, produto: true, acao: 'compras' }), p).acao || null;
+    const explica = (p) => nucleo.lerEntendimento(JSON.stringify({ precisa_buscar: true, produto: true }), p).explicacao;
+    return [
+      JSON.stringify(produtosDoPedido(q).map((p) => p.nome)) === '["sansung s26 Ultra","iphone 18 Pro"]' || JSON.stringify(produtosDoPedido(q).map((p) => p.nome)),
+      ['samsung galaxy s26 ultra', 'o s26 chegou'].every((x) => nucleo.padraoDoProduto('sansung s26 Ultra').test(x)) && !nucleo.padraoDoProduto('sansung s26 Ultra').test('galaxy s25 ultra') || String(nucleo.padraoDoProduto('sansung s26 Ultra')),
+      ficou.length === 2 && /Comparison/.test(ficou[1]) || JSON.stringify(ficou),
+      ['monitor de 27 polegadas', 'tem 16 gb de ram'].every((x) => produtosDoPedido(x).length === 0) || 'número solto não é produto',
+      acao('Eu estou pensando eu comprar um ar condiciona da marca gree, porem não sei se de 24 ou 27 mil btus') === null && acao('vale a pena comprar a rtx 5070 ti?') === null || 'dúvida de escolha não é compras',
+      acao('quanto custa o ar condicionado gree de 24 mil btus?') === 'compras' && acao('onde comprar a rtx 5070 ti mais barata?') === 'compras' || 'pedido de preço é compras',
+      ['Como uma placa de video é montada ?', 'Como um processador é fabricado?', 'Como funciona uma televisão ?'].every(explica) || 'categoria é explicação',
+      !['o que é o fone Dunu Titan S?', 'qual a melhor placa de vídeo?', 'como funciona a placa de vídeo RTX 5070?', 'o que é um bom fone para jogar?'].some(explica) || 'produto continua pesquisa',
+    ];
+  },
+});

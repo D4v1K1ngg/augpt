@@ -192,7 +192,7 @@ const conversaPeloCodigo = (pergunta) => {
 // explicação de conceito estável (5/11): "como funciona um SSD?", "o que é uma tela AMOLED?", "por que o céu é azul?"
 // 9/11 (régua): "Eu queria saber como funciona exatamente um processador?" não era explicação — virou conversa
 // (4 frases, "trilhões de transistores") — o pedido pode vir depois de "eu queria saber", "você sabe", "me diz"
-const EXPLICACAO = /^(?:(?:oi|ol[aá]|bom dia|boa tarde|boa noite|ei|jarvis)[,!.\s]+)?(?:(?:eu\s+)?(?:queria|quero|gostaria\s+de|preciso)\s+(?:saber|entender|aprender)\s+|(?:voc[eê]|vc)\s+(?:sabe|pode\s+(?:me\s+)?(?:explicar|dizer))\s+|me\s+(?:diz|diga|conta|conte|fala|fale)\s+|sabe\s+)?(?:e\s+|mas\s+|me\s+)?(?:como\s+(?:exatamente\s+)?funciona[m]?|como\s+[eé]\s+que\s+funciona|o\s+que\s+(?:[eé]|s[aã]o|significa)|pra\s+que\s+serve|para\s+que\s+serve[m]?|por\s*qu[eê]|qual\s+a\s+diferen[cç]a\s+entre|explica|explique|me\s+explica|como\s+(?:um|uma|o|a|os|as)\s+[^?]{2,40}?\s+(?:funciona[m]?|(?:[eé]|s[aã]o)\s+(?:feit|fabricad|produzid|formad)[oa]s?))(?![a-zà-ú])/i;
+const EXPLICACAO = /^(?:(?:oi|ol[aá]|bom dia|boa tarde|boa noite|ei|jarvis)[,!.\s]+)?(?:(?:eu\s+)?(?:queria|quero|gostaria\s+de|preciso)\s+(?:saber|entender|aprender)\s+|(?:voc[eê]|vc)\s+(?:sabe|pode\s+(?:me\s+)?(?:explicar|dizer))\s+|me\s+(?:diz|diga|conta|conte|fala|fale)\s+|sabe\s+)?(?:e\s+|mas\s+|me\s+)?(?:como\s+(?:exatamente\s+)?funciona[m]?|como\s+[eé]\s+que\s+funciona|o\s+que\s+(?:[eé]|s[aã]o|significa)|pra\s+que\s+serve|para\s+que\s+serve[m]?|por\s*qu[eê]|qual\s+a\s+diferen[cç]a\s+entre|explica|explique|me\s+explica|como\s+(?:um|uma|o|a|os|as)\s+[^?]{2,40}?\s+(?:funciona[m]?|(?:[eé]|s[aã]o)\s+(?:feit|fabricad|produzid|formad|montad|constru[ií]d)[oa]s?))(?![a-zà-ú])/i;
 const TIPO_DE_PRODUTO = /(?<![a-zà-ú])(fones?|headsets?|mouses?|teclados?|monitor(es)?|placas? de (v[ií]deo|som|rede)|celular(es)?|smartphones?|notebooks?|tablets?|consoles?|carros?|motos?|t[eê]nis|c[aâ]meras?|rel[oó]gios?|smartwatch|caixas? de som|cadeiras?|apps?|aplicativos?|sites?|empresas?|marcas?|filmes?|s[eé]ries?|animes?|livros?|bandas?|cantor(a|es)?|jogos?|games?|modelos?|vers[aã]o|lan[cç]amento)(?![a-zà-ú])/i;
 function explicacaoEstavel(pergunta, j = {}, comImagem = false) {
   const t = String(pergunta || '').trim();
@@ -201,8 +201,13 @@ function explicacaoEstavel(pergunta, j = {}, comImagem = false) {
   // nome próprio de produto sem número também pesquisa (15/10: sem busca, o "Dunu Titan S" "não existia"):
   // tipo de produto, duas palavras com maiúscula seguidas, letra solta de modelo ("titan s")
   const depoisDaPrimeira = t.replace(/^\S+\s*/, '');
-  if (TIPO_DE_PRODUTO.test(t) || /[A-ZÀ-Ú][a-zà-ú]+\s+[A-ZÀ-Ú][a-zà-ú]+/.test(depoisDaPrimeira) || /(?<![a-zà-ú-])(?![aeoy]\b)[a-z](?![a-zà-ú-])/i.test(depoisDaPrimeira.replace(/[?!.,]/g, ' '))) return false;
-  return !comImagem && EXPLICACAO.test(t) && j.produto !== true && !PISTA_DO_USUARIO.test(t)
+  // 10/11 (registros: "Como uma placa de vídeo é montada?" virou produto, 118 s): tipo de produto com artigo indefinido
+  // ("um fone", "uma placa de vídeo") é a CATEGORIA, não um produto — explicação; "o fone Dunu Titan S" continua pesquisa
+  const tipo = TIPO_DE_PRODUTO.exec(t);
+  const indefinido = /\b(?:um|uma|uns|umas)\s+[a-zà-ú]/i.test(t);
+  const categoria = indefinido && (!tipo || /(?:^|\s)(?:um|uma|uns|umas)\s+$/i.test(t.slice(0, tipo.index)));
+  if ((tipo && !categoria) || /[A-ZÀ-Ú][a-zà-ú]+\s+[A-ZÀ-Ú][a-zà-ú]+/.test(depoisDaPrimeira) || /(?<![a-zà-ú-])(?![aeoy]\b)[a-z](?![a-zà-ú-])/i.test(depoisDaPrimeira.replace(/[?!.,]/g, ' '))) return false;
+  return !comImagem && EXPLICACAO.test(t) && (j.produto !== true || categoria) && !PISTA_DO_USUARIO.test(t)
     && !NOME_DE_MODELO.test(t) && !PISTA_DE_ATUAL.test(t) && !PEDE_PESQUISA.test(t) && !/\b(19|20)\d\d\b/.test(t) && !/https?:\/\//.test(t);
 }
 const podeFicarSemBusca = (pergunta) => {
@@ -224,7 +229,9 @@ const PISTA_DA_ACAO = {
   ajustes_de_rede: /\bdns\b|placa de rede|economia de energia|5 ?ghz|cache|ajust|otimiz|configur/i,
   diagnostico_da_rede: /roteador|modem|wi-?fi|\brede\b|cabo|aparelho|dispositivo|ipconfig|\bdns\b|gateway|sinal|conex|internet|lag|ping/i,
   agenda: /lembr|agenda|avis[ae]|anot|compromisso|marqu?e|agend|lembrete|remind|notify|schedule|let me know/i,
-  compras: /pre[çc]o|quanto|custa|comprar|compro|barat|oferta|promo[çc]|loja|price|cost|buy|cheap|deal/i,
+  // 10/11 (no app): "estou pensando em comprar um ar-condicionado Gree, não sei se de 24 ou 27 mil BTUs" virou cartões de
+  // preço — "comprar" sozinho é dúvida de escolha, não pedido de preço. A ação vale para quem pede o preço ou onde comprar.
+  compras: /pre[çc]o|quanto (custa|est[áa]|t[áa]|sai|vale|[ée])|custa|barat|ofertas?|promo[çc]|onde (comprar|compro|acho|encontro|vende)|price|cost|where to buy|cheap|deal/i,
   calendario: /\b(dia|data|datas|feriados?|calend[áa]rio|semana|m[eê]s|ano|faltam?|hoje|amanh[ãa]|ontem|cai|caiu|today|date|holidays?|calendar|weekday|days? until)\b/i,
   clima: /clima|tempo|chov|chuv|temperatura|graus|frio|calor|quente|\bsol\b|previs|umidade|vento|weather|rain|forecast|temperature|hot|cold|sunny/i,
   mapa: /onde fica|onde est[áa]|onde (é|e) (a|o)|mapa|globo|localiza|rota|dist[âa]ncia|quanto tempo|chegar|chego|caminho|trajeto|\bkm\b|quil[ôo]metros|fica (em|no|na)|where|map|route|distance|how (far|long)|directions/i,
@@ -1008,6 +1015,9 @@ function padraoDoProduto(nome) {
   // ou separado; sem isso, todas as páginas certas saíam como "fora do assunto". Depois do número, o sufixo
   // pode vir colado ("RX7600XT", "RTX5070Ti"): só outro dígito encerra o modelo ("50800" não é a 5080)
   if (partes[i].replace(/\D/g, '').length >= 3) return new RegExp(i > 0 ? `(?:\\b${partes[i - 1]} ?|\\b)${partes[i]}(?!\\d)` : `\\b${partes[i]}(?!\\d)`);
+  // 10/11 (no app): "sansung s26 ultra" pedia "sansung s26" nas páginas — nenhuma escreve com o erro de digitação e
+  // TODAS as fontes saíam. Modelo com letra e número ("s26", "g9", "b58") identifica sozinho, sem a palavra de antes
+  if (/^[a-z]+\d{2}[a-z]?$/.test(partes[i])) return new RegExp(`\\b${partes[i]}(?!\\d)`);
   return i > 0 ? new RegExp(`\\b${partes[i - 1]} ?${partes[i]}(\\d{2})?\\b`) : null;
 }
 
@@ -1048,6 +1058,9 @@ function semFontesForaDoAssuntoSemGarantia(pergunta, ordenados, temGarantidas = 
   if (!Number.isFinite(melhor)) return lista; // sem embeddings: fica a regra do produto
   return lista.filter((it) => {
     if (typeof it.semelhanca !== 'number') return true;
+    // 10/11 (no app): a página "iPhone 18 Pro Max vs Galaxy S26 Ultra: Comparison" saiu pela semelhança — pergunta em
+    // português, página em inglês, e o embedding mede mal entre idiomas. Fonte que cita o produto pedido fica.
+    if (padroes.length) return true;
     const distancia = melhor - it.semelhanca;
     return !(distancia >= 0.25 || (distancia >= 0.12 && !it.palavras));
   });

@@ -45,6 +45,8 @@ function ehPedidoDeSerieDePrecos(objetivo) {
 // "RTX 5070 Ti", "RX 9070 XT", "iPhone 15 Pro", "Galaxy S24 Ultra"
 const RE_PRODUTO = /\b([A-Za-z][A-Za-z]{1,12}\s?)?([A-Za-z]?\d{2,5}[A-Za-z]?)(\s?(?:ti|super|xt|xtx|pro|max|plus|ultra|mini))?\b/gi;
 const NAO_PRODUTO = /^(19|20)\d\d$/;
+// linhas de produto com número de 2 dígitos ("iphone 18", "galaxy s26", "pixel 10"), escritas em minúsculas
+const LINHAS_CONHECIDAS = /^(iphone|ipad|galaxy|pixel|redmi|poco|moto|motorola|xiaomi|realme|oneplus|zenfone|rog|note|watch|macbook|surface|quest|ryzen|core|windows|android|ios|wifi|playstation|xbox)$/i;
 
 /**
  * Produtos que o pedido nomeia, cada um com a regra de casamento: o número
@@ -61,7 +63,8 @@ function produtosDoPedido(objetivo) {
     const prefixo = (m[1] || '').trim().replace(/^(ou|or|vs|versus|x)$/i, '');
     if (prefixo && /^(de|do|da|dos|das|em|at[eé]|no|na|e|a|o|os|as|ate|dia|dias|hoje|desde|entre|top|mes|meses|ano|anos|por|com|para|pra)$/i.test(prefixo)) continue;
     // número de 2 dígitos só com nome de linha na frente ("iPhone 15"), nunca solto
-    if (/^\d{2}$/.test(modelo) && !/[A-Z]/.test(prefixo)) continue;
+    // (10/11, no app: "iphone 18 pro max" em minúsculas ficava de fora — a linha conhecida vale sem a maiúscula)
+    if (/^\d{2}$/.test(modelo) && !/[A-Z]/.test(prefixo) && !LINHAS_CONHECIDAS.test(prefixo)) continue;
     const sufixo = (m[3] || '').trim().toLowerCase();
     const chave = `${modelo.toLowerCase()}${sufixo ? ` ${sufixo}` : ''}`;
     if (vistos.has(chave)) continue;

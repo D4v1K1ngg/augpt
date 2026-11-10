@@ -125,7 +125,9 @@ async function julgar({ juiz, pergunta, resposta }) {
     fatos.length ? `FATOS DO GABARITO:\n${fatos.map((f, i) => `${i + 1}. ${f}`).join('\n')}` : '',
     criterios.length ? `CRITÉRIOS:\n${criterios.map((k, i) => `${i + 1}. ${k}`).join('\n')}` : '',
     '',
-    `RESPOSTA DO ASSISTENTE:\n"""\n${String(resposta || '(resposta vazia)').slice(0, 9000)}\n"""`,
+    // 10/11: o ⚠ que o conferidor cola nos números sem fonte ("8 minutos e 20 ⚠ segundos") é anotação da tela — o juiz
+    // lia como dúvida e marcava "contradito" num fato certo (a distância Terra–Sol tirou 2 com a resposta correta)
+    `RESPOSTA DO ASSISTENTE:\n"""\n${String(resposta || '(resposta vazia)').replace(/\s?⚠(?!️)/g, '').slice(0, 9000)}\n"""`,
     '',
     'Para CADA fato, dê um veredito:',
     '- "presente": a resposta afirma isso (com outras palavras serve; número aproximado serve);',
