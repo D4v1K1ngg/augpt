@@ -158,7 +158,7 @@ contextBridge.exposeInMainWorld('augpt', {
     // Agent.run() pra escopar o que for lido nesta execução à conversa.
     start: (objetivo, conversa, idConversa, opcoes = {}) => ipcRenderer.invoke('agent:start', { objetivo, conversa, idConversa, porVoz: opcoes.porVoz === true }),
     // 29/10: o modelo principal carregado antes da pergunta (abrir o app, "Ei Jarvis", começar a digitar)
-    aquecer: () => ipcRenderer.invoke('agent:aquecer'),
+    aquecer: (opcoes) => ipcRenderer.invoke('agent:aquecer', opcoes),
     stop: () => ipcRenderer.invoke('agent:stop'),
     respond: (id, valor) => ipcRenderer.invoke('agent:respond', { id, valor }),
   },

@@ -85,7 +85,7 @@ module.exports = [
         return chamadas === 0;
       };
       return [
-        /ipcMain\.handle\('agent:aquecer'[\s\S]{0,600}numCtx: 16384, numPredict: 1/.test(main) && /agent\?\.rodando \|\| Date\.now\(\) - aquecidoEm < 2 \* 60_000/.test(main) || 'aquecer com o contexto do agente, sem repetir',
+        /ipcMain\.handle\('agent:aquecer'[\s\S]{0,900}numCtx: 16384, numPredict: 1/.test(main) && /agent\?\.rodando \|\| \(!forcar && Date\.now\(\) - aquecidoEm < 2 \* 60_000\)/.test(main) || 'aquecer com o contexto do agente, sem repetir',
         /api\.agent\.aquecer\?\.\(\)/.test(ler('renderer/escuta.js')) && /setTimeout\(aquecerModelo, 8000\)/.test(ler('renderer/app-abas.js')) || '"Ei Jarvis", digitando e ao abrir',
         (await pula('E aí, tudo bem?')) && (await pula('Estou meio cansado hoje')) && (await pula('Você acha que vale a pena aprender violão depois dos 30?')) || 'conversa óbvia pula',
         !(await pula('Você acha que a RTX 5070 vale a pena?')) && !(await pula('o que você acha do fone Simgot EM6L?')) && !(await pula('Você acha que vale a pena comprar um notebook?')) || 'produto não pula',

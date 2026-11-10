@@ -1509,6 +1509,13 @@ $('btnLimparOperacional').addEventListener('click', async () => {
 el.modelo.addEventListener('change', async () => {
   config = await api.config.set({ model: el.modelo.value });
   el.cModelo.textContent = config.model;
+  // 10/11: o modelo novo carrega na hora da troca (antes, na 1ª pergunta: 10–30 s de espera sem aviso)
+  const escolhido = config.model;
+  if (escolhido && !agente.rodando) {
+    el.cModelo.textContent = `${escolhido} · ${tr('carregando…')}`;
+    await api.agent.aquecer?.({ forcar: true }).catch(() => {});
+    if (config.model === escolhido) el.cModelo.textContent = escolhido;
+  }
 });
 
 el.autonomia.addEventListener('change', async () => {

@@ -254,6 +254,9 @@ async function responder(pergunta, { cfg, modelo }) {
     return {
       resposta: obtido.resposta || '',
       seg: Math.round((Date.now() - inicio) / 1000),
+      // 10/11: quando sai a primeira palavra e quanto leva cada etapa (entendimento, pesquisa, escrita…), em segundos
+      primeiraPalavraSeg: r.tempos?.primeiraPalavraMs ? Math.round(r.tempos.primeiraPalavraMs / 100) / 10 : null,
+      etapasSeg: Object.fromEntries(Object.entries(r.tempos?.etapas || {}).map(([k, v]) => [k, Math.round(v / 100) / 10])),
       passos: obtido.passos || 0,
       tokens: r.tokens?.total || 0,
       nivelAuto: r.auto?.nivel ?? null,

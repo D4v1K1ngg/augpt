@@ -102,9 +102,9 @@ function pedidoDeEntendimento({ pergunta, conversa = [], hoje }) {
   const anterior = [...conversa].reverse().find((m) => m.role === 'user')?.content;
   const temPronome = /\b(ela|ele|elas|eles|dela|dele|delas|deles|nela|nele|isso|isto|essa|esse|essas|esses|este|esta|aquela|aquele|o mesmo|a mesma|it|its|this|that|they|them)\b/i.test(String(pergunta || ''));
   const dicaDoPronome = anterior && temPronome ? `\nATENÇÃO: a última mensagem usa pronome ("ela", "dele", "isso"…). Ele se refere ao assunto da mensagem MAIS RECENTE do usuário antes desta — "${String(anterior).slice(0, 200)}" —, não ao começo da conversa. Use esse assunto na "pergunta" reescrita e nas "buscas".\n` : '';
-  return `Hoje é ${hoje}. Leia a conversa e a última mensagem do usuário.
-${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}${dicaDoPronome}
-ÚLTIMA MENSAGEM: ${String(pergunta).slice(0, 1500)}
+  // 10/11: as regras fixas vêm PRIMEIRO e o que muda (data, conversa, mensagem) no FIM — o Ollama reaproveita o
+  // começo igual entre uma pergunta e outra (antes a mensagem entrava na posição 85 de 10.500: 1% reaproveitado)
+  return `Você vai ler uma conversa e a ÚLTIMA MENSAGEM do usuário (elas vêm no fim, depois das regras).
 
 Responda SÓ com um JSON:
 {"precisa_buscar": true ou false, "conversa": true ou false, "produto": true ou false, "criar_imagem": true ou false, "muda_com_o_tempo": true ou false, "sobre_o_usuario": true ou false, "sobre_a_tela": true ou false, "imagem_ajuda": true ou false, "acao": "", "sugerir": "", "assuntos": ["..."], "lugares": ["..."], "buscas": ["..."], "partes": ["..."], "pergunta": "a última mensagem reescrita para fazer sentido sozinha, sem depender da conversa"}
@@ -133,7 +133,13 @@ ${capacidades.listaParaEntender()}
 - "buscas": quando "precisa_buscar" é true, de 1 a 3 buscas curtas para a web (como alguém digitaria no Google), de ângulos diferentes, com as condições que o usuário deu (modelo, ano, país, orçamento); para tecnologia e produtos, uma delas em inglês. Senão, [].
 - "precisa_buscar" é false SÓ para: conversa, saudação ou agradecimento, conta de matemática, tradução ou revisão de um texto que o usuário mandou, escrever um texto criativo, algo que a própria conversa já respondeu, ou a EXPLICAÇÃO de um conceito que não muda com o tempo e que você conhece bem — como algo funciona em geral ("como funciona um SSD?", "como funciona o Wi-Fi?"), o que é uma coisa ("o que é uma tela AMOLED?"), por que algo acontece ("por que o céu é azul?"). Continua true se a explicação depende de um produto ou modelo específico, de algo lançado ou mudado nos últimos anos, de datas, números ou pessoas, ou se você não tem certeza. Na dúvida, true.
 - Em "pergunta", troque "ele", "isso", "o outro" pelo que eles são na conversa e traga o que a conversa já disse: por exemplo, depois de "qual o melhor <tipo de produto> para <uso>?", a mensagem "e quanto ao <modelo>?" vira "o <modelo> é bom como <tipo de produto> para <uso>, e quanto custa?" (use os nomes reais da conversa, nunca os deste exemplo). Mantenha o resto como o usuário escreveu.
-- Se a ÚLTIMA MENSAGEM for longa (mais de 400 letras: um texto ou uma prova colada), devolva "pergunta": "" — o AuGPT usa a mensagem como veio (reescrever um texto longo não cabe na resposta).`;
+- Se a ÚLTIMA MENSAGEM for longa (mais de 400 letras: um texto ou uma prova colada), devolva "pergunta": "" — o AuGPT usa a mensagem como veio (reescrever um texto longo não cabe na resposta).
+
+Hoje é ${hoje}.
+${historico ? `\nCONVERSA ATÉ AGORA:\n${historico}\n` : ''}${dicaDoPronome}
+ÚLTIMA MENSAGEM: ${String(pergunta).slice(0, 1500)}
+
+Responda SÓ com o JSON.`;
 }
 
 // o que pode ficar sem pesquisa: saudação, agradecimento, conta, tradução/revisão de texto, texto criativo
@@ -585,6 +591,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     },
   ];
   let buscou = false;
+  let atalho = false; // 10/11: o código leu as páginas de saída (pesquisa normal)
 
   // 17/10 (Llama 3.2 3B): busca sem o assunto ("especificações e dados técnicos", copiado das
   // instruções) ganha o assunto na frente; busca repetida não roda de novo
@@ -850,11 +857,20 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     // código já lê, em paralelo, as páginas mais ligadas à pergunta e os tópicos da comunidade — o que antes só
     // fazia no fim, para completar o mínimo. O pesquisador começa com o material lido e só completa os ângulos.
     let jaLidas = '';
+    // 10/11 (registros da placa nova: com 1 rodada do pesquisador a 1ª palavra saía em 7–8 s; com 2 ou 3, em 13–25 s):
+    // na pesquisa normal o código também lê de saída as páginas mais ligadas à pergunta — e, cumpridos os mínimos,
+    // a escrita começa sem nenhuma rodada do pesquisador (o "atalho", na regra de parada do laço)
+    // (pergunta que depende de QUANDO fica com o pesquisador: ele escolhe as páginas recentes — as eleições caíram de 7,5 para 6,3)
+    if (!produto && !atual && modo === 'normal' && !signal?.aborted) {
+      await lerAsMaisLigadas();
+      atalho = true;
+      jaLidas = fontes.filter((f) => f.trechos.length).map((f) => `[${f.n}] ${f.titulo || f.url}`).join(' · ');
+    }
     if (produto && !signal?.aborted) {
       await Promise.all([lerAsMaisLigadas(), garantirComunidade()]);
       jaLidas = fontes.filter((f) => f.trechos.length).map((f) => `[${f.n}] ${f.titulo || f.url}`).join(' · ');
     }
-    historico.push({ role: 'user', content: `Primeiras buscas, já feitas (${buscasIniciais.join(' · ')}):\n${resultado}\n\n${jaLidas ? `Já lidas pelo código: ${jaLidas}. Leia outra só se faltar um ângulo (preço de hoje, opinião de quem usa, comparação), busque o que falta, ou chame pronto.` : 'Continue: leia com ler_pagina as páginas mais promissoras (2 ou 3 de uma vez, de sites diferentes), busque um ângulo que falte, ou chame pronto.'}` });
+    historico.push({ role: 'user', content: `Primeiras buscas, já feitas (${buscasIniciais.join(' · ')}):\n${resultado}\n\n${jaLidas ? `Já lidas pelo código: ${jaLidas}. Leia outra só se faltar ${produto ? "um ângulo (preço de hoje, opinião de quem usa, comparação)" : "algo para responder à pergunta inteira"}, busque o que falta, ou chame pronto.` : 'Continue: leia com ler_pagina as páginas mais promissoras (2 ou 3 de uma vez, de sites diferentes), busque um ângulo que falte, ou chame pronto.'}` });
   }
 
   /*
@@ -897,7 +913,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     // rodada a mais quase sempre era só o modelo dizendo "pronto" (15 tokens, 1,4–1,9 s)
     const sitesLidos = new Set(fontes.filter((f) => f.trechos.length).map((f) => dominio(f.url))).size;
     const bastaNaNormal = modo !== 'profundo' && sitesLidos >= 2;
-    if (rodada > 1 && minimos && !lacunaAberta && (leiturasFeitas >= regras.leituras || semNovidade >= 1 || bastaNaNormal || rodada > rodadaDosMinimos + 1) && !(await antesDeParar(rodada))) {
+    if ((rodada > 1 || (atalho && bastaNaNormal)) && minimos && !lacunaAberta && (leiturasFeitas >= regras.leituras || semNovidade >= 1 || bastaNaNormal || rodada > rodadaDosMinimos + 1) && !(await antesDeParar(rodada))) {
       emit('aviso', { texto: `pesquisa encerrada na rodada ${rodada - 1} de ${total}: ${leiturasFeitas >= regras.leituras ? 'as leituras desta pesquisa se esgotaram' : semNovidade >= 1 ? 'a última rodada não trouxe nada novo' : bastaNaNormal ? 'mínimos cumpridos, com leitura de vários sites' : 'os mínimos do modo já estavam cumpridos'}` });
       break;
     }

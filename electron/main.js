@@ -1219,9 +1219,10 @@ ipcMain.handle('narrador:abertura', async (_e, { pedido = '' } = {}) => {
  * uma a cada 2 min; nunca com o agente rodando. O modelo não fica preso na placa: vale o "manter vivo" de sempre.
  */
 let aquecidoEm = 0;
-ipcMain.handle('agent:aquecer', async () => {
+ipcMain.handle('agent:aquecer', async (_e, { forcar = false } = {}) => {
+  // forcar (10/11): o modelo acabou de ser trocado no seletor — carrega já, sem esperar os 2 min (a troca custava 10–30 s na 1ª pergunta)
   const modelo = config.data.model;
-  if (!modelo || agent?.rodando || Date.now() - aquecidoEm < 2 * 60_000) return { ok: false };
+  if (!modelo || agent?.rodando || (!forcar && Date.now() - aquecidoEm < 2 * 60_000)) return { ok: false };
   aquecidoEm = Date.now();
   const inicio = Date.now();
   try {
