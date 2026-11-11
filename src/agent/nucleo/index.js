@@ -218,7 +218,8 @@ const podeFicarSemBusca = (pergunta) => {
 // Travas do código para o modelo pequeno que erra os campos do entendimento (18/10): palavras que
 // dizem "depende de quando" e "é sobre o usuário" valem em qualquer tema
 const PISTA_DE_ATUAL = /\b(hoje|agora|atual|atualmente|atuais|recentes?|recentemente|[uú]ltim[oa]s? (not[ií]cias?|resultados?|vers[aã]o|semana|m[eê]s|dias)|mais (nov[oa]s?|recentes?)|vers[aã]o atual|esta semana|este (m[eê]s|ano)|neste momento|ainda (est[aá]|tem|existe|vale)|novidades?|cota[cç][aã]o|previs[aã]o|placar|resultado|vai (ganhar|vencer|sair|lan[cç]ar)|quem (ganhou|venceu|est[aá] na frente)|j[aá] (saiu|lan[cç]ou|foi lan[cç]ad))\b/i;
-const PISTA_DO_USUARIO = /\b(meu|minha|meus|minhas|comigo|aqui em casa)\b/i;
+// 11/11: "como otimizar o Windows para ter mais fps?" é sobre o PC de quem pergunta, mesmo sem "meu"
+const PISTA_DO_USUARIO = /\b(meu|minha|meus|minhas|comigo|aqui em casa)\b|\b(otimiz\w*|aceler\w*|desempenho|performance|fps|travando|lento|lenta)\b[^.?!]*\b(windows|pc|computador|notebook|jogos?|games?)\b|\b(windows|pc|computador|notebook)\b[^.?!]*\b(otimiz\w*|mais r[áa]pido|desempenho|performance|fps|travando|lento)\b/i;
 // a ação que o modelo escolher precisa ter a ver com a pergunta (trava para o modelo pequeno)
 const PISTA_DA_ACAO = {
   teste_de_rede: /internet|conex|wi-?fi|\brede\b|ping|lag|lat[eê]ncia|velocidade|download|upload|banda|roteador|operadora|provedor|fibra/i,
@@ -226,7 +227,8 @@ const PISTA_DA_ACAO = {
   trafego_de_rede: /internet|\brede\b|banda|consum|programa|aplicativo|conex|lent/i,
   consultar_pc: /computador|\bpc\b|notebook|disco|\bhd\b|ssd|espa[çc]o|configura[çc]|driver|windows|mouse|teclado|monitor|placa|som|[áa]udio|fotos|v[íi]deos|m[úu]sicas|programa|instalad|arquivos|mem[óo]ria|\bram\b|processador|cpu|bateria|inicializa/i,
   buscar_imagens: /fotos?|imagens?|ver como|aparencia|aparência/i,
-  ajustes_de_rede: /\bdns\b|placa de rede|economia de energia|5 ?ghz|cache|ajust|otimiz|configur/i,
+  // 11/11 (no app): "otimiz" sozinho validava a ação em "como otimizar o Windows para jogos?" — o pedido tem de falar da rede
+  ajustes_de_rede: /\bdns\b|placa de rede|adaptador de rede|economia de energia|5 ?ghz|\brede\b|internet|conex|wi-?fi|ethernet/i,
   diagnostico_da_rede: /roteador|modem|wi-?fi|\brede\b|cabo|aparelho|dispositivo|ipconfig|\bdns\b|gateway|sinal|conex|internet|lag|ping/i,
   agenda: /lembr|agenda|avis[ae]|anot|compromisso|marqu?e|agend|lembrete|remind|notify|schedule|let me know/i,
   // 10/11 (no app): "estou pensando em comprar um ar-condicionado Gree, não sei se de 24 ou 27 mil BTUs" virou cartões de
@@ -248,6 +250,17 @@ const PEDE_QUE_FACA = new RegExp(`\\b(consegue|consegues|pode|poderia|podes|d[á
 // criar imagem (Fase 5): a regra do código cobre o que o modelo deixar passar
 const PEDE_IMAGEM = /\b(crie|cria|criar|gere|gera|gerar|fa[çc]a|desenhe|desenha|desenhar|ilustre|pinte|edite|transforme|transformar)\b[^.?!]{0,50}\b(imagem|imagens|foto|desenho|ilustra[çc][ãa]o|arte|logo|logotipo|wallpaper|papel de parede|pintura|figura|capa|banner|mascote|cartaz|ícone)\b/i;
 const pedeImagem = (pergunta) => PEDE_IMAGEM.test(String(pergunta || ''));
+
+// 11/11 (pedido do Davi): utilitário é FERRAMENTA. Numa pergunta aberta ("como…", "por que…", "dicas", "o que pode
+// ser") a leitura do PC ou da rede não é a resposta: o que foi lido vai para o escritor, que responde à pergunta inteira.
+// Pedido direto ("quanto espaço livre tem?", "consegue ver como está minha rede?") continua com a resposta do utilitário.
+// Só leituras rápidas: o teste de velocidade (gasta dados) e os ajustes (mudam o PC) nunca rodam assim.
+const FERRAMENTAS_DE_LEITURA = ['consultar_pc', 'diagnostico_da_rede', 'trafego_de_rede'];
+const PERGUNTA_ABERTA = /\b(como|por ?qu[eê]|dicas?|o que (eu )?(fa[çc]o|fazer|posso fazer|pode ser|devo)|vale a pena|devo|deveria|melhor (forma|jeito|maneira)|how (to|do|can)|why|tips)\b/i;
+const usaComoFerramenta = (id, pergunta) => {
+  const t = String(pergunta || '');
+  return FERRAMENTAS_DE_LEITURA.includes(id) && PERGUNTA_ABERTA.test(t) && !PEDE_QUE_FACA.test(t) && !/\bcomo (est[áa]o?|andam?|vai|ficou)\s/i.test(t);
+};
 
 // criar algo interativo (item 4, 18/10): a resposta é uma página no bloco ```visual, que roda no chat
 const PEDE_VISUAL = /\b(crie|cria|criar|monte|monta|montar|fa[çc]a|faz|gere|gera|desenvolva|programe|construa)\b[^.?!]{0,60}\b(calculadora|simula[çc][ãa]o|simulador|anima[çc][ãa]o|jogo|joguinho|painel|dashboard|p[áa]gina|visualiza[çc][ãa]o|interativ\w*|linha do tempo|quiz|cron[ôo]metro|rel[óo]gio|conversor|planilha interativa)\b/i;
@@ -1208,7 +1221,7 @@ ${SEM_ANUNCIO_NEM_REPETICAO}
     : explicacao
     ? `${EXPLICACAO_DE_PESSOA}\n${SEM_ANUNCIO_NEM_REPETICAO}`
     : `- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.\n${SEM_ANUNCIO_NEM_REPETICAO}${INSTRUCAO_DE_GRAFICO}${INSTRUCAO_DE_VISUAL}`
-}${capacidadesNaEscrita ? `\n\n${capacidadesNaEscrita}` : ''}${preferencias ? `\n\n<preferencias_do_usuario>\n${preferencias}\n</preferencias_do_usuario>\nO usuário pediu para você guardar isto: siga as preferências e use os fatos quando ajudarem, sem citá-los à toa. Uma linha "Quando o assunto for X: …" é instrução só para pedidos sobre X: siga-a quando a pergunta for sobre X (mesmo com outras palavras) e ignore-a nas outras. Só isto está guardado: nunca diga que algo é \"preferência registrada\" ou está guardado se não estiver nesta lista, e não cite este bloco como fonte.` : ''}${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 1500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou), e não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
+}${capacidadesNaEscrita ? `\n\n${capacidadesNaEscrita}` : ''}${preferencias ? `\n\n<preferencias_do_usuario>\n${preferencias}\n</preferencias_do_usuario>\nO usuário pediu para você guardar isto: siga as preferências e use os fatos quando ajudarem, sem citá-los à toa. Uma linha "Quando o assunto for X: …" é instrução só para pedidos sobre X: siga-a quando a pergunta for sobre X (mesmo com outras palavras) e ignore-a nas outras. Só isto está guardado: nunca diga que algo é \"preferência registrada\" ou está guardado se não estiver nesta lista, e não cite este bloco como fonte.` : ''}${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 4500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou), e não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
 }
 
 // 15/10 (pedido do Davi): resposta de produto em cartões — o renderer desenha
@@ -1690,10 +1703,16 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   // a intenção que o código já reconheceu ("onde fica a capital da Bahia?" é mapa) vale quando o
   // modelo não escolhe ação: ele só completa os lugares (23/10)
   if (!ent.acao && !ent.criarImagem && deps.intencaoDoCodigo) ent.acao = deps.intencaoDoCodigo;
+  let lidoPelasFerramentas = '';
   if (ent.acao && !ent.criarImagem && typeof deps.executarAcao === 'function') {
     emit('nucleo-entendimento', { ...ent, modo: 'acao' });
-    const feita = await deps.executarAcao(ent.acao, { pergunta, ent });
-    if (feita) return feita;
+    if (usaComoFerramenta(ent.acao, pergunta)) {
+      const lida = await deps.executarAcao(ent.acao, { pergunta, ent, comoFerramenta: true }).catch(() => null);
+      if (lida?.texto) lidoPelasFerramentas = `O AuGPT consultou agora (só leitura, nada foi mudado):\n${String(lida.texto).slice(0, 3000)}`;
+    } else {
+      const feita = await deps.executarAcao(ent.acao, { pergunta, ent });
+      if (feita) return feita;
+    }
   }
   // "só conversar" (28/10): nada de pesquisa — só quando o pedido diz "pesquise"; as ações (clima, lembrete) continuam
   if (modo === 'conversa' && !PEDE_PESQUISA.test(String(pergunta || ''))) Object.assign(ent, { precisaBuscar: false, atual: false, conversa: true });
@@ -1702,7 +1721,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   emit('nucleo-entendimento', { ...ent, modo: modoUsado });
   // a pergunta depende do usuário (18/10, "meu computador"): o que o AuGPT já sabe dele vai junto
   // na conversa, não (28/10: "estou cansado" respondeu falando do Ryzen do usuário)
-  const sobreOUsuario = ent.sobreOUsuario && !ent.conversa && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '';
+  const sobreOUsuario = [(ent.sobreOUsuario || lidoPelasFerramentas) && !ent.conversa && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '', lidoPelasFerramentas].filter(Boolean).join('\n\n');
   // os links que o usuário colou (da pergunta original — a reescrita do entendimento pode perder o endereço)
   const linksDoUsuario = [...new Set(String(pergunta || '').match(/https?:\/\/[^\s'"<>)\]]+/g) || [])];
   etapa('entendimento', inicioDoEntendimento);
@@ -1865,4 +1884,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

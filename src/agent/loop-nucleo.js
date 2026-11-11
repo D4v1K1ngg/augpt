@@ -331,7 +331,10 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     const emPortugues = async (texto) => (emIngles && traducao.pareceIngles(texto) ? (await traducao.paraPortugues(texto, deps.chamar)) || texto : texto);
     const contexto = (extra = {}) => ({ objetivo, conversa, deps: depsDasRotas, signal, pasta: this.userDataPath, jogo: jogoDaConversa(), dirImagens: this.dirImagens(), config: cfg, ...extra });
     // `ent` (23/10): o que o entendimento leu — os lugares servem de reserva ao mapa e ao clima
-    deps.executarAcao = async (id, { pergunta, modo: modoDoTeste = null, confirmado = false, ent = null } = {}) => rotas.executar(id, contexto({ objetivo: await emPortugues(pergunta), modo: modoDoTeste, confirmado, ent }));
+    // comoFerramenta (11/11): a leitura não vira a resposta — sem texto na tela e sem a explicação curta do utilitário
+    // (o progresso "lendo…" continua aparecendo); o que foi lido volta em .texto para o escritor montar a resposta
+    const depsDeFerramenta = { ...depsDasRotas, chamar: undefined, escrever: async () => '', emit: (e, d) => (e === 'resposta-token' ? undefined : deps.emit(e, d)) };
+    deps.executarAcao = async (id, { pergunta, modo: modoDoTeste = null, confirmado = false, ent = null, comoFerramenta = false } = {}) => rotas.executar(id, contexto({ objetivo: await emPortugues(pergunta), modo: modoDoTeste, confirmado, ent, ...(comoFerramenta ? { deps: depsDeFerramenta } : {}) }));
     const aceitou = !investigando && !imagensDoPedido.length && catalogo.aceitouOferta(objetivo, conversa);
     // questão de prova (30/10): nenhuma rota do código — a prova colada tem palavra de tudo (espaço, cidade, preço)
     const prova = nucleo.questaoDeProva(objetivo);

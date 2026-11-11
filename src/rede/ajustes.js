@@ -64,7 +64,11 @@ function ajustesPedidos(texto, { wifi = false } = {}) {
   if (/economia de energia|energy|eee|ethernet verde|green ethernet|power saving/.test(t)) ids.add('economia_de_energia');
   if (/(cache|flush).{0,15}dns|dns.{0,15}(cache|flush)|limp\w* (o )?dns/.test(t)) ids.add('limpar_dns');
   if (/5 ?ghz|banda de 5/.test(t)) ids.add('wifi_5ghz');
-  if (!ids.size && /otimiz|melhor\w* (a |minha )?placa|ajust\w* (a |minha )?placa|configur\w* (a |minha )?placa/.test(t)) {
+  // 11/11 (no app, 5 vezes): "como otimizar o Windows para jogos?" caía aqui só pela palavra "otimizar" e a resposta era
+  // o plano da placa de rede. O pedido genérico vale quando fala da REDE (placa de rede, internet, conexão, Wi-Fi)
+  // ("pesquisa na internet como otimizar o windows" também não é: a rede tem de ser o que se otimiza)
+  const ALVO_DA_REDE = '(a |o |minha |meu |a minha |o meu )?(placa|adaptador|rede|internet|conex|wi-?fi|ethernet)';
+  if (!ids.size && new RegExp(String.raw`otimiz\w* ${ALVO_DA_REDE}|(melhor|ajust|configur)\w* (a |minha )?placa`).test(t)) {
     ids.add('economia_de_energia');
     ids.add('limpar_dns');
     if (wifi) ids.add('wifi_5ghz');
