@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: blob: augpt-img: augpt-mapa:; connect-src 'self' augpt-mapa:; worker-src 'self'; frame-src 'self' data: augpt-caixa: https://www.youtube-nocookie.com" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: blob: augpt-img: augpt-mapa:; media-src 'self' blob:; connect-src 'self' augpt-mapa:; worker-src 'self'; frame-src 'self' data: augpt-caixa: https://www.youtube-nocookie.com" />
 <title>AuGPT</title>
 <link rel="stylesheet" href="vendor/maplibre-gl-5.24.0/maplibre-gl.css" />
 <link rel="stylesheet" href="styles.css" />
@@ -210,6 +210,12 @@
           <rect x="2.5" y="2.5" width="6" height="6" rx="1.2"/><rect x="11.5" y="2.5" width="6" height="6" rx="1.2"/><rect x="2.5" y="11.5" width="6" height="6" rx="1.2"/><path d="M14.5 11.5v6M11.5 14.5h6"/>
         </svg>
         Utilitários
+      </button>
+      <button class="nav-item" id="navEstudio" role="tab" aria-selected="false">
+        <svg class="nav-icone" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="7" y="2.5" width="6" height="10" rx="3"/><path d="M4 9.5a6 6 0 0 0 12 0M10 15.5v2.5M7 18h6"/>
+        </svg>
+        Estúdio de voz
       </button>
       <button class="nav-item" id="navExecucoes" role="tab" aria-selected="false">
         <svg class="nav-icone" viewBox="0 0 20 20" fill="currentColor" stroke="none" aria-hidden="true">
@@ -431,6 +437,74 @@
       </div>
     </div>
   </section>
+
+  <!-- ------------------------------ estúdio de voz (11/11, renderer/estudio.js) ------------------------------ -->
+  <section class="pagina" id="viewEstudio" hidden>
+    <div class="pagina-rolagem">
+      <div class="pagina-coluna estudio">
+        <header class="pagina-topo">
+          <div>
+            <h1>Estúdio de voz</h1>
+            <p>Escreva ou cole um texto e gere um arquivo de áudio para vídeo, podcast ou apresentação, com voz pronta, voz descrita ou uma voz clonada. Tudo roda no seu computador.</p>
+          </div>
+          <div class="pagina-acoes">
+            <button class="btn-secundario" id="estudioAbrirPasta">Abrir narrações</button>
+          </div>
+        </header>
+
+        <section class="estudio-motores" id="estudioMotores"></section>
+
+        <div class="estudio-grade">
+          <section class="estudio-texto">
+            <label for="estudioTexto">Texto</label>
+            <textarea id="estudioTexto" rows="12" placeholder="Cole aqui o roteiro. Cada parágrafo vira uma parte, com uma pausa entre elas."></textarea>
+            <div class="estudio-linha">
+              <span class="dica" id="estudioContagem">0 caracteres</span>
+              <select id="estudioMarca" hidden><option value="">Inserir som…</option></select>
+            </div>
+            <div class="estudio-acoes">
+              <button class="btn-primario" id="estudioGerar">Gerar áudio</button>
+              <button class="btn-secundario" id="estudioCancelar" hidden>Cancelar</button>
+              <span class="dica" id="estudioProgresso" aria-live="polite"></span>
+            </div>
+            <div id="estudioResultados"></div>
+          </section>
+
+          <section class="estudio-ajustes" id="estudioAjustes">
+            <div class="estudio-campo"><label>Motor</label><div class="estudio-escolha" id="estudioMotor"></div></div>
+            <div class="estudio-campo"><label for="estudioModo">Modo</label><select id="estudioModo"></select></div>
+            <div id="estudioModoCampos"></div>
+            <div class="estudio-campo"><label for="estudioIdioma">Idioma</label><select id="estudioIdioma"></select></div>
+            <details class="estudio-grupo" open><summary>Ajustes do modelo</summary><div id="estudioParametros"></div>
+              <details class="estudio-grupo"><summary>Avançados</summary><div id="estudioAvancados"></div></details>
+              <div class="estudio-campo"><label for="estudioSemente">Semente <span class="dica">(mesmo número = mesmo resultado; vazio = aleatório)</span></label><input type="number" id="estudioSemente" min="0" step="1" /></div>
+            </details>
+            <details class="estudio-grupo" open><summary>Acabamento</summary><div id="estudioAcabamento"></div>
+              <div class="estudio-campo"><label for="estudioFormato">Formato</label><select id="estudioFormato"></select></div>
+              <label class="estudio-sim"><input type="checkbox" id="estudioLegenda" checked /> Gerar legenda (.srt)</label>
+            </details>
+            <button class="btn-secundario" id="estudioRestaurar">Voltar aos padrões</button>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <dialog id="dlgEstudioVoz">
+    <div class="dialogo">
+      <h2>Nova voz para clonar</h2>
+      <p class="dica">Use 10 a 20 segundos de fala limpa, sem música nem barulho. Se você não escrever o que é dito, o Whisper transcreve (precisa do ditado por voz instalado).</p>
+      <div class="estudio-campo"><label for="estudioVozNome">Nome</label><input type="text" id="estudioVozNome" maxlength="60" placeholder="Minha voz" /></div>
+      <div class="estudio-campo"><button class="btn-secundario" id="estudioVozArquivo">Escolher o áudio…</button> <span class="dica" id="estudioVozArquivoNome"></span></div>
+      <div class="estudio-campo"><label for="estudioVozTexto">O que é dito no áudio (opcional)</label><textarea id="estudioVozTexto" rows="3"></textarea></div>
+      <label class="estudio-sim"><input type="checkbox" id="estudioVozAutorizada" /> A voz é minha ou tenho autorização da pessoa para cloná-la.</label>
+      <p class="dica estudio-erro" id="estudioVozErro"></p>
+      <footer>
+        <button class="btn-secundario" id="estudioVozCancelar">Cancelar</button>
+        <button class="btn-primario" id="estudioVozSalvar">Salvar voz</button>
+      </footer>
+    </div>
+  </dialog>
 
   <section class="pagina" id="viewUtilitarios" hidden>
     <div class="pagina-rolagem">
@@ -1414,5 +1488,6 @@
 <script src="narracao-chat.js"></script>
 <script src="modo-simples.js"></script>
 <script src="mini.js"></script>
+<script src="estudio.js"></script>
 </body>
 </html>

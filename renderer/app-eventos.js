@@ -996,7 +996,8 @@ api.onEvent(({ canal, dados }) => {
   } catch (err) {
     console.error('atividade', canal, err);
   }
-  window.boasVindasEvento?.(canal, dados || {}); // progresso das instalações na tela de boas-vindas
+  window.boasVindasEvento?.(canal, dados || {});
+  window.estudioEvento?.(canal, dados || {}); // progresso das instalações na tela de boas-vindas
   manipuladores[canal]?.(dados || {});
 });
 

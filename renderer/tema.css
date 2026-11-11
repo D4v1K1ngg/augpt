@@ -661,3 +661,38 @@ body.com-boas-vindas { overflow: hidden; }
 /* a tabela dentro de uma caixa que rola: a tabela ocupa a largura toda (o display:block antigo deixava sobra à direita) */
 .msg.ia .msg-corpo .tabela-resposta { overflow-x: auto; margin: 14px 0 18px; border: 1px solid var(--line-forte); border-radius: 12px; }
 .msg.ia .msg-corpo .tabela-resposta table { display: table; width: 100%; margin: 0; border: 0; border-radius: 0; }
+
+/* ------------------------------ estúdio de voz (11/11, renderer/estudio.js) ------------------------------ */
+.pagina-coluna.estudio { max-width: 1180px; }
+.estudio-motores { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; margin: 4px 0 18px; }
+.estudio-motor { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.estudio-motor.ok { border-color: var(--line-forte); }
+.estudio-motor .dica { margin: 4px 0 0; display: inline-block; }
+.estudio-selo { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--panel-2); color: var(--gold); margin-left: 6px; }
+.estudio-pasta, #estudioInstalacao { grid-column: 1 / -1; margin: 0; }
+.estudio-grade { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .estudio-grade { grid-template-columns: 1fr; } }
+.estudio-texto > label, .estudio-campo > label { display: block; font-size: 12.5px; color: var(--muted); margin: 0 0 6px; }
+.estudio-texto textarea { width: 100%; min-height: 260px; resize: vertical; font: inherit; line-height: 1.6; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line-forte); background: var(--panel); color: var(--text); box-sizing: border-box; }
+.estudio-linha { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: space-between; margin: 8px 0; }
+.estudio-linha .dica { margin: 0; }
+.estudio-acoes { display: flex; gap: 10px; align-items: center; margin: 12px 0 16px; flex-wrap: wrap; }
+.estudio-acoes .dica { margin: 0; }
+.estudio-ajustes { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); position: sticky; top: 8px; }
+.estudio-campo { margin: 0 0 12px; }
+.estudio-campo select, .estudio-campo input[type="text"], .estudio-campo input[type="number"], .estudio-campo textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line-forte); background: var(--panel-2); color: var(--text); }
+.estudio-campo .estudio-linha select { width: auto; flex: 1; }
+.estudio-faixa input[type="range"] { width: 100%; accent-color: var(--gold); }
+.estudio-faixa output { float: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.estudio-faixa .dica { display: block; margin: 2px 0 0; }
+.estudio-sim { display: block; font-size: 13px; margin: 6px 0 10px; }
+.estudio-escolha { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13.5px; }
+.estudio-grupo { border-top: 1px solid var(--line); padding: 10px 0 4px; margin-top: 6px; }
+.estudio-grupo > summary { cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: 10px; }
+.estudio-grupo .estudio-grupo { border-top: 0; padding-top: 0; }
+.estudio-grupo .estudio-grupo > summary { font-weight: 500; color: var(--muted); }
+.estudio-resultado { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); margin: 0 0 10px; }
+.estudio-resultado audio { width: 100%; margin: 6px 0 2px; }
+.estudio-erro { color: var(--erro, #d9775e); }
+.btn-link.perigo { color: var(--erro, #d9775e); }
+#estudioMarca { font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line-forte); background: var(--panel-2); color: var(--text); }

@@ -115,6 +115,20 @@ contextBridge.exposeInMainWorld('augpt', {
     conferirAgora: (id) => ipcRenderer.invoke('agenda:conferirAgora', id),
   },
   novidades: { pendentes: () => ipcRenderer.invoke('novidades:pendentes'), ler: (versao) => ipcRenderer.invoke('novidades:ler', { versao }) },
+  // estúdio de voz (11/11): texto → arquivo de áudio (src/estudio-de-voz)
+  estudio: {
+    estado: () => ipcRenderer.invoke('estudio:estado'),
+    instalar: (motor) => ipcRenderer.invoke('estudio:instalar', { motor }),
+    gerar: (opcoes) => ipcRenderer.invoke('estudio:gerar', opcoes),
+    cancelar: () => ipcRenderer.invoke('estudio:cancelar'),
+    ler: (arquivo) => ipcRenderer.invoke('estudio:ler', { arquivo }),
+    salvarComo: (arquivo) => ipcRenderer.invoke('estudio:salvarComo', { arquivo }),
+    mostrar: (arquivo) => ipcRenderer.invoke('estudio:mostrar', { arquivo }),
+    escolherPasta: () => ipcRenderer.invoke('estudio:escolherPasta'),
+    escolherAudio: () => ipcRenderer.invoke('estudio:escolherAudio'),
+    salvarVoz: (dados) => ipcRenderer.invoke('estudio:salvarVoz', dados),
+    apagarVoz: (id) => ipcRenderer.invoke('estudio:apagarVoz', { id }),
+  },
   componentes: {
     estado: () => ipcRenderer.invoke('componentes:estado'),
     atualizarOllama: () => ipcRenderer.invoke('componentes:atualizarOllama'),

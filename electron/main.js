@@ -318,6 +318,9 @@ async function encerrarModelosEFechar() {
 
   agent?.parar();
   conversaAbort?.abort(new Error('encerrando'));
+  // o estúdio de voz (11/11): o Python dos motores sai junto e libera a placa
+  estudio?.fechar('qwen');
+  estudio?.fechar('omni');
 
   const host = config?.data?.host;
   const prazo = new Promise((resolve) => setTimeout(resolve, 10000));
@@ -2536,6 +2539,96 @@ ipcMain.handle('componentes:voltarImagem', () => {
     return { ok: false, error: err.message };
   }
 });
+/* ------------------------------ estúdio de voz (11/11, src/estudio-de-voz) ------------------------------ */
+// Texto → arquivo de áudio com o Qwen3-TTS ou o OmniVoice. A pasta pode ficar em outro disco (são ~10–15 GB por motor).
+const { EstudioDeVoz } = require('../src/estudio-de-voz');
+let estudio = null;
+const pastaDoEstudio = () => config.data.pastaDoEstudioDeVoz || path.join(app.getPath('userData'), 'componentes', 'estudio-de-voz');
+function estudioDeVoz() {
+  if (estudio && estudio.pasta === pastaDoEstudio()) return estudio;
+  estudio?.fechar('qwen');
+  estudio?.fechar('omni');
+  estudio = new EstudioDeVoz(pastaDoEstudio(), {
+    ffmpeg: ffmpeg().caminho,
+    transcrever: (wav) => (ditado ||= new Ditado(path.join(app.getPath('userData'), 'componentes'))).transcrever(wav),
+    // placa de até 12 GB: o modelo do chat sai antes (o Qwen3-TTS usa ~4,5 GB; numa de 8 GB não cabem os dois)
+    liberarPlaca: async () => {
+      const pc = await verificadorDeHardware.verificarComputador().catch(() => null);
+      const vram = Math.max(0, ...(pc?.gpus || []).map((g) => g.vramGB || 0));
+      if (vram >= 12 || !config.data.host) return;
+      for (const m of await ollama.psModels(config.data.host).catch(() => [])) await ollama.unloadModel(config.data.host, m.name).catch(() => {});
+    },
+  });
+  return estudio;
+}
+const naJanela = (e) => win && e.sender === win.webContents;
+ipcMain.handle('estudio:estado', () => estudioDeVoz().estado());
+ipcMain.handle('estudio:instalar', async (e, { motor } = {}) => {
+  if (!naJanela(e)) return { ok: false, error: 'só pela janela do AuGPT' };
+  try {
+    return { ok: true, estado: await estudioDeVoz().instalar(motor, { emitir: (p) => enviar('estudio-progresso', { ...p, motor }) }) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('estudio:gerar', async (e, opcoes = {}) => {
+  if (!naJanela(e)) return { ok: false, error: 'só pela janela do AuGPT' };
+  try {
+    const { destino, ...resto } = opcoes; // o destino é sempre a pasta do estúdio; "Salvar como…" copia depois
+    return { ok: true, ...(await estudioDeVoz().gerar(resto, { emitir: (p) => enviar('estudio-progresso', p) })) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('estudio:cancelar', () => (estudioDeVoz().cancelar(), { ok: true }));
+// o arquivo gerado (só os da pasta do estúdio) vai em bytes para a tela tocar
+const dentroDoEstudio = (arquivo) => {
+  const rel = path.relative(path.resolve(pastaDoEstudio()), path.resolve(String(arquivo || '')));
+  return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel);
+};
+ipcMain.handle('estudio:ler', (_e, { arquivo } = {}) => (dentroDoEstudio(arquivo) && fs.existsSync(arquivo) ? fs.readFileSync(arquivo) : null));
+ipcMain.handle('estudio:salvarComo', async (e, { arquivo } = {}) => {
+  if (!naJanela(e) || !dentroDoEstudio(arquivo) || !fs.existsSync(arquivo)) return { ok: false };
+  const ext = path.extname(arquivo).slice(1);
+  const r = await dialog.showSaveDialog(win, { title: 'Salvar a narração', defaultPath: path.join(app.getPath('downloads'), path.basename(arquivo)), filters: [{ name: ext.toUpperCase(), extensions: [ext] }] });
+  if (r.canceled || !r.filePath) return { ok: false };
+  fs.copyFileSync(arquivo, r.filePath);
+  const srt = arquivo.replace(/\.[^.]+$/, '.srt');
+  if (fs.existsSync(srt)) fs.copyFileSync(srt, r.filePath.replace(/\.[^.]+$/, '.srt'));
+  return { ok: true, caminho: r.filePath };
+});
+ipcMain.handle('estudio:mostrar', (_e, { arquivo } = {}) => {
+  if (arquivo && dentroDoEstudio(arquivo)) shell.showItemInFolder(arquivo);
+  else shell.openPath(path.join(pastaDoEstudio(), 'narracoes'));
+});
+ipcMain.handle('estudio:escolherPasta', async (e) => {
+  if (!naJanela(e)) return { ok: false };
+  const r = await dialog.showOpenDialog(win, { title: 'Pasta do estúdio de voz (precisa de ~25 GB livres para os dois motores)', properties: ['openDirectory', 'createDirectory'] });
+  if (r.canceled || !r.filePaths.length) return { ok: false };
+  config.save({ pastaDoEstudioDeVoz: r.filePaths[0] });
+  return { ok: true, estado: estudioDeVoz().estado() };
+});
+// voz para clonar: o áudio vem do seletor de arquivos (nunca de um caminho escrito na tela)
+ipcMain.handle('estudio:escolherAudio', async (e) => {
+  if (!naJanela(e)) return { ok: false };
+  const r = await dialog.showOpenDialog(win, { title: 'Áudio da voz (10 a 20 segundos de fala limpa)', properties: ['openFile'], filters: [{ name: 'Áudio', extensions: ['wav', 'mp3', 'm4a', 'ogg', 'opus', 'flac', 'webm', 'mp4'] }] });
+  if (r.canceled || !r.filePaths.length) return { ok: false };
+  estudioAudioEscolhido = r.filePaths[0];
+  return { ok: true, nome: path.basename(r.filePaths[0]) };
+});
+let estudioAudioEscolhido = null;
+ipcMain.handle('estudio:salvarVoz', async (e, { nome, texto, autorizada } = {}) => {
+  if (!naJanela(e)) return { ok: false, error: 'só pela janela do AuGPT' };
+  try {
+    const voz = await estudioDeVoz().salvarVoz({ nome, texto, autorizada: autorizada === true, origem: estudioAudioEscolhido });
+    estudioAudioEscolhido = null;
+    return { ok: true, voz, estado: estudioDeVoz().estado() };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('estudio:apagarVoz', (e, { id } = {}) => (naJanela(e) ? { ok: true, vozes: estudioDeVoz().apagarVoz(id) } : { ok: false }));
+
 // teste da placa (17/10): onde o modelo roda e a que velocidade
 ipcMain.handle('componentes:testarPlaca', async () => {
   try {
