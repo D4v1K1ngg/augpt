@@ -63,10 +63,13 @@ def gerar_qwen(o, pedido, texto):
     m = carregar(nome, pedido)
     extra = {k: v for k, v in {
         'do_sample': o.get('amostrar'), 'temperature': num(o, 'temperatura'), 'top_p': num(o, 'topP'), 'top_k': num(o, 'topK', int),
-        'repetition_penalty': num(o, 'penalidadeDeRepeticao'), 'max_new_tokens': num(o, 'maxTokens', int),
+        'repetition_penalty': num(o, 'penalidadeDeRepeticao'), 'max_new_tokens': num(o, 'maxTokens', int) or None,
         'subtalker_temperature': num(o, 'temperaturaDoDetalhe'), 'subtalker_top_p': num(o, 'topPDoDetalhe'), 'subtalker_top_k': num(o, 'topKDoDetalhe', int),
     }.items() if v is not None}
     idioma = o.get('idioma') or 'auto'
+    # 11/11: sem teto, o Qwen às vezes não para (top-p 0,8 gerou 13 min de áudio para 30 s de texto). ~12 tokens por
+    # segundo de fala e ~14 letras por segundo: 2 tokens por letra + 200 sobra com folga para a fala mais lenta
+    extra.setdefault('max_new_tokens', min(8192, 200 + 2 * len(texto)))
     if modo == 'pronta':
         instr = (o.get('instrucao') or '').strip() or None
         wavs, sr = m.generate_custom_voice(text=texto, language=idioma, speaker=o.get('voz') or 'ryan', instruct=instr if tam == '1.7B' else None, **extra)
@@ -75,7 +78,7 @@ def gerar_qwen(o, pedido, texto):
     else:
         ref = o.get('referencia') or {}
         so_timbre = bool(o.get('soTimbre')) or not (ref.get('texto') or '').strip()
-        wavs, sr = m.generate_voice_clone(text=texto, language=idioma, ref_audio=ref.get('audio'), ref_text=None if so_timbre else ref.get('texto'), x_vector_only_mode=so_timbre, **extra)
+        wavs, sr = m.generate_voice_clone(text=texto, language=idioma, ref_audio=ref.get('audio'), ref_text=None if so_timbre else ref.get('texto'), x_vector_only_mode=so_timbre, non_streaming_mode=True, **extra)  # o padrão da clonagem (False) simula texto chegando aos pedaços
     return wavs[0], sr
 
 
@@ -115,7 +118,7 @@ def gerar(o, pedido):
         enviar({'id': pedido, 'progresso': f'Gerando a parte {i} de {len(partes)}…', 'parte': i, 'de': len(partes)})
         a, sr = (gerar_qwen if MOTOR == 'qwen' else gerar_omni)(o, pedido, texto)
         arq = f"{o['saida']}-{i:03d}.wav"
-        sf.write(arq, a, sr)
+        sf.write(arq, a, sr, subtype='PCM_16')  # o AuGPT encurta as pausas lendo este formato
         feitos.append({'arquivo': arq, 'segundos': len(a) / sr})
     return {'partes': feitos, 'taxa': sr, 'tempo': time.time() - t0}
 

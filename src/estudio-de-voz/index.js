@@ -87,7 +87,7 @@ const MOTORES = {
       { chave: 'topK', rotulo: 'Top-k', min: 1, max: 200, passo: 1, padrao: 50 },
       { chave: 'penalidadeDeRepeticao', rotulo: 'Penalidade de repetição', min: 1, max: 2, passo: 0.01, padrao: 1.05 },
       { chave: 'amostrar', rotulo: 'Amostragem (desligada = sempre igual)', tipo: 'sim', padrao: true },
-      { chave: 'maxTokens', rotulo: 'Limite de tokens por parte', min: 256, max: 8192, passo: 64, padrao: 2048, avancado: true },
+      { chave: 'maxTokens', rotulo: 'Limite de tokens por parte (0 = automático pelo tamanho do texto)', min: 0, max: 8192, passo: 64, padrao: 0, avancado: true },
       { chave: 'temperaturaDoDetalhe', rotulo: 'Temperatura do detalhe (subtalker)', min: 0.1, max: 1.5, passo: 0.05, padrao: 0.9, avancado: true },
       { chave: 'topPDoDetalhe', rotulo: 'Top-p do detalhe', min: 0.1, max: 1, passo: 0.01, padrao: 1, avancado: true },
       { chave: 'topKDoDetalhe', rotulo: 'Top-k do detalhe', min: 1, max: 200, passo: 1, padrao: 50, avancado: true },
@@ -101,7 +101,10 @@ const ACABAMENTO = [
   { chave: 'velocidade', rotulo: 'Velocidade do áudio', min: 0.5, max: 2, passo: 0.05, padrao: 1 },
   { chave: 'tom', rotulo: 'Tom (semitons)', min: -6, max: 6, passo: 0.5, padrao: 0 },
   { chave: 'volume', rotulo: 'Volume (dB)', min: -12, max: 12, passo: 0.5, padrao: 0 },
-  { chave: 'pausa', rotulo: 'Pausa entre parágrafos (s)', min: 0, max: 3, passo: 0.1, padrao: 0.5 },
+  { chave: 'pausa', rotulo: 'Pausa entre parágrafos (s)', min: 0, max: 3, passo: 0.05, padrao: 0.4 },
+  // 11/11 (pedido do Davi, "sem aquelas pausas"): o Qwen para 0,3–0,7 s em quase toda vírgula; aqui a pausa mais longa
+  // dentro da fala é encurtada para este valor (e as pontas de cada parte são aparadas: a emenda fica só com a pausa acima)
+  { chave: 'pausaMaxima', rotulo: 'Pausa máxima dentro da fala (s)', min: 0, max: 1.5, passo: 0.05, padrao: 0.3, ajuda: 'Encurta as paradas longas no meio das frases. 0 = deixa como o modelo fez.' },
   { chave: 'normalizar', rotulo: 'Volume padrão de vídeo (−16 LUFS)', tipo: 'sim', padrao: true },
   { chave: 'porExtenso', rotulo: 'Números e siglas por extenso (português)', tipo: 'sim', padrao: true },
 ];
@@ -146,7 +149,7 @@ const tempoSrt = (s) => {
  * Legenda pelas durações reais de cada parte (sem precisar do Whisper): dentro da parte, as frases dividem o
  * tempo pelo tamanho. `velocidade` do acabamento encurta tudo na mesma proporção.
  */
-function legenda(partes, { pausa = 0.5, velocidade = 1 } = {}) {
+function legenda(partes, { pausa = 0.4, velocidade = 1 } = {}) {
   const linhas = [];
   let t = 0;
   for (const { texto, segundos } of partes) {
@@ -164,10 +167,21 @@ function legenda(partes, { pausa = 0.5, velocidade = 1 } = {}) {
   return linhas.join('\n');
 }
 
-/** Filtros do ffmpeg: tom (asetrate + atempo para manter a duração), velocidade, volume e o volume padrão. */
-function filtros({ velocidade = 1, tom = 0, volume = 0, normalizar = true } = {}, taxa = 24000) {
+/**
+ * Filtros do ffmpeg: velocidade e tom, volume e o volume padrão. Com o rubberband (o ffmpeg do AuGPT tem), velocidade
+ * e tom saem do mesmo filtro, com os formantes preservados — o tom mudado não soa "de desenho animado" e a fala
+ * acelerada não embola como no atempo. Sem ele, o caminho antigo (asetrate + atempo).
+ */
+function filtros({ velocidade = 1, tom = 0, volume = 0, normalizar = true } = {}, taxa = 24000, { rubberband = false } = {}) {
   const f = [];
   const fator = 2 ** (Number(tom) / 12);
+  const vel = Number(velocidade || 1);
+  if (rubberband && (Number(tom) || Math.abs(vel - 1) > 0.001)) {
+    f.push(`rubberband=tempo=${vel.toFixed(4)}:pitch=${fator.toFixed(5)}:formant=preserved:pitchq=quality:transients=smooth`);
+    if (Number(volume)) f.push(`volume=${Number(volume)}dB`);
+    if (normalizar) f.push('loudnorm=I=-16:TP=-1.5:LRA=11');
+    return f.join(',');
+  }
   if (Number(tom)) f.push(`asetrate=${Math.round(taxa * fator)}`, `aresample=${taxa}`);
   let tempo = Number(velocidade || 1) / (Number(tom) ? fator : 1);
   while (tempo > 2) (f.push('atempo=2'), (tempo /= 2));
@@ -176,6 +190,72 @@ function filtros({ velocidade = 1, tom = 0, volume = 0, normalizar = true } = {}
   if (Number(volume)) f.push(`volume=${Number(volume)}dB`);
   if (normalizar) f.push('loudnorm=I=-16:TP=-1.5:LRA=11');
   return f.join(',');
+}
+
+/**
+ * Encurta as pausas de um WAV PCM 16 bits mono (o que o servidor.py grava): mede o volume em janelas de 20 ms; o que
+ * fica 22 dB abaixo da fala (o nível de 90% das janelas) por mais de `maxima` segundos vira `maxima` (metade de
+ * cada lado, com 10 ms de transição para não estalar). As pontas da parte ficam com 30 ms. Medido (11/11): o filtro
+ * silenceremove do ffmpeg não pegava as pausas do Qwen, que têm respiração e chiado acima de −45 dB.
+ * Devolve { wav, segundos } ou null (formato inesperado: fica como está).
+ */
+function encurtarPausas(buf, { maxima = 0.3, abaixoDb = 22, ponta = 0.03 } = {}) {
+  if (buf.toString('ascii', 0, 4) !== 'RIFF' || buf.readUInt16LE(20) !== 1 || buf.readUInt16LE(22) !== 1 || buf.readUInt16LE(34) !== 16) return null;
+  const taxa = buf.readUInt32LE(24);
+  let pos = 12;
+  while (pos + 8 <= buf.length && buf.toString('ascii', pos, pos + 4) !== 'data') pos += 8 + buf.readUInt32LE(pos + 4);
+  if (pos + 8 > buf.length) return null;
+  const amostras = new Int16Array(buf.buffer.slice(buf.byteOffset + pos + 8, buf.byteOffset + pos + 8 + Math.min(buf.readUInt32LE(pos + 4), buf.length - pos - 8) - (Math.min(buf.readUInt32LE(pos + 4), buf.length - pos - 8) % 2)));
+  const jan = Math.round(taxa * 0.02);
+  const n = Math.floor(amostras.length / jan);
+  if (n < 5) return null;
+  const rms = new Float64Array(n);
+  for (let j = 0; j < n; j += 1) {
+    let soma = 0;
+    for (let k = j * jan; k < (j + 1) * jan; k += 1) soma += amostras[k] * amostras[k];
+    rms[j] = Math.sqrt(soma / jan);
+  }
+  const nivel = [...rms].sort((a, b) => a - b)[Math.floor(n * 0.9)];
+  const limite = nivel * 10 ** (-abaixoDb / 20);
+  const quieta = [...rms].map((v) => v < limite);
+  const primeira = quieta.indexOf(false);
+  if (primeira < 0) return null;
+  const ultima = quieta.lastIndexOf(false);
+  // trechos a manter, em amostras
+  const manter = [];
+  const pontaJ = Math.max(1, Math.round(ponta / 0.02));
+  const meiaJ = Math.max(1, Math.round(maxima / 0.04));
+  let ini = Math.max(0, primeira - pontaJ);
+  for (let j = primeira; j <= ultima; ) {
+    if (!quieta[j]) {
+      j += 1;
+      continue;
+    }
+    let k = j;
+    while (k <= ultima && quieta[k]) k += 1;
+    if (k - j > 2 * meiaJ) {
+      manter.push([ini * jan, (j + meiaJ) * jan]);
+      ini = k - meiaJ;
+    }
+    j = k;
+  }
+  manter.push([ini * jan, Math.min(n, ultima + 1 + pontaJ) * jan]);
+  const total = manter.reduce((t, [a, b]) => t + (b - a), 0);
+  const saida = new Int16Array(total);
+  const fade = Math.round(taxa * 0.01);
+  let o = 0;
+  for (const [a, b] of manter) {
+    for (let k = a; k < b; k += 1) {
+      const d = Math.min(k - a, b - 1 - k);
+      saida[o + k - a] = d < fade ? Math.round((amostras[k] * d) / fade) : amostras[k];
+    }
+    o += b - a;
+  }
+  const cab = Buffer.alloc(44);
+  cab.write('RIFF', 0); cab.writeUInt32LE(36 + total * 2, 4); cab.write('WAVE', 8); cab.write('fmt ', 12);
+  cab.writeUInt32LE(16, 16); cab.writeUInt16LE(1, 20); cab.writeUInt16LE(1, 22); cab.writeUInt32LE(taxa, 24);
+  cab.writeUInt32LE(taxa * 2, 28); cab.writeUInt16LE(2, 32); cab.writeUInt16LE(16, 34); cab.write('data', 36); cab.writeUInt32LE(total * 2, 40);
+  return { wav: Buffer.concat([cab, Buffer.from(saida.buffer)]), segundos: total / taxa };
 }
 
 const nomeDeArquivo = (t) => String(t || 'narracao').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'narracao';
@@ -334,6 +414,12 @@ class EstudioDeVoz {
     this.atual = null;
   }
 
+  /** O ffmpeg tem o filtro rubberband? (o do AuGPT tem; um ffmpeg mais simples, não) */
+  temRubberband() {
+    this._rubberband ??= new Promise((ok) => execFile(this.ffmpeg, ['-hide_banner', '-filters'], { windowsHide: true, maxBuffer: 4 * 1024 * 1024 }, (err, saida) => ok(!err && /rubberband/.test(String(saida)))));
+    return this._rubberband;
+  }
+
   ff(args) {
     return new Promise((ok, falha) =>
       execFile(this.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', ...args], { windowsHide: true, maxBuffer: 8 * 1024 * 1024 }, (err, _o, stderr) => (err ? falha(new Error(String(stderr || err.message).trim().slice(0, 300))) : ok()))
@@ -349,7 +435,8 @@ class EstudioDeVoz {
     if (!this.instalado(motor)) throw new Error(`o ${MOTORES[motor].nome} não está instalado`);
     if (!this.ffmpeg || !fs.existsSync(this.ffmpeg)) throw new Error('o estúdio precisa do ffmpeg (Ajustes → Componentes)');
     if (this.atual) throw new Error('já tem uma narração sendo gerada');
-    const textos = dividirTexto(o.texto);
+    // OmniVoice aguenta parágrafos longos (ele mesmo divide em trechos de ~15 s): menos emendas, entonação mais contínua
+    const textos = dividirTexto(o.texto, motor === 'omni' ? 900 : 420);
     if (!textos.length) throw new Error('escreva o texto da narração');
     this.atual = { motor };
     const tmp = fs.mkdtempSync(path.join(this.pasta, 'tmp-'));
@@ -365,9 +452,17 @@ class EstudioDeVoz {
       const inicio = Date.now();
       const r = await this.pedir(motor, { tipo: 'gerar', ...o, motor: undefined, texto: undefined, partes, referencia, saida: path.join(tmp, 'parte') }, (m) => emitir({ texto: m.progresso, parte: m.parte, de: m.de }));
       emitir({ texto: 'Juntando as partes e aplicando o acabamento…' });
+      // pausas: as pontas de cada parte saem e a parada mais longa dentro da fala fica em `pausaMaxima`
+      const maxima = Number(o.pausaMaxima ?? 0.3);
+      if (maxima > 0) {
+        for (const p of r.partes) {
+          const novo = encurtarPausas(fs.readFileSync(p.arquivo), { maxima });
+          if (novo) (fs.writeFileSync(p.arquivo, novo.wav), (p.segundos = novo.segundos));
+        }
+      }
       // junta com a pausa entre as partes (um arquivo de silêncio na taxa do modelo)
       const silencio = path.join(tmp, 'silencio.wav');
-      const pausa = Math.max(0, Number(o.pausa ?? 0.5));
+      const pausa = Math.max(0, Number(o.pausa ?? 0.4));
       if (pausa > 0) await this.ff(['-f', 'lavfi', '-i', `anullsrc=r=${r.taxa}:cl=mono`, '-t', String(pausa), silencio]);
       const lista = path.join(tmp, 'lista.txt');
       fs.writeFileSync(lista, r.partes.flatMap((p, i) => [`file '${p.arquivo.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`, ...(pausa > 0 && i < r.partes.length - 1 ? [`file '${silencio.replace(/\\/g, '/')}'`] : [])]).join('\n'));
@@ -376,8 +471,9 @@ class EstudioDeVoz {
       fs.mkdirSync(pastaDestino, { recursive: true });
       const base = path.join(pastaDestino, `${nomeDeArquivo(textos[0])}-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}`);
       const arquivo = `${base}.${formato}`;
-      const af = filtros(o, r.taxa);
-      await this.ff(['-f', 'concat', '-safe', '0', '-i', lista, ...(af ? ['-af', af] : []), ...FORMATOS[formato], arquivo]);
+      const af = filtros(o, r.taxa, { rubberband: await this.temRubberband() });
+      // -ar: o loudnorm sobe a taxa para 192 kHz (arquivo 8× maior, e alguns players engasgam); volta para 48 kHz
+      await this.ff(['-f', 'concat', '-safe', '0', '-i', lista, ...(af ? ['-af', af] : []), '-ar', '48000', ...FORMATOS[formato], arquivo]);
       const velocidade = Number(o.velocidade || 1);
       const segundos = (r.partes.reduce((s, p) => s + p.segundos, 0) + pausa * (r.partes.length - 1)) / velocidade;
       let srt = null;
@@ -446,4 +542,4 @@ class EstudioDeVoz {
   }
 }
 
-module.exports = { EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };
+module.exports = { encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };

@@ -85,4 +85,30 @@ module.exports = [
       return resultado;
     },
   },
+  {
+    nome: 'estúdio de voz (fluidez): pausa longa no meio da fala vira a pausa máxima, a curta (vírgula, consoante) fica, as pontas saem; formato inesperado fica como está; velocidade e tom pelo rubberband',
+    tipo: 'unidade',
+    executar() {
+      // 24 kHz: fala (seno alto) 1 s · respiração baixa 1,2 s · fala 0,5 s · pausa curta 0,15 s · fala 0,5 s, com 0,4 s de silêncio nas pontas
+      const taxa = 24000;
+      const trechos = [[0.4, 0], [1, 8000], [1.2, 150], [0.5, 8000], [0.15, 150], [0.5, 8000], [0.4, 0]];
+      const amostras = [];
+      for (const [seg, amp] of trechos) for (let i = 0; i < Math.round(seg * taxa); i += 1) amostras.push(Math.round(amp * Math.sin(i / 3)));
+      const dados = Buffer.from(new Int16Array(amostras).buffer);
+      const cab = Buffer.alloc(44);
+      cab.write('RIFF', 0); cab.writeUInt32LE(36 + dados.length, 4); cab.write('WAVE', 8); cab.write('fmt ', 12);
+      cab.writeUInt32LE(16, 16); cab.writeUInt16LE(1, 20); cab.writeUInt16LE(1, 22); cab.writeUInt32LE(taxa, 24);
+      cab.writeUInt32LE(taxa * 2, 28); cab.writeUInt16LE(2, 32); cab.writeUInt16LE(16, 34); cab.write('data', 36); cab.writeUInt32LE(dados.length, 40);
+      const r = e.encurtarPausas(Buffer.concat([cab, dados]), { maxima: 0.3 });
+      // esperado: 1 + 0,3 + 0,5 + 0,15 + 0,5 + 2 × 0,03 (pontas) ≈ 2,51 s (antes: 4,15 s)
+      const fala = (r.wav.length - 44) / 2;
+      return [
+        r && Math.abs(r.segundos - 2.51) < 0.06 || `duração ${r?.segundos}`,
+        fala === Math.round(r.segundos * taxa) && r.wav.readUInt32LE(40) === fala * 2 || 'cabeçalho do WAV',
+        e.encurtarPausas(Buffer.from('não é wav'), { maxima: 0.3 }) === null || 'formato inesperado',
+        /^rubberband=tempo=1.1000:pitch=0.94387:formant=preserved/.test(e.filtros({ velocidade: 1.1, tom: -1 }, 24000, { rubberband: true })) || e.filtros({ velocidade: 1.1, tom: -1 }, 24000, { rubberband: true }),
+        e.ACABAMENTO.some((p) => p.chave === 'pausaMaxima' && p.padrao === 0.3) || 'ajuste da pausa máxima na tela',
+      ];
+    },
+  },
 ];
