@@ -696,3 +696,7 @@ body.com-boas-vindas { overflow: hidden; }
 .estudio-erro { color: var(--erro, #d9775e); }
 .btn-link.perigo { color: var(--erro, #d9775e); }
 #estudioMarca { font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line-forte); background: var(--panel-2); color: var(--text); }
+
+/* 🔊 no fim da resposta (12/11, renderer/estudio.js) */
+.audio-resposta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.audio-resposta audio { height: 32px; max-width: 100%; }

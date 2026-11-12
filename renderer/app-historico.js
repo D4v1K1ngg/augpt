@@ -239,6 +239,7 @@ function restaurarTurno(m) {
   } else {
     corpo.innerHTML = window.md.render(m.content);
     window.md.montarGraficos(corpo);
+    window.botaoDeAudio?.(corpo, m.content);
   }
   el.aMensagens.appendChild(div);
 }

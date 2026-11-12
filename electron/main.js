@@ -2574,7 +2574,9 @@ ipcMain.handle('estudio:instalar', async (e, { motor } = {}) => {
 ipcMain.handle('estudio:gerar', async (e, opcoes = {}) => {
   if (!naJanela(e)) return { ok: false, error: 'só pela janela do AuGPT' };
   try {
-    const { destino, ...resto } = opcoes; // o destino é sempre a pasta do estúdio; "Salvar como…" copia depois
+    const { destino, daResposta, ...resto } = opcoes; // o destino é sempre a pasta do estúdio; "Salvar como…" copia depois
+    if (daResposta) resto.texto = require('../src/estudio-de-voz').textoDaResposta(resto.texto);
+    if (!String(resto.texto || '').trim()) return { ok: false, error: 'a resposta não tem texto para ler' };
     return { ok: true, ...(await estudioDeVoz().gerar(resto, { emitir: (p) => enviar('estudio-progresso', p) })) };
   } catch (err) {
     return { ok: false, error: err.message };

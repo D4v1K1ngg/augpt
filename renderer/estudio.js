@@ -267,9 +267,61 @@
     await carregar();
   });
 
+  /* ---------- 🔊 no fim da resposta (12/11): a resposta vira áudio com o motor e as escolhas do Estúdio ---------- */
+  let botaoAtivo = null;
+  function opcoesDoChat(m, markdown) {
+    const p = escolhas[m] || {};
+    const v = (k, d) => p[k] ?? escolhas.geral?.[k] ?? d;
+    const modos = est.motores[m].modos.map(([id]) => id);
+    let modo = modos.includes(p.modo) ? p.modo : modos[0];
+    if (modo === 'clonar' && !est.vozes?.some((x) => x.id === escolhas.vozSalva)) modo = modos[0];
+    const o = { motor: m, modo, idioma: escolhas.idioma || 'auto', texto: markdown, formato: 'mp3', legenda: false, daResposta: true };
+    for (const par of est.motores[m].parametros) o[par.chave] = v(par.chave, par.padrao);
+    for (const par of est.acabamento) o[par.chave] = escolhas.geral?.[par.chave] ?? par.padrao;
+    if (m === 'qwen') Object.assign(o, { tamanho: v('tamanho', '1.7B'), voz: v('voz', 'ryan') });
+    o.instrucao = v('instrucao', m === 'omni' ? 'male, middle-aged, moderate pitch' : '');
+    if (modo === 'clonar') o.vozSalva = escolhas.vozSalva;
+    delete o.duracao; // duração fixa é para um trecho do Estúdio, não para a resposta inteira
+    if (Number.isFinite(escolhas.semente)) o.semente = escolhas.semente;
+    return o;
+  }
+  window.botaoDeAudio = async (corpo, markdown) => {
+    if (!corpo || !String(markdown || '').trim()) return;
+    try {
+      est ||= await api.estudio.estado();
+    } catch {
+      return;
+    }
+    // o OmniVoice primeiro (rápido e lê siglas); o Qwen só se for o único instalado
+    const m = ['omni', 'qwen'].find((x) => est.motores[x]?.instalado);
+    if (!m || !est.ffmpeg) return;
+    const caixa = document.createElement('div');
+    caixa.className = 'audio-resposta';
+    caixa.innerHTML = '<button class="btn-link" type="button">🔊 Gerar áudio</button>';
+    const b = caixa.querySelector('button');
+    b.addEventListener('click', async () => {
+      if (botaoAtivo) return (b.textContent = '🔊 Espere o outro áudio terminar');
+      botaoAtivo = b;
+      b.disabled = true;
+      b.textContent = `🔊 Gerando com o ${est.motores[m].nome}…`;
+      const o = opcoesDoChat(m, markdown);
+      const r = await api.estudio.gerar(o).catch((err) => ({ ok: false, error: err.message }));
+      botaoAtivo = null;
+      b.disabled = false;
+      if (!r.ok) return (b.textContent = `🔊 Não deu: ${r.error} — tentar de novo`);
+      const bytes = await api.estudio.ler(r.arquivo);
+      const url = bytes ? URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' })) : '';
+      caixa.innerHTML = `${url ? '<audio controls autoplay></audio>' : ''}<button class="btn-link" type="button" data-a="salvar">Salvar como…</button><span class="dica">${esc(`${fmt(r.segundos)} de áudio em ${fmt(r.tempo)}`)}</span>`;
+      if (url) caixa.querySelector('audio').src = url;
+      caixa.querySelector('[data-a="salvar"]').addEventListener('click', () => api.estudio.salvarComo(r.arquivo));
+    });
+    corpo.appendChild(caixa);
+  };
+
   window.carregarEstudio = () => carregar().catch((err) => ($('estudioMotores').textContent = `Erro: ${err.message}`));
   window.estudioEvento = (canal, dados) => {
     if (canal !== 'estudio-progresso' || !dados.texto) return;
+    if (botaoAtivo && !dados.motor) botaoAtivo.textContent = `🔊 ${dados.texto}`;
     if (dados.motor) {
       const alvo = $('estudioInstalacao');
       if (alvo) alvo.textContent = dados.texto;

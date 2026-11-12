@@ -305,6 +305,7 @@ function bolha(quem, conteudo, classe = '') {
   else {
     corpo.innerHTML = window.md.render(conteudo);
     window.md.montarGraficos(corpo);
+    window.botaoDeAudio?.(corpo, conteudo);
   }
   el.cMensagens.appendChild(div);
   return corpo;
@@ -353,6 +354,7 @@ async function enviarMensagem() {
   if (r.ok) {
     chat.alvo.innerHTML = window.md.render(r.conteudo);
     window.md.montarGraficos(chat.alvo);
+    window.botaoDeAudio?.(chat.alvo, r.conteudo);
     chat.historico.push({ role: 'assistant', content: r.conteudo });
   } else if (r.interrompido) {
     chat.alvo.innerHTML = window.md.render(chat.buffer || '_(interrompido)_');

@@ -549,4 +549,16 @@ class EstudioDeVoz {
 const SIGLAS_E_NUMEROS = /\b[A-Z]{2,}[A-Z0-9]*\b|\b\d+(?:[.,]\d+)?\s?[a-zA-Z%]{0,3}\b/g;
 const cheioDeSiglas = (texto) => (String(texto || '').match(SIGLAS_E_NUMEROS) || []).length >= 3;
 
-module.exports = { cheioDeSiglas, encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };
+/**
+ * A resposta do chat (12/11, botão 🔊): o texto inteiro que se fala — sem código, tabela, link, citação e lista de
+ * fontes (textoParaFalar) e sem emoji, que o modelo leria como ruído; os parágrafos ficam (viram as partes).
+ */
+const textoDaResposta = (markdown) =>
+  String(markdown || '')
+    .split(/\n-{3,}\s*\n/)[0]
+    .split(/\n\s*\n/)
+    .map((p) => textoParaFalar(p, { semAviso: true, maximo: Infinity }).replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').replace(/\s+/g, ' ').trim())
+    .filter((p) => /[\p{L}\d]/u.test(p))
+    .join('\n\n');
+
+module.exports = { textoDaResposta, cheioDeSiglas, encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };

@@ -126,4 +126,19 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'estúdio: 🔊 da resposta — sem citação, link, emoji, tabela, código e lista de fontes; os parágrafos ficam; o botão vai nas respostas do agente, da conversa e do histórico',
+    tipo: 'unidade',
+    executar() {
+      const e = require('../../src/estudio-de-voz');
+      const fs = require('fs');
+      const t = e.textoDaResposta('Use um **cabo Ethernet** [(8)](https://x.com/a).\n\n### 📡 No roteador\nO **QoS** ajuda [(3)](https://b.com).\n\n| a | b |\n|---|---|\n\n```\ncode\n```\n\n---\n**Fontes**\n1. x');
+      const r = (f) => fs.readFileSync(require('path').join(__dirname, '../../renderer', f), 'utf8');
+      return [
+        t === 'Use um cabo Ethernet.\n\nNo roteador. O QoS ajuda.' || JSON.stringify(t),
+        /botaoDeAudio\?\.\(t\.resposta/.test(r('app-eventos.js')) && /botaoDeAudio\?\.\(corpo, m\.content/.test(r('app-historico.js')) && /botaoDeAudio\?\.\(chat\.alvo/.test(r('app-abas.js')) || 'o botão nas três telas',
+        /daResposta/.test(fs.readFileSync(require('path').join(__dirname, '../../electron/main.js'), 'utf8')) || 'o processo principal limpa o texto',
+      ];
+    },
+  },
 ];
