@@ -180,7 +180,7 @@ const PEDE_PESQUISA = /(?<![a-zà-ú])(pesquis\w*|procur\w*|busqu\w*|busca\w*|na
 // ("estou cansado hoje" é conversa: "hoje" e "agora" sozinhos não fazem a pergunta ser sobre o que é atual)
 // pedido de guia nunca é conversa (12/11, régua: "como faço para a bateria do meu android durar mais?" e "quais as melhores
 // táticas de PUBG?" saíram como bate-papo de 2 frases, sem pesquisa, numa rodada — e com nota 10 na outra)
-const PEDE_GUIA = /(?<![a-zà-ú])(como (fa[cç]o|fazer|posso|devo|melhorar|deixar|aumentar|diminuir|reduzir|otimizar|economizar|evitar|escolher|cuidar|configurar|instalar|limpar)|quais (s[aã]o )?(os |as )?(cuidados|dicas|t[aá]ticas|passos|melhores (formas|maneiras|jeitos|t[aá]ticas|dicas|pr[aá]ticas))|dicas?|t[aá]ticas?|passo a passo|cuidados|como [a-zà-ú]+(?:ar|er|ir) (?:o|a|os|as|meu|minha|melhor)|(?:melhora|aumenta|ganh)[a-zà-ú]* [^?]{0,25}(?:desempenho|fps|performance))(?![a-zà-ú])/i;
+const PEDE_GUIA = /(?<![a-zà-ú])(como (fa[cç]o|fazer|posso|devo|melhorar|deixar|aumentar|diminuir|reduzir|otimizar|economizar|evitar|escolher|cuidar|configurar|instalar|limpar)|quais (s[aã]o )?(os |as )?(cuidados|dicas|t[aá]ticas|passos|melhores (formas|maneiras|jeitos|t[aá]ticas|dicas|pr[aá]ticas))|dicas?|t[aá]ticas?|passo a passo|cuidados|como [a-zà-ú]+(?:ar|er|ir) (?:o|a|os|as|meu|minha|melhor)|o que (?:eu )?(?:posso|devo|d[aá] (?:pra|para)) fazer|(?:melhora|aumenta|ganh)[a-zà-ú]* [^?]{0,25}(?:desempenho|fps|performance))(?![a-zà-ú])/i;
 const ehConversa = (pergunta, j = {}) => (j.conversa === true || CONVERSA.test(String(pergunta || ''))) && !PEDE_GUIA.test(String(pergunta || '')) && j.produto !== true && !PISTA_DE_ATUAL.test(String(pergunta || '').replace(/(?<![a-zà-ú])(hoje|agora)(?![a-zà-ú])/gi, '')) && !PEDE_PESQUISA.test(String(pergunta || '')) && !/(?<![a-zà-ú])(not[ií]cias?|jornal|aconteceu|acontecendo|elei[cç][aã]o|jogo de ontem)(?![a-zà-ú])/i.test(String(pergunta || ''));
 // conversa que o código reconhece sozinho (cumprimento ou as frases de conversa), sem perguntar ao modelo
 // — sem o modelo, quem barra produto é o código: nome com número (RTX 5070, S25, EM6L, iPhone 16) ou palavra de
@@ -1091,6 +1091,28 @@ function semFontesForaDoAssuntoSemGarantia(pergunta, ordenados, temGarantidas = 
  * fontes de cada um; o escritor recebe a lista e cobre todos. O embedding (nomic ou embeddinggemma) não mudou nada
  * na escolha dos trechos. Devolve o texto da pauta ou '' (falhou, ou o material não rende uma lista).
  */
+/*
+ * Anotações por página (12/11, passo 3 do plano): uma chamada curta por fonte lista os pontos que ELA traz para a
+ * pergunta; o escritor recebe os pontos no topo e um trecho mais curto do texto (para citar e conferir). Falhou → o
+ * texto fica como estava.
+ */
+async function anotarPaginas(pergunta, usadas, { chamar, signal } = {}) {
+  if (typeof chamar !== 'function') return usadas;
+  const anotadas = [];
+  for (const f of usadas) {
+    if (signal?.aborted) { anotadas.push(f); continue; }
+    const pedido = `Pergunta: ${pergunta}\n\nTexto da página "${f.titulo || dominio(f.url)}":\n${String(f.conteudo || '').slice(0, 3500)}\n\nListe cada ponto DESTA página que ajuda a responder a pergunta: cada dica, passo, configuração, número ou alerta distinto vira um ponto curto e concreto, com o nome exato do que fazer ou do dado. Até 10 pontos; nada que não responda à pergunta (menu, propaganda, outro assunto). Responda só com um JSON: {"pontos": ["...", "..."]}`;
+    try {
+      const r = await chamar([{ role: 'user', content: pedido }], { json: true, numPredict: 500, signal });
+      const bruto = String(r?.content || '');
+      const pontos = (safeJson(bruto.slice(bruto.indexOf('{')))?.pontos || [])
+        .map((p) => String(p || '').replace(/\s+/g, ' ').trim().slice(0, 220)).filter((p) => p.length >= 6).slice(0, 10);
+      anotadas.push(pontos.length ? { ...f, conteudo: `Pontos desta página:\n${pontos.map((p) => `- ${p}`).join('\n')}\n\nTrecho da página:\n${String(f.conteudo || '').slice(0, 1500)}` } : f);
+    } catch { anotadas.push(f); }
+  }
+  return anotadas;
+}
+
 async function pautaDaEscrita(pergunta, usadas, { chamar, signal } = {}) {
   if (typeof chamar !== 'function' || usadas.length < 2) return '';
   const material = usadas
@@ -1777,8 +1799,13 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
   etapa('pesquisa', inicioDaPesquisa);
   const inicioDoMaterial = Date.now();
-  const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit }) : [];
+  let usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit }) : [];
   etapa('material', inicioDoMaterial);
+  if (deps.notasPorPagina === true && usadas.length && !ent.produto && !ent.conversa && !ehAnaliseDePreco(pergunta) && !pedeGrafico(pergunta) && !pedeVisual(pergunta)) {
+    const inicioDasNotas = Date.now();
+    usadas = await anotarPaginas(ent.pergunta || pergunta, usadas, { chamar, signal: deps.signal });
+    etapa('notas', inicioDasNotas);
+  }
   // a pauta (12/11): os pontos do material, para o escritor cobrir todos — não em produto (tem formato próprio), gráfico,
   // página interativa, análise de preço, conversa e explicação de memória
   const inicioDaPauta = Date.now();
@@ -1939,4 +1966,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { pautaDaEscrita, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

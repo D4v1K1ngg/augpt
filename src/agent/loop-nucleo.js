@@ -172,6 +172,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // a pauta antes da escrita (12/11): DESLIGADA por padrão — na régua, com o qwen3.5:9b, não melhorou (notas iguais,
     // 5 a 9 dicas de 12 com ou sem) e custa 3–5 s; com o gpt-oss, respostas mais completas. Liga com "pautaDaEscrita": true
     pautaDaEscrita: cfg.pautaDaEscrita === true,
+    // 12/11 (régua, 5 guias × 2 rodadas, 9B): cobertura do gabarito 60% → 68%, +5 s; desliga com "notasPorPagina": false
+    notasPorPagina: cfg.notasPorPagina !== false,
     // 30/10: quanto cada site levou para abrir (no relatório: os que sempre demoram ficam visíveis)
     lerPagina: async (url) => {
       const t = Date.now();

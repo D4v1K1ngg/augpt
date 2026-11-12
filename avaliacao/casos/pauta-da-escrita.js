@@ -33,10 +33,24 @@ module.exports = [
         pedidos[0].o.json === true && /Modo de Jogo em Configurações/.test(pedidos[0].m[0].content) && /\[3\] Guia B/.test(pedidos[0].m[0].content) || 'o material vai no pedido, em JSON',
         poucos === '' && quebrado === '' && umaFonte === '' || `sem pauta: ${JSON.stringify([poucos, quebrado, umaFonte])}`,
         require('../../src/llm/ollama').limiteDeSaida('gpt-oss:20b', 300) === 1324 && require('../../src/llm/ollama').limiteDeSaida('qwen3.5:9b', 300) === 300 || 'folga de saída só no gpt-oss (o raciocínio dele não desliga)',
-        ['Como controlar melhor o spray no pubg de pc ?', 'Realizar ajustes no registro do windows pode fazer eu ganhar mais desempenho em jogos ?', 'desativar as mitigações (Spectre e Meltdown) melhora o desempenho em jogos ?']
+        ['Como controlar melhor o spray no pubg de pc ?', 'Realizar ajustes no registro do windows pode fazer eu ganhar mais desempenho em jogos ?', 'desativar as mitigações (Spectre e Meltdown) melhora o desempenho em jogos ?', 'o que eu posso fazer para melhorar a minha conexão de internet para jogar jogos online ?']
           .every((q) => nucleo.lerEntendimento('{"precisa_buscar":false,"conversa":true}', q).precisaBuscar === true) || 'pergunta de "como fazer" ou de desempenho pesquisa mesmo com o 9B marcando conversa',
         nucleo.lerEntendimento('{"precisa_buscar":false,"conversa":true}', 'Você acha que vale a pena aprender violão depois dos 30?').conversa === true || 'opinião continua conversa',
         /não acrescente assunto vizinho/.test(nucleo.pedidoDeEntendimento({ pergunta: 'x', hoje: '12/11/2026' })) || 'as partes ficam no que o usuário pediu',
+      ];
+    },
+  },
+  {
+    nome: 'anotações por página: cada fonte ganha "Pontos desta página" no topo e um trecho mais curto; JSON quebrado deixa a fonte como estava',
+    tipo: 'unidade',
+    async executar() {
+      let vez = 0;
+      const chamar = async () => ({ content: vez++ === 0 ? '{"pontos":["ativar o Modo de Jogo","atualizar o driver"]}' : 'não é json' });
+      const [a, b] = await nucleo.anotarPaginas('como otimizar?', usadas, { chamar });
+      return [
+        /^Pontos desta página:\n- ativar o Modo de Jogo\n- atualizar o driver\n\nTrecho da página:\nAtive o Modo/.test(a.conteudo) || a.conteudo,
+        b.conteudo === usadas[1].conteudo || 'sem pontos, a fonte fica igual',
+        a.n === 1 && a.url === usadas[0].url || 'número e endereço da fonte ficam',
       ];
     },
   },
