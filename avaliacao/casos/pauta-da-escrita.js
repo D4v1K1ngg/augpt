@@ -33,6 +33,9 @@ module.exports = [
         pedidos[0].o.json === true && /Modo de Jogo em Configurações/.test(pedidos[0].m[0].content) && /\[3\] Guia B/.test(pedidos[0].m[0].content) || 'o material vai no pedido, em JSON',
         poucos === '' && quebrado === '' && umaFonte === '' || `sem pauta: ${JSON.stringify([poucos, quebrado, umaFonte])}`,
         require('../../src/llm/ollama').limiteDeSaida('gpt-oss:20b', 300) === 1324 && require('../../src/llm/ollama').limiteDeSaida('qwen3.5:9b', 300) === 300 || 'folga de saída só no gpt-oss (o raciocínio dele não desliga)',
+        ['Como controlar melhor o spray no pubg de pc ?', 'Realizar ajustes no registro do windows pode fazer eu ganhar mais desempenho em jogos ?', 'desativar as mitigações (Spectre e Meltdown) melhora o desempenho em jogos ?']
+          .every((q) => nucleo.lerEntendimento('{"precisa_buscar":false,"conversa":true}', q).precisaBuscar === true) || 'pergunta de "como fazer" ou de desempenho pesquisa mesmo com o 9B marcando conversa',
+        nucleo.lerEntendimento('{"precisa_buscar":false,"conversa":true}', 'Você acha que vale a pena aprender violão depois dos 30?').conversa === true || 'opinião continua conversa',
         /não acrescente assunto vizinho/.test(nucleo.pedidoDeEntendimento({ pergunta: 'x', hoje: '12/11/2026' })) || 'as partes ficam no que o usuário pediu',
       ];
     },
