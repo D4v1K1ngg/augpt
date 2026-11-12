@@ -171,12 +171,30 @@ async function health(host = DEFAULT_HOST) {
 /** Lista os modelos já baixados localmente. */
 async function listModels(host = DEFAULT_HOST) {
   const data = await request(host, '/api/tags', { method: 'GET', timeout: 8000 });
-  return (data.models || []).map((m) => ({
-    name: m.name,
-    size: m.size,
-    family: m.details?.family || '',
-    parameters: m.details?.parameter_size || '',
-  }));
+  const modelos = data.models || [];
+  const vistos = new Set();
+  return modelos
+    .filter((m) => !vistos.has(m.name) && vistos.add(m.name)) // o Ollama 0.40 repete o nome (glm-4.7-flash duas vezes)
+    .map((m) => ({
+      name: m.name,
+      rotulo: rotuloDoModelo(m, modelos),
+      size: m.size,
+      family: m.details?.family || '',
+      parameters: m.details?.parameter_size || '',
+    }));
+}
+
+/**
+ * Nome para a tela (12/11): o Ollama 0.40 lista o GGUF solto como "llamacpp:<sha256>" (o Ministral do Davi aparecia
+ * como "llamacpp:129e04c0…" no topo). Se o mesmo arquivo tem um nome, vale o nome; senão família, tamanho e quantização.
+ */
+function rotuloDoModelo(m, todos = []) {
+  const sha = /^llamacpp:([0-9a-f]{64})$/.exec(m.name)?.[1];
+  if (!sha) return m.name;
+  const irmao = todos.find((x) => x.name !== m.name && !x.name.startsWith('llamacpp:') && String(x.digest || '').startsWith(sha));
+  if (irmao) return `${irmao.name} (cópia)`;
+  const d = m.details || {};
+  return [d.family, d.parameter_size].filter(Boolean).join(' ') + (d.quantization_level ? ` · ${d.quantization_level}` : '') || `modelo sem nome ${sha.slice(0, 8)}`;
 }
 
 /**

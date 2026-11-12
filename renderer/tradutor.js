@@ -38,8 +38,10 @@
     }
     // os modelos podem mudar (baixou um novo): a lista é refeita a cada visita
     const [m, cfg] = await Promise.all([api.ollama.models().catch(() => ({ models: [] })), api.config.get().catch(() => ({}))]);
-    const nomes = [...new Set((m.models || []).map((x) => x.name || x).filter(Boolean))];
-    $('tradModelo').innerHTML = `<option value="">Modelo do chat${cfg.model ? ` (${cfg.model})` : ''}</option>${nomes.map((n) => `<option value="${n}">${n}</option>`).join('')}`;
+    const lista = (m.models || []).filter((x) => x?.name);
+    const nomes = lista.map((x) => x.name);
+    const rotulo = (n) => lista.find((x) => x.name === n)?.rotulo || n;
+    $('tradModelo').innerHTML = `<option value="">Modelo do chat${cfg.model ? ` (${rotulo(cfg.model)})` : ''}</option>${nomes.map((n) => `<option value="${n}">${rotulo(n)}</option>`).join('')}`;
     $('tradModelo').value = nomes.includes(escolhas.modelo) ? escolhas.modelo : '';
     $('tradTexto').focus();
   }

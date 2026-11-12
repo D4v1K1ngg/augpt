@@ -466,13 +466,17 @@ $('btnModelos')?.addEventListener('click', async () => {
 $('btnAtualizarModelos')?.addEventListener('click', async () => pintarQuadroDeModelos(await carregarBadgeModelos()));
 $('btnFecharModelos')?.addEventListener('click', () => $('dlgModelos').close());
 
+// o nome legível de cada modelo (12/11: "llamacpp:129e04…" vira "mistral3 13.9B · Q4_K_M"), vindo de src/llm/ollama.js
+const ROTULOS_DE_MODELO = {};
+const nomeVisivel = (nome) => ROTULOS_DE_MODELO[nome] || nome;
 function rotuloDoModelo(nome, pensa) {
-  return pensa ? `${nome} · pensa antes de responder (lento)` : nome;
+  return pensa ? `${nomeVisivel(nome)} · pensa antes de responder (lento)` : nomeVisivel(nome);
 }
 
 async function carregarModelos() {
   const { ok, models } = await api.ollama.models();
   if (!ok) return;
+  for (const m of models) if (m.rotulo) ROTULOS_DE_MODELO[m.name] = m.rotulo;
   const anterior = config.model || el.modelo.value;
   // revisão v5: modelo que "pensa" (R1, QwQ) aparece marcado — funciona,
   // mas cada etapa fica bem mais lenta; os de decisão (tev1) nem vêm na lista
@@ -489,7 +493,7 @@ async function carregarModelos() {
   // de embedding (que agora não aparece como opção) — limpa pra aba Conversa
   // não tentar conversar com ele (Fase 2).
   if (escolhido !== config.model) config = await api.config.set({ model: escolhido });
-  el.cModelo.textContent = config.model || 'nenhum modelo';
+  el.cModelo.textContent = config.model ? nomeVisivel(config.model) : 'nenhum modelo';
 }
 
 /* ------------------- Ollama: oferta de início automático ------------------- */
@@ -1508,13 +1512,13 @@ $('btnLimparOperacional').addEventListener('click', async () => {
 
 el.modelo.addEventListener('change', async () => {
   config = await api.config.set({ model: el.modelo.value });
-  el.cModelo.textContent = config.model;
+  el.cModelo.textContent = nomeVisivel(config.model);
   // 10/11: o modelo novo carrega na hora da troca (antes, na 1ª pergunta: 10–30 s de espera sem aviso)
   const escolhido = config.model;
   if (escolhido && !agente.rodando) {
-    el.cModelo.textContent = `${escolhido} · ${tr('carregando…')}`;
+    el.cModelo.textContent = `${nomeVisivel(escolhido)} · ${tr('carregando…')}`;
     await api.agent.aquecer?.({ forcar: true }).catch(() => {});
-    if (config.model === escolhido) el.cModelo.textContent = escolhido;
+    if (config.model === escolhido) el.cModelo.textContent = nomeVisivel(escolhido);
   }
 });
 

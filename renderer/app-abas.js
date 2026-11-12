@@ -150,7 +150,7 @@ function trocarAba(qual) {
   }
 
   if (qual === 'conversa') {
-    el.cModelo.textContent = config.model || 'nenhum modelo';
+    el.cModelo.textContent = config.model ? nomeVisivel(config.model) : 'nenhum modelo';
     el.cEntrada.focus();
   } else if (qual === 'skills') {
     if (!$('painelFerramentas').hidden) carregarFerramentas();

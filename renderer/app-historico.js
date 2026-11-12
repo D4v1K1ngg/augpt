@@ -1172,7 +1172,7 @@ $('btnLimparExec').addEventListener('click', async () => {
     const ollama = $('statusOllama');
     const modelos = $('btnModelos');
     const pesquisa = $('modoDePesquisa').value === 'investigacao' ? tr('investigação {n} min', { n: config.minutosDeInvestigacao || 10 }) : $('modoDePesquisa').value === 'conversa' ? tr('só conversar') : tr('pesquisa {modo}', { modo: curto($('modoDePesquisa')) });
-    const partes = [$('modelo').value || tr('sem modelo'), pesquisa, curto($('modoResposta'))].filter(Boolean);
+    const partes = [$('modelo').value ? curto($('modelo')) : tr('sem modelo'), pesquisa, curto($('modoResposta'))].filter(Boolean);
     const desligado = ollama.classList.contains('offline');
     // modo simples (30/10, análise do novato): "qwen3.5:9b · pesquisa automático · direta" vira português comum
     const simples = document.body.classList.contains('modo-simples');
