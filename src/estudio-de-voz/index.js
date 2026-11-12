@@ -69,7 +69,9 @@ const MOTORES = {
   },
   qwen: {
     nome: 'Qwen3-TTS',
-    resumo: 'Mais lento (~0,5× o tempo real), ~4,5 GB. Vozes prontas com instrução de emoção, voz descrita em texto livre e clonagem.',
+    // 12/11 (ouvido pelo Davi): em texto corrido soa bem; em siglas e números embola com qualquer voz (5 vozes, instrução
+    // de pronúncia e siglas soletradas: de 4% a 16% de palavras erradas, contra ~0% do OmniVoice no mesmo texto)
+    resumo: 'Bom em texto corrido; embola siglas e números (use o OmniVoice para texto técnico). Mais lento (~0,5× o tempo real), ~4,5 GB. Vozes prontas com instrução de emoção, voz descrita em texto livre e clonagem.',
     pacotes: ['qwen-tts', 'soundfile'],
     gb: 15,
     modos: [['pronta', 'Voz pronta'], ['descrita', 'Voz descrita (texto livre)'], ['clonar', 'Clonar uma voz']],
@@ -404,6 +406,7 @@ class EstudioDeVoz {
 
   fechar(motor) {
     const e = this.processos[motor];
+    if (e) clearTimeout(e.ocioso);
     if (e && !e.morto) e.p.kill();
     delete this.processos[motor];
   }
@@ -416,7 +419,7 @@ class EstudioDeVoz {
 
   /** O ffmpeg tem o filtro rubberband? (o do AuGPT tem; um ffmpeg mais simples, não) */
   temRubberband() {
-    this._rubberband ??= new Promise((ok) => execFile(this.ffmpeg, ['-hide_banner', '-filters'], { windowsHide: true, maxBuffer: 4 * 1024 * 1024 }, (err, saida) => ok(!err && /rubberband/.test(String(saida)))));
+    this._rubberband ??= new Promise((ok) => execFile(this.ffmpeg, ['-hide_banner', '-filters'], { windowsHide: true, maxBuffer: 4 * 1024 * 1024 }, (err, saida) => ok(!err && /\brubberband\b/.test(String(saida)))));
     return this._rubberband;
   }
 
@@ -542,4 +545,8 @@ class EstudioDeVoz {
   }
 }
 
-module.exports = { encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };
+/** Texto com siglas e números o bastante para o Qwen embolar ("RTX 5070 Ti", "GDDR7", "1440p"): 3 ou mais. */
+const SIGLAS_E_NUMEROS = /\b[A-Z]{2,}[A-Z0-9]*\b|\b\d+(?:[.,]\d+)?\s?[a-zA-Z%]{0,3}\b/g;
+const cheioDeSiglas = (texto) => (String(texto || '').match(SIGLAS_E_NUMEROS) || []).length >= 3;
+
+module.exports = { cheioDeSiglas, encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };

@@ -231,6 +231,10 @@
     $('estudioGerar').disabled = true;
     $('estudioCancelar').hidden = false;
     $('estudioProgresso').textContent = 'Começando…';
+    // 12/11: o Qwen embola siglas e números com qualquer voz — avisa, sem impedir (mesma regra de cheioDeSiglas, src/estudio-de-voz)
+    const siglas = (o.texto.match(/\b[A-Z]{2,}[A-Z0-9]*\b|\b\d+(?:[.,]\d+)?\s?[a-zA-Z%]{0,3}\b/g) || []).length >= 3;
+    const aviso = o.motor === 'qwen' && siglas && est.motores.omni.instalado ? ' · Dica: este texto tem siglas e números, que o Qwen costuma embolar. O OmniVoice lê melhor.' : '';
+    if (aviso) $('estudioProgresso').textContent = `Começando…${aviso}`;
     const r = await api.estudio.gerar(o);
     $('estudioGerar').disabled = false;
     $('estudioCancelar').hidden = true;
@@ -238,7 +242,7 @@
       $('estudioProgresso').textContent = /fechou/.test(r.error || '') ? 'Cancelado.' : `Não deu: ${r.error}`;
       return;
     }
-    $('estudioProgresso').textContent = `Pronto ✓ ${r.partes} ${r.partes === 1 ? 'parte' : 'partes'}`;
+    $('estudioProgresso').textContent = `Pronto ✓ ${r.partes} ${r.partes === 1 ? 'parte' : 'partes'}${aviso}`;
     await resultado(r, o);
   });
   $('estudioCancelar').addEventListener('click', () => api.estudio.cancelar());

@@ -111,4 +111,19 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'estúdio de voz: texto com siglas e números avisa que o Qwen embola (o OmniVoice lê melhor); narração comum não avisa; nenhum caractere de controle no código do estúdio (12/11: um "\b" virou backspace e a checagem do rubberband respondia sempre "não")',
+    tipo: 'unidade',
+    executar() {
+      const raiz = path.join(__dirname, '..', '..');
+      const arquivos = ['src/estudio-de-voz/index.js', 'src/estudio-de-voz/servidor.py', 'renderer/estudio.js'];
+      const sujos = arquivos.filter((a) => /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(fs.readFileSync(path.join(raiz, a), 'utf8')));
+      return [
+        e.cheioDeSiglas('A RTX 5070 Ti tem 16 GB de memória GDDR7 e roda em 1440p.') || 'texto técnico',
+        !e.cheioDeSiglas('Neste vídeo, vamos montar um PC gamer do zero. Primeiro, escolhemos a placa-mãe.') || 'narração comum',
+        !sujos.length || `caractere de controle em: ${sujos.join(', ')}`,
+        /embola siglas/.test(e.MOTORES.qwen.resumo) || 'o resumo do Qwen avisa',
+      ];
+    },
+  },
 ];
