@@ -217,6 +217,12 @@
         </svg>
         Estúdio de voz
       </button>
+      <button class="nav-item" id="navTradutor" role="tab" aria-selected="false">
+        <svg class="nav-icone" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2.5 4.5h8M6.5 2.5v2M4.5 4.5c.6 3 2.4 5.2 5 6.5M8.5 4.5c-.6 3-2.4 5.2-5 6.5"/><path d="M10.5 17.5l3.5-8 3.5 8M11.7 14.8h4.6"/>
+        </svg>
+        Tradutor
+      </button>
       <button class="nav-item" id="navExecucoes" role="tab" aria-selected="false">
         <svg class="nav-icone" viewBox="0 0 20 20" fill="currentColor" stroke="none" aria-hidden="true">
           <rect x="3" y="10" width="3" height="7" rx="0.6"/><rect x="8.5" y="6" width="3" height="11" rx="0.6"/><rect x="14" y="2.5" width="3" height="14.5" rx="0.6"/>
@@ -485,6 +491,52 @@
             </details>
             <button class="btn-secundario" id="estudioRestaurar">Voltar aos padrões</button>
           </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------ tradutor (12/11, renderer/tradutor.js) ------------------------------ -->
+  <section class="pagina" id="viewTradutor" hidden>
+    <div class="pagina-rolagem">
+      <div class="pagina-coluna tradutor">
+        <header class="pagina-topo">
+          <div>
+            <h1>Tradutor</h1>
+            <p>Traduza textos com o modelo de IA do seu computador, sem internet e sem enviar nada para fora.</p>
+          </div>
+        </header>
+        <div class="tradutor-barra">
+          <select id="tradDe" aria-label="Traduzir de"></select>
+          <button class="btn-secundario" id="tradTrocar" title="Trocar os idiomas" aria-label="Trocar os idiomas">⇄</button>
+          <select id="tradPara" aria-label="Traduzir para"></select>
+          <select id="tradTom" aria-label="Tom">
+            <option value="natural">Tom natural</option>
+            <option value="formal">Formal</option>
+            <option value="informal">Informal</option>
+          </select>
+          <select id="tradModelo" aria-label="Modelo"></select>
+        </div>
+        <div class="tradutor-grade">
+          <section>
+            <textarea id="tradTexto" rows="12" placeholder="Escreva ou cole o texto. Ctrl+Enter traduz."></textarea>
+            <div class="estudio-linha">
+              <span class="dica" id="tradContagem">0 caracteres</span>
+              <button class="btn-link" id="tradLimpar">Limpar</button>
+            </div>
+          </section>
+          <section>
+            <div class="tradutor-saida" id="tradSaida" aria-live="polite"></div>
+            <div class="estudio-linha" id="tradAcoes">
+              <button class="btn-link" id="tradCopiar">Copiar</button>
+              <span class="dica" id="tradStatus"></span>
+            </div>
+            <div id="tradAudio"></div>
+          </section>
+        </div>
+        <div class="estudio-acoes">
+          <button class="btn-primario" id="tradTraduzir">Traduzir</button>
+          <button class="btn-secundario" id="tradParar" hidden>Parar</button>
         </div>
       </div>
     </div>
@@ -1489,5 +1541,6 @@
 <script src="modo-simples.js"></script>
 <script src="mini.js"></script>
 <script src="estudio.js"></script>
+<script src="tradutor.js"></script>
 </body>
 </html>

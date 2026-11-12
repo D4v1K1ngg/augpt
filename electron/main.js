@@ -2582,6 +2582,31 @@ ipcMain.handle('estudio:gerar', async (e, opcoes = {}) => {
     return { ok: false, error: err.message };
   }
 });
+/* ------------------------------ tradutor (12/11, src/tradutor) ------------------------------ */
+// Texto → texto com o modelo do Ollama; a tradução chega à tela enquanto é escrita (canal 'tradutor-pedaco')
+let traducaoAbort = null;
+ipcMain.handle('tradutor:idiomas', () => require('../src/tradutor').IDIOMAS);
+ipcMain.handle('tradutor:traduzir', async (e, { texto, de, para, tom, modelo } = {}) => {
+  if (!naJanela(e)) return { ok: false, error: 'só pela janela do AuGPT' };
+  traducaoAbort?.abort(new Error('substituída'));
+  const controle = (traducaoAbort = new AbortController());
+  try {
+    const r = await require('../src/tradutor').traduzir({ texto, de, para, tom }, {
+      chatStream: ollama.chatStream,
+      host: config.data.host,
+      model: modelo || config.data.modelTraducao || config.data.model,
+      numCtx: config.data.numCtx,
+      signal: controle.signal,
+      aoPedaco: (parcial) => win && !win.isDestroyed() && win.webContents.send('agent:event', { canal: 'tradutor-pedaco', dados: { texto: parcial } }),
+    });
+    return { ok: true, ...r };
+  } catch (err) {
+    return { ok: false, interrompido: controle.signal.aborted, error: err.message, amigavel: primeiroUso.mensagemAmigavel(err.message) };
+  } finally {
+    if (traducaoAbort === controle) traducaoAbort = null;
+  }
+});
+ipcMain.handle('tradutor:parar', () => (traducaoAbort?.abort(new Error('interrompida')), { ok: true }));
 ipcMain.handle('estudio:cancelar', () => (estudioDeVoz().cancelar(), { ok: true }));
 // o arquivo gerado (só os da pasta do estúdio) vai em bytes para a tela tocar
 const dentroDoEstudio = (arquivo) => {

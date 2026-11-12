@@ -97,6 +97,7 @@ const ROTULOS_ABAS = {
   skills: 'Skills',
   utilitarios: 'Utilitários',
   estudio: 'Estúdio de voz',
+  tradutor: 'Tradutor',
   execucoes: 'Execuções',
   config: 'Ajustes',
 };
@@ -112,6 +113,7 @@ const ABAS = {
   skills: { view: 'viewSkills', aba: 'navSkills' },
   utilitarios: { view: 'viewUtilitarios', aba: 'navUtilitarios' },
   estudio: { view: 'viewEstudio', aba: 'navEstudio' },
+  tradutor: { view: 'viewTradutor', aba: 'navTradutor' },
   execucoes: { view: 'viewExecucoes', aba: 'navExecucoes' },
   config: { view: 'viewConfig', aba: 'navConfig' },
 };
@@ -158,6 +160,8 @@ function trocarAba(qual) {
     carregarUtilitarios();
   } else if (qual === 'estudio') {
     window.carregarEstudio?.();
+  } else if (qual === 'tradutor') {
+    window.carregarTradutor?.();
   } else if (qual === 'agenda') {
     window.carregarAgenda?.();
   } else if (qual === 'execucoes') {
@@ -178,6 +182,7 @@ function trocarAba(qual) {
 
 $('navAgente').addEventListener('click', () => trocarAba('agente'));
 $('navEstudio').addEventListener('click', () => trocarAba('estudio'));
+$('navTradutor').addEventListener('click', () => trocarAba('tradutor'));
 $('navConversa').addEventListener('click', () => trocarAba('conversa'));
 $('navAgenda').addEventListener('click', () => trocarAba('agenda'));
 $('navSkills').addEventListener('click', () => trocarAba('skills'));

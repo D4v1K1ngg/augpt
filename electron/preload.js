@@ -129,6 +129,12 @@ contextBridge.exposeInMainWorld('augpt', {
     salvarVoz: (dados) => ipcRenderer.invoke('estudio:salvarVoz', dados),
     apagarVoz: (id) => ipcRenderer.invoke('estudio:apagarVoz', { id }),
   },
+  // tradutor (12/11): texto → texto com o modelo do Ollama (src/tradutor)
+  tradutor: {
+    idiomas: () => ipcRenderer.invoke('tradutor:idiomas'),
+    traduzir: (pedido) => ipcRenderer.invoke('tradutor:traduzir', pedido),
+    parar: () => ipcRenderer.invoke('tradutor:parar'),
+  },
   componentes: {
     estado: () => ipcRenderer.invoke('componentes:estado'),
     atualizarOllama: () => ipcRenderer.invoke('componentes:atualizarOllama'),
