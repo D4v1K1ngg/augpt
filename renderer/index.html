@@ -720,6 +720,9 @@
       <nav class="ajustes-lado" role="tablist">
         <h1>Ajustes</h1>
         <button class="ajustes-aba ativa" data-painel="ajGeral" role="tab">Geral</button>
+        <button class="ajustes-aba" data-painel="ajVoz" role="tab">Voz e ditado</button>
+        <button class="ajustes-aba" data-painel="ajAparencia" role="tab">Aparência</button>
+        <button class="ajustes-aba" data-painel="ajCelular" role="tab">Celular e atalhos</button>
         <button class="ajustes-aba" data-painel="ajModelos" role="tab">Modelos</button>
         <button class="ajustes-aba" data-painel="ajPesquisa" role="tab">Pesquisa na web</button>
         <button class="ajustes-aba" data-painel="ajMemoria" role="tab">Memória</button>
@@ -753,10 +756,72 @@
           <label class="linha"><span class="linha-texto"><span>Como você quer ser chamado?</span><small>O AuGPT usa o nome para falar com você. Fica só neste computador.</small></span>
             <input type="text" id="ajNome" maxlength="60" placeholder="Seu nome" />
           </label>
+        </section>
+        <section class="grupo">
+          <h2>Respostas</h2>
+          <p class="dica grupo-sub">Os mesmos seletores do topo da tela — mudar aqui ou lá dá no mesmo.</p>
+          <label class="linha"><span>Modelo principal</span>
+            <select id="gModelo" data-espelho="modelo"></select>
+          </label>
+          <label class="linha"><span>Profundidade da pesquisa</span>
+            <select id="gModoDePesquisa" data-espelho="modoDePesquisa"></select>
+          </label>
+          <label class="linha"><span>Tipo de resposta</span>
+            <select id="gModoResposta" data-espelho="modoResposta"></select>
+          </label>
+          <label class="linha"><span class="linha-texto"><span>Mostrar as fontes no meio do texto</span><small>Uma etiqueta com o nome do site depois de cada frase que veio de uma fonte. Desligado, o texto corre sem interrupção e as fontes ficam todas no fim da resposta, em "Fontes".</small></span>
+            <input type="checkbox" id="cfgCitacoesNoTexto" class="caixa" />
+          </label>
+          <label class="linha"><span class="linha-texto"><span>Mostrar imagens nas respostas</span><small>Foto de cada produto nos cartões de uma recomendação e uma imagem de referência de pessoas, lugares e objetos. As imagens são baixadas pelo app e guardadas na pasta de dados dele.</small></span>
+            <input type="checkbox" id="cfgImagensNasRespostas" class="caixa" />
+          </label>
+          <label class="linha"><span class="linha-texto"><span>Revisar as imagens criadas</span><small>Depois de criar uma imagem, o modelo olha o resultado e, se faltar algo do pedido, corrige o prompt e gera de novo — no máximo 2 vezes. Cada revisão soma uns 15 segundos.</small></span>
+            <input type="checkbox" id="cfgRevisarImagens" class="caixa" />
+          </label>
+        </section>
+        <section class="grupo">
+          <h2>Pasta de trabalho</h2>
+          <p class="dica">O agente só lê e escreve aqui dentro. Arquivos anexados são copiados para cá.</p>
+          <div class="caminho" id="caminhoWorkspace" title="">—</div>
+          <div class="linha-botoes">
+            <button class="btn-secundario" id="btnEscolherPasta">Trocar pasta</button>
+            <button class="btn-secundario" id="btnAbrirPasta">Abrir no explorador</button>
+          </div>
+          <ul class="arvore" id="arvore"><li class="vazio">Nenhum arquivo ainda.</li></ul>
+        </section>
+        <section class="grupo">
+          <h2>Situação</h2>
+          <div class="linha"><span>Ollama</span><span class="situacao" id="sitOllama">verificando…</span></div>
+          <div class="linha"><span>Busca embutida</span><span class="situacao" id="sitBusca">verificando…</span></div>
+          <div class="linha"><span>YouTube (yt-dlp)</span><span class="situacao" id="sitYoutube">verificando…</span></div>
+          <div class="linha"><span>Texto de imagens (OCR)</span><span class="situacao" id="sitOcr">verificando…</span></div>
+          <div class="linha"><span>Criar imagens</span><span class="situacao" id="sitImagem">verificando…</span></div>
+          <div class="linha"><span>Componentes</span><span class="situacao" id="sitComponentes">verificando…</span></div>
+          <div class="linha-botoes"><button class="btn-secundario" id="btnAbrirBoasVindas">Verificar o computador (boas-vindas)</button></div>
+        </section>
+      </div>
+
+      <!-- ---------------- Voz e ditado (12/11: saiu da Geral) ---------------- -->
+      <div class="ajustes-painel" id="ajVoz" hidden>
+        <header class="pagina-topo"><div><h1>Voz e ditado</h1><p>Falar com o AuGPT pelo microfone e ouvir as respostas. Tudo roda no seu computador.</p></div></header>
+        <section class="grupo">
+          <h2>Ditado</h2>
+          <div class="linha" id="linhaMicrofone" hidden><span class="linha-texto"><span>Microfone do ditado</span><small id="ajMicrofoneDica">Automático usa o padrão do Windows e pula as entradas virtuais (Steam, "What U Hear", mixagem estéreo).</small></span>
+            <span class="microfone-escolha">
+              <select id="ajMicrofone"><option value="">Automático</option></select>
+              <button type="button" class="btn-secundario" id="btnTestarMicrofone">Testar</button>
+            </span>
+          </div>
+          <div class="microfone-teste" id="microfoneTeste" hidden><span class="microfone-barra"><span id="microfoneNivel"></span></span><span id="microfoneResultado"></span></div>
           <label class="linha"><span class="linha-texto"><span>Ditado por voz: enviar sozinho</span><small>Desligado, o texto falado fica na caixa para você revisar antes de enviar.</small></span>
             <input type="checkbox" id="cfgDitadoEnviar" class="caixa" />
           </label>
-          <!-- 25/10: "Ei GPT" e a correção do texto falado -->
+          <label class="linha"><span class="linha-texto"><span>Corrigir o texto falado</span><small>Antes de usar o que você falou, o modelo do topo corrige a ortografia e as palavras que o reconhecimento de voz ouviu errado (nomes de produtos, acentos). Leva 1 a 3 segundos; na dúvida, fica o texto original.</small></span>
+            <input type="checkbox" id="cfgDitadoCorrigir" class="caixa" />
+          </label>
+        </section>
+        <section class="grupo">
+          <h2>Chamar pela voz</h2>
           <label class="linha"><span class="linha-texto"><span>Chamar pela voz</span><small>O AuGPT fica ouvindo o microfone e, quando você diz o nome do assistente (logo abaixo), grava o pedido e já envia ao agente — por exemplo, "Jarvis, vai chover amanhã?". "…, nova conversa" e "…, para" também valem. Tudo no seu computador; enquanto estiver ligado, o Windows mostra o microfone em uso. Na primeira vez baixa o modelo da escuta (o small, 190 MB — dá para trocar pelo base, de 60 MB, logo abaixo).</small><small id="ouvirChamadaStatus" class="ajuste-status"></small></span>
             <input type="checkbox" id="cfgOuvirChamada" class="caixa" />
           </label>
@@ -781,10 +846,9 @@
             <span class="microfone-escolha"><button type="button" class="btn-secundario" id="btnRegistroEscuta">Mostrar</button><button type="button" class="btn-secundario" id="btnLimparRegistroEscuta" hidden>Limpar</button></span>
           </div>
           <ol class="registro-escuta" id="registroEscuta" hidden></ol>
-          <label class="linha"><span class="linha-texto"><span>Corrigir o texto falado</span><small>Antes de usar o que você falou, o modelo do topo corrige a ortografia e as palavras que o reconhecimento de voz ouviu errado (nomes de produtos, acentos). Leva 1 a 3 segundos; na dúvida, fica o texto original.</small></span>
-            <input type="checkbox" id="cfgDitadoCorrigir" class="caixa" />
-          </label>
-          <!-- 27/10: a voz do AuGPT (renderer/fala.js, src/fala/voz.js) -->
+        </section>
+        <section class="grupo">
+          <h2>Voz do AuGPT</h2>
           <div class="linha"><span class="linha-texto"><span>Voz do AuGPT</span><small>Ele lê a resposta em voz alta, estilo Jarvis — o Kokoro, no processador (não usa a placa de vídeo). Fala um resumo: as primeiras frases, sem tabelas nem links. Para parar: "Ei Jarvis, para", Esc ou o botão que aparece.</small><small id="vozStatus" class="ajuste-status"></small></span>
             <span class="microfone-escolha"><button type="button" class="btn-secundario" id="btnVozInstalar">Baixar a voz</button><button type="button" class="btn-secundario" id="btnVozTestar" hidden>Testar</button></span>
           </div>
@@ -812,19 +876,41 @@
           <div class="linha voz-opcao" hidden><span class="linha-texto"><span>Horário de silêncio</span><small>Nesse horário os avisos ficam só escritos. Deixe vazio para não ter.</small></span>
             <span class="microfone-escolha"><input type="time" id="cfgSilencioDe" /> <span>até</span> <input type="time" id="cfgSilencioAte" /></span>
           </div>
-          <!-- 1/11: as ondas da tela inicial (renderer/inicio.js) -->
+        </section>
+      </div>
+
+      <!-- ---------------- Aparência (12/11: saiu da Geral) ---------------- -->
+      <div class="ajustes-painel" id="ajAparencia" hidden>
+        <header class="pagina-topo"><div><h1>Aparência</h1><p>Como o AuGPT abre e o que aparece na tela enquanto ele trabalha.</p></div></header>
+        <section class="grupo">
+          <h2>Abertura e tela inicial</h2>
+          <p class="dica grupo-sub">A caixa pequena que cresce até virar a janela do app. Dura uns 6 segundos; um clique ou Esc pula. Vale na próxima vez que o AuGPT abrir.</p>
+          <label class="linha"><span>Animação ao abrir o AuGPT</span>
+            <input type="checkbox" id="cfgAnimacaoDeAbertura" class="caixa" />
+          </label>
+          <label class="linha"><span>Som da abertura</span>
+            <input type="checkbox" id="cfgSomDaAbertura" class="caixa" />
+          </label>
           <label class="linha"><span class="linha-texto"><span>Fundo da tela inicial</span><small>As ondas douradas atrás da tela inicial. "Seguir o Windows" deixa paradas quando os efeitos de animação do Windows estão desligados. Elas nunca se mexem enquanto o modelo trabalha.</small></span>
             <select id="cfgOndasInicio"><option value="auto">Seguir o Windows</option><option value="animado">Animado</option><option value="parado">Parado</option></select>
           </label>
-          <!-- 31/10: a pesquisa narrada no chat (renderer/narracao-chat.js) -->
+        </section>
+        <section class="grupo">
+          <h2>Chat</h2>
           <label class="linha"><span class="linha-texto"><span>Contar no chat o que está fazendo</span><small>Enquanto pesquisa, o AuGPT escreve no chat o que vai fazer e o que achou em cada página ("Vou buscar reviews…", "O Clube do Hardware diz que…"), com os passos recolhidos logo ao lado. Com o modelo leve escolhido em Voz do AuGPT, as frases ficam mais naturais; sem ele, saem prontas.</small></span>
             <input type="checkbox" id="cfgNarrarNoChat" class="caixa" />
           </label>
-          <!-- 25/10: "o que tem na minha tela?" -->
-          <label class="linha"><span class="linha-texto"><span>Atalho Ctrl+Alt+A: perguntar sobre a tela</span><small>De qualquer programa, Ctrl+Alt+A congela a tela e você escolhe a área (Enter = a tela inteira, Esc cancela). A imagem vira anexo do Agente, pronta para a pergunta. Também pelo botão ao lado do + ou falando "Ei GPT, o que é isso na tela?".</small><small id="atalhoDaTelaStatus" class="ajuste-status"></small></span>
-            <input type="checkbox" id="cfgAtalhoDaTela" class="caixa" />
+          <label class="linha"><span class="linha-texto"><span>Mostrar detalhes técnicos da execução</span><small>Cartões como "JSON inválido", "fora do protocolo" e "contexto compactado" mostram como o agente se recuperou de um tropeço. Úteis pra depurar; pra uso normal, ficam escondidos.</small></span>
+            <input type="checkbox" id="cfgDetalhesTecnicos" class="caixa" />
           </label>
-          <!-- 26/10: acesso pelo celular na rede da casa (src/remoto.js) -->
+        </section>
+      </div>
+
+      <!-- ---------------- Celular e atalhos (12/11: saiu da Geral) ---------------- -->
+      <div class="ajustes-painel" id="ajCelular" hidden>
+        <header class="pagina-topo"><div><h1>Celular e atalhos</h1><p>Usar o AuGPT pelo celular da sua casa e o atalho para perguntar sobre a tela.</p></div></header>
+        <section class="grupo">
+          <h2>Acesso pelo celular</h2>
           <label class="linha"><span class="linha-texto"><span>Acesso pelo celular</span><small>Use o AuGPT pelo navegador do celular, na rede da sua casa: as mesmas conversas, a pesquisa e os cartões — o computador continua fazendo o trabalho. Só aparelhos da sua rede, e só com o código do QR. Na primeira vez, o Windows pergunta se libera o AuGPT na rede privada: clique em Permitir.</small><small id="celularStatus" class="ajuste-status"></small></span>
             <input type="checkbox" id="cfgAcessoCelular" class="caixa" />
           </label>
@@ -837,71 +923,12 @@
               <div class="linha-botoes"><button type="button" class="btn-secundario" id="btnCelularNovoCodigo">Gerar novo código</button></div>
             </div>
           </div>
-          <div class="linha" id="linhaMicrofone" hidden><span class="linha-texto"><span>Microfone do ditado</span><small id="ajMicrofoneDica">Automático usa o padrão do Windows e pula as entradas virtuais (Steam, "What U Hear", mixagem estéreo).</small></span>
-            <span class="microfone-escolha">
-              <select id="ajMicrofone"><option value="">Automático</option></select>
-              <button type="button" class="btn-secundario" id="btnTestarMicrofone">Testar</button>
-            </span>
-          </div>
-          <div class="microfone-teste" id="microfoneTeste" hidden><span class="microfone-barra"><span id="microfoneNivel"></span></span><span id="microfoneResultado"></span></div>
         </section>
         <section class="grupo">
-          <h2>Respostas</h2>
-          <p class="dica grupo-sub">Os mesmos seletores do topo da tela — mudar aqui ou lá dá no mesmo.</p>
-          <label class="linha"><span>Modelo principal</span>
-            <select id="gModelo" data-espelho="modelo"></select>
+          <h2>Atalhos</h2>
+          <label class="linha"><span class="linha-texto"><span>Atalho Ctrl+Alt+A: perguntar sobre a tela</span><small>De qualquer programa, Ctrl+Alt+A congela a tela e você escolhe a área (Enter = a tela inteira, Esc cancela). A imagem vira anexo do Agente, pronta para a pergunta. Também pelo botão ao lado do + ou falando "Ei GPT, o que é isso na tela?".</small><small id="atalhoDaTelaStatus" class="ajuste-status"></small></span>
+            <input type="checkbox" id="cfgAtalhoDaTela" class="caixa" />
           </label>
-          <label class="linha"><span>Profundidade da pesquisa</span>
-            <select id="gModoDePesquisa" data-espelho="modoDePesquisa"></select>
-          </label>
-          <label class="linha"><span>Tipo de resposta</span>
-            <select id="gModoResposta" data-espelho="modoResposta"></select>
-          </label>
-          <label class="linha"><span class="linha-texto"><span>Mostrar as fontes no meio do texto</span><small>Uma etiqueta com o nome do site depois de cada frase que veio de uma fonte. Desligado, o texto corre sem interrupção e as fontes ficam todas no fim da resposta, em "Fontes".</small></span>
-            <input type="checkbox" id="cfgCitacoesNoTexto" class="caixa" />
-          </label>
-          <label class="linha"><span class="linha-texto"><span>Mostrar imagens nas respostas</span><small>Foto de cada produto nos cartões de uma recomendação e uma imagem de referência de pessoas, lugares e objetos. As imagens são baixadas pelo app e guardadas na pasta de dados dele.</small></span>
-            <input type="checkbox" id="cfgImagensNasRespostas" class="caixa" />
-          </label>
-          <label class="linha"><span class="linha-texto"><span>Revisar as imagens criadas</span><small>Depois de criar uma imagem, o modelo olha o resultado e, se faltar algo do pedido, corrige o prompt e gera de novo — no máximo 2 vezes. Cada revisão soma uns 15 segundos.</small></span>
-            <input type="checkbox" id="cfgRevisarImagens" class="caixa" />
-          </label>
-        </section>
-        <section class="grupo">
-          <h2>Abertura</h2>
-          <p class="dica grupo-sub">A caixa pequena que cresce até virar a janela do app. Dura uns 6 segundos; um clique ou Esc pula. Vale na próxima vez que o AuGPT abrir.</p>
-          <label class="linha"><span>Animação ao abrir o AuGPT</span>
-            <input type="checkbox" id="cfgAnimacaoDeAbertura" class="caixa" />
-          </label>
-          <label class="linha"><span>Som da abertura</span>
-            <input type="checkbox" id="cfgSomDaAbertura" class="caixa" />
-          </label>
-        </section>
-        <section class="grupo">
-          <h2>Pasta de trabalho</h2>
-          <p class="dica">O agente só lê e escreve aqui dentro. Arquivos anexados são copiados para cá.</p>
-          <div class="caminho" id="caminhoWorkspace" title="">—</div>
-          <div class="linha-botoes">
-            <button class="btn-secundario" id="btnEscolherPasta">Trocar pasta</button>
-            <button class="btn-secundario" id="btnAbrirPasta">Abrir no explorador</button>
-          </div>
-          <ul class="arvore" id="arvore"><li class="vazio">Nenhum arquivo ainda.</li></ul>
-        </section>
-        <section class="grupo">
-          <h2>Situação</h2>
-          <div class="linha"><span>Ollama</span><span class="situacao" id="sitOllama">verificando…</span></div>
-          <div class="linha"><span>Busca embutida</span><span class="situacao" id="sitBusca">verificando…</span></div>
-          <div class="linha"><span>YouTube (yt-dlp)</span><span class="situacao" id="sitYoutube">verificando…</span></div>
-          <div class="linha"><span>Texto de imagens (OCR)</span><span class="situacao" id="sitOcr">verificando…</span></div>
-          <div class="linha"><span>Criar imagens</span><span class="situacao" id="sitImagem">verificando…</span></div>
-          <div class="linha"><span>Componentes</span><span class="situacao" id="sitComponentes">verificando…</span></div>
-        </section>
-        <section class="grupo">
-          <h2>Tela</h2>
-          <label class="linha"><span class="linha-texto"><span>Mostrar detalhes técnicos da execução</span><small>Cartões como "JSON inválido", "fora do protocolo" e "contexto compactado" mostram como o agente se recuperou de um tropeço. Úteis pra depurar; pra uso normal, ficam escondidos.</small></span>
-            <input type="checkbox" id="cfgDetalhesTecnicos" class="caixa" />
-          </label>
-          <div class="linha-botoes"><button class="btn-secundario" id="btnAbrirBoasVindas">Verificar o computador (boas-vindas)</button></div>
         </section>
       </div>
 

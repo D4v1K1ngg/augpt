@@ -9,16 +9,17 @@
 (function () {
   // o que fica em Ajustes → Geral: as linhas que contêm estes controles (o resto da aba sai da vista)
   const ESSENCIAIS = ['cfgModoAvancado', 'ajIdioma', 'ajNome', 'cfgOuvirChamada', 'cfgNomeDaChamada', 'btnTreinarVoz', 'treinoVoz', 'btnVozInstalar', 'cfgVozFalar', 'cfgVozNome', 'cfgVozVelocidade', 'gModelo', 'gModoResposta', 'cfgImagensNasRespostas', 'cfgAcessoCelular', 'celularAcesso', 'btnAbrirBoasVindas'];
-  const ABAS_AVANCADAS = ['ajPesquisa', 'ajMemoria', 'ajTarefas', 'ajComponentes', 'ajAvancado'];
+  const ABAS_AVANCADAS = ['ajAparencia', 'ajPesquisa', 'ajMemoria', 'ajTarefas', 'ajComponentes', 'ajAvancado'];
   const MENU_AVANCADO = ['navConversa', 'navSkills', 'navUtilitarios', 'navExecucoes'];
   const MODOS_SIMPLES = new Set(['automatico', 'conversa']);
   const FORA = 'fora-do-simples';
   const $ = (id) => document.getElementById(id);
 
   function marcarAjustes() {
-    const geral = $('ajGeral');
-    if (!geral) return;
-    for (const grupo of geral.querySelectorAll('section.grupo')) {
+    // 12/11: a Geral virou Geral, Voz e ditado, Aparência e Celular e atalhos — a aba sem nada essencial é avançada
+    for (const painel of ['ajGeral', 'ajVoz', 'ajAparencia', 'ajCelular'].map($).filter(Boolean)) {
+    let noPainel = false;
+    for (const grupo of painel.querySelectorAll('section.grupo')) {
       let algum = false;
       for (const filho of grupo.children) {
         if (filho.tagName === 'H2') continue;
@@ -27,6 +28,9 @@
         if (essencial) algum = true;
       }
       grupo.classList.toggle(FORA, !algum);
+      if (algum) noPainel = true;
+    }
+    document.querySelector(`.ajustes-aba[data-painel="${painel.id}"]`)?.classList.toggle('aba-avancada', !noPainel && painel.id !== 'ajGeral');
     }
     for (const id of ABAS_AVANCADAS) document.querySelector(`.ajustes-aba[data-painel="${id}"]`)?.classList.add('aba-avancada');
   }

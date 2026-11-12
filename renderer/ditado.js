@@ -243,7 +243,7 @@
       const barras = Math.min(8, Math.round(g.nivel * 80));
       aviso(botao, `${tr('Ouvindo pelo {microfone}… {tempo}', { microfone: g.microfone || tr('microfone padrão'), tempo: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}  ${'▮'.repeat(barras)}${'▯'.repeat(8 - barras)}`);
       if ((g.falou && Date.now() - g.ultimaFala > SILENCIO_PARA_PARAR) || passou > MAXIMO) parar();
-      else if (!g.falou && passou > SEM_FALA_DESISTE) parar({ descartar: tr('Não ouvi nada pelo {microfone}. Escolha outro microfone em Ajustes → Geral (dá para testar lá).', { microfone: g.microfone || tr('microfone padrão') }) });
+      else if (!g.falou && passou > SEM_FALA_DESISTE) parar({ descartar: tr('Não ouvi nada pelo {microfone}. Escolha outro microfone em Ajustes → Voz e ditado (dá para testar lá).', { microfone: g.microfone || tr('microfone padrão') }) });
     }, 200);
   }
 

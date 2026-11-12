@@ -441,6 +441,6 @@
   $id('cfgSilencioAte')?.addEventListener('change', (e) => salvar({ silencioAte: e.target.value }));
   $id('cfgVozVelocidade')?.addEventListener('input', (e) => ($id('vozVelocidadeValor').textContent = `${Number(e.target.value).toFixed(2).replace('.', ',')}×`));
   $id('cfgVozVelocidade')?.addEventListener('change', (e) => salvar({ vozVelocidade: Number(e.target.value) }));
-  document.querySelector('[data-painel="ajGeral"]')?.addEventListener('click', () => setTimeout(pintarVoz, 50));
+  document.querySelector('[data-painel="ajVoz"]')?.addEventListener('click', () => setTimeout(pintarVoz, 50));
   document.getElementById('navConfig')?.addEventListener('click', () => setTimeout(pintarVoz, 50));
 })();

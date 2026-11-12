@@ -248,7 +248,7 @@ class Voz {
   /** Carrega o modelo uma vez (~0,5 s com ele no disco). */
   async carregar() {
     if (this.sessao) return;
-    if (!this.instalada()) throw new Error('a voz não está instalada (Ajustes → Geral → Voz do AuGPT)');
+    if (!this.instalada()) throw new Error('a voz não está instalada (Ajustes → Voz e ditado → Voz do AuGPT)');
     const ort = require(path.join(this.motor, 'onnxruntime-node'));
     this.ort = ort;
     this.sessao = await ort.InferenceSession.create(path.join(this.modelo, 'onnx', 'model.onnx'), { executionProviders: ['cpu'] });

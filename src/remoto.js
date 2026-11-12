@@ -271,7 +271,7 @@ class AcessoRemoto {
     return this.texto(
       res,
       401,
-      '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AuGPT</title><body style="font:16px system-ui;background:#111;color:#eee;padding:32px;text-align:center"><h2>AuGPT</h2><p>Para entrar, abra o AuGPT no computador, vá em <b>Ajustes → Geral → Acesso pelo celular</b> e escaneie o QR code com a câmera do celular.</p></body>',
+      '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AuGPT</title><body style="font:16px system-ui;background:#111;color:#eee;padding:32px;text-align:center"><h2>AuGPT</h2><p>Para entrar, abra o AuGPT no computador, vá em <b>Ajustes → Celular e atalhos</b> e escaneie o QR code com a câmera do celular.</p></body>',
       'text/html; charset=utf-8'
     );
   }

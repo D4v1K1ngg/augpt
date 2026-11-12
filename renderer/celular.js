@@ -73,7 +73,7 @@
   });
 
   // pinta quando a aba Geral de Ajustes abre (o mesmo momento do ditado)
-  document.querySelector('[data-painel="ajGeral"]')?.addEventListener('click', () => setTimeout(pintarCelular, 50));
+  document.querySelector('[data-painel="ajCelular"]')?.addEventListener('click', () => setTimeout(pintarCelular, 50));
   document.getElementById('navConfig')?.addEventListener('click', () => setTimeout(pintarCelular, 50));
   window.acessoPeloCelular = { pintar: pintarCelular };
 })();
