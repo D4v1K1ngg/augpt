@@ -331,6 +331,16 @@ function campoThink(model, valor) {
   return { think: valor };
 }
 
+/**
+ * O limite de saída com folga para o raciocínio que não desliga (12/11, no app: o gpt-oss leu um relatório e as 4
+ * decisões, de 100 a 700 tokens, saíram sem o JSON — o raciocínio "low" conta no mesmo num_predict e comia tudo;
+ * depois a redação voltou vazia). Nos outros modelos, o raciocínio desligado não gasta nada.
+ * ponytail: folga fixa de 1024; medir se o gpt-oss passar disso em pedidos longos.
+ */
+function limiteDeSaida(model, numPredict) {
+  return /gpt-oss/i.test(String(model || '')) && Number(numPredict) > 0 ? Number(numPredict) + 1024 : numPredict;
+}
+
 /*
  * Camadas na placa por servidor e modelo (calibracao-gpu.js, 19/10): TODA chamada a um modelo
  * calibrado manda o mesmo num_gpu (outro valor faria o Ollama recarregar o modelo). Se a placa
@@ -430,7 +440,7 @@ async function chat({
     options: {
       temperature,
       num_ctx: numCtx,
-      num_predict: numPredict,
+      num_predict: limiteDeSaida(model, numPredict),
       ...(numGpu === undefined ? {} : { num_gpu: numGpu }),
     },
   });
@@ -518,7 +528,7 @@ async function chatStreamUmaVez({
       // 10/10 (SR-71 com qwen3.5:9b): sem `think: false` o modelo que pensa
       // gastava os 3.072 tokens da redação raciocinando e a resposta saía vazia
       ...campoThink(model, pensar === undefined ? pensarPadrao : pensar),
-      options: { temperature, num_ctx: contextoSemRecarga(host, model, numCtx), num_predict: numPredict, ...(numGpu === undefined ? {} : { num_gpu: numGpu }) },
+      options: { temperature, num_ctx: contextoSemRecarga(host, model, numCtx), num_predict: limiteDeSaida(model, numPredict), ...(numGpu === undefined ? {} : { num_gpu: numGpu }) },
     }),
     signal,
   });
@@ -656,6 +666,7 @@ async function decidir({ host = DEFAULT_HOST, model, state, questions, keepAlive
 
 module.exports = {
   campoThink,
+  limiteDeSaida,
   contextoSemRecarga,
   sistemaNoInicio,
   DEFAULT_HOST, health, listModels, psModels, unloadModel, embed, pullModel, suportaEsquema, semBlocoDePensamento, definirPensarPadrao,

@@ -129,7 +129,7 @@ ${capacidades.listaParaEntender()}
 
 - "conversa" é true quando o usuário quer CONVERSAR com você, não saber um dado: sua opinião ("você acha que vale a pena aprender violão depois dos 30?"), como ele se sente ("estou cansado hoje"), um conselho pessoal, ajuda para pensar ou decidir algo da vida dele, ideias, piada, papo. Pedido de fato, número, notícia, produto ou de algo atual: false. Com "conversa" true, "precisa_buscar" é false.
 - "precisa_buscar" é true para pedido de informação que você pode não ter ou que pode ter mudado: produto, preço, recomendação, notícia, pessoa, lugar, história, dado ou número. Seu conhecimento pode estar desatualizado, então isso vale conferir. (A explicação de um conceito estável é a exceção — veja abaixo.)
-- "partes": quando "precisa_buscar" é true, as coisas que a resposta precisa trazer para responder TUDO o que foi pedido, de 1 a 4, curtas e concretas (ex.: "faz uma análise do preço da RTX 5070 Ti desde o lançamento e estime o da Black Friday" → ["preço de lançamento da RTX 5070 Ti", "preço de hoje da RTX 5070 Ti", "estimativa de preço da RTX 5070 Ti na Black Friday"]). Pergunta de uma coisa só: uma parte. Senão, [].
+- "partes": quando "precisa_buscar" é true, as coisas que a resposta precisa trazer para responder TUDO o que foi pedido, de 1 a 4, curtas e concretas (ex.: "faz uma análise do preço da RTX 5070 Ti desde o lançamento e estime o da Black Friday" → ["preço de lançamento da RTX 5070 Ti", "preço de hoje da RTX 5070 Ti", "estimativa de preço da RTX 5070 Ti na Black Friday"]). Pergunta de uma coisa só: uma parte. Senão, []. Só o que o usuário PEDIU: não acrescente assunto vizinho que ele não citou (ex.: "como otimizar o Windows para jogos" é UMA parte — não acrescente internet, ping ou trocar peças).
 - "buscas": quando "precisa_buscar" é true, de 1 a 3 buscas curtas para a web (como alguém digitaria no Google), de ângulos diferentes, com as condições que o usuário deu (modelo, ano, país, orçamento); para tecnologia e produtos, uma delas em inglês. Senão, [].
 - "precisa_buscar" é false SÓ para: conversa, saudação ou agradecimento, conta de matemática, tradução ou revisão de um texto que o usuário mandou, escrever um texto criativo, algo que a própria conversa já respondeu, ou a EXPLICAÇÃO de um conceito que não muda com o tempo e que você conhece bem — como algo funciona em geral ("como funciona um SSD?", "como funciona o Wi-Fi?"), o que é uma coisa ("o que é uma tela AMOLED?"), por que algo acontece ("por que o céu é azul?"). Continua true se a explicação depende de um produto ou modelo específico, de algo lançado ou mudado nos últimos anos, de datas, números ou pessoas, ou se você não tem certeza. Na dúvida, true.
 - Em "pergunta", troque "ele", "isso", "o outro" pelo que eles são na conversa e traga o que a conversa já disse: por exemplo, depois de "qual o melhor <tipo de produto> para <uso>?", a mensagem "e quanto ao <modelo>?" vira "o <modelo> é bom como <tipo de produto> para <uso>, e quanto custa?" (use os nomes reais da conversa, nunca os deste exemplo). Mantenha o resto como o usuário escreveu.
@@ -178,7 +178,10 @@ const soCumprimento = (pergunta) => {
 const CONVERSA = /(?<![a-zà-ú])(voc[eê] acha|o que voc[eê] (acha|pensa)|na sua opini[aã]o|qual (é |e )?a sua opini[aã]o|me (d[aáê]|de) (um )?conselho|me aconselh\w*|me ajud[ae] a (decidir|pensar|escolher)|(estou|t[oô]|ando|me sinto) (meio |muito |um pouco |t[aã]o |bem )?(cansad|trist|feliz|ansios|estressad|desanimad|entediad|sozinh|preocupad|nervos|chatead|animad)\w*|vamos conversar|quero conversar|bora conversar|s[oó] (quero )?conversar|me conta (uma piada|uma hist[oó]ria)|me d[eêá] (umas? )?ideias?)/i;
 const PEDE_PESQUISA = /(?<![a-zà-ú])(pesquis\w*|procur\w*|busqu\w*|busca\w*|na internet|na web|no google|search)(?![a-zà-ú])/i;
 // ("estou cansado hoje" é conversa: "hoje" e "agora" sozinhos não fazem a pergunta ser sobre o que é atual)
-const ehConversa = (pergunta, j = {}) => (j.conversa === true || CONVERSA.test(String(pergunta || ''))) && j.produto !== true && !PISTA_DE_ATUAL.test(String(pergunta || '').replace(/(?<![a-zà-ú])(hoje|agora)(?![a-zà-ú])/gi, '')) && !PEDE_PESQUISA.test(String(pergunta || '')) && !/(?<![a-zà-ú])(not[ií]cias?|jornal|aconteceu|acontecendo|elei[cç][aã]o|jogo de ontem)(?![a-zà-ú])/i.test(String(pergunta || ''));
+// pedido de guia nunca é conversa (12/11, régua: "como faço para a bateria do meu android durar mais?" e "quais as melhores
+// táticas de PUBG?" saíram como bate-papo de 2 frases, sem pesquisa, numa rodada — e com nota 10 na outra)
+const PEDE_GUIA = /(?<![a-zà-ú])(como (fa[cç]o|fazer|posso|devo|melhorar|deixar|aumentar|diminuir|reduzir|otimizar|economizar|evitar|escolher|cuidar|configurar|instalar|limpar)|quais (s[aã]o )?(os |as )?(cuidados|dicas|t[aá]ticas|passos|melhores (formas|maneiras|jeitos|t[aá]ticas|dicas|pr[aá]ticas))|dicas?|t[aá]ticas?|passo a passo|cuidados)(?![a-zà-ú])/i;
+const ehConversa = (pergunta, j = {}) => (j.conversa === true || CONVERSA.test(String(pergunta || ''))) && !PEDE_GUIA.test(String(pergunta || '')) && j.produto !== true && !PISTA_DE_ATUAL.test(String(pergunta || '').replace(/(?<![a-zà-ú])(hoje|agora)(?![a-zà-ú])/gi, '')) && !PEDE_PESQUISA.test(String(pergunta || '')) && !/(?<![a-zà-ú])(not[ií]cias?|jornal|aconteceu|acontecendo|elei[cç][aã]o|jogo de ontem)(?![a-zà-ú])/i.test(String(pergunta || ''));
 // conversa que o código reconhece sozinho (cumprimento ou as frases de conversa), sem perguntar ao modelo
 // — sem o modelo, quem barra produto é o código: nome com número (RTX 5070, S25, EM6L, iPhone 16) ou palavra de
 // compra ("você acha que a RTX 5070 vale a pena?" pesquisa)
@@ -1080,6 +1083,50 @@ function semFontesForaDoAssuntoSemGarantia(pergunta, ordenados, temGarantidas = 
 }
 
 /** O material de cada fonte para a escrita: os trechos lidos, ou o resumo do buscador. Até ~`limite` caracteres no total, as mais relevantes primeiro. */
+/**
+ * Pauta da escrita (12/11, pedido do Davi: "na hora de me responder ele não faz da melhor forma"). Medido na pergunta
+ * "como otimizar o Windows 11 para jogos": das 12 dicas de um bom guia, 11 estavam nos trechos que o escritor recebeu,
+ * mas só 7 chegaram à resposta do 9B (e 4 na do gpt-oss) — o modelo recebe ~14 mil letras de pedaços soltos de 4 sites
+ * e escreve com o que viu primeiro. Antes de escrever, uma chamada curta lista os pontos distintos do material, com as
+ * fontes de cada um; o escritor recebe a lista e cobre todos. O embedding (nomic ou embeddinggemma) não mudou nada
+ * na escolha dos trechos. Devolve o texto da pauta ou '' (falhou, ou o material não rende uma lista).
+ */
+async function pautaDaEscrita(pergunta, usadas, { chamar, signal } = {}) {
+  if (typeof chamar !== 'function' || usadas.length < 2) return '';
+  const material = usadas
+    .map((f) => `[${f.n}] ${f.titulo || dominio(f.url)}\n${String(f.conteudo || '').slice(0, 2600)}`)
+    .join('\n\n')
+    .slice(0, 12000);
+  const pedido = [
+    `Pergunta: ${pergunta}`,
+    '',
+    'Material das fontes:',
+    material,
+    '',
+    'Liste TODOS os pontos diferentes que este material traz e que ajudam a responder a pergunta: cada dica, passo, configuração, fato, número ou alerta distinto vira um ponto (o que aparece em mais de uma fonte vira um ponto só, com as fontes juntas). De 3 a 14 pontos, na ordem que faz sentido para quem vai ler (o mais importante e o mais básico primeiro). Deixe de fora o que não responde a esta pergunta (outro assunto, propaganda, menu do site).',
+    'Cada ponto: curto e concreto, com o nome exato do que fazer ou do dado (ex.: "ativar o Modo de Jogo em Configurações > Jogos").',
+    'Responda só com um JSON: {"pontos": [{"ponto": "...", "fontes": [1, 3]}]}',
+  ].join('\n');
+  try {
+    const r = await chamar([{ role: 'user', content: pedido }], { json: true, numPredict: 700, signal });
+    const bruto = String(r?.content || '');
+    const j = safeJson(bruto.slice(bruto.indexOf('{')));
+    const validos = new Set(usadas.map((f) => f.n));
+    const pontos = (Array.isArray(j?.pontos) ? j.pontos : [])
+      .map((p) => ({
+        ponto: String(p?.ponto || '').replace(/\s+/g, ' ').trim().slice(0, 220),
+        fontes: (Array.isArray(p?.fontes) ? p.fontes : []).map(Number).filter((n) => validos.has(n)),
+      }))
+      .filter((p) => p.ponto.length >= 6)
+      .slice(0, 14);
+    if (pontos.length < 3) return '';
+    const linhas = pontos.map((p, i) => `${i + 1}. ${p.ponto}${p.fontes.length ? ` ${p.fontes.map((n) => `[${n}]`).join('')}` : ''}`);
+    return `(Pauta — os pontos que o material traz para esta pergunta. Cubra TODOS, explicando cada um com o detalhe que as fontes dão (como fazer, onde fica, o efeito), agrupando os parecidos em seções e citando as fontes [n]:\n${linhas.join('\n')})`;
+  } catch {
+    return '';
+  }
+}
+
 async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000, emit = () => {} } = {}) {
   const itens = fontes.map((f) => ({ f, texto: f.trechos.length ? f.trechos.join('\n…\n') : f.resumo })).filter((x) => String(x.texto || '').trim());
   const todos = await ordenar(pergunta, itens, { embed });
@@ -1732,6 +1779,14 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const inicioDoMaterial = Date.now();
   const usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit }) : [];
   etapa('material', inicioDoMaterial);
+  // a pauta (12/11): os pontos do material, para o escritor cobrir todos — não em produto (tem formato próprio), gráfico,
+  // página interativa, análise de preço, conversa e explicação de memória
+  const inicioDaPauta = Date.now();
+  // nem em pergunta que muda com o tempo (12/11, régua: na eleição a pauta trouxe os pontos das matérias antigas de previsão
+  // e a resposta falou do resultado como se a eleição ainda fosse acontecer)
+  const comPauta = deps.pautaDaEscrita === true && usadas.length >= 2 && !ent.produto && !ent.conversa && !ent.atual && !ehAnaliseDePreco(pergunta) && !pedeGrafico(pergunta) && !pedeVisual(pergunta);
+  const pauta = comPauta ? await pautaDaEscrita(ent.pergunta || pergunta, usadas, { chamar, signal: deps.signal }) : '';
+  if (comPauta) etapa('pauta', inicioDaPauta);
   // 16/10: sem o yt-dlp, "pesquise vídeos no youtube" saiu como "realizei uma pesquisa no YouTube" — não houve
   const semVideos = /\b(youtube|v[ií]deos?)\b/i.test(pergunta) && !(typeof deps.buscarNoYoutube === 'function');
   emit('redigindo', { fontes: usadas.length });
@@ -1743,7 +1798,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
-    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pergunta },
+    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pauta ? `${pergunta}\n\n${pauta}` : pergunta },
   ];
   const limparEscrita = (t) =>
     semParagrafosDeAnuncio(semImagens(t))
@@ -1884,4 +1939,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { pautaDaEscrita, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

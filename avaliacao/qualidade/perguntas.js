@@ -318,6 +318,59 @@ module.exports = [
     ],
   },
 
+
+  /* ---------------- guias (12/11): a pauta antes da escrita — a resposta cobre o que as fontes trazem ---------------- */
+  {
+    id: 'otimizar-windows-jogos',
+    tipo: 'guia',
+    // 11–12/11 (no app, 10 modelos): as fontes traziam 11 de 12 dicas; a resposta do 9B, 7; a do gpt-oss, 4
+    pedido: 'Como otimizar o windows 11 para aumentar o desempenho em jogos ?',
+    criterios: [
+      'traz pelo menos seis ajustes concretos do Windows (ex.: Modo de Jogo, plano de energia de alto desempenho, drivers da placa de vídeo, agendamento de GPU por hardware, apps em segundo plano e na inicialização, integridade de memória/VBS, efeitos visuais, Xbox Game Bar)',
+      'diz ONDE fica ou COMO fazer cada ajuste (o caminho nas Configurações ou o passo)',
+      'explica o efeito ou o porquê de cada ajuste, e avisa do que tem risco (ex.: desligar a integridade de memória reduz a segurança)',
+      'fica no assunto: otimização do Windows para jogos (internet e ping, se aparecerem, são um detalhe, não o foco)',
+    ],
+    checagens: [
+      { nome: 'pelo menos seis itens em lista ou seções', ok: (r) => (r.match(/^\s*(?:[-*]|\d+\.)\s+\S|^#{2,4}\s+\S/gm) || []).length >= 6 },
+      {
+        nome: 'pelo menos cinco das dicas principais',
+        ok: (r) => [/modo de jogo|game mode/i, /plano de energia|desempenho m[aá]ximo|alto desempenho/i, /driver/i, /agendamento (de )?gpu|hags/i, /segundo plano|inicializa[cç][aã]o/i, /\bvbs\b|integridade de mem[oó]ria/i, /efeitos visuais/i, /game bar/i].filter((re) => re.test(r)).length >= 5,
+      },
+      { nome: 'não vira guia de internet', ok: (r) => (r.match(/\bping\b|lat[êe]ncia de rede|roteador/gi) || []).length <= 3 },
+    ],
+  },
+  {
+    id: 'bateria-android',
+    tipo: 'guia',
+    pedido: 'como faço para a bateria do meu celular android durar mais durante o dia?',
+    criterios: [
+      'traz pelo menos cinco dicas concretas (ex.: brilho e brilho automático, tela/taxa de atualização, modo escuro em tela OLED, apps em segundo plano, economia de bateria, localização/GPS, 5G, bateria adaptativa)',
+      'diz onde fica cada ajuste no Android (o caminho nas Configurações) ou como identificar o app que gasta (Configurações > Bateria)',
+      'separa o que economiza muito do que economiza pouco, ou desfaz mitos (ex.: fechar todos os apps à força não ajuda)',
+      'organizado e direto, sem enrolação',
+    ],
+    checagens: [
+      { nome: 'pelo menos cinco itens em lista ou seções', ok: (r) => (r.match(/^\s*(?:[-*]|\d+\.)\s+\S|^#{2,4}\s+\S/gm) || []).length >= 5 },
+      { nome: 'fala de brilho e de apps em segundo plano', ok: (r) => /brilho/i.test(r) && /segundo plano|background/i.test(r) },
+    ],
+  },
+  {
+    id: 'carro-usado',
+    tipo: 'guia',
+    pedido: 'quais cuidados eu devo ter antes de comprar um carro usado?',
+    criterios: [
+      'traz pelo menos seis cuidados concretos (ex.: consultar multas e débitos no Detran, histórico de sinistro/leilão, recall, chassi e motor batendo com o documento, vistoria cautelar, mecânico de confiança, test drive, histórico de revisões)',
+      'separa a parte da documentação da parte mecânica, ou organiza por etapa da compra',
+      'diz como ou onde verificar cada coisa (site do Detran, laudo cautelar, consulta pela placa)',
+      'avisa dos golpes comuns ou do que é sinal de alerta',
+    ],
+    checagens: [
+      { nome: 'pelo menos seis itens em lista ou seções', ok: (r) => (r.match(/^\s*(?:[-*]|\d+\.)\s+\S|^#{2,4}\s+\S/gm) || []).length >= 6 },
+      { nome: 'fala de documentação e de vistoria', ok: (r) => /detran|d[ée]bitos|multas|documenta/i.test(r) && /vistoria|cautelar|mec[âa]nico/i.test(r) },
+    ],
+  },
+
   /* ---------------- segunda leva (2026-10-11): perguntas mais difíceis ---------------- */
   // A primeira leva ficou com média 9,4 — perto do teto, não mostrava piora
   // pequena. Estas pedem mais fatos por resposta, misturam áreas e incluem
