@@ -371,6 +371,107 @@ module.exports = [
     ],
   },
 
+  /* ---------------- gabarito (12/11): perguntas dos chats do Davi, com pontos conferidos pelo código (gabarito.js) ---------------- */
+  {
+    id: 'spray-pubg',
+    tipo: 'guia',
+    pedido: 'Como controlar melhor o spray no pubg de pc ?',
+    criterios: [
+      'explica o recuo (vertical e horizontal) e como compensar com o mouse',
+      'fala de sensibilidade/DPI e de acessórios da arma que reduzem o recuo',
+      'traz como treinar e dicas práticas (rajadas, postura, posição agachado/deitado)',
+    ],
+    checagens: [{ nome: 'pelo menos cinco itens em lista ou seções', ok: (r) => (r.match(/^\s*(?:[-*]|\d+\.)\s+\S|^#{2,4}\s+\S/gm) || []).length >= 5 }],
+  },
+  {
+    id: 'internet-jogos',
+    tipo: 'guia',
+    pedido: 'o que eu posso fazer para melhorar a minha conexão de internet para jogar jogos online ?',
+    criterios: [
+      'traz pelo menos cinco medidas concretas (cabo, 5 GHz, QoS, posição do roteador, tirar downloads, servidor)',
+      'separa o que resolve ping/lag do que só aumenta a velocidade de download',
+      'diz como medir ou identificar o problema (ping, jitter, perda de pacotes)',
+    ],
+    checagens: [{ nome: 'pelo menos cinco itens em lista ou seções', ok: (r) => (r.match(/^\s*(?:[-*]|\d+\.)\s+\S|^#{2,4}\s+\S/gm) || []).length >= 5 }],
+  },
+  {
+    id: 'regedit-jogos',
+    tipo: 'guia',
+    pedido: 'Realizar ajustes no registro do windows pode fazer eu ganhar mais desempenho em jogos ?',
+    criterios: [
+      'responde direto se vale a pena (em geral o ganho é pequeno ou nenhum) e por quê',
+      'avisa do risco e manda fazer backup ou ponto de restauração antes',
+      'cita exemplos concretos de ajustes que circulam e o que eles fazem',
+    ],
+    checagens: [],
+  },
+  {
+    id: 'chipset-amd',
+    tipo: 'guia',
+    pedido: 'como atualizar o driver do chipset do meu processador AMD ?',
+    criterios: [
+      'passo a passo: site de suporte da AMD, escolher o chipset da placa-mãe, baixar, instalar e reiniciar',
+      'diz como ver a versão instalada hoje',
+      'não confunde driver do chipset com BIOS (ou explica a diferença)',
+    ],
+    checagens: [],
+  },
+  {
+    id: 'gddr7-lpddr',
+    tipo: 'explicacao',
+    pedido: 'qual a diferença entre a memória GDDR7 e a LPDDR nas placas de vídeo ?',
+    criterios: [
+      'GDDR: feita para largura de banda alta; LPDDR: para baixo consumo (celular, notebook)',
+      'fala de velocidade, barramento ou largura de banda com números quando as fontes trazem',
+      'diz o que isso muda em jogos ou por que uma placa usaria uma ou outra',
+    ],
+    checagens: [],
+  },
+  {
+    id: 'mitigacoes-jogos',
+    tipo: 'guia',
+    pedido: 'desativar as mitigações de segurança do processador (Spectre e Meltdown) melhora o desempenho em jogos ?',
+    criterios: [
+      'responde direto: em jogos o ganho costuma ser pequeno; onde há ganho maior (disco, compilação, máquinas virtuais)',
+      'avisa do risco de segurança de desligar',
+      'diz como se faz (InSpectre ou registro) ou como medir antes e depois',
+    ],
+    checagens: [],
+  },
+  {
+    id: 'rtx5080-ou-rtx60',
+    tipo: 'fato',
+    pedido: 'Sera que eu devo comprar uma RTX 5080 agora na black friday ou esperar o lançamentos da serie 60 da nvidia ?',
+    criterios: [
+      'diz o que se sabe da RTX 60 (previsão de lançamento) separando rumor de fato confirmado',
+      'compara com o que a RTX 5080 entrega hoje e o preço atual',
+      'dá uma recomendação clara conforme o caso do usuário',
+    ],
+    checagens: [],
+  },
+  {
+    id: 'fonte-rtx5080',
+    tipo: 'guia',
+    pedido: 'Qual fonte de alimentação voce me sugere para usar na rtx 5080 ?',
+    criterios: [
+      'recomenda a potência (850 W, ou 1000 W com folga) e explica o porquê',
+      'fala do conector 12V-2x6/16 pinos e do padrão ATX 3.x',
+      'indica certificação (80 Plus Gold ou melhor) e exemplos de marcas ou modelos',
+    ],
+    checagens: [],
+  },
+  {
+    id: 'ax73-jogos',
+    tipo: 'produto',
+    pedido: 'O roteador TP link ax 73 é bom para jogos ?',
+    criterios: [
+      'dá um veredito claro para jogos',
+      'traz as especificações que importam (Wi-Fi 6, AX5400, portas, QoS)',
+      'cita pontos fracos ou limitações',
+    ],
+    checagens: [],
+  },
+
   /* ---------------- segunda leva (2026-10-11): perguntas mais difíceis ---------------- */
   // A primeira leva ficou com média 9,4 — perto do teto, não mostrava piora
   // pequena. Estas pedem mais fatos por resposta, misturam áreas e incluem

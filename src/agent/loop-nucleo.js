@@ -126,8 +126,10 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
       this.contabilizar({ promptTokens: r.promptTokens, completionTokens: r.completionTokens }, { tipo: tools ? 'decisao' : 'entendimento', duracaoMs: r.durationMs });
       return r;
     },
+    // o modelo da redação (Ajustes) também vale na pesquisa (12/11: só o caminho antigo das tarefas o usava) —
+    // o modelo principal pesquisa e decide, o da redação escreve a resposta
     escrever: async (messages, onToken) => {
-      const r = await ollama.chatStream({ host: cfg.host, model: modelo, messages, temperature: 0.4, numCtx: 16384, numPredict: limiteDaEscrita, manterVivo: cfg.manterModeloVivo, signal, onToken: (p) => {
+      const r = await ollama.chatStream({ host: cfg.host, model: cfg.modelRedacao || modelo, messages, temperature: 0.4, numCtx: 16384, numPredict: limiteDaEscrita, manterVivo: cfg.manterModeloVivo, signal, onToken: (p) => {
         escreveu = true;
         // 29/10: o tempo até a primeira palavra da resposta — o que se sente esperando
         if (!tempos.primeiraPalavraMs) tempos.primeiraPalavraMs = Date.now() - inicio;
