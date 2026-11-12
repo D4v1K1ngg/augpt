@@ -3021,6 +3021,9 @@ app.on('before-quit', () => {
   mcp?.desconectar();
   searxngRuntime?.parar();
   navegador?.fechar();
+  // 12/11: o "Sair" da bandeja e o desligar do Windows não passam pelo fechar da janela — o Python da voz sai aqui também
+  estudio?.fechar('qwen');
+  estudio?.fechar('omni');
   conversaAbort?.abort(new Error('encerrando'));
   if (verificadorDeAgendamentos) clearInterval(verificadorDeAgendamentos);
 });
