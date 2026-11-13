@@ -831,6 +831,24 @@ module.exports = [
       ...checagensDaResposta(),
     ],
   },
+  // 13/11: notícias (o cruzamento das fontes em notícia) — critérios que valem em qualquer dia
+  ...[
+    ['noticias-brasil', 'Quais as principais notícias do Brasil hoje?'],
+    ['noticias-ia', 'Quais as últimas notícias sobre inteligência artificial?'],
+    ['noticias-mercado', 'Como foi o Ibovespa e o dólar nesta semana?'],
+    ['noticias-futebol', 'Qual foi o resultado do último jogo do Flamengo?'],
+  ].map(([id, pedido]) => ({
+    id,
+    tipo: 'fato',
+    pedido,
+    criterios: [
+      'diz a data (ou o dia) dos fatos, e eles são recentes — de novembro de 2026',
+      'não apresenta previsão ou matéria antiga como se fosse a situação de agora',
+      'cada fato tem a fonte citada; o que mais de um veículo noticia aparece com mais de uma fonte',
+      'quando as fontes discordam (números, placar, versões), mostra as versões ou fica com a mais recente dizendo isso',
+    ],
+    checagens: checagensDaResposta(),
+  })),
   {
     id: 'amoled',
     tipo: 'explicacao',

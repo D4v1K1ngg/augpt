@@ -25,12 +25,17 @@ module.exports = [
       const t = await nucleo.cruzarFontes('como otimizar o windows?', usadas, { chamar });
       const quebrado = await nucleo.cruzarFontes('x', usadas, { chamar: async () => ({ content: 'não sei' }) });
       const umaSo = await nucleo.cruzarFontes('x', usadas.slice(0, 1), { chamar });
+      const comData = usadas.map((f) => ({ ...f, data: f.n === 3 ? '2026-11-04' : '2026-10-21' }));
+      const noticia = await nucleo.cruzarFontes('x', comData, { chamar, noticia: true });
+      const semData = await nucleo.cruzarFontes('x', comData, { chamar });
       return [
         /- ativar o Modo de Jogo \[1\]\[3\] — 2 sites/.test(t) || t,
         /Só um site traz[^\n]*\n- desligar o HAGS \[1\]\[2\]/.test(t) || 'duas páginas do mesmo site contam um',
         /HAGS: desligar \[2\] × ligar \[3\]/.test(t) && !/mesmo site:/.test(t) || 'divergência só entre sites diferentes',
         !/\[9\]/.test(t) || 'fonte que não existe sai',
         quebrado === '' && umaSo === '' || 'sem material para cruzar, nada',
+        /ligar \[3\] \(04\/11\/2026\)/.test(noticia) && /fique com a mais recente/.test(noticia) || `notícia leva a data: ${noticia}`,
+        !/\(04\/11\/2026\)/.test(semData) || 'fora de notícia, sem data',
       ];
     },
   },

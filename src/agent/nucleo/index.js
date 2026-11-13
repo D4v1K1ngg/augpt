@@ -1118,7 +1118,7 @@ async function anotarPaginas(pergunta, usadas, { chamar, signal } = {}) {
  * grupos numa chamada curta; o CÓDIGO conta em quantos sites diferentes cada ponto aparece (3 páginas do mesmo site
  * contam 1). O escritor recebe o que é confirmado, o que só um site diz e onde as fontes divergem. '' quando não rende.
  */
-async function cruzarFontes(pergunta, usadas, { chamar, signal } = {}) {
+async function cruzarFontes(pergunta, usadas, { chamar, signal, noticia = false } = {}) {
   const comPontos = usadas.filter((f) => Array.isArray(f.pontos) && f.pontos.length);
   if (typeof chamar !== 'function' || comPontos.length < 2) return '';
   const lista = comPontos.map((f) => f.pontos.map((p) => `[${f.n}] ${p}`).join('\n')).join('\n');
@@ -1130,7 +1130,9 @@ async function cruzarFontes(pergunta, usadas, { chamar, signal } = {}) {
     const porN = new Map(comPontos.map((f) => [f.n, dominio(f.url)]));
     const fontesValidas = (xs) => [...new Set((Array.isArray(xs) ? xs : []).map(Number).filter((n) => porN.has(n)))];
     const sites = (ns) => new Set(ns.map((n) => porN.get(n))).size;
-    const cita = (ns) => ns.map((n) => `[${n}]`).join('');
+    // notícia (13/11): a data de cada fonte junto da citação — o escritor vê qual versão é a mais nova
+    const dataDe = new Map(comPontos.map((f) => [f.n, f.data ? dataBr(f.data) : '']));
+    const cita = (ns) => ns.map((n) => `[${n}]${noticia && dataDe.get(n) ? ` (${dataDe.get(n)})` : ''}`).join('');
     const limpo = (t) => String(t || '').replace(/\s+/g, ' ').trim().slice(0, 220);
     const grupos = (Array.isArray(j.grupos) ? j.grupos : [])
       .map((g) => ({ ponto: limpo(g?.ponto), fontes: fontesValidas(g?.fontes) }))
@@ -1146,7 +1148,7 @@ async function cruzarFontes(pergunta, usadas, { chamar, signal } = {}) {
     const partes = ['(Cruzamento das fontes — feito pelo código, contando sites diferentes:'];
     if (confirmados.length) partes.push('Confirmado por mais de um site (pode afirmar):', ...confirmados.slice(0, 12).map((g) => `- ${g.ponto} ${cita(g.fontes)} — ${g.sites} sites`));
     if (unicos.length) partes.push('Só um site traz (use se ajudar, atribuindo: "segundo [n]"):', ...unicos.slice(0, 12).map((g) => `- ${g.ponto} ${cita(g.fontes)}`));
-    if (divergencias.length) partes.push('As fontes divergem (mostre as versões, cada uma com a sua fonte, sem escolher uma sem motivo):', ...divergencias.slice(0, 4).map((d) => `- ${d.sobre}: ${d.versoes.map((v) => `${v.diz} ${cita(v.fontes)}`).join(' × ')}`));
+    if (divergencias.length) partes.push(noticia ? 'As fontes divergem (fique com a mais recente, dizendo a data; se forem do mesmo dia, mostre as versões com as fontes):' : 'As fontes divergem (mostre as versões, cada uma com a sua fonte, sem escolher uma sem motivo):', ...divergencias.slice(0, 4).map((d) => `- ${d.sobre}: ${d.versoes.map((v) => `${v.diz} ${cita(v.fontes)}`).join(' × ')}`));
     return `${partes.join('\n')})`;
   } catch {
     return '';
@@ -1840,6 +1842,8 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   etapa('pesquisa', inicioDaPesquisa);
   const inicioDoMaterial = Date.now();
   let usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit }) : [];
+  // 13/11, régua: o que foi lido e o que foi para o escritor — o ponto que falta na resposta estava no material?
+  emit('nucleo-material', { lido: fontes.map((f) => `${f.titulo || ''}\n${f.resumo || ''}\n${(f.trechos || []).join('\n')}`).join('\n\n'), usado: usadas.map((f) => f.conteudo || '').join('\n\n') });
   etapa('material', inicioDoMaterial);
   if (deps.notasPorPagina === true && usadas.length && !ent.produto && !ent.conversa && !ehAnaliseDePreco(pergunta) && !pedeGrafico(pergunta) && !pedeVisual(pergunta)) {
     const inicioDasNotas = Date.now();
@@ -1855,10 +1859,11 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const pauta = comPauta ? await pautaDaEscrita(ent.pergunta || pergunta, usadas, { chamar, signal: deps.signal }) : '';
   if (comPauta) etapa('pauta', inicioDaPauta);
   // o cruzamento (13/11): quantos sites confirmam cada ponto e onde divergem — precisa das notas por página
-  // (fora de pergunta que muda com o tempo, como a pauta: 13/11, na eleição os pontos das matérias de antes da votação)
-  const comCruzamento = deps.cruzarFontes === true && usadas.length >= 2 && !ent.produto && !ent.conversa && !ent.atual && !ehAnaliseDePreco(pergunta) && !pedeGrafico(pergunta) && !pedeVisual(pergunta);
+  // pergunta que muda com o tempo tem o seu: com a data de cada fonte (13/11, na eleição os pontos das matérias de antes
+  // da votação viraram a resposta) — "cruzarNoticias"; o resto, "cruzarFontes"
+  const comCruzamento = (ent.atual ? deps.cruzarNoticias === true : deps.cruzarFontes === true) && usadas.length >= 2 && !ent.produto && !ent.conversa && !ehAnaliseDePreco(pergunta) && !pedeGrafico(pergunta) && !pedeVisual(pergunta);
   const inicioDoCruzamento = Date.now();
-  const cruzamento = comCruzamento ? await cruzarFontes(ent.pergunta || pergunta, usadas, { chamar, signal: deps.signal }) : '';
+  const cruzamento = comCruzamento ? await cruzarFontes(ent.pergunta || pergunta, usadas, { chamar, signal: deps.signal, noticia: Boolean(ent.atual) }) : '';
   if (comCruzamento) etapa('cruzamento', inicioDoCruzamento);
   // 16/10: sem o yt-dlp, "pesquise vídeos no youtube" saiu como "realizei uma pesquisa no YouTube" — não houve
   const semVideos = /\b(youtube|v[ií]deos?)\b/i.test(pergunta) && !(typeof deps.buscarNoYoutube === 'function');

@@ -178,6 +178,9 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // cobertura 63% → 71% / 68% (2 × 2 rodadas), mas nota 9.3 → 9.1 / 8.6; com "inclua também" os pontos de um site só,
     // 67% e 8.4. Sem ganho claro: fica desligado; liga com "cruzarFontes": true
     cruzarFontes: cfg.cruzarFontes === true,
+    // em notícia (pergunta que muda com o tempo), com a data de cada fonte: 5 perguntas × 4 rodadas, nota 8.9 → 9.6
+    // (midterms 5.7 → 8.8, as outras iguais), +5 s; desliga com "cruzarNoticias": false
+    cruzarNoticias: cfg.cruzarNoticias !== false,
     // 30/10: quanto cada site levou para abrir (no relatório: os que sempre demoram ficam visíveis)
     lerPagina: async (url) => {
       const t = Date.now();

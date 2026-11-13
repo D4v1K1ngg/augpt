@@ -576,6 +576,7 @@ async function executarCasoAgente(caso, opcoes = {}) {
   };
 
   agente.on('resposta-reinicia', (d) => obtido.reiniciosResposta.push(d));
+  agente.on('nucleo-material', (d) => (obtido.material = d)); // régua: o gabarito também no que foi lido
   obtido.pesquisa = {};
   for (const ev of ['pesquisa-cadeia', 'pesquisa-criterios', 'pesquisa-ordem', 'pesquisa-mapa', 'pesquisa-plano', 'pesquisa-candidatos', 'pesquisa-matriz', 'pesquisa-hipoteses', 'pesquisa-fim', 'pesquisa-desempenho', 'pesquisa-uso', 'pesquisa-guia', 'pesquisa-modo']) {
     agente.on(ev, (d) => {

@@ -244,6 +244,12 @@ function versaoDoCodigo() {
 
 /* ------------------------------ rodada ------------------------------ */
 
+// média das frações de gabarito que existem (null se nenhuma)
+function mediaDe(cs) {
+  const f = cs.filter(Boolean).map((c) => c.feitos / c.total);
+  return f.length ? Math.round((f.reduce((a, b) => a + b, 0) / f.length) * 1000) / 1000 : null;
+}
+
 async function responder(pergunta, { cfg, modelo }) {
   const inicio = Date.now();
   try {
@@ -278,6 +284,8 @@ async function responder(pergunta, { cfg, modelo }) {
       descartes: (r.descartes || []).length,
       // 14/10: dossiês e cartões, para refazer só a escrita (avaliacao/reescrever.js)
       cartoes: r.pesquisaPlanejada?.cartoes || null,
+      // 13/11: o gabarito no que foi lido e no que foi para o escritor (o ponto que falta estava no material?)
+      noMaterial: obtido.material ? { lido: cobertura(pergunta.id, obtido.material.lido), usado: cobertura(pergunta.id, obtido.material.usado) } : null,
     };
   } catch (err) {
     return { resposta: '', seg: Math.round((Date.now() - inicio) / 1000), passos: 0, tokens: 0, busca: { provedores: [], ok: 0, semProvedor: 0, semLeitura: 0 }, fontes: 0, erro: err.message };
@@ -342,7 +350,8 @@ async function principal() {
   // a 336 s entre execuções; com uma rodada só, não dá para separar melhora de
   // sorte. A nota e o tempo da pergunta são a média das rodadas; a diferença
   // entre a melhor e a pior nota aparece ao lado.
-  const rodadas = Math.max(1, Math.min(Number(args.rodadas) || 1, 5));
+  // 13/11: o padrão é 4 rodadas num recorte (--id, --gabarito) e 2 na régua inteira — com 2, o ruído era ±7 pontos de gabarito
+  const rodadas = Math.max(1, Math.min(Number(args.rodadas) || (args.id || args.gabarito ? 4 : 2), 5));
 
   // 1ª fase: o agente responde tudo (--rejulgar: reaproveita as respostas da
   // última rodada e só corrige de novo — para testar outro juiz ou gabarito)
@@ -390,6 +399,8 @@ async function principal() {
       cobertura: coberturas.length ? Math.round(media(coberturas.map(fracao)) * 1000) / 1000 : null,
       coberturaPior: coberturas.length ? Math.min(...coberturas.map(fracao)) : null,
       coberturas: coberturas.map((c) => `${c.feitos}/${c.total}`),
+      coberturaLido: mediaDe(execucoes.map((e) => e.noMaterial?.lido)),
+      coberturaUsado: mediaDe(execucoes.map((e) => e.noMaterial?.usado)),
     });
     const faltou = [
       ...(p.fatos || []).filter((_, k) => v.fatos[k] === 'ausente'),
@@ -406,6 +417,8 @@ async function principal() {
       const fora = coberturas.reduce((s, c) => s + c.fora, 0);
       console.log(cinza(`          gabarito ${coberturas.map((c) => `${c.feitos}/${c.total}`).join(' · ')}${fora ? amarelo(`  ·  fora do assunto ${fora}x`) : ''}${maisFalta.faltam.length ? `  ·  faltou: ${maisFalta.faltam.slice(0, 4).join(', ')}` : ''}`));
     }
+    const noMat = resultados[resultados.length - 1];
+    if (noMat.coberturaLido != null) console.log(cinza(`          no material: ${Math.round(noMat.coberturaLido * 100)}% do gabarito no que foi lido · ${Math.round(noMat.coberturaUsado * 100)}% no que foi para o escritor · ${Math.round((noMat.cobertura || 0) * 100)}% na resposta`));
     if (pior.erroDoJuiz) console.log(cinza(`          ${pior.erroDoJuiz}`));
     for (const x of contradisse) console.log(vermelho(`          contradiz: ${x}`));
     for (const x of faltou.slice(0, 4)) console.log(cinza(`          faltou: ${x}`));
@@ -427,6 +440,11 @@ async function principal() {
   if (comGabarito.length) {
     resumo.cobertura = Math.round(media(comGabarito.map((r) => r.cobertura)) * 1000) / 1000;
     resumo.coberturaPior = Math.round(media(comGabarito.map((r) => r.coberturaPior)) * 1000) / 1000;
+    const comMaterial = comGabarito.filter((r) => r.coberturaLido != null);
+    if (comMaterial.length) {
+      resumo.coberturaLido = Math.round(media(comMaterial.map((r) => r.coberturaLido)) * 1000) / 1000;
+      resumo.coberturaUsado = Math.round(media(comMaterial.map((r) => r.coberturaUsado)) * 1000) / 1000;
+    }
   }
   console.log(`\n  nota média ${corDaNota(resumo.notaMedia)}  ·  ${resumo.abaixoDe5} de ${comNota.length} abaixo de 5  ·  tempo mediano ${resumo.segMediana}s (total ${Math.round(resumo.segTotal / 60)} min)`);
   for (const tipo of [...new Set(resultados.map((r) => r.tipo))]) {
@@ -434,6 +452,7 @@ async function principal() {
     console.log(cinza(`    ${tipo.padEnd(11)} nota ${media(g.map((r) => r.nota)).toFixed(1)}  ·  ${mediana(g.map((r) => r.seg))}s  ·  ${g.length} perguntas`));
   }
   if (resumo.cobertura != null) console.log(`  gabarito: ${Math.round(resumo.cobertura * 100)}% dos pontos cobertos em média  ·  ${Math.round(resumo.coberturaPior * 100)}% na pior rodada de cada pergunta (${comGabarito.length} perguntas)`);
+  if (resumo.coberturaLido != null) console.log(cinza(`    no material: ${Math.round(resumo.coberturaLido * 100)}% do gabarito no que foi lido · ${Math.round(resumo.coberturaUsado * 100)}% no que foi para o escritor · ${Math.round(resumo.cobertura * 100)}% na resposta`));
   console.log(cinza(`    busca: ${resumo.buscasOk} respondidas, ${resumo.buscasSemProvedor} sem nenhum provedor`));
   if (resumo.semJuiz) console.log(amarelo(`    ${resumo.semJuiz} pergunta(s) sem nota: o juiz não devolveu um veredito legível`));
 
