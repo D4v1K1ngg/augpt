@@ -33,6 +33,7 @@ const boleto = require('./boleto-no-chat');
 const controleDoPc = require('./controle-do-pc');
 const buscaLocal = require('./busca-local-no-chat');
 const cotacao = require('./cotacao-no-chat');
+const conta = require('./conta-no-chat');
 
 const SEM_PESQUISA = { fontes: [], produto: false, assuntos: [], buscou: false, entendimento: { precisaBuscar: false, assuntos: [] } };
 
@@ -50,6 +51,12 @@ const ROTAS = [
     id: 'cotacao',
     detecta: ({ objetivo }) => cotacao.pedidoDeCotacao(objetivo),
     responde: ({ deps, config }, pedido) => cotacao.responderCotacao({ pedido, deps, config }),
+  },
+  {
+    // "quanto é (12783,23 * 0,17) + 823,42?" (13/11): o código calcula (o 9B errava a conta)
+    id: 'conta',
+    detecta: ({ objetivo }) => conta.pedidoDeConta(objetivo),
+    responde: (ctx, pedido) => (pedido ? conta.responderConta({ pedido }) : null),
   },
   {
     // "bom dia, Jarvis" no começo da conversa, "resumo do dia" (31/10): data e feriado, tempo, agenda e manchetes
