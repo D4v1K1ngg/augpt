@@ -174,6 +174,10 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     pautaDaEscrita: cfg.pautaDaEscrita === true,
     // 12/11 (régua, 5 guias × 2 rodadas, 9B): cobertura do gabarito 60% → 68%, +5 s; desliga com "notasPorPagina": false
     notasPorPagina: cfg.notasPorPagina !== false,
+    // 13/11: cruzamento das fontes (sites que confirmam cada ponto, divergências). Régua, 14 perguntas com gabarito, 9B:
+    // cobertura 63% → 71% / 68% (2 × 2 rodadas), mas nota 9.3 → 9.1 / 8.6; com "inclua também" os pontos de um site só,
+    // 67% e 8.4. Sem ganho claro: fica desligado; liga com "cruzarFontes": true
+    cruzarFontes: cfg.cruzarFontes === true,
     // 30/10: quanto cada site levou para abrir (no relatório: os que sempre demoram ficam visíveis)
     lerPagina: async (url) => {
       const t = Date.now();

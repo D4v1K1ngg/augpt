@@ -1107,10 +1107,50 @@ async function anotarPaginas(pergunta, usadas, { chamar, signal } = {}) {
       const bruto = String(r?.content || '');
       const pontos = (safeJson(bruto.slice(bruto.indexOf('{')))?.pontos || [])
         .map((p) => String(p || '').replace(/\s+/g, ' ').trim().slice(0, 220)).filter((p) => p.length >= 6).slice(0, 10);
-      anotadas.push(pontos.length ? { ...f, conteudo: `Pontos desta página:\n${pontos.map((p) => `- ${p}`).join('\n')}\n\nTrecho da página:\n${String(f.conteudo || '').slice(0, 1500)}` } : f);
+      anotadas.push(pontos.length ? { ...f, pontos, conteudo: `Pontos desta página:\n${pontos.map((p) => `- ${p}`).join('\n')}\n\nTrecho da página:\n${String(f.conteudo || '').slice(0, 1500)}` } : f);
     } catch { anotadas.push(f); }
   }
   return anotadas;
+}
+
+/**
+ * Cruzamento das fontes (13/11, a partir da comparação com o ChatGPT): os pontos de cada página (anotarPaginas) viram
+ * grupos numa chamada curta; o CÓDIGO conta em quantos sites diferentes cada ponto aparece (3 páginas do mesmo site
+ * contam 1). O escritor recebe o que é confirmado, o que só um site diz e onde as fontes divergem. '' quando não rende.
+ */
+async function cruzarFontes(pergunta, usadas, { chamar, signal } = {}) {
+  const comPontos = usadas.filter((f) => Array.isArray(f.pontos) && f.pontos.length);
+  if (typeof chamar !== 'function' || comPontos.length < 2) return '';
+  const lista = comPontos.map((f) => f.pontos.map((p) => `[${f.n}] ${p}`).join('\n')).join('\n');
+  const pedido = `Pergunta: ${pergunta}\n\nPontos tirados de cada fonte ([n] = número da fonte):\n${lista.slice(0, 9000)}\n\nJunte os pontos que dizem a MESMA coisa num grupo só, com todas as fontes que o trazem. Se fontes dizem coisas INCOMPATÍVEIS sobre o mesmo assunto (números diferentes, uma recomenda e outra desaconselha), registre em "divergencias". Responda só com um JSON: {"grupos": [{"ponto": "...", "fontes": [1, 3]}], "divergencias": [{"sobre": "...", "versoes": [{"diz": "...", "fontes": [2]}]}]}`;
+  try {
+    const r = await chamar([{ role: 'user', content: pedido }], { json: true, numPredict: 900, signal });
+    const bruto = String(r?.content || '');
+    const j = safeJson(bruto.slice(bruto.indexOf('{'))) || {};
+    const porN = new Map(comPontos.map((f) => [f.n, dominio(f.url)]));
+    const fontesValidas = (xs) => [...new Set((Array.isArray(xs) ? xs : []).map(Number).filter((n) => porN.has(n)))];
+    const sites = (ns) => new Set(ns.map((n) => porN.get(n))).size;
+    const cita = (ns) => ns.map((n) => `[${n}]`).join('');
+    const limpo = (t) => String(t || '').replace(/\s+/g, ' ').trim().slice(0, 220);
+    const grupos = (Array.isArray(j.grupos) ? j.grupos : [])
+      .map((g) => ({ ponto: limpo(g?.ponto), fontes: fontesValidas(g?.fontes) }))
+      .filter((g) => g.ponto.length >= 6 && g.fontes.length)
+      .map((g) => ({ ...g, sites: sites(g.fontes) }));
+    const divergencias = (Array.isArray(j.divergencias) ? j.divergencias : [])
+      .map((d) => ({ sobre: limpo(d?.sobre), versoes: (Array.isArray(d?.versoes) ? d.versoes : []).map((v) => ({ diz: limpo(v?.diz), fontes: fontesValidas(v?.fontes) })).filter((v) => v.diz && v.fontes.length) }))
+      // só é divergência entre sites diferentes
+      .filter((d) => d.sobre && d.versoes.length >= 2 && sites(d.versoes.flatMap((v) => v.fontes)) >= 2);
+    const confirmados = grupos.filter((g) => g.sites >= 2).sort((a, b) => b.sites - a.sites);
+    if (!confirmados.length && !divergencias.length) return '';
+    const unicos = grupos.filter((g) => g.sites < 2);
+    const partes = ['(Cruzamento das fontes — feito pelo código, contando sites diferentes:'];
+    if (confirmados.length) partes.push('Confirmado por mais de um site (pode afirmar):', ...confirmados.slice(0, 12).map((g) => `- ${g.ponto} ${cita(g.fontes)} — ${g.sites} sites`));
+    if (unicos.length) partes.push('Só um site traz (use se ajudar, atribuindo: "segundo [n]"):', ...unicos.slice(0, 12).map((g) => `- ${g.ponto} ${cita(g.fontes)}`));
+    if (divergencias.length) partes.push('As fontes divergem (mostre as versões, cada uma com a sua fonte, sem escolher uma sem motivo):', ...divergencias.slice(0, 4).map((d) => `- ${d.sobre}: ${d.versoes.map((v) => `${v.diz} ${cita(v.fontes)}`).join(' × ')}`));
+    return `${partes.join('\n')})`;
+  } catch {
+    return '';
+  }
 }
 
 async function pautaDaEscrita(pergunta, usadas, { chamar, signal } = {}) {
@@ -1814,6 +1854,12 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const comPauta = deps.pautaDaEscrita === true && usadas.length >= 2 && !ent.produto && !ent.conversa && !ent.atual && !ehAnaliseDePreco(pergunta) && !pedeGrafico(pergunta) && !pedeVisual(pergunta);
   const pauta = comPauta ? await pautaDaEscrita(ent.pergunta || pergunta, usadas, { chamar, signal: deps.signal }) : '';
   if (comPauta) etapa('pauta', inicioDaPauta);
+  // o cruzamento (13/11): quantos sites confirmam cada ponto e onde divergem — precisa das notas por página
+  // (fora de pergunta que muda com o tempo, como a pauta: 13/11, na eleição os pontos das matérias de antes da votação)
+  const comCruzamento = deps.cruzarFontes === true && usadas.length >= 2 && !ent.produto && !ent.conversa && !ent.atual && !ehAnaliseDePreco(pergunta) && !pedeGrafico(pergunta) && !pedeVisual(pergunta);
+  const inicioDoCruzamento = Date.now();
+  const cruzamento = comCruzamento ? await cruzarFontes(ent.pergunta || pergunta, usadas, { chamar, signal: deps.signal }) : '';
+  if (comCruzamento) etapa('cruzamento', inicioDoCruzamento);
   // 16/10: sem o yt-dlp, "pesquise vídeos no youtube" saiu como "realizei uma pesquisa no YouTube" — não houve
   const semVideos = /\b(youtube|v[ií]deos?)\b/i.test(pergunta) && !(typeof deps.buscarNoYoutube === 'function');
   emit('redigindo', { fontes: usadas.length });
@@ -1825,7 +1871,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
-    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pauta ? `${pergunta}\n\n${pauta}` : pergunta },
+    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pauta || cruzamento ? [pergunta, pauta, cruzamento].filter(Boolean).join('\n\n') : pergunta },
   ];
   const limparEscrita = (t) =>
     semParagrafosDeAnuncio(semImagens(t))
@@ -1966,4 +2012,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
