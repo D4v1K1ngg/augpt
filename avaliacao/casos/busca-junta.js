@@ -51,6 +51,25 @@ module.exports = [
     },
   },
   {
+    nome: 'busca: página cheia sem nenhum resultado com o modelo pedido (o Bing sozinho: "TP-Link Archer AX73" → Teleperformance) passa ao próximo buscador; com um resultado do modelo, fica tudo; consulta sem modelo não é conferida',
+    tipo: 'unidade',
+    async executar() {
+      const lixo = ['teleperformance.com.br', 'tp.com', 'totalpass.com', 'archer.com.br', 'mrarcher.com.br', 'archerirm.com'].map((d) => ({ url: `https://${d}/`, titulo: `Vem Ser TP | ${d}`, resumo: '' }));
+      const bons = [{ url: 'https://www.tp-link.com/br/archer-ax73/', titulo: 'Archer AX73 | Roteador Wi-Fi 6', resumo: '' }, { url: 'https://pcmag.com/tp-link-archer-ax-73-review', titulo: 'TP-Link Archer AX 73 review', resumo: '' }, r('https://c.com/3')];
+      const quebrado = await comBuscadores({ searxng: async () => lixo, ollama: async () => bons }, () => search.buscar('TP-Link Archer AX73 review'));
+      const misto = await comBuscadores({ searxng: async () => [...lixo, bons[0]], ollama: async () => bons }, () => search.buscar('TP-Link Archer AX73 review'));
+      const semModelo = await comBuscadores({ searxng: async () => lixo, ollama: async () => bons }, () => search.buscar('melhor roteador para jogos'));
+      const quaseTodos = await comBuscadores({ searxng: async () => [...bons, ...['d', 'e'].map((d) => ({ url: `https://${d}.com/ax73`, titulo: 'AX73', resumo: '' })), lixo[0]], ollama: async () => [] }, () => search.buscar('TP-Link Archer AX73 review'));
+      return [
+        quebrado.provedor === 'ollama' && /nenhum sobre a consulta/.test(quebrado.falhas.join()) || JSON.stringify({ p: quebrado.provedor, f: quebrado.falhas }),
+        // 1 de 7 com o modelo: fica só ele, e o próximo buscador entra (o repetido não volta)
+        misto.provedor === 'searxng+ollama' && misto.resultados.length === 3 && !misto.resultados.some((x) => /teleperformance/.test(x.url)) || `misto: ${misto.provedor} ${misto.resultados.map((x) => x.url)}`,
+        quaseTodos.provedor === 'searxng' && quaseTodos.resultados.length === 6 || `a maioria do modelo: tudo fica (${quaseTodos.provedor} ${quaseTodos.resultados.length})`,
+        semModelo.provedor === 'searxng' || `sem modelo: ${semModelo.provedor}`,
+      ];
+    },
+  },
+  {
     nome: 'tempos da pesquisa: o núcleo mede as etapas e as chamadas, a busca anota buscadores e falhas, o registro guarda e o relatório mostra',
     tipo: 'unidade',
     async executar() {

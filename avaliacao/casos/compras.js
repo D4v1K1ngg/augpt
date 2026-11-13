@@ -187,7 +187,7 @@ module.exports = [
             return res.end(
               JSON.stringify({
                 results: lojas.map((l, i) => ({
-                  title: l,
+                  title: `RTX 5070 Ti | ${l}`,
                   url: `http://127.0.0.${i + 1}:${s.address().port}/produto/rtx`,
                   content: '',
                 })),

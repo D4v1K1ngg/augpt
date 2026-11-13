@@ -577,6 +577,11 @@ async function executarCasoAgente(caso, opcoes = {}) {
 
   agente.on('resposta-reinicia', (d) => obtido.reiniciosResposta.push(d));
   agente.on('nucleo-material', (d) => (obtido.material = d)); // régua: o gabarito também no que foi lido
+  if (process.env.DEPURAR_MATERIAL) {
+    agente.on('nucleo-material', (d) => console.error(`[material] lido ${d.lido.length} · usado ${d.usado.length}`));
+    agente.on('aviso', (d) => console.error(`[aviso] ${d.texto}`));
+    agente.on('fonte', (d) => console.error(`[fonte] ${d.tipo} ${d.provedor || ''} ${d.url || (d.consultas || []).join(' | ')} ${d.resultados ?? ''} ${(d.dominios || []).slice(0, 5).join(',')}`));
+  }
   obtido.pesquisa = {};
   for (const ev of ['pesquisa-cadeia', 'pesquisa-criterios', 'pesquisa-ordem', 'pesquisa-mapa', 'pesquisa-plano', 'pesquisa-candidatos', 'pesquisa-matriz', 'pesquisa-hipoteses', 'pesquisa-fim', 'pesquisa-desempenho', 'pesquisa-uso', 'pesquisa-guia', 'pesquisa-modo']) {
     agente.on(ev, (d) => {

@@ -639,8 +639,8 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       })
       .slice(0, maximo);
 
-  const executarBusca = async (buscas, { comunidade = false } = {}) => {
-    const lista = prepararBuscas(buscas, 3, comunidade ? 'comunidade' : 'web');
+  const executarBusca = async (buscas, { comunidade = false, maximo = 3 } = {}) => {
+    const lista = prepararBuscas(buscas, maximo, comunidade ? 'comunidade' : 'web');
     if (!lista.length) return 'Essas buscas já foram feitas. Leia as fontes mais promissoras com ler_pagina, busque outro ângulo com o nome do assunto, ou chame pronto.';
     emit('ferramenta', { nome: comunidade ? 'buscar_na_comunidade' : 'buscar_na_web', argumentos: { consulta: lista.join(' · ') }, risco: 'leitura' });
     const achados = (await Promise.all(lista.map((q) => (comunidade ? buscarNaComunidade(q) : buscar(q, { recente: atual })).catch(() => [])))).flat();
@@ -875,7 +875,13 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   // sempre era só "buscar" — uma decisão inteira, ~2 s com 3 mil tokens, para escolher as buscas). O
   // código já busca; o pesquisador começa decidindo o que ler, e as 2 primeiras páginas já vão sendo lidas.
   if (buscasIniciais.length && !signal?.aborted) {
-    const resultado = await executarBusca(buscasIniciais);
+    // o site do fabricante (13/11, régua: 29% dos pontos do gabarito nunca estavam nas páginas lidas; no AX73 a página
+    // da TP-Link só aparecia quando o buscador colaborava): a pergunta cita a marca → uma busca "site:" junto das
+    // primeiras, e a página oficial que vier é lida sempre
+    const doFabricante = oficiais.length && modo !== 'rapido' ? [`site:${oficiais[0]} ${buscasIniciais[0]}`] : [];
+    const resultado = await executarBusca([...buscasIniciais, ...doFabricante], { maximo: 3 + doFabricante.length });
+    const oficial = doFabricante.length ? fontes.find((f) => doSiteOficial(f.url, oficiais) && !f.trechos.length) : null;
+    if (oficial && !signal?.aborted) await executarLeitura({ fonte: oficial.n, foco: pergunta }, { garantia: true });
     // 5/11 (registros: produto levava 5 rodadas e a 1ª palavra saía entre 38 e 59 s): em pedido de produto o
     // código já lê, em paralelo, as páginas mais ligadas à pergunta e os tópicos da comunidade — o que antes só
     // fazia no fim, para completar o mínimo. O pesquisador começa com o material lido e só completa os ângulos.

@@ -45,6 +45,30 @@ const OFICIAIS = {
   netflix: ['netflix.com'],
   steam: ['steampowered.com', 'steamcommunity.com'],
   nubank: ['nubank.com.br'],
+  // 13/11: as marcas das perguntas de rede, hardware, fones e casa (a busca "site:" do fabricante, nucleo/pesquisar)
+  tplink: ['tp-link.com'],
+  gigabyte: ['gigabyte.com'],
+  msi: ['msi.com'],
+  kingston: ['kingston.com'],
+  intelbras: ['intelbras.com', 'intelbras.com.br'],
+  mercusys: ['mercusys.com'],
+  huawei: ['huawei.com'],
+  realme: ['realme.com'],
+  redragon: ['redragon.com.br', 'redragonzone.com'],
+  steelseries: ['steelseries.com'],
+  sennheiser: ['sennheiser.com'],
+  edifier: ['edifier.com'],
+  fiio: ['fiio.com'],
+  moondrop: ['moondroplab.com'],
+  simgot: ['simgot.com'],
+  truthear: ['truthear.com'],
+  gree: ['gree.com.br'],
+  lg: ['lg.com'],
+  electrolux: ['electrolux.com.br'],
+  brastemp: ['brastemp.com.br'],
+  android: ['android.com'],
+  pubg: ['pubg.com'],
+  valorant: ['playvalorant.com'],
   // órgãos: quem pergunta deles quer o site do próprio órgão
   stf: ['stf.jus.br'],
   stj: ['stj.jus.br'],
@@ -53,7 +77,7 @@ const OFICIAIS = {
   receita: ['gov.br'],
 };
 // como a pessoa escreve a marca na pergunta, quando é diferente do domínio
-const NA_PERGUNTA = { mercadolivre: /mercado ?livre/, magalu: /magalu|magazine ?luiza/, casasbahia: /casas ?bahia/, stf: /\bstf\b|supremo tribunal/, stj: /\bstj\b/, tse: /\btse\b/, receita: /receita federal/, inss: /\binss\b/ };
+const NA_PERGUNTA = { tplink: /\btp.?link\b/, microsoft: /\bmicrosoft\b|\bwindows\b|\bxbox\b/, mercadolivre: /mercado ?livre/, magalu: /magalu|magazine ?luiza/, casasbahia: /casas ?bahia/, stf: /\bstf\b|supremo tribunal/, stj: /\bstj\b/, tse: /\btse\b/, receita: /receita federal/, inss: /\binss\b/ };
 const PALAVRA_DE_GOLPE = /oficial|official|brasil|brazil|store|loja|shop|outlet|promo|desconto|ofertas|sale|black|online|site|original|br-|-br\b/;
 // sites muito conhecidos (o nome antes do ".com") — a uma letra deles é imitação
 const CONHECIDOS = ['wikihow', 'wikipedia', 'youtube', 'google', 'amazon', 'mercadolivre', 'kabum', 'reddit', 'instagram', 'facebook', 'whatsapp', 'netflix', 'magazineluiza', 'americanas', 'aliexpress', 'shopee', 'paypal', 'nubank', 'bradesco', 'santander', 'itau', 'microsoft', 'apple', 'samsung', 'steampowered', 'pichau', 'terabyteshop'];

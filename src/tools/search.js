@@ -567,7 +567,28 @@ const dominioDe = (url) => {
 // (29/10, no registro: 12 buscas no Reddit percorriam DuckDuckGo, Lite e Wikipédia à toa)
 const bastante = (lista, minimo, consulta = '') => lista.length >= minimo && (minimo < 3 || /\bsite:/i.test(consulta) || new Set(lista.map((r) => dominioDe(r.url))).size >= 2);
 
+/*
+ * Resultado que não é da consulta (13/11, régua): com Brave, Google e Yahoo suspensos por excesso de pedidos, só o Bing
+ * do SearXNG respondia — e buscava a primeira palavra: "TP-Link Archer AX73 review" trouxe Teleperformance e TotalPass,
+ * "Archer AX73" o Supermercados Archer. A cadeia aceitava (10 resultados de 5 sites) e nunca chamava os outros; o AX73
+ * saiu "não encontrei" em 3 de 4 rodadas, depois de 55 buscas. Pertinente = cita um dos nomes com número da consulta
+ * ("ax73", "5080", com ou sem espaço; num "5070 Ti vs 5080" a página de uma só serve). Consulta sem nome com número não
+ * é conferida (palavra comum não serve: pergunta em português com página em inglês não divide palavra nenhuma).
+ */
+const semAcento = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function pertinente(consulta) {
+  const q = semAcento(consulta).replace(/\bsite:\S+/g, ' ');
+  const comNumero = [...new Set((q.match(/[a-z]*\d[a-z\d]*/g) || []).map((t) => t.replace(/[^a-z\d]/g, '')).filter((t) => t.length >= 3 && /[a-z]/.test(t) || /^\d{4,}$/.test(t)))]
+    .filter((t) => !/^(19|20)\d\d$/.test(t)); // ano não é nome de modelo
+  if (!comNumero.length) return () => true;
+  return (r) => {
+    const compacto = semAcento(`${r.titulo || r.title || ''} ${r.resumo || r.snippet || ''} ${r.url || ''}`).replace(/[^a-z\d]/g, '');
+    return comNumero.some((t) => compacto.includes(t));
+  };
+}
+
 async function buscar(consulta, opcoes = {}) {
+  const ehDaConsulta = pertinente(consulta);
   const minimo = opcoes.minimo || 3;
   const falhas = [];
   const juntos = [];
@@ -582,12 +603,22 @@ async function buscar(consulta, opcoes = {}) {
     }
     const inicio = Date.now();
     try {
-      const resultados = await provedor.fn(consulta, opcoes);
+      const brutos = await provedor.fn(consulta, opcoes);
       tempos[provedor.nome] = Date.now() - inicio;
-      if (!resultados.length) {
+      if (!brutos.length) {
         falhas.push(`${provedor.nome}: sem resultados`);
         continue;
       }
+      // página cheia (5+) quase sem resultado com o modelo é o buscador quebrado ("RTX 5080 consumo" → rtx.com, a
+      // empresa aeroespacial, e 1 de 10 sobre a placa): ficam só os do modelo, e o próximo buscador também entra
+      const doModelo = brutos.filter(ehDaConsulta);
+      const quebrado = brutos.length >= 5 && doModelo.length < brutos.length * 0.3;
+      if (quebrado && !doModelo.length) {
+        falhas.push(`${provedor.nome}: ${brutos.length} resultados, nenhum sobre a consulta`);
+        continue;
+      }
+      if (quebrado) falhas.push(`${provedor.nome}: ${brutos.length - doModelo.length} de ${brutos.length} resultados fora da consulta`);
+      const resultados = quebrado ? doModelo : brutos;
       for (const item of resultados) {
         const chave = String(item.url || '').replace(/[#?].*$/, '').replace(/\/$/, '');
         if (!chave || vistos.has(chave)) continue;
