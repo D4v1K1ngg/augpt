@@ -72,6 +72,24 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'searxng-runtime (13/11): o Yandex vem ligado; instalação sem ele é regravada com a mesma chave e porta, e a que já tem fica como está',
+    tipo: 'unidade',
+    executar() {
+      const { atualizarSettingsYml } = require('../../src/searxng-runtime');
+      const arq = path.join(os.tmpdir(), `augpt-settings-${process.pid}.yml`);
+      fs.writeFileSync(arq, gerarSettingsYml({ secretKey: 'velha', porta: 8888 }).replace(/  - name: yandex\n    disabled: false\n/, ''));
+      const regravou = atualizarSettingsYml(arq);
+      const novo = fs.readFileSync(arq, 'utf8');
+      const deNovo = atualizarSettingsYml(arq);
+      fs.unlinkSync(arq);
+      return [
+        /name: yandex\n    disabled: false/.test(gerarSettingsYml({ secretKey: 'x', porta: 1 })) || 'o Yandex vem ligado',
+        regravou && /name: yandex/.test(novo) && /secret_key: "velha"/.test(novo) && /port: 8888/.test(novo) || `regravação: ${novo}`,
+        deNovo === false || 'com o Yandex, não regrava',
+      ];
+    },
+  },
 
   {
     nome: 'searxng-runtime: portaLivre usa a preferida quando ela está livre',

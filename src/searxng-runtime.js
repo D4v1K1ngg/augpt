@@ -183,16 +183,21 @@ function gerarSettingsYml({ secretKey, porta }) {
     // desligados, respondiam. Mais buscadores independentes = um bloqueio
     // não derruba a busca. (google "puro", qwant e mojeek foram testados e
     // recusam: access denied / CAPTCHA.)
+    // 13/11 (régua): Brave e Yahoo suspensos, Google e Mojeek "access denied", DuckDuckGo alternando com CAPTCHA, e o
+    // Bing às vezes buscando só a 1ª palavra ("TP-Link Archer AX73" → Teleperformance). O Yandex, desligado por padrão,
+    // respondeu todas: 10–15 resultados sobre a consulta, em menos de 1,2 s. (Startpage pede CAPTCHA.)
     'engines:',
     '  - name: bing',
     '    disabled: false',
     '  - name: yahoo',
     '    disabled: false',
+    '  - name: yandex',
+    '    disabled: false',
     '',
   ].join('\n');
 }
 
-/** Instalação antiga (settings.yml sem a lista de buscadores): regrava com a
+/** Instalação antiga (settings.yml sem a lista de buscadores de agora — 13/11: sem o Yandex): regrava com a
  * mesma chave e a mesma porta. */
 function atualizarSettingsYml(arquivo) {
   let atual;
@@ -201,7 +206,7 @@ function atualizarSettingsYml(arquivo) {
   } catch {
     return false;
   }
-  if (/name: bing/.test(atual)) return false;
+  if (/name: yandex/.test(atual)) return false;
   const secretKey = /secret_key: "([^"]+)"/.exec(atual)?.[1];
   const porta = Number(/^\s*port: (\d+)/m.exec(atual)?.[1]);
   if (!secretKey || !porta) return false;
