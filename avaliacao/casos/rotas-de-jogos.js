@@ -88,6 +88,7 @@ module.exports = [
         pedidoDeRota('rota até o servidor do valorant')?.jogo === 'valorant' || 'valorant',
         pedidoDeRota('faça um tracert')?.jogo === 'aws' || 'tracert sem jogo',
         pedidoDeRota('o pubg é bom?') === null && pedidoDeRota('qual a melhor arma do pubg?') === null && pedidoDeRota('o que é lag em jogos?') === null || 'pergunta sobre o jogo',
+        pedidoDeRota("Eu devo usar a opção 'Modo de latência baixa' da NVIDIA no modo Ultra para jogar PUBG?") === null || 'ajuste da placa de vídeo não mede a rota',
         pedidoDeRota('mede meu ping') === null && pedidoDeRede('mede meu ping')?.modo === 'ping' || 'ping sem jogo é o teste de rede',
         /\*\*São Paulo\*\* \(melhor\) \| 18 ms/.test(r.texto) && /Caminho até São Paulo/.test(r.texto) || r.texto.slice(0, 300),
         /Riot não publica/.test(r.texto) && /Riot não publica/.test(escritas[0][0].content) || 'referência da Riot',

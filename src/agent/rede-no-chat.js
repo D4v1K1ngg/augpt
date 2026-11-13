@@ -110,13 +110,16 @@ async function responderRede({ pergunta, conversa = [], deps, signal, hoje = new
 // conselho; o entendimento oferece a medição no fim, ver capacidades.js)
 const PEDE_ROTA = /\b(rota|rotas|tracert|traceroute|ping|latencia|servidor|servidores|server)\b/;
 const PEDE_CONSELHO = /\b(o que (eu )?(fa[cç]o|fazer|posso fazer)|como (resolv\w*|melhor\w*|diminu\w*|reduz\w*|arrum\w*|consert\w*|tir\w*|baix\w*)|dicas?)\b/;
-const ROTA_SEM_JOGO = /\b(tracert|traceroute|rota (ate|para|pro|pra)|rotas? (do|dos|de) (jogo|servidor))\b/;
+const AJUSTE_DE_VIDEO = /\b(modo de (baixa )?latencia|latencia baixa|low latency|reflex|anti-?lag|nvidia|geforce|radeon|placa de video|input lag)\b/;
+const ROTA_SEM_JOGO =/\b(tracert|traceroute|rota (ate|para|pro|pra)|rotas? (do|dos|de) (jogo|servidor))\b/;
 
 /** "qual meu ping nos servidores do PUBG?", "rota até o servidor do CS2", "tracert" → { jogo } ou null. */
 function pedidoDeRota(texto) {
   const t = norm(texto);
   const jogo = rotas.jogoDoTexto(t);
   if (PEDE_CONSELHO.test(t) && !ACAO.test(t)) return null;
+  // 13/11: "Modo de latência baixa da NVIDIA no PUBG?" mediu o ping — é ajuste da placa de vídeo, não de rede
+  if (AJUSTE_DE_VIDEO.test(t) && !/\b(ping|rota|rotas|tracert|traceroute|servidor|servidores|server)\b/.test(t)) return null;
   if (jogo && PEDE_ROTA.test(t)) return { jogo };
   if (ROTA_SEM_JOGO.test(t) || (/\b(jogo|jogos|game|games)\b/.test(t) && /\b(ping|rota|latencia|lag)\b/.test(t) && !EXPLICACAO.test(t))) return { jogo: 'aws' };
   return null;
