@@ -1,5 +1,35 @@
 [
   {
+    "versao": "0.44.0",
+    "data": "2026-11-13",
+    "pt": {
+      "titulo": "Estúdio de voz, respostas em áudio, Tradutor e pesquisas mais completas",
+      "itens": [
+        "**Estúdio de voz:** transforma texto em arquivo de áudio com o OmniVoice ou o Qwen3-TTS, rodando no seu computador — com escolha de voz, velocidade, tom e pausas mais naturais.",
+        "**🔊 Gerar áudio nas respostas:** no fim de cada resposta, um botão lê o texto com a voz que você escolheu no Estúdio (sem ler links, citações, tabelas e emojis). Toca ali mesmo e dá para salvar o mp3.",
+        "**Tradutor:** aba nova que traduz textos com o modelo do Ollama — 16 idiomas, detecção automática, tom natural, formal ou informal, a tradução aparecendo enquanto é escrita, ⇄ para inverter, copiar e 🔊 para ouvir.",
+        "**Pesquisas mais completas:** o AuGPT anota os pontos de cada página enquanto lê, e as respostas de guia e dicas cobrem mais do que importa. Perguntas como \"como controlar o spray no PUBG?\", \"o que posso fazer para…\" e \"devo ativar…\" sempre pesquisam.",
+        "**Respostas mais fáceis de ler:** títulos, a resposta direta em destaque, caixas de dica e de aviso e tabelas mais legíveis.",
+        "**Ajustes organizados:** a aba Geral foi dividida em Geral, Voz e ditado, Aparência e Celular e atalhos.",
+        "**Nomes de modelos legíveis:** modelos que o Ollama lista como \"llamacpp:<código>\" aparecem com nome, tamanho e quantização.",
+        "**Correções:** contas como \"quanto é (12783,23 × 0,17) + 823,42?\" são calculadas pelo AuGPT, sem erro; o \"Modo de latência baixa\" da NVIDIA não vira mais um teste de ping; o OmniVoice e o Qwen fecham junto com o AuGPT."
+      ]
+    },
+    "en": {
+      "titulo": "Voice studio, answers as audio, Translator and more complete research",
+      "itens": [
+        "**Voice studio:** turns text into an audio file with OmniVoice or Qwen3-TTS, running on your computer — with voice choice, speed, pitch and more natural pauses.",
+        "**🔊 Generate audio on answers:** at the end of each answer, a button reads the text with the voice you picked in the Studio (skipping links, citations, tables and emojis). It plays right there and you can save the mp3.",
+        "**Translator:** a new tab that translates text with your Ollama model — 16 languages, auto-detect, natural, formal or informal tone, the translation appearing as it is written, ⇄ to swap, copy and 🔊 to listen.",
+        "**More complete research:** AuGPT notes the key points of each page while reading, so guides and tips cover more of what matters. Questions like \"how do I control spray in PUBG?\", \"what can I do to…\" and \"should I enable…\" always research.",
+        "**Easier-to-read answers:** headings, the direct answer highlighted, tip and warning boxes and more readable tables.",
+        "**Organized Settings:** the General tab was split into General, Voice and dictation, Appearance and Phone and shortcuts.",
+        "**Readable model names:** models Ollama lists as \"llamacpp:<hash>\" show their name, size and quantization.",
+        "**Fixes:** math like \"what is (12783.23 × 0.17) + 823.42?\" is calculated by AuGPT, without mistakes; NVIDIA's \"Low latency mode\" no longer turns into a ping test; OmniVoice and Qwen close together with AuGPT."
+      ]
+    }
+  },
+  {
     "versao": "0.43.0",
     "data": "2026-11-09",
     "pt": {
