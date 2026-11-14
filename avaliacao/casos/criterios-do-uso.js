@@ -79,12 +79,14 @@ module.exports = [
       const r = nucleo.semOpcoesContraOsCriterios(txt, ['graves potentes']);
       const dois = nucleo.semOpcoesContraOsCriterios(txt.split('#### 3.')[0], ['graves potentes']);
       const top3 = nucleo.semOpcoesContraOsCriterios(txt, ['graves potentes'], { minimo: 3 });
+      const naAtencao = nucleo.semOpcoesContraOsCriterios('#### 1. SteelSeries GameBuds\nTem dongle de 2,4 GHz.\n**Atenção:** pelo Bluetooth a latência alta atrapalha.\n\n#### 2. Moondrop Aria\nNeutro.\n\n#### 3. KZ\nOk.\n', ['latencia alta']);
       return [
         JSON.stringify(r.tiradas) === '["KZ EDX Pro"]' || JSON.stringify(r.tiradas),
         !/KZ EDX/.test(r.texto) && /#### 1\. Simgot EM6L/.test(r.texto) && /#### 2\. Truthear Hexa/.test(r.texto) || r.texto,
         /Simgot EM6L \| 9/.test(r.texto) && !/KZ EDX Pro \| 8/.test(r.texto) && /Para PUBG, priorize separação/.test(r.texto) || 'o resto fica',
         dois.tiradas.length === 0 && dois.texto === txt.split('#### 3.')[0] || 'tirar deixaria 1 opção: fica como está',
         nucleo.semOpcoesContraOsCriterios(txt, []).texto === txt || 'sem sinais, nada muda',
+        naAtencao.tiradas.length === 0 && !naAtencao.marcadas?.length || 'o sinal no campo "Atenção" é cuidado, não elogio',
         // "top 3": tirar deixaria 2 — a opção fica, marcada e por último
         JSON.stringify(top3.marcadas) === '["KZ EDX Pro"]' && top3.tiradas.length === 0 && /#### 3\. KZ EDX Pro\n\n> ⚠ Vai contra o que importa para este uso \(graves potentes\)/.test(top3.texto) && /\n\n#### 3\./.test(top3.texto) || top3.texto,
       ];

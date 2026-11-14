@@ -251,7 +251,7 @@ module.exports = [
       { nome: 'nenhum headset entre as opções', ok: (r) => !nomesDasOpcoes(r).some((t) => /headset|maxwell|astro a\d|cloud (ii|iii|2|3|alpha|stinger)\b|quantum \d{3}/i.test(t)) },
       // 14/10: era "3 citações de usuários" — premiava o comentário colado; agora a comunidade conta como FONTE
       { nome: 'pelo menos 3 fontes da comunidade (Reddit ou fórum)', ok: (r) => new Set(r.match(/reddit\.com\/r\/\w+\/comments\/\w+|— r\/\w+|clubedohardware\.com\.br\/[^\s)]+|adrenaline\.com\.br\/[^\s)]+|head-fi\.org\/[^\s)]+/gi) || []).size >= 3 },
-      { nome: 'pelo menos 3 opções com preço', ok: (r) => (r.match(/\*\*Faixa de preço:\*\*|R\$\s?\d|US\$\s?\d/g) || []).length >= 3 },
+      { nome: 'pelo menos 3 opções com preço', ok: (r) => (r.match(/\*\*(Faixa de preço|Preço):\*\*|R\$\s?\d|US\$\s?\d/g) || []).length >= 3 },
       { nome: 'nenhuma opção só com nome de marca ou de site', ok: (r) => !nomesDasOpcoes(r).some((t) => t.trim().split(/\s+/).length < 2) },
       ...checagensDeTexto(),
     ],

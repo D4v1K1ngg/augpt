@@ -110,7 +110,8 @@ module.exports = [
       const indice = ler('src/agent/nucleo/index.js');
       return [
         errados.length === 0 || errados.join(' · '),
-        /No máximo 3 opções — as melhores para o pedido/.test(indice) && /O usuário pediu \$\{opcoesPedidas\(pergunta\)\} opções/.test(indice) || 'as regras na escrita',
+        // 14/11: o formato de recomendação pede de 3 a 4 opções (antes, "no máximo 3")
+        /De 3 a 4 opções, as melhores para o pedido/.test(indice) && /O usuário pediu \$\{opcoesPedidas\(pergunta\)\} opções/.test(indice) || 'as regras na escrita',
       ];
     },
   },

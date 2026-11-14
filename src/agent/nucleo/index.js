@@ -1220,7 +1220,8 @@ function semOpcoesContraOsCriterios(texto, sinais = [], { minimo = 0 } = {}) {
   const blocos = partes.map((b) => {
     const nome = (/^#### \d+[.)] \**([^*\n]+?)\**\s*$/m.exec(b)?.[1] || '').trim();
     // o que a resposta diz A FAVOR: tira a linha dos pontos fracos (lá, "graves exagerados" é crítica)
-    const aFavor = norm(b.split('\n').filter((l) => !/pontos fracos|contras?\b/i.test(l)).join('\n'));
+    // (e a de "Atenção"/"Ressalva" do formato de 14/11: "a conexão Bluetooth tem latência alta" é o cuidado, não o elogio)
+    const aFavor = norm(b.split('\n').filter((l) => !/pontos fracos|contras?\b|aten[çc][ãa]o|ressalva|cuidado/i.test(l)).join('\n'));
     return { b, nome, contra: Boolean(nome) && lista.some((s) => aFavor.includes(s)) };
   });
   if (!blocos.some((x) => x.contra)) return { texto: t, tiradas: [] };
@@ -1469,16 +1470,17 @@ ${SEM_ANUNCIO_NEM_REPETICAO}
 // cada "#### N. Nome" como cartão, e o código põe a foto do produto nele
 const FORMATO_DE_PRODUTO = `
 
-FORMATO (pedido de produto):
+FORMATO (pedido de produto — uma recomendação de quem entende, não uma ficha):
 - Comece com a resposta direta: qual você recomenda e por quê, em 2 ou 3 frases.
-- No máximo 3 opções — as melhores para o pedido (se o usuário pediu outro número, use o dele). Menos opções bem escolhidas valem mais que uma lista longa.
-- Depois, um bloco por opção, cada um começando com um título exatamente assim: "#### 1. Marca Modelo" (um produto só também leva "#### 1."). Em cada bloco, nesta ordem, cada campo com 1 ou 2 frases:
-  **Faixa de preço:** o preço que as fontes trazem (diga de onde, e se é em dólar).
-  **Pontos fortes:** explicado com as suas palavras.
-  **Pontos fracos:** o que as fontes e quem usa criticam (se ninguém criticou, diga isso).
-  **Na comunidade:** o que quem usa no Reddit e nos fóruns relata, resumido com as suas palavras, citando a fonte. Não cole o comentário.
-  **Para quem:** para quem essa opção faz mais sentido.
-- Se forem 2 ou mais opções, termine com "### Comparação" (uma tabela curta) e "### Qual escolher" (2 ou 3 frases).`;
+- Depois, "### 🎯 O que importa para este uso": 3 a 5 tópicos, cada um com o porquê (o que decide se um produto é bom PARA ESTE USO — use os critérios que vierem no pedido, citando as fontes).
+- De 3 a 4 opções, as melhores para o pedido (se o usuário pediu outro número, use o dele). Um bloco por opção, começando com um título exatamente assim: "#### 1. Marca Modelo" (um produto só também leva "#### 1."). Em cada bloco, nesta ordem:
+  um parágrafo de 3 a 5 frases explicando POR QUE esta opção serve para este uso — ligue as características dela aos tópicos de "O que importa", com os dados das fontes e citando-as;
+  **Preço:** o que as fontes trazem (diga de onde, e se é em dólar).
+  **Atenção:** o ponto fraco ou o cuidado que as fontes e quem usa apontam (se ninguém criticou, diga isso).
+  **Na comunidade:** o que quem usa no Reddit e nos fóruns relata, com as suas palavras, citando a fonte. Não cole o comentário.
+- Com 2 ou mais opções: "### ⚖️ [1ª opção] ou [2ª opção]: qual eu escolheria" — uma tabela com os tópicos de "O que importa" nas linhas e as duas primeiras opções nas colunas, e 2 ou 3 frases com a escolha e o porquê.
+- Uma ressalva honesta em caixa: "> ⚠️ **Ressalva:** …" — o que as fontes NÃO provam (ex.: impressões de outros jogos, sem teste controlado), em 1 ou 2 frases.
+- Termine com "### Para acertar na escolha": 1 ou 2 perguntas curtas que mudariam a recomendação (orçamento, o que é mais importante, o que o usuário já tem).`;
 
 const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="${String(f.titulo || dominio(f.url)).replace(/"/g, "'")}" site="${dominio(f.url)}"${f.data ? ` data="${dataBr(f.data)}"` : f.recente ? ' data="último mês"' : ''}>\n${f.conteudo}\n</fonte>`).join('\n');
 
@@ -2006,7 +2008,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
-    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)${blocoDosCriterios(fontes.criteriosDoUso, fontes.recomendadosPelaComunidade)}` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pauta || cruzamento ? [pergunta, pauta, cruzamento].filter(Boolean).join('\n\n') : pergunta },
+    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: a resposta direta, "### 🎯 O que importa para este uso", um bloco "#### N. Marca Modelo" por opção — o parágrafo do porquê ligado ao que importa, **Preço:**, **Atenção:** e **Na comunidade:** citando a fonte —, a comparação das duas primeiras ("qual eu escolheria"), a ressalva e as perguntas para acertar na escolha.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)${blocoDosCriterios(fontes.criteriosDoUso, fontes.recomendadosPelaComunidade)}` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pauta || cruzamento ? [pergunta, pauta, cruzamento].filter(Boolean).join('\n\n') : pergunta },
   ];
   const limparEscrita = (t) =>
     semParagrafosDeAnuncio(semImagens(t))
