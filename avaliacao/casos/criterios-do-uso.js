@@ -109,3 +109,25 @@ module.exports.push({
     ];
   },
 });
+module.exports.push({
+  nome: 'modelos citados na comunidade (pelo código): marca conhecida + modelo e nome com código ("Archer AX73"); 2+ menções; os da marca primeiro; "and footsteps" não é modelo; o que a pergunta já cita sai',
+  tipo: 'unidade',
+  executar() {
+    const fones = [
+      'I went from the Truthear Hexa to the Simgot EM6L and footsteps are way clearer.',
+      'Simgot EM6L or Truthear Hexa? Moondrop Chu 2 is the budget pick. My PC has a USB DAC.',
+      'Get the Moondrop Chu 2, Simgot EM6L if you can. Razer Viper V3 mouse lol. Truthear Hexa forever.',
+      'Viper V3 is a mouse, Viper V3 again.',
+    ];
+    const r = nucleo.modelosCitados(fones, { pergunta: 'melhor fone para pubg' });
+    const rede = nucleo.modelosCitados(['O TP-Link Archer AX73 é ótimo. Tenho o Archer AX73 e o Deco X20. Deco X20 cobre a casa.'], { pergunta: 'roteador para jogos' });
+    const jaNaPergunta = nucleo.modelosCitados(fones, { pergunta: 'simgot em6l ou truthear hexa?' });
+    return [
+      JSON.stringify(r.slice(0, 3)) === '["Truthear Hexa","Simgot EM6L","Moondrop Chu 2"]' || JSON.stringify(r),
+      rede.includes('Archer AX73') && rede.includes('Deco X20') || JSON.stringify(rede),
+      !jaNaPergunta.some((n) => /EM6L|Hexa/.test(n)) || JSON.stringify(jaNaPergunta),
+      nucleo.modelosCitados(['Simgot EM6L uma vez só.']).length === 0 || 'uma menção só não basta',
+      nucleo.modelosCitados(['Postado 29 de março. Postado 29 de abril. Postado 15 maio. Postado 15 junho.']).length === 0 || 'data de post de fórum não é modelo',
+    ];
+  },
+});

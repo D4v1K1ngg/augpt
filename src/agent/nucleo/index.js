@@ -904,7 +904,12 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       emit('aviso', { texto: `o que importa para este uso: ${criteriosDoUso.map((c) => c.nome).join(' · ')}` });
       // produtos da comunidade (14/11): os que quem usa recomenda nesses tópicos ganham um review lido cada — as listas
       // de afiliado não citam EM6L, Truthear e Simgot, o r/iems cita
-      const nomes = (Array.isArray(j2.recomendados) ? j2.recomendados : []).map((n) => limpo(n, 50)).filter((n) => n.length >= 3 && /\s|\d/.test(n)).slice(0, 3);
+      // os do código primeiro (o 9B devolveu "recomendados": [] nas rodadas medidas), depois os do modelo
+      const doModelo = (Array.isArray(j2.recomendados) ? j2.recomendados : []).map((n) => limpo(n, 50)).filter((n) => n.length >= 3 && /\s|\d/.test(n));
+      const textosDaComunidade = fontes.filter((f) => f.trechos.length && (f.comunidade || lidasAqui.includes(f) || tipo(f) === 'comunidade')).map((f) => f.trechos.join('\n'));
+      const doCodigo = modelosCitados(textosDaComunidade, { pergunta });
+      const nomes = [...doCodigo, ...doModelo].filter((n, i, todos) => todos.findIndex((m) => m.toLowerCase() === n.toLowerCase()) === i).slice(0, 3);
+      if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] citados na comunidade: código ${JSON.stringify(doCodigo)} · modelo ${JSON.stringify(doModelo)}`);
       recomendadosPelaComunidade = nomes;
       if (!nomes.length || signal?.aborted) return;
       // reviews de modelos diferentes no mesmo site (RTINGS, headphones.com) valem: limite próprio por site
@@ -1202,6 +1207,49 @@ function blocoDosCriterios(criterios, recomendados = []) {
   const linhas = criterios.map((c) => `- ${c.nome}: ${c.porque}${c.evitar ? ` (evite: ${c.evitar})` : ''}${c.fontes?.length ? ` ${c.fontes.map((n) => `[${n}]`).join('')}` : ''}`);
   const daComunidade = recomendados?.length ? `\nQuem usa recomenda: ${recomendados.join(', ')} — prefira estes, se as fontes os trazem.` : '';
   return `\n\n(O que importa para este uso, segundo quem usa:\n${linhas.join('\n')}${daComunidade}\nComece a resposta por isso, em poucas linhas e citando as fontes; justifique cada opção por esses critérios; deixe de fora a opção que vai contra um deles.)`;
+}
+
+/**
+ * Os produtos citados nos tópicos da comunidade, pelo código (14/11): o 9B devolvia a lista vazia. Duas regras, de
+ * qualquer assunto: marca conhecida (a tabela de sites oficiais e as de áudio) + 1 a 3 palavras do modelo ("Truthear
+ * Hexa", "Simgot EM6L", "Moondrop Chu 2"), ou palavra com maiúscula + código com letra e número ("Viper V3", "G Pro X2").
+ * Fica o que aparece 2+ vezes, mais citado primeiro; sigla solta (PC, FPS, USB, DAC) e o que a pergunta já cita não.
+ */
+const MARCAS_EXTRAS = ['kz', '7hz', 'kiwi ears', 'dunu', 'tangzu', 'tripowin', 'letshuoer', 'thieaudio', 'etymotic', 'shure', 'cca', 'trn', 'qkz', 'salnotes', 'tin hifi', 'blon', 'ziigaat', 'hifiman', 'beyerdynamic', 'audio-technica', 'akg', 'zowie', 'pulsar', 'lamzu', 'finalmouse', 'endgame gear', 'vaxee', 'wooting', 'akko', 'keychron'];
+const NAO_E_MODELO = /^(pc|fps|usb|usb-c|dac|amp|iem|iems|tws|anc|eq|hz|khz|db|ps\d|xbox|cs2|pubg|rtx|gtx|wifi|wi-fi|bluetooth|reddit|edit|update|op|lol|imo|the|and|for|with|para|com)$/i;
+function modelosCitados(textos = [], { pergunta = '' } = {}) {
+  const { OFICIAIS } = require('../../tools/imitacao');
+  const marcas = [...new Set([...Object.keys(OFICIAIS), ...MARCAS_EXTRAS])].filter((m) => m.length >= 2).sort((a, b) => b.length - a.length);
+  // a marca em qualquer caixa ("simgot", "Simgot", "SIMGOT"), o modelo com maiúscula ou número ("and footsteps" não é modelo)
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[a-z]/g, (c) => `[${c}${c.toUpperCase()}]`).replace(/ /g, '\\s+');
+  const reMarca = new RegExp(`\\b(${marcas.map(esc).join('|')})\\s+((?:[A-Z0-9][\\w-]*)(?:\\s+(?:[A-Z0-9][\\w-]*|Pro|Max|Mini|Plus|Ultra|II|III|X)){0,2})`, 'g');
+  // o código tem letra E número ("EM6L", "X20", "V3"): "Postado 29" (a data do post no fórum) não é modelo
+  const reCodigo = /\b([A-Z][a-zA-Z]{1,15})\s+((?=[A-Za-z0-9-]*[A-Za-z])(?=[A-Za-z-]*\d)[A-Z0-9][A-Za-z0-9-]{1,10}(?:\s+(?:Pro|Max|Mini|Plus|Ultra|II|X))?)\b/g;
+  const contagem = new Map();
+  const somar = (nome, daMarca = false) => {
+    const n = nome.replace(/\s+/g, ' ').trim();
+    const partes = n.split(' ');
+    if (partes.length < 2 || partes.some((p) => NAO_E_MODELO.test(p) && partes.length === 2) || n.length > 40) return;
+    const chave = n.toLowerCase();
+    const atual = contagem.get(chave) || { nome: n, vezes: 0, daMarca: false };
+    atual.vezes += 1;
+    atual.daMarca ||= daMarca;
+    contagem.set(chave, atual);
+  };
+  for (const t of textos) {
+    const s = String(t || '');
+    for (const m of s.matchAll(reMarca)) somar(`${m[1].replace(/^\w/, (c) => c.toUpperCase())} ${m[2]}`, true);
+    for (const m of s.matchAll(reCodigo)) if (!marcas.includes(m[1].toLowerCase())) somar(`${m[1]} ${m[2]}`);
+  }
+  const naPergunta = String(pergunta).toLowerCase();
+  return [...contagem.values()]
+    .filter((c) => c.vezes >= 2 && !naPergunta.includes(c.nome.toLowerCase()))
+    // "Simgot EM6L" e "Simgot EM6L Pro": fica o mais citado
+    // a regra da marca é a mais segura: vem antes ("Viper V3", mouse citado num tópico de fones, fica para depois)
+    .sort((a, b) => b.daMarca - a.daMarca || b.vezes - a.vezes)
+    .filter((c, i, todos) => !todos.slice(0, i).some((o) => c.nome.toLowerCase().startsWith(o.nome.toLowerCase()) || o.nome.toLowerCase().startsWith(c.nome.toLowerCase())))
+    .slice(0, 4)
+    .map((c) => c.nome);
 }
 
 /**
@@ -2197,4 +2245,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
