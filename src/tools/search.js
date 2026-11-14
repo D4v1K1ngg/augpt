@@ -611,11 +611,24 @@ function pertinente(consulta) {
   const q = semAcento(consulta).replace(/\bsite:\S+/g, ' ');
   const comNumero = [...new Set((q.match(/[a-z]*\d[a-z\d]*/g) || []).map((t) => t.replace(/[^a-z\d]/g, '')).filter((t) => t.length >= 3 && /[a-z]/.test(t) || /^\d{4,}$/.test(t)))]
     .filter((t) => !/^(19|20)\d\d$/.test(t)); // ano não é nome de modelo
-  if (!comNumero.length) return () => true;
-  return (r) => {
-    const compacto = semAcento(`${r.titulo || r.title || ''} ${r.resumo || r.snippet || ''} ${r.url || ''}`).replace(/[^a-z\d]/g, '');
-    return comNumero.some((t) => compacto.includes(t));
+  // 14/11: "site:reddit.com what makes an IEM good…" no Bing trouxe make.com e beautymakes.com.br — com "site:", só o
+  // próprio site é da consulta (vale também para consulta sem nome com número)
+  const sites = [...String(consulta).matchAll(/\bsite:([a-z0-9.-]+)/gi)].map((m) => m[1].toLowerCase().replace(/^www\./, ''));
+  const doSite = (r) => {
+    if (!sites.length) return true;
+    try {
+      const d = new URL(r.url).hostname.toLowerCase().replace(/^www\./, '');
+      // endereço local não vem de buscador da internet (a busca falsa da bancada serve páginas de 127.0.0.1)
+      return /^(127\.|localhost$)/.test(d) || sites.some((s) => d === s || d.endsWith(`.${s}`));
+    } catch {
+      return false;
+    }
   };
+  if (!comNumero.length) return Object.assign(sites.length ? doSite : () => true, { doSite });
+  return Object.assign((r) => {
+    const compacto = semAcento(`${r.titulo || r.title || ''} ${r.resumo || r.snippet || ''} ${r.url || ''}`).replace(/[^a-z\d]/g, '');
+    return doSite(r) && comNumero.some((t) => compacto.includes(t));
+  }, { doSite });
 }
 
 async function buscar(consulta, opcoes = {}) {
@@ -649,7 +662,12 @@ async function buscar(consulta, opcoes = {}) {
         continue;
       }
       if (quebrado) falhas.push(`${provedor.nome}: ${brutos.length - doModelo.length} de ${brutos.length} resultados fora da consulta`);
-      const resultados = quebrado ? doModelo : brutos;
+      // com "site:", resultado de outro site sai sempre, um a um (o Bing misturou make.com aos tópicos do r/iems)
+      const resultados = (quebrado ? doModelo : brutos).filter(ehDaConsulta.doSite);
+      if (!resultados.length) {
+        falhas.push(`${provedor.nome}: nenhum resultado do site pedido`);
+        continue;
+      }
       for (const item of resultados) {
         const chave = String(item.url || '').replace(/[#?].*$/, '').replace(/\/$/, '');
         if (!chave || vistos.has(chave)) continue;

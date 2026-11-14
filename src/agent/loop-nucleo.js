@@ -180,6 +180,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     cruzarFontes: cfg.cruzarFontes === true,
     // 14/11: a página pelo tipo (lista de afiliado desce, teste e comunidade sobem — search.tipoDaPagina); desliga com false
     paginasPorTipo: cfg.paginasPorTipo !== false,
+    // 14/11: critérios do uso antes dos produtos (busca na comunidade, 3–5 critérios para o escritor); desliga com false
+    criteriosAntes: cfg.criteriosAntes !== false,
     // em notícia (pergunta que muda com o tempo), com a data de cada fonte: 5 perguntas × 4 rodadas, nota 8.9 → 9.6
     // (midterms 5.7 → 8.8, as outras iguais), +5 s; desliga com "cruzarNoticias": false
     cruzarNoticias: cfg.cruzarNoticias !== false,

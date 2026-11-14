@@ -60,7 +60,11 @@ module.exports = [
       const misto = await comBuscadores({ searxng: async () => [...lixo, bons[0]], ollama: async () => bons }, () => search.buscar('TP-Link Archer AX73 review'));
       const semModelo = await comBuscadores({ searxng: async () => lixo, ollama: async () => bons }, () => search.buscar('melhor roteador para jogos'));
       const quaseTodos = await comBuscadores({ searxng: async () => [...bons, ...['d', 'e'].map((d) => ({ url: `https://${d}.com/ax73`, titulo: 'AX73', resumo: '' })), lixo[0]], ollama: async () => [] }, () => search.buscar('TP-Link Archer AX73 review'));
+      const fora = ['make.com', 'beautymakes.com.br', 'viciadasemmakes.com.br', 'rrmakes.com', 'linguee.com.br'].map((d) => ({ url: `https://${d}/`, titulo: `Make | ${d}`, resumo: '' }));
+      const doReddit = [1, 2, 3].map((i) => ({ url: `https://www.reddit.com/r/iems/comments/${i}/`, titulo: `IEM for FPS ${i}`, resumo: '' }));
+      const comSite = await comBuscadores({ searxng: async () => fora, ollama: async () => doReddit }, () => search.buscar('site:reddit.com what makes an IEM good for competitive FPS'));
       return [
+        comSite.provedor === 'ollama' && comSite.resultados.every((x) => /reddit\.com/.test(x.url)) || `site: ignorado pelo buscador: ${comSite.provedor} ${comSite.resultados.map((x) => x.url)}`,
         quebrado.provedor === 'ollama' && /nenhum sobre a consulta/.test(quebrado.falhas.join()) || JSON.stringify({ p: quebrado.provedor, f: quebrado.falhas }),
         // 1 de 7 com o modelo: fica só ele, e o próximo buscador entra (o repetido não volta)
         misto.provedor === 'searxng+ollama' && misto.resultados.length === 3 && !misto.resultados.some((x) => /teleperformance/.test(x.url)) || `misto: ${misto.provedor} ${misto.resultados.map((x) => x.url)}`,

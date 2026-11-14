@@ -643,7 +643,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       })
       .slice(0, maximo);
 
-  const executarBusca = async (buscas, { comunidade = false, maximo = 3 } = {}) => {
+  const executarBusca = async (buscas, { comunidade = false, maximo = 3, porSite = 2 } = {}) => {
     const lista = prepararBuscas(buscas, maximo, comunidade ? 'comunidade' : 'web');
     if (!lista.length) return 'Essas buscas já foram feitas. Leia as fontes mais promissoras com ler_pagina, busque outro ângulo com o nome do assunto, ou chame pronto.';
     emit('ferramenta', { nome: comunidade ? 'buscar_na_comunidade' : 'buscar_na_web', argumentos: { consulta: lista.join(' · ') }, risco: 'leitura' });
@@ -656,7 +656,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     // ordena pelo que a pergunta + as buscas pedem; o pesquisador vê os 8 melhores novos
     const novos = achados.filter((r) => r?.url && !porUrl.has(r.url)).map((r) => ({ ...r, texto: `${r.titulo || ''} ${r.resumo || ''}` }));
     const relevantes = await ordenar(`${pergunta} ${lista.join(' ')}`, novos, { embed, maximo: 16 });
-    const ordenados = comCredibilidade(relevantes, { comunidade, maximo: 8, jaVistos: fontes, oficiais, recomendacao: produto, porTipo: deps.paginasPorTipo !== false });
+    const ordenados = comCredibilidade(relevantes, { comunidade, maximo: 8, porSite, jaVistos: fontes, oficiais, recomendacao: produto, porTipo: deps.paginasPorTipo !== false });
     const mostrados = [];
     for (const r of ordenados) {
       if (porUrl.has(r.url)) continue;
@@ -852,6 +852,55 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     const faltam = fontes.filter((x) => x.comunidade && !x.trechos.length && citaAssunto(x)).slice(0, Math.max(0, regras.comunidade - lidos));
     await Promise.all(faltam.map((f) => executarLeitura({ fonte: f.n, foco: 'o que quem usa recomenda, elogia e critica' }, { garantia: true })));
   };
+  /*
+   * Critérios antes dos produtos (14/11, comparação com o ChatGPT no "melhor fone para PUBG competitivo": ele começou
+   * pelo que importa — passos, direção, separação, sem graves exagerados — e escolheu por isso; o AuGPT escolheu o KZ
+   * EDX Pro "pelos graves potentes" lendo listas de afiliado). Em qualquer pedido de produto: duas buscas na comunidade
+   * sobre o que torna um produto bom PARA ESSE USO (sem marca nem modelo), as 2 páginas lidas, e uma chamada curta tira
+   * de 3 a 5 critérios com o porquê e o que evitar. O escritor recebe só essa lista (responder).
+   */
+  let criteriosDoUso = [];
+  const buscarCriterios = async () => {
+    if (!produto || deps.criteriosAntes === false || typeof chamar !== 'function' || typeof buscarNaComunidade !== 'function' || signal?.aborted) return;
+    try {
+      const r1 = await chamar([{ role: 'user', content: `Pedido: ${pergunta}\n\nAntes de escolher produtos, é preciso saber o que torna um produto BOM PARA ESTE USO. Escreva 2 buscas curtas para achar isso onde quem usa conversa — uma em inglês, uma em português —, sem nome de marca nem de modelo. Exemplo, para "melhor fone para jogar CS competitivo": "what makes an IEM good for competitive FPS" e "o que importa num fone para jogos de tiro". Responda só com um JSON: {"buscas": ["...", "..."]}` }], { json: true, numPredict: 120, signal });
+      const bruto1 = String(r1?.content || '');
+      const buscas = (safeJson(bruto1.slice(bruto1.indexOf('{')))?.buscas || []).map((b) => String(b || '').trim().slice(0, 120)).filter((b) => b.length >= 8).slice(0, 2);
+      if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] buscas ${JSON.stringify(buscas)} · bruto ${bruto1.slice(0, 120)}`);
+      if (!buscas.length || signal?.aborted) return;
+      const antes = fontes.length;
+      // tópicos diferentes do mesmo fórum são o que importa aqui (a comunidade do pedido, em paralelo, já conta 2 do Reddit)
+      // a de inglês vai ao Reddit ("site:reddit.com what makes an IEM good for competitive FPS" trouxe 6 tópicos do r/iems);
+      // a busca da comunidade mandava aos fóruns brasileiros cadastrados e voltavam tópicos de 2017 sobre outra coisa
+      const lista = await executarBusca(buscas.map((b, i) => (i === 0 && !/\bsite:/.test(b) ? `site:reddit.com ${b}` : b)), { porSite: 6 });
+      // só as páginas DESTA busca (a lista devolvida, na ordem da relevância): as buscas em paralelo também somam fontes
+      const daBusca = [...String(lista).matchAll(/^\[(\d+)\]/gm)].map((m) => fontes.find((f) => f.n === Number(m[1]))).filter(Boolean);
+      // quem usa primeiro (Reddit, fórum), lista de afiliado nunca: a busca em português trouxe o "top opções para comprar" do TechTudo
+      const tipo = (f) => tipoDaPagina(f, { recomendacao: true }).tipo;
+      const novas = daBusca
+        .filter((f) => !f.trechos.length && tipo(f) !== 'lista de afiliado')
+        .sort((a, b) => (tipo(b) === 'comunidade') - (tipo(a) === 'comunidade'))
+        .slice(0, 2);
+      await Promise.all(novas.map((f) => executarLeitura({ fonte: f.n, foco: 'o que importa e o que evitar para este uso' }, { garantia: true })));
+      const lidasAqui = novas.filter((f) => f.trechos.length);
+      if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] novas ${novas.map((f) => f.url).join(' ')} · lidas ${lidasAqui.length} · fontes ${antes}→${fontes.length}`);
+      if (!lidasAqui.length || signal?.aborted) return;
+      const material = lidasAqui.map((f) => `[${f.n}] ${f.titulo || dominio(f.url)}\n${f.trechos.join('\n…\n').slice(0, 3000)}`).join('\n\n');
+      const r2 = await chamar([{ role: 'user', content: `Pedido: ${pergunta}\n\nO que quem usa diz:\n${material}\n\nListe de 3 a 5 critérios que decidem se um produto é bom PARA ESTE USO, segundo este material: cada um com o porquê e, se o material disser, o que evitar. Nenhum nome de produto. Responda só com um JSON: {"criterios": [{"nome": "...", "porque": "...", "evitar": "...", "fontes": [n]}]}` }], { json: true, numPredict: 500, signal });
+      const bruto2 = String(r2?.content || '');
+      if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] bruto2 ${bruto2.slice(0, 300)}`);
+      const validas = new Set(lidasAqui.map((f) => f.n));
+      const limpo = (t, n) => String(t || '').replace(/\s+/g, ' ').trim().slice(0, n);
+      criteriosDoUso = (safeJson(bruto2.slice(bruto2.indexOf('{')))?.criterios || [])
+        .map((c) => ({ nome: limpo(c?.nome, 60), porque: limpo(c?.porque, 200), evitar: limpo(c?.evitar, 120), fontes: (Array.isArray(c?.fontes) ? c.fontes : []).map(Number).filter((n) => validas.has(n)) }))
+        .filter((c) => c.nome.length >= 3 && c.porque.length >= 6)
+        .slice(0, 5);
+      if (criteriosDoUso.length) emit('aviso', { texto: `o que importa para este uso: ${criteriosDoUso.map((c) => c.nome).join(' · ')}` });
+    } catch (err) {
+      if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] erro ${err.message}`);
+      criteriosDoUso = [];
+    }
+  };
   // garantia de leitura: o código lê as fontes mais ligadas à pergunta, um site por vez, até o mínimo
   // (página que não abre não conta; no máximo o dobro das que faltam, para não travar em site fora do ar)
   const lerAsMaisLigadas = async () => {
@@ -900,7 +949,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       jaLidas = fontes.filter((f) => f.trechos.length).map((f) => `[${f.n}] ${f.titulo || f.url}`).join(' · ');
     }
     if (produto && !signal?.aborted) {
-      await Promise.all([lerAsMaisLigadas(), garantirComunidade()]);
+      await Promise.all([lerAsMaisLigadas(), garantirComunidade(), buscarCriterios()]);
       jaLidas = fontes.filter((f) => f.trechos.length).map((f) => `[${f.n}] ${f.titulo || f.url}`).join(' · ');
     }
     historico.push({ role: 'user', content: `Primeiras buscas, já feitas (${buscasIniciais.join(' · ')}):\n${resultado}\n\n${jaLidas ? `Já lidas pelo código: ${jaLidas}. Leia outra só se faltar ${produto ? "um ângulo (preço de hoje, opinião de quem usa, comparação)" : "algo para responder à pergunta inteira"}, busque o que falta, ou chame pronto.` : 'Continue: leia com ler_pagina as páginas mais promissoras (2 ou 3 de uma vez, de sites diferentes), busque um ângulo que falte, ou chame pronto.'}` });
@@ -1016,6 +1065,7 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
   await garantirComunidade();
   await lerAsMaisLigadas();
   escrevendo = true; // daqui em diante a escrita começa: página que chegar tarde não muda as fontes
+  fontes.criteriosDoUso = criteriosDoUso; // para a escrita (responder)
   return fontes;
 }
 
@@ -1128,6 +1178,13 @@ async function anotarPaginas(pergunta, usadas, { chamar, signal } = {}) {
  * grupos numa chamada curta; o CÓDIGO conta em quantos sites diferentes cada ponto aparece (3 páginas do mesmo site
  * contam 1). O escritor recebe o que é confirmado, o que só um site diz e onde as fontes divergem. '' quando não rende.
  */
+/** Os critérios do uso para o escritor (14/11, pesquisar/buscarCriterios): curto — organiza a resposta, não é mais material. */
+function blocoDosCriterios(criterios) {
+  if (!Array.isArray(criterios) || !criterios.length) return '';
+  const linhas = criterios.map((c) => `- ${c.nome}: ${c.porque}${c.evitar ? ` (evite: ${c.evitar})` : ''}${c.fontes?.length ? ` ${c.fontes.map((n) => `[${n}]`).join('')}` : ''}`);
+  return `\n\n(O que importa para este uso, segundo quem usa:\n${linhas.join('\n')}\nComece a resposta por isso, em poucas linhas e citando as fontes; justifique cada opção por esses critérios; deixe de fora a opção que vai contra um deles.)`;
+}
+
 async function cruzarFontes(pergunta, usadas, { chamar, signal, noticia = false } = {}) {
   const comPontos = usadas.filter((f) => Array.isArray(f.pontos) && f.pontos.length);
   if (typeof chamar !== 'function' || comPontos.length < 2) return '';
@@ -1886,7 +1943,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
-    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pauta || cruzamento ? [pergunta, pauta, cruzamento].filter(Boolean).join('\n\n') : pergunta },
+    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)${blocoDosCriterios(fontes.criteriosDoUso)}` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pauta || cruzamento ? [pergunta, pauta, cruzamento].filter(Boolean).join('\n\n') : pergunta },
   ];
   const limparEscrita = (t) =>
     semParagrafosDeAnuncio(semImagens(t))
@@ -2027,4 +2084,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

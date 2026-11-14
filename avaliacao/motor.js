@@ -580,6 +580,7 @@ async function executarCasoAgente(caso, opcoes = {}) {
   if (process.env.DEPURAR_MATERIAL) {
     agente.on('nucleo-material', (d) => console.error(`[material] lido ${d.lido.length} · usado ${d.usado.length}`));
     agente.on('aviso', (d) => console.error(`[aviso] ${d.texto}`));
+    agente.on('nucleo-entendimento', (d) => console.error(`[entendimento] produto=${d.produto} modo=${d.modo} buscas=${JSON.stringify(d.buscas || [])}`));
     agente.on('fonte', (d) => console.error(`[fonte] ${d.tipo} ${d.provedor || ''} ${d.url || (d.consultas || []).join(' | ')} ${d.resultados ?? ''} ${(d.dominios || []).slice(0, 5).join(',')}`));
   }
   obtido.pesquisa = {};
