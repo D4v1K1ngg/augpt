@@ -1849,7 +1849,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const inicioDoMaterial = Date.now();
   let usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit }) : [];
   // 13/11, régua: o que foi lido e o que foi para o escritor — o ponto que falta na resposta estava no material?
-  emit('nucleo-material', { lido: fontes.map((f) => `${f.titulo || ''}\n${f.resumo || ''}\n${(f.trechos || []).join('\n')}`).join('\n\n'), usado: usadas.map((f) => f.conteudo || '').join('\n\n') });
+  emit('nucleo-material', { lido: fontes.map((f) => `${f.titulo || ''}\n${f.resumo || ''}\n${(f.trechos || []).join('\n')}`).join('\n\n'), aberto: fontes.map((f) => (f.trechos || []).join('\n')).join('\n\n'), usado: usadas.map((f) => f.conteudo || '').join('\n\n') });
   etapa('material', inicioDoMaterial);
   if (deps.notasPorPagina === true && usadas.length && !ent.produto && !ent.conversa && !ehAnaliseDePreco(pergunta) && !pedeGrafico(pergunta) && !pedeVisual(pergunta)) {
     const inicioDasNotas = Date.now();
