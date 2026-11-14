@@ -200,6 +200,10 @@ function configDoApp() {
   }
   const cfg = { ...DEFAULTS, ...salvo };
   for (const chave of ['workspace', 'alwaysAllow', 'host', 'model']) delete cfg[chave]; // a pasta de trabalho é a da medição
+  // 14/11: o modo de pesquisa e o tamanho da resposta são os de fábrica — com "investigação" e "técnica" nos Ajustes do
+  // app, a régua passou a escrever relatórios (35 s → 200 s, 6 mil → 12 mil letras) e deixou de comparar com as de antes.
+  // Para medir outro, --ajuste=modoDePesquisa:normal
+  for (const chave of ['modoDePesquisa', 'modoResposta', 'profundidadePesquisa', 'minutosDeInvestigacao']) cfg[chave] = DEFAULTS[chave];
   // --ajuste=chave:valor[,chave:valor]: mede uma opção sem mexer nos Ajustes do app
   for (const par of String(args.ajuste === true ? '' : args.ajuste || '').split(',').filter(Boolean)) {
     const [chave, ...resto] = par.split(':');
@@ -285,7 +289,7 @@ async function responder(pergunta, { cfg, modelo }) {
       // 14/10: dossiês e cartões, para refazer só a escrita (avaliacao/reescrever.js)
       cartoes: r.pesquisaPlanejada?.cartoes || null,
       // 13/11: o gabarito no que foi lido e no que foi para o escritor (o ponto que falta estava no material?)
-      noMaterial: obtido.material ? { lido: cobertura(pergunta.id, obtido.material.lido), usado: cobertura(pergunta.id, obtido.material.usado) } : null,
+      noMaterial: obtido.material ? { lido: cobertura(pergunta.id, obtido.material.lido), aberto: obtido.material.aberto != null ? cobertura(pergunta.id, obtido.material.aberto) : null, usado: cobertura(pergunta.id, obtido.material.usado) } : null,
     };
   } catch (err) {
     return { resposta: '', seg: Math.round((Date.now() - inicio) / 1000), passos: 0, tokens: 0, busca: { provedores: [], ok: 0, semProvedor: 0, semLeitura: 0 }, fontes: 0, erro: err.message };
@@ -400,6 +404,7 @@ async function principal() {
       coberturaPior: coberturas.length ? Math.min(...coberturas.map(fracao)) : null,
       coberturas: coberturas.map((c) => `${c.feitos}/${c.total}`),
       coberturaLido: mediaDe(execucoes.map((e) => e.noMaterial?.lido)),
+      coberturaAberto: mediaDe(execucoes.map((e) => e.noMaterial?.aberto)),
       coberturaUsado: mediaDe(execucoes.map((e) => e.noMaterial?.usado)),
     });
     const faltou = [
@@ -418,7 +423,7 @@ async function principal() {
       console.log(cinza(`          gabarito ${coberturas.map((c) => `${c.feitos}/${c.total}`).join(' · ')}${fora ? amarelo(`  ·  fora do assunto ${fora}x`) : ''}${maisFalta.faltam.length ? `  ·  faltou: ${maisFalta.faltam.slice(0, 4).join(', ')}` : ''}`));
     }
     const noMat = resultados[resultados.length - 1];
-    if (noMat.coberturaLido != null) console.log(cinza(`          no material: ${Math.round(noMat.coberturaLido * 100)}% do gabarito no que foi lido · ${Math.round(noMat.coberturaUsado * 100)}% no que foi para o escritor · ${Math.round((noMat.cobertura || 0) * 100)}% na resposta`));
+    if (noMat.coberturaLido != null) console.log(cinza(`          no material: ${Math.round(noMat.coberturaLido * 100)}% do gabarito no que foi lido (${Math.round((noMat.coberturaAberto ?? 0) * 100)}% nas páginas abertas, o resto só no resumo da busca) · ${Math.round(noMat.coberturaUsado * 100)}% no que foi para o escritor · ${Math.round((noMat.cobertura || 0) * 100)}% na resposta`));
     if (pior.erroDoJuiz) console.log(cinza(`          ${pior.erroDoJuiz}`));
     for (const x of contradisse) console.log(vermelho(`          contradiz: ${x}`));
     for (const x of faltou.slice(0, 4)) console.log(cinza(`          faltou: ${x}`));
@@ -444,6 +449,7 @@ async function principal() {
     if (comMaterial.length) {
       resumo.coberturaLido = Math.round(media(comMaterial.map((r) => r.coberturaLido)) * 1000) / 1000;
       resumo.coberturaUsado = Math.round(media(comMaterial.map((r) => r.coberturaUsado)) * 1000) / 1000;
+      resumo.coberturaAberto = Math.round(media(comMaterial.map((r) => r.coberturaAberto ?? 0)) * 1000) / 1000;
     }
   }
   console.log(`\n  nota média ${corDaNota(resumo.notaMedia)}  ·  ${resumo.abaixoDe5} de ${comNota.length} abaixo de 5  ·  tempo mediano ${resumo.segMediana}s (total ${Math.round(resumo.segTotal / 60)} min)`);
@@ -452,7 +458,7 @@ async function principal() {
     console.log(cinza(`    ${tipo.padEnd(11)} nota ${media(g.map((r) => r.nota)).toFixed(1)}  ·  ${mediana(g.map((r) => r.seg))}s  ·  ${g.length} perguntas`));
   }
   if (resumo.cobertura != null) console.log(`  gabarito: ${Math.round(resumo.cobertura * 100)}% dos pontos cobertos em média  ·  ${Math.round(resumo.coberturaPior * 100)}% na pior rodada de cada pergunta (${comGabarito.length} perguntas)`);
-  if (resumo.coberturaLido != null) console.log(cinza(`    no material: ${Math.round(resumo.coberturaLido * 100)}% do gabarito no que foi lido · ${Math.round(resumo.coberturaUsado * 100)}% no que foi para o escritor · ${Math.round(resumo.cobertura * 100)}% na resposta`));
+  if (resumo.coberturaLido != null) console.log(cinza(`    no material: ${Math.round(resumo.coberturaLido * 100)}% do gabarito no que foi lido (${Math.round(resumo.coberturaAberto * 100)}% nas páginas abertas) · ${Math.round(resumo.coberturaUsado * 100)}% no que foi para o escritor · ${Math.round(resumo.cobertura * 100)}% na resposta`));
   console.log(cinza(`    busca: ${resumo.buscasOk} respondidas, ${resumo.buscasSemProvedor} sem nenhum provedor`));
   if (resumo.semJuiz) console.log(amarelo(`    ${resumo.semJuiz} pergunta(s) sem nota: o juiz não devolveu um veredito legível`));
 
