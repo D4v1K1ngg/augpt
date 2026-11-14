@@ -538,6 +538,32 @@
           <button class="btn-primario" id="tradTraduzir">Traduzir</button>
           <button class="btn-secundario" id="tradParar" hidden>Parar</button>
         </div>
+
+        <!-- 14/11: legendas de vídeo (src/legendas) — o idioma é o "para" de cima -->
+        <section class="grupo legendas">
+          <h2>Legendas de vídeo</h2>
+          <p class="dica">Cole o link de um vídeo (YouTube e outros sites) ou escolha um arquivo. O AuGPT transcreve a fala e faz a legenda no idioma escolhido acima, tudo no seu computador.</p>
+          <div class="tradutor-barra">
+            <input type="text" id="legEntrada" placeholder="https://… ou o caminho do vídeo" aria-label="Link ou arquivo do vídeo" />
+            <button class="btn-secundario" id="legEscolher">Escolher arquivo…</button>
+          </div>
+          <div class="tradutor-barra">
+            <select id="legGravar" aria-label="O que fazer com a legenda">
+              <option value="faixa">Vídeo com a legenda como faixa (liga e desliga no player)</option>
+              <option value="fixa">Vídeo com a legenda gravada na imagem (mais lento)</option>
+              <option value="nao">Só os arquivos de legenda (.srt)</option>
+            </select>
+          </div>
+          <div class="estudio-acoes">
+            <button class="btn-primario" id="legFazer">Fazer a legenda</button>
+            <button class="btn-secundario" id="legParar" hidden>Parar</button>
+            <span class="dica" id="legStatus" aria-live="polite"></span>
+          </div>
+          <div class="estudio-linha" id="legResultado" hidden>
+            <button class="btn-link" id="legAbrir">Mostrar na pasta</button>
+            <span class="dica" id="legArquivos"></span>
+          </div>
+        </section>
       </div>
     </div>
   </section>

@@ -119,8 +119,41 @@
   });
   mostrar('');
 
+  // legendas de vídeo (14/11): o idioma é o "para" do tradutor
+  let legendando = false;
+  let ultimoArquivo = null;
+  $('legEscolher').addEventListener('click', async () => {
+    const arquivo = await api.tradutor.escolherVideo();
+    if (arquivo) $('legEntrada').value = arquivo;
+  });
+  $('legFazer').addEventListener('click', async () => {
+    const entrada = $('legEntrada').value.trim();
+    if (!entrada || legendando) return;
+    legendando = true;
+    $('legFazer').disabled = true;
+    $('legParar').hidden = false;
+    $('legResultado').hidden = true;
+    $('legStatus').textContent = 'Começando…';
+    const r = await api.tradutor.legendar({ entrada, para: $('tradPara').value, gravar: $('legGravar').value });
+    legendando = false;
+    $('legFazer').disabled = false;
+    $('legParar').hidden = true;
+    if (!r.ok) {
+      $('legStatus').textContent = r.interrompido ? 'Parado.' : `Não deu: ${r.error}`;
+      return;
+    }
+    const nome = (a) => String(a || '').split(/[\\/]/).pop();
+    ultimoArquivo = r.saida || r.srt;
+    $('legStatus').textContent = `Pronto ✓ ${r.segmentos} falas em ${r.segundos} s${r.idiomaFalado ? ` · fala em ${r.idiomaFalado}` : ''}${r.faltaram ? ` · ${r.faltaram} sem tradução (ficaram no original)` : ''}`;
+    $('legArquivos').textContent = [r.saida, r.srt, r.srtOriginal !== r.srt ? r.srtOriginal : null].filter(Boolean).map(nome).join(' · ');
+    $('legResultado').hidden = false;
+  });
+  $('legParar').addEventListener('click', () => api.tradutor.pararLegenda());
+  $('legAbrir').addEventListener('click', () => ultimoArquivo && api.tradutor.mostrarArquivo(ultimoArquivo));
+
   window.carregarTradutor = () => carregar().catch((err) => ($('tradStatus').textContent = `Erro: ${err.message}`));
   window.tradutorEvento = (canal, dados) => {
     if (canal === 'tradutor-pedaco' && traduzindo) mostrar(dados.texto || '');
+    if (canal === 'legendas-progresso' && legendando) $('legStatus').textContent = dados.texto || '';
   };
 })();

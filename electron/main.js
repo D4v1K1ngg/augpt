@@ -2607,6 +2607,49 @@ ipcMain.handle('tradutor:traduzir', async (e, { texto, de, para, tom, modelo } =
   }
 });
 ipcMain.handle('tradutor:parar', () => (traducaoAbort?.abort(new Error('interrompida')), { ok: true }));
+
+// legendas de vídeo (14/11, src/legendas): link ou arquivo → .srt no idioma escolhido e, se pedido, o vídeo com ela
+let legendaAbort = null;
+const arquivosDaLegenda = new Set(); // só o que a legenda gerou pode ser mostrado na pasta
+ipcMain.handle('legendas:escolher', async (e) => {
+  if (!naJanela(e)) return null;
+  const r = await dialog.showOpenDialog(win, { title: 'Escolha o vídeo', properties: ['openFile'], filters: [{ name: 'Vídeos', extensions: ['mp4', 'mkv', 'webm', 'mov', 'avi', 'm4v', 'mp3', 'm4a', 'wav'] }] });
+  return r.canceled ? null : r.filePaths[0];
+});
+ipcMain.handle('legendas:fazer', async (e, { entrada, para, gravar } = {}) => {
+  if (!naJanela(e)) return { ok: false, error: 'só pela janela do AuGPT' };
+  if (legendaAbort) return { ok: false, error: 'já tem uma legenda sendo feita' };
+  const controle = (legendaAbort = new AbortController());
+  try {
+    const { Ditado, MODELOS } = require('../src/ditado');
+    const { Midia } = require('../src/midia');
+    const d = (ditado ||= new Ditado(path.join(app.getPath('userData'), 'componentes')));
+    const modelo = d.modeloInstalado();
+    const r = await require('../src/legendas').legendar({ entrada, para, gravar: ['faixa', 'fixa', 'nao'].includes(gravar) ? gravar : 'faixa' }, {
+      midia: new Midia({ ytdlp: ytdlp().caminho, ffmpegDir: ffmpeg().dir, pasta: pastaDeDownloads() }),
+      ffmpeg: ffmpeg().caminho,
+      whisper: { exe: d.exe(), modelo: modelo ? path.join(d.dir, 'modelos', MODELOS[modelo].arquivo) : null },
+      chatStream: ollama.chatStream,
+      host: config.data.host,
+      model: config.data.modelTraducao || config.data.model,
+      numCtx: config.data.numCtx,
+      signal: controle.signal,
+      emitir: (p) => win && !win.isDestroyed() && win.webContents.send('agent:event', { canal: 'legendas-progresso', dados: p }),
+    });
+    [r.video, r.srt, r.srtOriginal, r.saida].filter(Boolean).forEach((a) => arquivosDaLegenda.add(path.resolve(a)));
+    return { ok: true, ...r };
+  } catch (err) {
+    return { ok: false, interrompido: controle.signal.aborted, error: err.message };
+  } finally {
+    legendaAbort = null;
+  }
+});
+ipcMain.handle('legendas:parar', () => (legendaAbort?.abort(new Error('interrompida')), { ok: true }));
+ipcMain.handle('legendas:mostrar', (e, arquivo) => {
+  if (!naJanela(e) || !arquivosDaLegenda.has(path.resolve(String(arquivo || '')))) return { ok: false };
+  shell.showItemInFolder(arquivo);
+  return { ok: true };
+});
 ipcMain.handle('estudio:cancelar', () => (estudioDeVoz().cancelar(), { ok: true }));
 // o arquivo gerado (só os da pasta do estúdio) vai em bytes para a tela tocar
 const dentroDoEstudio = (arquivo) => {

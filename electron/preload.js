@@ -134,6 +134,11 @@ contextBridge.exposeInMainWorld('augpt', {
     idiomas: () => ipcRenderer.invoke('tradutor:idiomas'),
     traduzir: (pedido) => ipcRenderer.invoke('tradutor:traduzir', pedido),
     parar: () => ipcRenderer.invoke('tradutor:parar'),
+    // 14/11: legendas de vídeo
+    escolherVideo: () => ipcRenderer.invoke('legendas:escolher'),
+    legendar: (pedido) => ipcRenderer.invoke('legendas:fazer', pedido),
+    pararLegenda: () => ipcRenderer.invoke('legendas:parar'),
+    mostrarArquivo: (arquivo) => ipcRenderer.invoke('legendas:mostrar', arquivo),
   },
   componentes: {
     estado: () => ipcRenderer.invoke('componentes:estado'),

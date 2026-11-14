@@ -705,6 +705,11 @@ body.com-boas-vindas { overflow: hidden; }
 .tradutor-barra { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 12px; }
 .tradutor-barra select { font: inherit; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line-forte); background: var(--panel-2); color: var(--text); }
 .tradutor-barra #tradModelo { margin-left: auto; max-width: 260px; }
+/* legendas de vídeo (14/11) */
+.legendas { margin-top: 28px; }
+.legendas #legEntrada { flex: 1; min-width: 240px; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line-forte); background: var(--panel-2); color: var(--text); }
+.legendas #legGravar { flex: 1; }
+.legendas .estudio-acoes { align-items: center; }
 .tradutor-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
 @media (max-width: 900px) { .tradutor-grade { grid-template-columns: 1fr; } .tradutor-barra #tradModelo { margin-left: 0; } }
 .tradutor-grade textarea, .tradutor-saida { width: 100%; min-height: 260px; box-sizing: border-box; font: inherit; line-height: 1.6; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line-forte); background: var(--panel); color: var(--text); }
