@@ -248,6 +248,19 @@ function versaoDoCodigo() {
 
 /* ------------------------------ rodada ------------------------------ */
 
+// quantas páginas abertas de cada tipo, somando as rodadas (null se nenhuma rodada mandou)
+function contarTipos(execucoes) {
+  const listas = execucoes.map((e) => e.tiposDasFontes).filter(Array.isArray);
+  if (!listas.length) return null;
+  const c = { lista: 0, comunidade: 0, teste: 0, outro: 0 };
+  for (const t of listas.flat()) c[t] = (c[t] || 0) + 1;
+  return c;
+}
+const textoDosTipos = (c) => {
+  const total = Object.values(c).reduce((a, b) => a + b, 0) || 1;
+  return ['lista', 'comunidade', 'teste', 'outro'].map((k) => `${Math.round((c[k] / total) * 100)}% ${k === 'lista' ? 'listas de afiliado' : k}`).join(' · ') + ` (${total})`;
+};
+
 // média das frações de gabarito que existem (null se nenhuma)
 function mediaDe(cs) {
   const f = cs.filter(Boolean).map((c) => c.feitos / c.total);
@@ -290,6 +303,8 @@ async function responder(pergunta, { cfg, modelo }) {
       cartoes: r.pesquisaPlanejada?.cartoes || null,
       // 13/11: o gabarito no que foi lido e no que foi para o escritor (o ponto que falta estava no material?)
       noMaterial: obtido.material ? { lido: cobertura(pergunta.id, obtido.material.lido), aberto: obtido.material.aberto != null ? cobertura(pergunta.id, obtido.material.aberto) : null, usado: cobertura(pergunta.id, obtido.material.usado) } : null,
+      // 14/11: de que tipo são as páginas abertas (lista de afiliado, comunidade, teste próprio, outro)
+      tiposDasFontes: obtido.material?.tipos || null,
     };
   } catch (err) {
     return { resposta: '', seg: Math.round((Date.now() - inicio) / 1000), passos: 0, tokens: 0, busca: { provedores: [], ok: 0, semProvedor: 0, semLeitura: 0 }, fontes: 0, erro: err.message };
@@ -423,6 +438,9 @@ async function principal() {
       console.log(cinza(`          gabarito ${coberturas.map((c) => `${c.feitos}/${c.total}`).join(' · ')}${fora ? amarelo(`  ·  fora do assunto ${fora}x`) : ''}${maisFalta.faltam.length ? `  ·  faltou: ${maisFalta.faltam.slice(0, 4).join(', ')}` : ''}`));
     }
     const noMat = resultados[resultados.length - 1];
+    const tipos = contarTipos(execucoes);
+    noMat.tiposDasFontes = tipos;
+    if (tipos) console.log(cinza(`          páginas abertas: ${textoDosTipos(tipos)}`));
     if (noMat.coberturaLido != null) console.log(cinza(`          no material: ${Math.round(noMat.coberturaLido * 100)}% do gabarito no que foi lido (${Math.round((noMat.coberturaAberto ?? 0) * 100)}% nas páginas abertas, o resto só no resumo da busca) · ${Math.round(noMat.coberturaUsado * 100)}% no que foi para o escritor · ${Math.round((noMat.cobertura || 0) * 100)}% na resposta`));
     if (pior.erroDoJuiz) console.log(cinza(`          ${pior.erroDoJuiz}`));
     for (const x of contradisse) console.log(vermelho(`          contradiz: ${x}`));
@@ -458,6 +476,11 @@ async function principal() {
     console.log(cinza(`    ${tipo.padEnd(11)} nota ${media(g.map((r) => r.nota)).toFixed(1)}  ·  ${mediana(g.map((r) => r.seg))}s  ·  ${g.length} perguntas`));
   }
   if (resumo.cobertura != null) console.log(`  gabarito: ${Math.round(resumo.cobertura * 100)}% dos pontos cobertos em média  ·  ${Math.round(resumo.coberturaPior * 100)}% na pior rodada de cada pergunta (${comGabarito.length} perguntas)`);
+  const todosTipos = contarTipos(resultados.map((r) => ({ tiposDasFontes: r.tiposDasFontes ? Object.entries(r.tiposDasFontes).flatMap(([k, n]) => Array(n).fill(k)) : null })));
+  if (todosTipos) {
+    resumo.tiposDasFontes = todosTipos;
+    console.log(cinza(`    páginas abertas: ${textoDosTipos(todosTipos)}`));
+  }
   if (resumo.coberturaLido != null) console.log(cinza(`    no material: ${Math.round(resumo.coberturaLido * 100)}% do gabarito no que foi lido (${Math.round(resumo.coberturaAberto * 100)}% nas páginas abertas) · ${Math.round(resumo.coberturaUsado * 100)}% no que foi para o escritor · ${Math.round(resumo.cobertura * 100)}% na resposta`));
   console.log(cinza(`    busca: ${resumo.buscasOk} respondidas, ${resumo.buscasSemProvedor} sem nenhum provedor`));
   if (resumo.semJuiz) console.log(amarelo(`    ${resumo.semJuiz} pergunta(s) sem nota: o juiz não devolveu um veredito legível`));

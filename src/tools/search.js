@@ -239,6 +239,8 @@ const PESOS = [
   [/(^|\.)(reviewstrails|thegadgettechworld|thewearify|whoismcafee|advancestudy|thirstybear|blacksheepmen|fypower|whileint|reviewsbypro|bestreviews\.guide|productreview\w*)\./, 0, 'conteúdo genérico'],
   // As regras específicas vêm primeiro: "forum.manjaro.org" casava com a regra
   // genérica de .org e era tratado como organização séria.
+  // 14/11: quem testa e mede, por área (complemento do sinal de teste em tipoDaPagina, que vale para qualquer assunto)
+  [/(^|\.)(rtings|headphones|crinacle|squig|audiosciencereview|head-fi|soundguys|techpowerup|gamersnexus|tomshardware|guru3d|notebookcheck|displayspecifications|dongknows|smallnetbuilder|anandtech|kitguru|eurogamer|digitalfoundry|gsmarena|dxomark|quatrorodas|autoesporte|inmetro)\./, 6, 'referência da área'],
   [/(blogspot|wordpress|medium|substack)\./, 1, 'blog'],
   // Fórum e rede social aparecem muito em busca técnica e quase nunca sustentam
   [/(^|\.)(forum|forums|reddit|stackexchange)\.|\.forum\.|discourse\./, 1, 'fórum'],
@@ -358,6 +360,35 @@ function credibilidade(dominio) {
 }
 
 const PENALIDADE = { alto: -14, satira: -10, medio: -5, confiavel: 0 };
+
+/*
+ * O tipo da PÁGINA, não do site (14/11, comparação com o ChatGPT no "melhor fone intra-auricular para PUBG"): o
+ * AuGPT recomendou o KZ EDX Pro "pelos graves potentes, essenciais para ouvir passos" (é o contrário) lendo listas de
+ * afiliado (dmaisdesign, motivosparacomprar, my-best); o ChatGPT leu o r/iems e reviews. Vale para qualquer assunto:
+ *  - lista de afiliado ("top 10", "os 7 melhores … de 2026", "melhor custo-benefício", sites que só fazem isso) desce;
+ *  - teste próprio ("review", "análise", "testamos", "benchmark", "medições") sobe;
+ *  - fórum e comunidade sobem quando a pergunta é de produto ou recomendação (quem usa de verdade).
+ * Devolve { ajuste, tipo } — o ajuste soma na nota da fonte (nucleo/comCredibilidade).
+ */
+const SITES_DE_LISTA = /(^|\.)(my-best|motivosparacomprar|dmaisdesign|melhoresparacomprar|guiaomelhor|magodatecnologia|dicaspc|techinter|bestreviews|reviewed|top10|melhorescolha|qualcomprar|comparaplay|bestproducts|thetopten)\./;
+const TITULO_DE_LISTA = /\b(top\s?\d{1,2}\b|\d{1,2}\s+(melhores|best|top)\b|(os|as)\s+\d{1,2}\s+melhores|melhor(es)?\b[^|:]{0,50}\b(20\d\d)\b|melhor(es)?\s[^|:]{0,40}custo[- ]?benef|best\b[^|:]{0,40}\b20\d\d\b|ranking\s+(dos|das)\s+melhores)/i;
+const SINAL_DE_TESTE = /\b(review|análise|analise|testamos|testado|teste completo|hands[- ]on|benchmarks?|medi[çc](ões|ao|ão)|measurements?|we tested|tested|impress[õo]es de uso|depois de \d+ (dias|semanas|meses))\b/i;
+function tipoDaPagina({ url, titulo = '', resumo = '' } = {}, { recomendacao = false } = {}) {
+  let dominio = '';
+  try {
+    dominio = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+  } catch {
+    return { ajuste: 0, tipo: '' };
+  }
+  const t = `${titulo} ${resumo}`;
+  // "melhores preços / ofertas da Black Friday" é notícia de preço, não ranking de produtos
+  const deLista = TITULO_DE_LISTA.test(titulo) && !/melhor(es)?\s+(pre[çc]os?|ofertas?|promo[çc][õo]es|descontos?|deals?|prices?)\b/i.test(titulo);
+  if (SITES_DE_LISTA.test(dominio) || deLista) return { ajuste: -0.12, tipo: 'lista de afiliado' };
+  const forum = /(^|\.)(forum|forums|reddit|stackexchange|head-fi|clubedohardware|audiosciencereview)\.|\.forum\.|discourse\.|\/forums?\//.test(`${dominio}/${String(url).split('/').slice(3).join('/')}`);
+  if (forum && recomendacao) return { ajuste: 0.1, tipo: 'comunidade' };
+  if (SINAL_DE_TESTE.test(t)) return { ajuste: 0.05, tipo: 'teste próprio' };
+  return { ajuste: 0, tipo: '' };
+}
 
 function qualidadeDoDominio(url) {
   let dominio;
@@ -638,7 +669,7 @@ async function buscar(consulta, opcoes = {}) {
 
 module.exports = {
   buscar, normalizar, CADEIA, searxng, saudeDaBusca, registrarSaude, duckduckgoHtml, duckduckgoLite, marginalia, wikipedia, jina, ollamaWeb, buscadoresPausados, limparPausas,
-  ordenarPorQualidade, qualidadeDoDominio, subconsultas, buscarVarias, estaBloqueado,
+  ordenarPorQualidade, qualidadeDoDominio, tipoDaPagina, subconsultas, buscarVarias, estaBloqueado,
   definirPersonalizados,
   estatisticasDeDominios: () => {
     if (tabela === null) credibilidade('x.com');

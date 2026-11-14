@@ -22,7 +22,7 @@
 const { pedacos, ordenar, normalizar: normalizarTermos } = require('./ranking');
 const { produtosDoPedido } = require('../serie-de-precos');
 const { idDoVideo } = require('../../ytdlp');
-const { qualidadeDoDominio } = require('../../tools/search');
+const { qualidadeDoDominio, tipoDaPagina } = require('../../tools/search');
 
 /*
  * Credibilidade no núcleo (19/10, revisão da pesquisa): a tabela de 742 domínios (portais de
@@ -37,7 +37,7 @@ const RISCO_FORA = new Set(['alto', 'bloqueado']);
 const PRAZO_DA_PAGINA_MS = 8000;
 // depois que uma página da rodada fica pronta, quanto as outras ainda podem demorar (27/10)
 const FOLGA_DA_RODADA_MS = 3000;
-function comCredibilidade(ordenados, { comunidade = false, maximo = 8, porSite = 2, jaVistos = [], oficiais = [] } = {}) {
+function comCredibilidade(ordenados, { comunidade = false, maximo = 8, porSite = 2, jaVistos = [], oficiais = [], recomendacao = false, porTipo = true } = {}) {
   const contagem = new Map();
   for (const f of jaVistos) contagem.set(dominio(f.url), (contagem.get(dominio(f.url)) || 0) + 1);
   return ordenados
@@ -46,7 +46,11 @@ function comCredibilidade(ordenados, { comunidade = false, maximo = 8, porSite =
       const peso = comunidade && /fórum|rede social|blog/.test(q.tipo) ? 3 : q.peso;
       // 30/10: a pergunta cita a marca ou o órgão — o site oficial dele passa na frente ("fone da Bose" → bose.com)
       const oficial = doSiteOficial(r.url, oficiais);
-      return { ...r, qualidade: oficial ? `${q.tipo} · site oficial` : q.tipo, alerta: q.alerta || null, notaFinal: (r.nota || 0) + (peso - 3) * 0.03 + (oficial ? 0.2 : 0) };
+      // 14/11: o tipo da página — lista de afiliado desce, teste próprio sobe, comunidade sobe em produto (search.tipoDaPagina)
+      const pagina = tipoDaPagina({ url: r.url, titulo: r.titulo || r.f?.titulo || '', resumo: r.resumo || r.f?.resumo || '' }, { recomendacao: recomendacao || comunidade });
+      if (!porTipo) pagina.ajuste = 0;
+      const tipo = [oficial ? `${q.tipo} · site oficial` : q.tipo, pagina.tipo].filter(Boolean).join(' · ');
+      return { ...r, qualidade: tipo, alerta: q.alerta || null, notaFinal: (r.nota || 0) + (peso - 3) * 0.03 + (oficial ? 0.2 : 0) + pagina.ajuste };
     })
     .filter((r) => !RISCO_FORA.has(r.alerta?.risco))
     .sort((a, b) => b.notaFinal - a.notaFinal)
@@ -652,7 +656,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     // ordena pelo que a pergunta + as buscas pedem; o pesquisador vê os 8 melhores novos
     const novos = achados.filter((r) => r?.url && !porUrl.has(r.url)).map((r) => ({ ...r, texto: `${r.titulo || ''} ${r.resumo || ''}` }));
     const relevantes = await ordenar(`${pergunta} ${lista.join(' ')}`, novos, { embed, maximo: 16 });
-    const ordenados = comCredibilidade(relevantes, { comunidade, maximo: 8, jaVistos: fontes, oficiais });
+    const ordenados = comCredibilidade(relevantes, { comunidade, maximo: 8, jaVistos: fontes, oficiais, recomendacao: produto, porTipo: deps.paginasPorTipo !== false });
     const mostrados = [];
     for (const r of ordenados) {
       if (porUrl.has(r.url)) continue;
@@ -854,7 +858,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     if (lidas() >= regras.minLeituras || signal?.aborted) return;
     const faltam = regras.minLeituras - lidas();
     const naoLidas = fontes.filter((f) => !f.trechos.length && !f.alerta).map((f) => ({ f, url: f.url, texto: `${f.titulo} ${f.resumo}` }));
-    const ordenadas = comCredibilidade(await ordenar(pergunta, naoLidas, { embed }), { comunidade: false, maximo: Infinity, porSite: Infinity, oficiais }).map((x) => x.f);
+    const ordenadas = comCredibilidade(await ordenar(pergunta, naoLidas, { embed }), { comunidade: false, maximo: Infinity, porSite: Infinity, oficiais, recomendacao: produto, porTipo: deps.paginasPorTipo !== false }).map((x) => x.f);
     // só página que cita o assunto: faltando, lê menos — completar a conta com página fora do assunto
     // (17/10, um tópico de SSD num pedido de fone) piora a resposta em vez de melhorar
     const ordem = ordenadas.filter(citaAssunto);
@@ -1849,7 +1853,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const inicioDoMaterial = Date.now();
   let usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit }) : [];
   // 13/11, régua: o que foi lido e o que foi para o escritor — o ponto que falta na resposta estava no material?
-  emit('nucleo-material', { lido: fontes.map((f) => `${f.titulo || ''}\n${f.resumo || ''}\n${(f.trechos || []).join('\n')}`).join('\n\n'), aberto: fontes.map((f) => (f.trechos || []).join('\n')).join('\n\n'), usado: usadas.map((f) => f.conteudo || '').join('\n\n') });
+  emit('nucleo-material', { lido: fontes.map((f) => `${f.titulo || ''}\n${f.resumo || ''}\n${(f.trechos || []).join('\n')}`).join('\n\n'), aberto: fontes.map((f) => (f.trechos || []).join('\n')).join('\n\n'), tipos: fontes.filter((f) => f.trechos?.length && !f.video && !f.imagem).map((f) => ({ 'lista de afiliado': 'lista', comunidade: 'comunidade', 'teste próprio': 'teste' })[tipoDaPagina(f, { recomendacao: true }).tipo] || (f.comunidade ? 'comunidade' : /referência da área/.test(f.qualidade || '') ? 'teste' : 'outro')), usado: usadas.map((f) => f.conteudo || '').join('\n\n') });
   etapa('material', inicioDoMaterial);
   if (deps.notasPorPagina === true && usadas.length && !ent.produto && !ent.conversa && !ehAnaliseDePreco(pergunta) && !pedeGrafico(pergunta) && !pedeVisual(pergunta)) {
     const inicioDasNotas = Date.now();
