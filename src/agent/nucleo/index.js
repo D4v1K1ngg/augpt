@@ -860,6 +860,8 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
    * de 3 a 5 critérios com o porquê e o que evitar. O escritor recebe só essa lista (responder).
    */
   let criteriosDoUso = [];
+  let sinaisDeEvitar = [];
+  let recomendadosPelaComunidade = [];
   const buscarCriterios = async () => {
     if (!produto || deps.criteriosAntes === false || typeof chamar !== 'function' || typeof buscarNaComunidade !== 'function' || signal?.aborted) return;
     try {
@@ -886,16 +888,30 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] novas ${novas.map((f) => f.url).join(' ')} · lidas ${lidasAqui.length} · fontes ${antes}→${fontes.length}`);
       if (!lidasAqui.length || signal?.aborted) return;
       const material = lidasAqui.map((f) => `[${f.n}] ${f.titulo || dominio(f.url)}\n${f.trechos.join('\n…\n').slice(0, 3000)}`).join('\n\n');
-      const r2 = await chamar([{ role: 'user', content: `Pedido: ${pergunta}\n\nO que quem usa diz:\n${material}\n\nListe de 3 a 5 critérios que decidem se um produto é bom PARA ESTE USO, segundo este material: cada um com o porquê e, se o material disser, o que evitar. Nenhum nome de produto. Responda só com um JSON: {"criterios": [{"nome": "...", "porque": "...", "evitar": "...", "fontes": [n]}]}` }], { json: true, numPredict: 500, signal });
+      const r2 = await chamar([{ role: 'user', content: `Pedido: ${pergunta}\n\nO que quem usa diz:\n${material}\n\nListe de 3 a 5 critérios que decidem se um produto é bom PARA ESTE USO, segundo este material: cada um com o porquê e, se o material disser, o que evitar (sem nome de produto nos critérios). Em "sinais_de_evitar", as expressões curtas que, na descrição de um produto, mostram o que evitar (ex.: "graves potentes", "bass boost"). Em "recomendados", até 4 produtos (marca e modelo) que quem usa recomenda neste material para este uso. Responda só com um JSON: {"criterios": [{"nome": "...", "porque": "...", "evitar": "...", "fontes": [n]}], "sinais_de_evitar": ["..."], "recomendados": ["..."]}` }], { json: true, numPredict: 650, signal });
       const bruto2 = String(r2?.content || '');
       if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] bruto2 ${bruto2.slice(0, 300)}`);
       const validas = new Set(lidasAqui.map((f) => f.n));
       const limpo = (t, n) => String(t || '').replace(/\s+/g, ' ').trim().slice(0, n);
-      criteriosDoUso = (safeJson(bruto2.slice(bruto2.indexOf('{')))?.criterios || [])
+      const j2 = safeJson(bruto2.slice(bruto2.indexOf('{'))) || {};
+      criteriosDoUso = (Array.isArray(j2.criterios) ? j2.criterios : [])
         .map((c) => ({ nome: limpo(c?.nome, 60), porque: limpo(c?.porque, 200), evitar: limpo(c?.evitar, 120), fontes: (Array.isArray(c?.fontes) ? c.fontes : []).map(Number).filter((n) => validas.has(n)) }))
         .filter((c) => c.nome.length >= 3 && c.porque.length >= 6)
         .slice(0, 5);
-      if (criteriosDoUso.length) emit('aviso', { texto: `o que importa para este uso: ${criteriosDoUso.map((c) => c.nome).join(' · ')}` });
+      if (!criteriosDoUso.length) return;
+      // o que o código confere depois da escrita (semOpcoesContraOsCriterios): expressão de 2+ palavras, ou uma só bem específica
+      sinaisDeEvitar = (Array.isArray(j2.sinais_de_evitar) ? j2.sinais_de_evitar : []).map((s) => limpo(s, 40).toLowerCase()).filter((s) => /\S\s+\S/.test(s) ? s.length >= 6 : s.length >= 8).slice(0, 8);
+      emit('aviso', { texto: `o que importa para este uso: ${criteriosDoUso.map((c) => c.nome).join(' · ')}` });
+      // produtos da comunidade (14/11): os que quem usa recomenda nesses tópicos ganham um review lido cada — as listas
+      // de afiliado não citam EM6L, Truthear e Simgot, o r/iems cita
+      const nomes = (Array.isArray(j2.recomendados) ? j2.recomendados : []).map((n) => limpo(n, 50)).filter((n) => n.length >= 3 && /\s|\d/.test(n)).slice(0, 3);
+      recomendadosPelaComunidade = nomes;
+      if (!nomes.length || signal?.aborted) return;
+      // reviews de modelos diferentes no mesmo site (RTINGS, headphones.com) valem: limite próprio por site
+      const listaDosRecomendados = await executarBusca(nomes.map((n) => `${n} review`), { maximo: nomes.length, porSite: 6 });
+      const achados = [...String(listaDosRecomendados).matchAll(/^\[(\d+)\]/gm)].map((m) => fontes.find((f) => f.n === Number(m[1]))).filter((f) => f && !f.trechos.length && tipo(f) !== 'lista de afiliado');
+      const umPorNome = nomes.map((n) => achados.find((f) => tituloCita(`${f.titulo} ${f.resumo}`, n))).filter(Boolean);
+      await Promise.all([...new Set(umPorNome)].map((f) => executarLeitura({ fonte: f.n, foco: 'o que quem testou diz deste produto para este uso' }, { garantia: true })));
     } catch (err) {
       if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] erro ${err.message}`);
       criteriosDoUso = [];
@@ -1066,6 +1082,8 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
   await lerAsMaisLigadas();
   escrevendo = true; // daqui em diante a escrita começa: página que chegar tarde não muda as fontes
   fontes.criteriosDoUso = criteriosDoUso; // para a escrita (responder)
+  fontes.sinaisDeEvitar = sinaisDeEvitar;
+  fontes.recomendadosPelaComunidade = recomendadosPelaComunidade;
   return fontes;
 }
 
@@ -1179,10 +1197,55 @@ async function anotarPaginas(pergunta, usadas, { chamar, signal } = {}) {
  * contam 1). O escritor recebe o que é confirmado, o que só um site diz e onde as fontes divergem. '' quando não rende.
  */
 /** Os critérios do uso para o escritor (14/11, pesquisar/buscarCriterios): curto — organiza a resposta, não é mais material. */
-function blocoDosCriterios(criterios) {
+function blocoDosCriterios(criterios, recomendados = []) {
   if (!Array.isArray(criterios) || !criterios.length) return '';
   const linhas = criterios.map((c) => `- ${c.nome}: ${c.porque}${c.evitar ? ` (evite: ${c.evitar})` : ''}${c.fontes?.length ? ` ${c.fontes.map((n) => `[${n}]`).join('')}` : ''}`);
-  return `\n\n(O que importa para este uso, segundo quem usa:\n${linhas.join('\n')}\nComece a resposta por isso, em poucas linhas e citando as fontes; justifique cada opção por esses critérios; deixe de fora a opção que vai contra um deles.)`;
+  const daComunidade = recomendados?.length ? `\nQuem usa recomenda: ${recomendados.join(', ')} — prefira estes, se as fontes os trazem.` : '';
+  return `\n\n(O que importa para este uso, segundo quem usa:\n${linhas.join('\n')}${daComunidade}\nComece a resposta por isso, em poucas linhas e citando as fontes; justifique cada opção por esses critérios; deixe de fora a opção que vai contra um deles.)`;
+}
+
+/**
+ * O descarte pelo código (14/11): o 9B escreve "evite graves exagerados" e logo põe em 1º o fone "de graves potentes".
+ * Sai o bloco "#### N. Nome" cujo texto (fora dos pontos fracos) elogia um sinal do que evitar; os blocos são
+ * renumerados, e a frase da introdução e a linha de tabela que citam a opção tirada saem junto. Ficam ao menos 2 opções.
+ * Devolve { texto, tiradas }.
+ */
+function semOpcoesContraOsCriterios(texto, sinais = [], { minimo = 0 } = {}) {
+  const t = String(texto || '');
+  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+  const lista = (sinais || []).map(norm).filter(Boolean);
+  if (!lista.length) return { texto: t, tiradas: [] };
+  const partes = t.split(/(?=^#### \d+[.)] )/m);
+  const intro = /^#### \d+[.)] /.test(partes[0]) ? '' : partes.shift();
+  const blocos = partes.map((b) => {
+    const nome = (/^#### \d+[.)] \**([^*\n]+?)\**\s*$/m.exec(b)?.[1] || '').trim();
+    // o que a resposta diz A FAVOR: tira a linha dos pontos fracos (lá, "graves exagerados" é crítica)
+    const aFavor = norm(b.split('\n').filter((l) => !/pontos fracos|contras?\b/i.test(l)).join('\n'));
+    return { b, nome, contra: Boolean(nome) && lista.some((s) => aFavor.includes(s)) };
+  });
+  if (!blocos.some((x) => x.contra)) return { texto: t, tiradas: [] };
+  let ficam = blocos.filter((x) => !x.contra);
+  if (ficam.length < 2) return { texto: t, tiradas: [] }; // tirar deixaria a resposta sem escolha
+  // o usuário pediu N opções ("top 5"): tirar deixaria menos que o pedido — a opção fica, marcada e no fim
+  if (minimo && ficam.length < minimo) {
+    const contra = blocos.filter((x) => x.contra);
+    const marcada = (x) => {
+      const s = lista.find((sinal) => norm(x.b).includes(sinal));
+      return x.b.replace(/^(#### \d+[.)] [^\n]*\n)/m, `$1\n> ⚠ Vai contra o que importa para este uso${s ? ` (${s})` : ''}.\n`);
+    };
+    let n = 0;
+    const blocosNovos = [...ficam.map((x) => x.b), ...contra.map(marcada)].map((b) => b.replace(/^#### \d+([.)]) /m, () => `#### ${(n += 1)}. `).replace(/\s*$/, '\n\n'));
+    return { texto: `${intro}${blocosNovos.join('')}`, tiradas: [], marcadas: contra.map((x) => x.nome) };
+  }
+  const tiradas = blocos.filter((x) => x.contra).map((x) => x.nome);
+  const cita = (linha) => tiradas.some((n) => norm(linha).includes(norm(n)));
+  let numero = 0;
+  ficam = ficam.map((x) => x.b.replace(/^#### \d+([.)]) /m, () => `#### ${(numero += 1)}. `));
+  // a introdução: sai a frase que cita a opção tirada; nas tabelas e listas (de qualquer bloco), a linha
+  const semAFrase = (s) => s.split(/(?<=[.!?])\s+(?=[A-ZÀ-Ú*])/).filter((f) => !cita(f)).join(' ');
+  const introNova = intro.split('\n').map((l) => (/^\s*(\||[-*] )/.test(l) ? (cita(l) ? null : l) : semAFrase(l))).filter((l) => l !== null).join('\n');
+  const corpo = ficam.map((b) => b.split('\n').filter((l) => !(/^\s*\|/.test(l) && cita(l))).join('\n'));
+  return { texto: `${introNova}${introNova && !introNova.endsWith('\n') ? '\n\n' : ''}${corpo.join('')}`, tiradas };
 }
 
 async function cruzarFontes(pergunta, usadas, { chamar, signal, noticia = false } = {}) {
@@ -1943,7 +2006,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
-    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)${blocoDosCriterios(fontes.criteriosDoUso)}` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pauta || cruzamento ? [pergunta, pauta, cruzamento].filter(Boolean).join('\n\n') : pergunta },
+    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: um bloco "#### N. Marca Modelo" por opção, com **Faixa de preço:**, **Pontos fortes:**, **Pontos fracos:**, **Na comunidade:** citando a fonte, e **Para quem:**.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)${blocoDosCriterios(fontes.criteriosDoUso, fontes.recomendadosPelaComunidade)}` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pauta || cruzamento ? [pergunta, pauta, cruzamento].filter(Boolean).join('\n\n') : pergunta },
   ];
   const limparEscrita = (t) =>
     semParagrafosDeAnuncio(semImagens(t))
@@ -1956,6 +2019,18 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   etapa('escrita', inicioDaEscrita);
   const inicioDaConferencia = Date.now();
   if (pedeVisual(pergunta)) escrito = comoVisual(escrito);
+  // o descarte pelo código (14/11): opção que elogia o que os critérios mandam evitar sai
+  if (ent.produto && fontes.sinaisDeEvitar?.length) {
+    const semContra = semOpcoesContraOsCriterios(escrito, fontes.sinaisDeEvitar, { minimo: Number(opcoesPedidas(pergunta)) || 0 });
+    if (semContra.marcadas?.length) {
+      escrito = semContra.texto;
+      emit('aviso', { texto: `marcadas por irem contra o que importa (o pedido quer ${opcoesPedidas(pergunta)} opções): ${semContra.marcadas.join(' · ')}` });
+    }
+    if (semContra.tiradas.length) {
+      escrito = semContra.texto;
+      emit('aviso', { texto: `saíram da resposta por irem contra o que importa (${fontes.sinaisDeEvitar.slice(0, 3).join(', ')}): ${semContra.tiradas.join(' · ')}` });
+    }
+  }
   // o que a conferência aceita: o que foi lido, a pergunta, a conversa e o que se sabe do usuário
   const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')}`).join(' ')} ${notas} ${vista}` : '';
   const extraDaConferencia = `${pergunta} ${ent.pergunta} ${conversa.map((m) => m.content).join(' ')} ${hoje} ${sobreOUsuario}`;
@@ -2084,4 +2159,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
