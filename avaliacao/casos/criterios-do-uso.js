@@ -93,3 +93,19 @@ module.exports = [
     },
   },
 ];
+module.exports.push({
+  nome: 'campos do produto: "Na comunidade" que só cita lista de afiliado sai, com fonte de fórum fica; preço com valor e sem citação vira "não encontrei", com citação fica',
+  tipo: 'unidade',
+  executar() {
+    const fontes = [
+      { n: 3, url: 'https://pandalargo.com.br/top-10', titulo: 'Melhores Fones In-Ear TWS Gamer de 2026: Top 10' },
+      { n: 11, url: 'https://www.clubedohardware.com.br/forums/topic/1', titulo: 'Recomendação fones', comunidade: true },
+    ];
+    const texto = ['#### 1. A', 'Texto [3].', '**Preço:** Entre R$ 400 e R$ 600 (varia).', '**Na comunidade:** Jogadores elogiam [3].', '', '#### 2. B', '**Preço:** R$ 129 [11]', '**Na comunidade:** Citado no Clube do Hardware [(11)].'].join('\n');
+    const r = nucleo.conferirCamposDoProduto(texto, fontes);
+    return [
+      r.semComunidade === 1 && !/Jogadores elogiam/.test(r.texto) && /Citado no Clube do Hardware/.test(r.texto) || r.texto,
+      r.semFonteDePreco === 1 && /\*\*Preço:\*\* não encontrei nas fontes lidas\./.test(r.texto) && /R\$ 129 \[11\]/.test(r.texto) || r.texto,
+    ];
+  },
+});

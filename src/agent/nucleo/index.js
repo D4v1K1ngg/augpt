@@ -1205,6 +1205,32 @@ function blocoDosCriterios(criterios, recomendados = []) {
 }
 
 /**
+ * Os campos do produto conferidos pelo código (14/11, fone para PUBG no formato novo): "Na comunidade:" citava a lista
+ * de afiliado da Pandalargo, e "Preço: entre R$ 400 e R$ 600" vinha sem fonte. A linha "Na comunidade:" sem nenhuma
+ * fonte de comunidade (Reddit, fórum) sai — atribuir à comunidade o que diz uma lista engana; o "Preço:" com valor e
+ * sem citação vira "não encontrei nas fontes lidas.". Devolve { texto, semComunidade, semFonteDePreco }.
+ */
+function conferirCamposDoProduto(texto, fontes = []) {
+  const daComunidade = new Set(fontes.filter((f) => f.comunidade || /comunidade|fórum/.test(f.qualidade || '') || tipoDaPagina(f, { recomendacao: true }).tipo === 'comunidade').map((f) => f.n));
+  const citadas = (linha) => [...linha.matchAll(/\[\(?(\d+)\)?\]/g)].map((m) => Number(m[1]));
+  let semComunidade = 0;
+  let semFonteDePreco = 0;
+  const linhas = String(texto || '').split('\n').map((l) => {
+    if (/^\s*\*\*Na comunidade:\*\*/.test(l) && !citadas(l).some((n) => daComunidade.has(n))) {
+      semComunidade += 1;
+      return null;
+    }
+    const preco = /^(\s*\*\*(?:Pre[çc]o|Faixa de pre[çc]o):\*\*\s*)(.*)$/.exec(l);
+    if (preco && /(R\$|US\$|€)\s?\d/.test(preco[2]) && !citadas(preco[2]).length) {
+      semFonteDePreco += 1;
+      return `${preco[1]}não encontrei nas fontes lidas.`;
+    }
+    return l;
+  });
+  return { texto: linhas.filter((l) => l !== null).join('\n'), semComunidade, semFonteDePreco };
+}
+
+/**
  * O descarte pelo código (14/11): o 9B escreve "evite graves exagerados" e logo põe em 1º o fone "de graves potentes".
  * Sai o bloco "#### N. Nome" cujo texto (fora dos pontos fracos) elogia um sinal do que evitar; os blocos são
  * renumerados, e a frase da introdução e a linha de tabela que citam a opção tirada saem junto. Ficam ao menos 2 opções.
@@ -1344,7 +1370,9 @@ async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000, emit
 // pergunta — "Quem é você?" teve 1.999 palavras e 44 de 125 respostas abriam com "# Relatório…"
 const TAMANHO_DA_RESPOSTA = {
   normal: '\n- TAMANHO NA MEDIDA DA PERGUNTA: pergunta simples ou factual (um número, um nome, sim ou não, uma definição) → até 3 parágrafos curtos; explicação, comparação ou recomendação → o necessário para responder bem, sem repetir.',
-  detalhada: '\n- RESPOSTA DETALHADA, NA MEDIDA DA PERGUNTA: cubra os ângulos que as fontes trazem, com dados concretos; comparação, recomendação, análise ou guia vai até umas 900 palavras. Pergunta simples ou factual continua curta (até 3 parágrafos). Nunca encha para parecer completa.',
+  // 14/11 (pedido do Davi: "ele escreve muito pouco"): no detalhado, cada seção é desenvolvida — o porquê, o como e um
+  // exemplo —; as "seções curtas" do estilo valem para o modo normal
+  detalhada: '\n- RESPOSTA DETALHADA, NA MEDIDA DA PERGUNTA: cubra todos os ângulos que as fontes trazem, com dados concretos. Em explicação, comparação, recomendação, análise ou guia, DESENVOLVA cada seção em 1 a 3 parágrafos: o que é, por que importa, como fazer ou como funciona, e um exemplo ou número das fontes — nenhum tópico resolvido numa frase solta; de umas 600 a 1.000 palavras. Pergunta simples ou factual continua curta (até 3 parágrafos). Nunca encha com repetição para parecer completa.',
   tecnica: '\n- RESPOSTA TÉCNICA: use a linguagem e os dados técnicos precisos (números, unidades, especificações), sem simplificar demais; só explique siglas.',
   curta: '\n- RESPOSTA CURTA: no máximo 3 parágrafos, só o essencial.',
 };
@@ -1461,7 +1489,7 @@ ${SEM_ANUNCIO_NEM_REPETICAO}
         atual ? `\n- Esta pergunta depende de QUANDO: diga a data dos fatos que citar ("em 5 de outubro de ${String(hoje).slice(-4)}…") e deixe claro o que já aconteceu e o que ainda não, olhando a data de hoje.` : ''
       }${produto ? FORMATO_DE_PRODUTO : ''}`
     : explicacao
-    ? `${EXPLICACAO_DE_PESSOA}\n${SEM_ANUNCIO_NEM_REPETICAO}`
+    ? `${EXPLICACAO_DE_PESSOA}${tamanho === 'detalhada' ? '\n- O usuário quer respostas DETALHADAS: em vez da resposta média, de 5 a 7 seções desenvolvidas (1 a 3 parágrafos cada), com o mecanismo passo a passo, os termos técnicos explicados, um exemplo do dia a dia e o que muda na prática.' : ''}\n${SEM_ANUNCIO_NEM_REPETICAO}`
     : `- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.\n${SEM_ANUNCIO_NEM_REPETICAO}${INSTRUCAO_DE_GRAFICO}${INSTRUCAO_DE_VISUAL}`
 }${capacidadesNaEscrita ? `\n\n${capacidadesNaEscrita}` : ''}${preferencias ? `\n\n<preferencias_do_usuario>\n${preferencias}\n</preferencias_do_usuario>\nO usuário pediu para você guardar isto: siga as preferências e use os fatos quando ajudarem, sem citá-los à toa. Uma linha "Quando o assunto for X: …" é instrução só para pedidos sobre X: siga-a quando a pergunta for sobre X (mesmo com outras palavras) e ignore-a nas outras. Só isto está guardado: nunca diga que algo é \"preferência registrada\" ou está guardado se não estiver nesta lista, e não cite este bloco como fonte.` : ''}${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 4500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou), e não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
 }
@@ -2021,6 +2049,14 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   etapa('escrita', inicioDaEscrita);
   const inicioDaConferencia = Date.now();
   if (pedeVisual(pergunta)) escrito = comoVisual(escrito);
+  // os campos do produto (14/11): "Na comunidade" só com fonte de comunidade; preço só com fonte
+  if (ent.produto && fontes.length) {
+    const campos = conferirCamposDoProduto(escrito, fontes);
+    if (campos.semComunidade || campos.semFonteDePreco) {
+      escrito = campos.texto;
+      emit('aviso', { texto: `conferência do produto: ${campos.semComunidade} "Na comunidade" sem fonte de comunidade (saiu) · ${campos.semFonteDePreco} preço sem fonte` });
+    }
+  }
   // o descarte pelo código (14/11): opção que elogia o que os critérios mandam evitar sai
   if (ent.produto && fontes.sinaisDeEvitar?.length) {
     const semContra = semOpcoesContraOsCriterios(escrito, fontes.sinaisDeEvitar, { minimo: Number(opcoesPedidas(pergunta)) || 0 });
@@ -2161,4 +2197,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
