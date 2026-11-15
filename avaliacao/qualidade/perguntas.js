@@ -850,6 +850,19 @@ module.exports = [
     checagens: checagensDaResposta(),
   })),
   {
+    // 15/11 (Davi): virou "conversa" — 4 frases e uma pergunta de volta; o Qwen sozinho no Ollama deu a comparação inteira
+    id: 'impressora-3d',
+    tipo: 'explicacao',
+    pedido: 'Qual é melhor uma impressora 3d de filamento ou uma que usa resina ?',
+    criterios: [
+      'compara as duas em vários pontos: detalhe/precisão, custo, facilidade de uso e manutenção',
+      'diz que a resina é tóxica ou exige cuidado (luvas, ventilação, lavagem e cura)',
+      'diz que filamento é melhor para peças funcionais/resistentes e resina para detalhe (miniaturas, joias)',
+      'termina com uma recomendação conforme o uso, não só "depende"',
+    ],
+    checagens: checagensDaResposta(),
+  },
+  {
     id: 'amoled',
     tipo: 'explicacao',
     pedido: 'Como funciona uma tela amoled ?',

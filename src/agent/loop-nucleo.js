@@ -182,6 +182,11 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     paginasPorTipo: cfg.paginasPorTipo !== false,
     // 14/11: critérios do uso antes dos produtos (busca na comunidade, 3–5 critérios para o escritor); desliga com false
     criteriosAntes: cfg.criteriosAntes !== false,
+    // 15/11: o escritor enxuto (6 regras no lugar de ~25; o modelo organiza a resposta) fora de produto — régua, 6 perguntas
+    // × 2 rodadas: explicação, guias e comparações com 40–60% mais texto, gabarito 61% → 70%, notas iguais ou maiores;
+    // em produto caiu (9,2 → 7,0: abriu com a data, sem fontes) e o produto segue com o formato de recomendação.
+    // Desliga com "escritorEnxuto": false
+    escritorEnxuto: cfg.escritorEnxuto !== false,
     // em notícia (pergunta que muda com o tempo), com a data de cada fonte: 5 perguntas × 4 rodadas, nota 8.9 → 9.6
     // (midterms 5.7 → 8.8, as outras iguais), +5 s; desliga com "cruzarNoticias": false
     cruzarNoticias: cfg.cruzarNoticias !== false,

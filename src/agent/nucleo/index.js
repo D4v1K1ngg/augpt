@@ -185,7 +185,11 @@ const PEDE_PESQUISA = /(?<![a-zà-ú])(pesquis\w*|procur\w*|busqu\w*|busca\w*|na
 // pedido de guia nunca é conversa (12/11, régua: "como faço para a bateria do meu android durar mais?" e "quais as melhores
 // táticas de PUBG?" saíram como bate-papo de 2 frases, sem pesquisa, numa rodada — e com nota 10 na outra)
 const PEDE_GUIA = /(?<![a-zà-ú])(como (fa[cç]o|fazer|posso|devo|melhorar|deixar|aumentar|diminuir|reduzir|otimizar|economizar|evitar|escolher|cuidar|configurar|instalar|limpar)|quais (s[aã]o )?(os |as )?(cuidados|dicas|t[aá]ticas|passos|melhores (formas|maneiras|jeitos|t[aá]ticas|dicas|pr[aá]ticas))|dicas?|t[aá]ticas?|passo a passo|cuidados|como [a-zà-ú]+(?:ar|er|ir) (?:o|a|os|as|meu|minha|melhor)|o que (?:eu )?(?:posso|devo|d[aá] (?:pra|para)) fazer|(?:devo|vale a pena|compensa) (?:usar|ativar|ligar|desligar|desativar|deixar)|(?:melhora|aumenta|ganh)[a-zà-ú]* [^?]{0,25}(?:desempenho|fps|performance))(?![a-zà-ú])/i;
-const ehConversa = (pergunta, j = {}) => (j.conversa === true || CONVERSA.test(String(pergunta || ''))) && !PEDE_GUIA.test(String(pergunta || '')) && j.produto !== true && !PISTA_DE_ATUAL.test(String(pergunta || '').replace(/(?<![a-zà-ú])(hoje|agora)(?![a-zà-ú])/gi, '')) && !PEDE_PESQUISA.test(String(pergunta || '')) && !/(?<![a-zà-ú])(not[ií]cias?|jornal|aconteceu|acontecendo|elei[cç][aã]o|jogo de ontem)(?![a-zà-ú])/i.test(String(pergunta || ''));
+// 15/11 (Davi: "qual é melhor, impressora 3D de filamento ou de resina?" virou 4 frases e uma pergunta de volta; o
+// Qwen sozinho, no Ollama, deu a comparação completa): o "conversa" do 9B só vale para o que não é pergunta sobre um
+// assunto — a opinião pessoal ("você acha que…", "me aconselha…") quem reconhece é a regra CONVERSA
+const PERGUNTA_SOBRE_ASSUNTO = /\?|^\s*(?:e\s+)?(?:qual|quais|como|quanto|quantos|quantas|onde|quando|por\s*que|porque|o que|existe|vale|devo|compensa|é melhor|e melhor|diferen[cç]a|me (?:explica|diz|fala))\b/i;
+const ehConversa = (pergunta, j = {}) => ((j.conversa === true && !PERGUNTA_SOBRE_ASSUNTO.test(String(pergunta || ''))) || CONVERSA.test(String(pergunta || ''))) && !PEDE_GUIA.test(String(pergunta || '')) && j.produto !== true && !PISTA_DE_ATUAL.test(String(pergunta || '').replace(/(?<![a-zà-ú])(hoje|agora)(?![a-zà-ú])/gi, '')) && !PEDE_PESQUISA.test(String(pergunta || '')) && !/(?<![a-zà-ú])(not[ií]cias?|jornal|aconteceu|acontecendo|elei[cç][aã]o|jogo de ontem)(?![a-zà-ú])/i.test(String(pergunta || ''));
 // conversa que o código reconhece sozinho (cumprimento ou as frases de conversa), sem perguntar ao modelo
 // — sem o modelo, quem barra produto é o código: nome com número (RTX 5070, S25, EM6L, iPhone 16) ou palavra de
 // compra ("você acha que a RTX 5070 vale a pena?" pesquisa)
@@ -1502,7 +1506,33 @@ ${ESTILO_DE_ASSISTENTE}
 - Não invente números, datas, nomes de modelos nem estatísticas: o que você não tem certeza, deixe de fora ou diga que pode variar.
 - Não cite fontes nem diga que pesquisou.`;
 
-function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal', atual = false, sobreOUsuario = '', capacidadesNaEscrita = '', preferencias = '', idioma = 'pt', conversa = false, explicacao = false }) {
+/*
+ * O escritor enxuto (15/11, revisão da estrutura com o Davi): o mesmo Qwen 3.5 9B, sozinho no Ollama, escreveu a
+ * comparação completa da impressora 3D; o AuGPT empilhava ~25 regras (5.700 letras) sobre ele, e as medições de
+ * novembro mostraram que cada regra a mais de escrita piora ou não muda. Aqui ficam só as essenciais — a busca, o
+ * filtro das fontes e as conferências de fatos (preços, contas, comunidade) continuam no código.
+ */
+function escritorEnxuto({ hoje, comFontes, produto = false, atual = false, preferencias = '', sobreOUsuario = '', idioma = 'pt' }) {
+  const lingua = idioma === 'en' ? 'inglês (en-US), mesmo com o material em português' : 'português do Brasil';
+  const regras = [
+    `Você é o AuGPT, um assistente que pesquisa na web. Responda em ${lingua}. Hoje é ${hoje}.`,
+    '- Responda à pergunta de forma completa e útil, como um bom assistente: organize do jeito que ficar mais claro (títulos, listas, tabelas, negrito) e no tamanho que a pergunta pede.',
+    comFontes
+      ? '- Use as fontes abaixo como base e cite cada informação com o número da fonte: [n]. Quando elas discordarem, diga; prefira a mais recente.'
+      : '- Responda com o que você sabe. O que pode ter mudado (preços, lançamentos, versões), diga que vale confirmar.',
+    '- Não invente números, preços, datas nem nomes: o que você não tem certeza, deixe de fora ou diga que não encontrou.',
+    atual ? '- A pergunta é sobre algo que muda com o tempo: o que as fontes antigas diziam não é a situação de hoje.' : '',
+    produto ? '- Se recomendar produtos, dê a cada um um título "#### N. Marca Modelo" (a tela mostra cada um como um cartão).' : '',
+  ].filter(Boolean);
+  const extras = [
+    preferencias ? `<preferencias_do_usuario>\n${preferencias}\n</preferencias_do_usuario>\nSiga essas preferências quando valerem para a pergunta; não cite este bloco como fonte.` : '',
+    sobreOUsuario ? `<sobre_o_usuario>\n${sobreOUsuario.slice(0, 4500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados.` : '',
+  ].filter(Boolean);
+  return [regras.join('\n'), ...extras].join('\n\n');
+}
+
+function sistemaDoEscritor({ hoje, comFontes, produto = false, tamanho = 'normal', atual = false, sobreOUsuario = '', capacidadesNaEscrita = '', preferencias = '', idioma = 'pt', conversa = false, explicacao = false, enxuto = false }) {
+  if (enxuto && !conversa) return escritorEnxuto({ hoje, comFontes, produto, atual, preferencias, sobreOUsuario, idioma });
   return `Você é o AuGPT, um assistente que pesquisa na web e escreve respostas completas, claras e bem explicadas, em ${idioma === 'en' ? 'INGLÊS (en-US): a resposta inteira em inglês, inclusive títulos, tabelas e cartões, mesmo com o material em português' : 'português do Brasil'}. Hoje é ${hoje}.${conversa || explicacao ? '' : TAMANHO_DA_RESPOSTA[tamanho] || ''}
 
 ${
@@ -2078,7 +2108,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   emit('redigindo', { fontes: usadas.length });
   const preferencias = typeof deps.preferencias === 'function' ? String((await Promise.resolve(deps.preferencias(ent.pergunta || pergunta)).catch(() => '')) || '') : '';
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa || ent.explicacao ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length, explicacao: ent.explicacao === true && !usadas.length })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: ent.produto, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa || ent.explicacao ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length, explicacao: ent.explicacao === true && !usadas.length, enxuto: deps.escritorEnxuto === true && !ent.produto })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
     // 30/10 (medido: ~5 s entre o fim da pesquisa e a 1ª palavra era o modelo lendo o material): das respostas
     // anteriores vai só o começo, sem a lista de fontes — o assunto da conversa fica, o texto inteiro não precisa
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
