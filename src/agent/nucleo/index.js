@@ -313,6 +313,70 @@ function opcoesPedidas(pergunta) {
 const PEDE_SOLUCAO = /\b(erro|error|problema|bug|falha|travou|como (resolvo|resolver|conserto|consertar|corrijo|corrigir|arrumo|arrumar|fa[cç]o)|por que|porque|pesquis\w*|procur\w*|busqu\w*|pre[cç]o|quanto custa)\b/i;
 const pedeATela = (pergunta) => PEDE_A_TELA.test(String(pergunta || '')) && !TELA_EM_GERAL.test(String(pergunta || ''));
 
+/*
+ * O modelo de decisão no núcleo (16/11, "Jev" — os modelos de decisão do Ollama, endpoint /v1/systemone): nos 215
+ * pedidos reais rotulados, o tev1 4B (+ regras) acertou "é produto?" 98% e "é explicação?" 97%, contra 89% e 88% do
+ * entendimento do 9B; "precisa de web?" 87% contra 75%. Ele roda em paralelo com o entendimento e, quando confiante,
+ * decide o caminho; o 9B continua montando as buscas. As perguntas são as da avaliação (avaliacao/decisores.js).
+ */
+const PERGUNTAS_DO_DECISOR = {
+  rota: {
+    type: 'choice',
+    instructions: 'The state is a message (in Portuguese) sent by a user to an AI assistant. Which kind of request is it?',
+    criteria: {
+      produto: 'Choose, compare, evaluate or get a recommendation about products to buy (best headphones for a game, A vs B, is product X good for Y, tell me about product X)',
+      guia: 'How to get better at something: practical tips, tactics, strategy, training, step-by-step tutorial',
+      explicacao: 'Explain a concept, how something works, why something happens, a story, history or biography',
+      site: 'Act on a specific website: log in, click buttons, fill a form, download something from the page',
+      tarefa: 'Anything else: prices or price history, news and game updates, weather, exam questions to solve, create or read files and documents, opinions, analysis, follow-up requests',
+    },
+  },
+  precisa_web: {
+    type: 'noul',
+    instructions: 'Does answering this message require up-to-date or very specific information from the internet that a small offline language model would not reliably know?',
+  },
+};
+
+async function decisaoDoDecisor(pergunta, { decidir, modelo, signal } = {}) {
+  if (typeof decidir !== 'function' || !modelo) return null;
+  try {
+    const a = await decidir({ model: modelo, state: `Mensagem do usuário para um assistente de IA:\n"${String(pergunta || '').slice(0, 1500)}"`, questions: PERGUNTAS_DO_DECISOR, timeout: 6000, signal });
+    return {
+      rota: typeof a?.rota?.choice === 'string' ? a.rota.choice : null,
+      rotaConf: typeof a?.rota?.confidence === 'number' ? a.rota.confidence : 0,
+      web: typeof a?.precisa_web?.noul === 'number' ? a.precisa_web.noul : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** A decisão confiante do decisor sobre o entendimento do 9B. Devolve { ent, mudou: [o que mudou] }. */
+function comDecisao(ent, d, { limiar = 0.6, webSim = 0.8, webNao = 0.2 } = {}) {
+  if (!d || !ent) return { ent, mudou: [] };
+  const novo = { ...ent };
+  const mudou = [];
+  if (d.rota && d.rotaConf >= limiar && d.rota !== 'site') {
+    const produto = d.rota === 'produto';
+    if (produto !== Boolean(novo.produto)) {
+      novo.produto = produto;
+      mudou.push(`produto: ${produto ? 'sim' : 'não'}`);
+    }
+    if (['produto', 'guia', 'explicacao'].includes(d.rota) && novo.conversa) {
+      novo.conversa = false;
+      mudou.push('não é conversa');
+    }
+  }
+  if (typeof d.web === 'number' && !novo.conversa) {
+    const buscar = d.web >= webSim ? true : d.web <= webNao && !novo.produto && !novo.atual ? false : null;
+    if (buscar !== null && buscar !== Boolean(novo.precisaBuscar)) {
+      novo.precisaBuscar = buscar;
+      mudou.push(buscar ? 'pesquisa' : 'sem pesquisa');
+    }
+  }
+  return { ent: novo, mudou };
+}
+
 function lerEntendimento(texto, pergunta, { comImagem = false } = {}) {
     // questão de prova de direito pesquisa sempre (30/10: sem fontes, o modelo citou artigo de lei que parecia inventado)
     const provaDeDireito = QUESTAO_DE_PROVA(String(pergunta || '')) && /\b(lei|leis|art(igo)?s?\.?\s*\d|estatuto|oab|c[oó]digo (civil|penal|de processo|de defesa)|constitui[cç][aã]o|jurisprud\w*|s[uú]mula|stf|stj)\b/i.test(String(pergunta || ''));
@@ -2039,7 +2103,16 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   // conversa óbvia (29/10): "e aí, tudo bem?", "estou cansado", "o que você acha de…" — o código já sabe, e a
   // chamada do entendimento custava 2–3 s antes da primeira palavra. O JSON vazio passa pelas mesmas regras.
   const conversaObvia = !imagens.length && conversaPeloCodigo(pergunta);
+  // o modelo de decisão (16/11), em paralelo com o entendimento
+  const decisaoPrometida = !conversaObvia && !imagens.length ? decisaoDoDecisor(pergunta, { decidir: deps.decidir, modelo: deps.decisorDoNucleo, signal: deps.signal }) : null;
   const ent = conferirEntendimento(lerEntendimento(conversaObvia ? '{"precisa_buscar": false, "conversa": true}' : (await chamar([{ role: 'user', content: pedidoDeEntendimento({ pergunta: perguntaComImagem, conversa, hoje }) }], { json: true, numPredict: 300 })).content, pergunta, { comImagem: imagens.length > 0 }), { pergunta: perguntaComImagem, conversa });
+  if (decisaoPrometida) {
+    const { ent: decidido, mudou } = comDecisao(ent, await decisaoPrometida);
+    if (mudou.length) {
+      Object.assign(ent, decidido);
+      emit('aviso', { texto: `o modelo de decisão (${deps.decisorDoNucleo}) mudou o caminho: ${mudou.join(', ')}` });
+    }
+  }
   // olhar a tela (27/10): pediu e não veio imagem — o AuGPT fotografa a tela inteira e refaz com ela
   if (ent.sobreATela && !imagens.length && typeof deps.capturarTela === 'function') {
     emit('ferramenta', { nome: 'olhar_tela', argumentos: { motivo: 'o pedido é sobre o que está na sua tela' }, risco: 'leitura' });
@@ -2284,4 +2357,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

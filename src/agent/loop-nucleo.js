@@ -187,6 +187,11 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // em produto caiu (9,2 → 7,0: abriu com a data, sem fontes) e o produto segue com o formato de recomendação.
     // Desliga com "escritorEnxuto": false
     escritorEnxuto: cfg.escritorEnxuto !== false,
+    // 16/11: o modelo de decisão do Ollama ("Jev": tev1 4B, 0,2 s na placa) decide o caminho junto com o entendimento.
+    // Nos 215 pedidos de outubro decidia melhor que o 9B (produto 98% × 89%); na régua de 16/11 (8 perguntas) mudou 1
+    // caminho (a impressora 3D virou produto: 26 → 55 s, nota igual) — desligado; liga com "decisorDoNucleo": "tev1"
+    decisorDoNucleo: String(cfg.decisorDoNucleo || '').trim(),
+    decidir: (o) => ollama.decidir({ host: cfg.host, keepAlive: '30m', ...o }),
     // em notícia (pergunta que muda com o tempo), com a data de cada fonte: 5 perguntas × 4 rodadas, nota 8.9 → 9.6
     // (midterms 5.7 → 8.8, as outras iguais), +5 s; desliga com "cruzarNoticias": false
     cruzarNoticias: cfg.cruzarNoticias !== false,
