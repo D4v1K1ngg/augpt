@@ -1585,7 +1585,7 @@ FORMATO (pedido de produto — uma recomendação de quem entende, não uma fich
   **Atenção:** o ponto fraco ou o cuidado que as fontes e quem usa apontam (se ninguém criticou, diga isso).
   **Na comunidade:** o que quem usa no Reddit e nos fóruns relata, com as suas palavras, citando a fonte. Não cole o comentário.
 - Com 2 ou mais opções: "### ⚖️ [1ª opção] ou [2ª opção]: qual eu escolheria" — uma tabela com os tópicos de "O que importa" nas linhas e as duas primeiras opções nas colunas, e 2 ou 3 frases com a escolha e o porquê.
-- Uma ressalva honesta em caixa: "> ⚠️ **Ressalva:** …" — o que as fontes NÃO provam (ex.: impressões de outros jogos, sem teste controlado), em 1 ou 2 frases.
+- Uma ressalva honesta em caixa: "> ⚠️ **Ressalva:** …" — o que as fontes NÃO provam sobre ESTE pedido (o que ninguém mediu ou testou; escreva com o assunto da pergunta, sem copiar exemplos), em 1 ou 2 frases.
 - Termine com "### Para acertar na escolha": 1 ou 2 perguntas curtas que mudariam a recomendação (orçamento, o que é mais importante, o que o usuário já tem).`;
 
 const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="${String(f.titulo || dominio(f.url)).replace(/"/g, "'")}" site="${dominio(f.url)}"${f.data ? ` data="${dataBr(f.data)}"` : f.recente ? ' data="último mês"' : ''}>\n${f.conteudo}\n</fonte>`).join('\n');
@@ -1636,6 +1636,15 @@ function conferirResposta(texto, { numeros = [], material = '', produto = false,
 
   const removidos = [];
   if (produto) {
+    // 16/11 (no app: "resina ou filamento?" perdeu o cartão inteiro da resina — "Impressora Resina (Ex: Elegoo Mars 4
+    // Ultra…)": os exemplos não estavam nas fontes, a resina estava): o título sem os parênteses vale; os exemplos
+    // inventados saem do título, o cartão fica
+    const semParenteses = (nome) => nome.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    t = t.replace(/^(#### \d+\.\s*)(.+)$/gm, (linha, inicio, titulo) => {
+      const nome = titulo.replace(/[*_[\]]/g, '').trim();
+      const base = semParenteses(nome);
+      return base !== nome && !tituloCita(material, nome) && tituloCita(material, base) ? `${inicio}${base}` : linha;
+    });
     const partes = t.split(/(?=^#### \d+\.)/m);
     const cartoes = partes.filter((x) => /^#### \d+\./.test(x));
     // o cartão termina no próximo título que não é cartão (## ou ###) ou num ---

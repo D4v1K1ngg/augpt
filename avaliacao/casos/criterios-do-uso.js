@@ -131,3 +131,17 @@ module.exports.push({
     ];
   },
 });
+module.exports.push({
+  nome: 'conferência dos cartões: categoria com exemplos inventados entre parênteses ("Impressora Resina (Ex: Elegoo…)") fica, sem os exemplos; cartão sem nada nas fontes ainda sai; a ressalva não traz exemplo de outro assunto',
+  tipo: 'unidade',
+  executar() {
+    const t = ['Intro.', '', '#### 1. Impressora FDM (Ex: Ender 3 V3)', 'Filamento.', '', '#### 2. Impressora Resina (Ex: Elegoo Mars 4 Ultra)', 'Resina.', '', '#### 3. Marca Inventada X9', 'Nada.', '', '### Comparação', 'fim'].join('\n');
+    const r = nucleo.conferirResposta(t, { material: 'impressora de resina e impressora FDM com filamento', produto: true });
+    const fonte = require('fs').readFileSync(require.resolve('../../src/agent/nucleo'), 'utf8');
+    return [
+      /#### 1\. Impressora FDM\n/.test(r.texto) && /#### 2\. Impressora Resina\n/.test(r.texto) && !/Elegoo|Ender/.test(r.texto) || r.texto,
+      !/#### \d\. Marca Inventada/.test(r.texto) && /Tirei 1 opção.*Marca Inventada X9/.test(r.texto) || 'o cartão sem nada nas fontes sai, com aviso',
+      !/outros jogos, sem teste controlado/.test(fonte) || 'o exemplo do fone de PUBG saiu da ressalva',
+    ];
+  },
+});
