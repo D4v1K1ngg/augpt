@@ -46,12 +46,32 @@ function pintarConversas() {
 
   const idAtivo = modo === 'agente' ? agente.idConversa : chat.idConversa;
 
-  for (const c of visiveis) {
+  // 16/11 (visual novo, a partir do protótipo do Davi): as fixadas no topo e o resto agrupado pela data da última troca
+  const grupoDe = (c) => {
+    if (c.fixada) return 'Fixadas';
+    const dia = (d) => new Date(new Date(d).toDateString()).getTime();
+    const dias = Math.round((dia(Date.now()) - dia(c.atualizadoEm || c.criadoEm || Date.now())) / 86400000);
+    return dias <= 0 ? 'Hoje' : dias === 1 ? 'Ontem' : dias <= 7 ? 'Últimos 7 dias' : dias <= 30 ? 'Últimos 30 dias' : 'Anteriores';
+  };
+  const ordemDosGrupos = ['Fixadas', 'Hoje', 'Ontem', 'Últimos 7 dias', 'Últimos 30 dias', 'Anteriores'];
+  const ordenadas = [...visiveis].sort((a, b) => ordemDosGrupos.indexOf(grupoDe(a)) - ordemDosGrupos.indexOf(grupoDe(b)));
+  let grupoAtual = null;
+
+  for (const c of ordenadas) {
+    const grupo = grupoDe(c);
+    if (grupo !== grupoAtual) {
+      grupoAtual = grupo;
+      const cab = document.createElement('li');
+      cab.className = 'grupo-conversas';
+      cab.textContent = typeof tr === 'function' ? tr(grupo) : grupo;
+      el.lista.appendChild(cab);
+    }
     const li = document.createElement('li');
     li.className = `item-conversa${c.id === idAtivo ? ' ativa' : ''}${
       historico.selecao.has(c.id) ? ' marcada' : ''
-    }`;
+    }${c.fixada ? ' fixada' : ''}`;
     li.dataset.id = c.id;
+    li.title = `${c.titulo}\n${quando(c.atualizadoEm)} · ${c.trocas} ${c.trocas === 1 ? 'troca' : 'trocas'}`;
     li.innerHTML = `
       ${historico.modoSelecao ? `<input type="checkbox" class="marcador" ${historico.selecao.has(c.id) ? 'checked' : ''} />` : ''}
       <div class="item-texto">
@@ -110,6 +130,7 @@ let menuAlvo = null;
 function abrirMenu(conversa, botao) {
   const menu = $('menuConversa');
   menuAlvo = conversa;
+  $('menuFixar').textContent = conversa.fixada ? 'Desafixar' : 'Fixar no topo';
   menu.hidden = false;
   const r = botao.getBoundingClientRect();
   const altura = menu.offsetHeight || 190;
@@ -133,6 +154,10 @@ $('menuConversa').addEventListener('click', async (e) => {
   fecharMenu();
 
   if (acao === 'abrir') return abrirConversa(alvo.id);
+  if (acao === 'fixar') {
+    await api.chats.pin(alvo.id, !alvo.fixada);
+    return carregarConversas();
+  }
   if (acao === 'selecionar') return entrarEmSelecao(alvo.id);
   if (acao === 'exportar') return void api.chats.export(alvo.id);
 
@@ -181,6 +206,21 @@ $('btnSelecionar').addEventListener('click', () => (historico.modoSelecao ? sair
 $('buscaConversa').addEventListener('input', (e) => {
   historico.filtro = e.target.value.trim();
   pintarConversas();
+});
+// "/" leva à busca de conversas (16/11), de qualquer lugar fora de um campo de texto; Esc limpa e sai
+document.addEventListener('keydown', (e) => {
+  if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+  const alvo = e.target;
+  if (alvo?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+  e.preventDefault();
+  $('buscaConversa').focus();
+});
+$('buscaConversa').addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  e.target.value = '';
+  historico.filtro = '';
+  pintarConversas();
+  e.target.blur();
 });
 
 /* abrir e criar */

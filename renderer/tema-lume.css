@@ -157,4 +157,52 @@ body { font-family: var(--sans); background: var(--void); }
 .composer { padding-bottom: 16px; }
 
 /* ------------------------------ a barra lateral (só cores; a estrutura nova é a fase 2) ------------------------------ */
-.lateral { background: var(--rail); }
+/* ------------------------------ o painel esquerdo (16/11, fase 2) ------------------------------ */
+.lateral { background: var(--rail); border-right: 1px solid var(--line); }
+
+/* os atalhos: mais baixos e quietos, para sobrar espaço às conversas */
+.nav-principal { gap: 1px; }
+.nav-item { padding: 6px 10px; font-size: 13.5px; border-radius: 10px; color: var(--muted); border: 0; }
+.nav-item:hover { background: var(--hover); color: var(--text-forte); }
+.nav-item.ativo { background: var(--hover); color: var(--text-forte); box-shadow: none; border: 0; padding-left: 10px; }
+.nav-item .nav-icone { width: 17px; height: 17px; }
+
+/* "Nova conversa": botão cheio e discreto */
+.btn-nova { border-radius: 12px; border: 1px solid var(--line-forte); background: var(--panel); color: var(--text-forte); font-size: 14px; font-weight: 500; height: 40px; }
+.btn-nova:hover { background: var(--hover); border-color: var(--line-viva); color: var(--text-forte); }
+.btn-icone-quadrado { border-radius: 12px; }
+
+/* a busca, com o atalho "/" no canto */
+.busca-conversas { position: relative; }
+.busca-conversas input {
+  height: 38px; padding: 0 36px 0 34px; border-radius: 12px; font-size: 14px;
+  background: var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a69c8c' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 11px center;
+  border: 1px solid var(--line-forte); color: var(--text-forte);
+}
+.busca-conversas input:focus { border-color: color-mix(in srgb, var(--gold) 45%, var(--line-forte)); }
+.atalho-busca {
+  position: absolute; right: 9px; top: 50%; transform: translateY(-50%); pointer-events: none;
+  min-width: 20px; padding: 0 5px; border: 1px solid var(--line-viva); border-radius: 6px;
+  font: 500 11px/18px var(--sans); color: var(--muted); text-align: center;
+}
+.busca-conversas input:focus + .atalho-busca, .busca-conversas input:not(:placeholder-shown) + .atalho-busca { display: none; }
+
+/* os grupos por data */
+.conversas .grupo-conversas {
+  list-style: none; padding: 12px 10px 4px; font-size: 11px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--fraco); cursor: default;
+}
+.conversas .grupo-conversas:first-child { padding-top: 4px; }
+
+/* cada conversa: só o título, numa linha; a aberta com a barrinha dourada */
+.item-conversa { position: relative; padding: 5px 4px 5px 12px; min-height: 34px; border: 0; border-radius: 10px; }
+.item-conversa:hover { background: var(--hover); }
+.item-conversa.ativa { background: var(--hover); border: 0; }
+.item-conversa.ativa::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 3px; background: var(--gold); }
+.item-conversa .item-titulo { font-size: 14px; color: var(--text); }
+.item-conversa.ativa .item-titulo { color: var(--text-forte); font-weight: 500; }
+.item-conversa .item-meta { display: none; }
+/* o alfinete fica no canto, fora do título (que é cortado com "…") */
+.item-conversa.fixada::after { content: "📌"; flex: none; order: 3; font-size: 11px; opacity: .65; margin-right: 4px; }
+.item-conversa .tres-pontos { opacity: 0; }
+.item-conversa:hover .tres-pontos, .item-conversa:focus-within .tres-pontos { opacity: 1; }

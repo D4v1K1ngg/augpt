@@ -55,6 +55,7 @@ class Conversas {
             criadoEm: dados.criadoEm,
             atualizadoEm: dados.atualizadoEm || dados.criadoEm,
             trocas: (dados.mensagens || []).filter((m) => m.role === 'user').length,
+            fixada: dados.fixada === true,
           };
         } catch {
           return null; // arquivo corrompido: some da lista, não quebra o app
@@ -85,6 +86,8 @@ class Conversas {
       criadoEm: anterior?.criadoEm || agora,
       atualizadoEm: agora,
       mensagens: mensagens.slice(-LIMITE_MENSAGENS),
+      // fixada no topo da lateral (16/11): a conversa continua fixada quando ganha resposta nova
+      ...(anterior?.fixada ? { fixada: true } : {}),
     };
 
     fs.writeFileSync(this.caminho(identificador), JSON.stringify(conversa, null, 2), 'utf8');
@@ -123,6 +126,16 @@ class Conversas {
     const conversa = id ? this.ler(id) : null;
     if (!conversa) return null;
     conversa.tarefa = tarefa || null;
+    fs.writeFileSync(this.caminho(id), JSON.stringify(conversa, null, 2), 'utf8');
+    return conversa;
+  }
+
+  /** Fixa (ou desfixa) a conversa no topo da lateral (16/11) — não muda a data, só o campo. */
+  fixar(id, sim = true) {
+    const conversa = this.ler(id);
+    if (!conversa) return null;
+    if (sim) conversa.fixada = true;
+    else delete conversa.fixada;
     fs.writeFileSync(this.caminho(id), JSON.stringify(conversa, null, 2), 'utf8');
     return conversa;
   }

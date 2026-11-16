@@ -209,6 +209,7 @@ contextBridge.exposeInMainWorld('augpt', {
     read: (id) => ipcRenderer.invoke('chats:read', id),
     save: (conversa) => ipcRenderer.invoke('chats:save', conversa),
     rename: (id, titulo) => ipcRenderer.invoke('chats:rename', { id, titulo }),
+    pin: (id, sim) => ipcRenderer.invoke('chats:pin', { id, sim }),
     remove: (ids) => ipcRenderer.invoke('chats:delete', ids),
     export: (id) => ipcRenderer.invoke('chats:export', id),
     // Item 2 da análise comparativa (2026-09-21, "comando manual de

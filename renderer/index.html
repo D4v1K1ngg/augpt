@@ -254,7 +254,8 @@
     </div>
 
     <div class="busca-conversas">
-      <input type="text" id="buscaConversa" placeholder="Buscar conversa…" />
+      <input type="text" id="buscaConversa" placeholder="Buscar conversas" />
+      <kbd class="atalho-busca" title="Aperte / para buscar">/</kbd>
     </div>
 
     <div class="barra-selecao" id="barraSelecao" hidden>
@@ -1466,6 +1467,7 @@
 
 <div class="menu-flutuante" id="menuConversa" hidden>
   <button data-acao="abrir">Abrir</button>
+  <button data-acao="fixar" id="menuFixar">Fixar no topo</button>
   <button data-acao="renomear">Renomear</button>
   <button data-acao="exportar">Exportar .md</button>
   <!-- Item 2 da análise comparativa (2026-09-21, "comando manual de

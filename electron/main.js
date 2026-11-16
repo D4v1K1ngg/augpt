@@ -2044,6 +2044,7 @@ ipcMain.handle('remoto:novoCodigo', () => {
   return estadoDoRemoto();
 });
 ipcMain.handle('chats:rename', (_e, { id, titulo }) => conversas.renomear(id, titulo));
+ipcMain.handle('chats:pin', (_e, { id, sim }) => conversas.fixar(id, sim !== false));
 ipcMain.handle('chats:delete', (_e, ids) =>
   Array.isArray(ids) ? conversas.excluirVarias(ids) : conversas.excluir(ids)
 );
