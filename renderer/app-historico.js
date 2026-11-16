@@ -224,6 +224,21 @@ async function abrirConversa(id) {
   pintarConversas();
 }
 
+/**
+ * O modelo que escreveu a resposta, no rodapé dela (16/11, Davi comparando modelos na mesma pergunta: a conversa
+ * salva não dizia qual modelo respondeu). `alvo` é o corpo da resposta; a linha vai logo depois dele.
+ */
+function marcarModelo(alvo, modelo) {
+  if (!alvo || !modelo) return;
+  const caixa = alvo.parentElement || alvo;
+  caixa.querySelector(':scope > .msg-modelo')?.remove();
+  const linha = document.createElement('div');
+  linha.className = 'msg-modelo';
+  linha.textContent = `modelo: ${typeof nomeVisivel === 'function' ? nomeVisivel(modelo) : modelo}`;
+  linha.title = modelo;
+  caixa.appendChild(linha);
+}
+
 /** Reconstrói a bolha de uma conversa salva. O raciocínio não é guardado. */
 function restaurarTurno(m) {
   const div = document.createElement('div');
@@ -240,6 +255,7 @@ function restaurarTurno(m) {
     corpo.innerHTML = window.md.render(m.content);
     window.md.montarGraficos(corpo);
     window.botaoDeAudio?.(corpo, m.content);
+    marcarModelo(corpo, m.modelo);
   }
   el.aMensagens.appendChild(div);
 }

@@ -234,6 +234,20 @@ module.exports = [
 
   /* ---------------- recomendação, comparação e preço (sem resposta única) ---------------- */
   {
+    // 16/11 (Davi, 11 rodadas com vários modelos: as boas leram um tópico de fórum e trouxeram EM6L, Kiwi Ears, Moondrop;
+    // as ruins, só listas — JBL, Superlux, WAAW)
+    id: 'fones-pubg-recomendar',
+    tipo: 'produto',
+    pedido: 'Poderia me recomendar os melhores fones intra auriculares para se jogar pubg ?',
+    criterios: [
+      'recomenda fones intra-auriculares com marca e modelo (não headsets nem fones de música genéricos)',
+      'justifica com o que importa em jogo de tiro (ouvir passos, posicionamento, palco sonoro, separação), sem dizer que graves fortes ajudam a ouvir passos',
+      'cita o que a comunidade (Reddit ou fórum) recomenda',
+      'deixa claro qual é a primeira recomendação',
+    ],
+    checagens: checagensDaResposta(),
+  },
+  {
     id: 'fones-pubg',
     tipo: 'produto',
     pedido: 'Me recomende um top 5 melhores fones intra auriculares para se jogar pubg de pc',

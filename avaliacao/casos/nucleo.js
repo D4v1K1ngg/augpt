@@ -165,7 +165,8 @@ module.exports = [
       return [
         ferramentas[0] === 'buscar_na_comunidade' || `ferramentas do produto: ${ferramentas}`,
         /use buscar_na_comunidade pelo menos uma vez/.test(sistemaDaPesquisa) || 'o pesquisador é instruído a usar a comunidade',
-        reg.comunidade.join() === 'fone dunu titan s' || `garantia: busca na comunidade feita pelo código: ${reg.comunidade}`,
+        // 16/11: com menos de 2 tópicos lidos, o código busca de novo (uma vez)
+        reg.comunidade[0] === 'fone dunu titan s' && reg.comunidade.length <= 3 || `garantia: busca na comunidade feita pelo código: ${reg.comunidade}`,
         reg.lidas.filter((u) => /reddit|clubedohardware/.test(u)).length === 2 || `garantia: 2 tópicos lidos: ${reg.lidas}`,
         /comunidade/.test(sistemaDaEscrita) && /#### 1\. Marca Modelo/.test(sistemaDaEscrita) && /\*\*Na comunidade:\*\*/.test(sistemaDaEscrita) || 'a escrita pede os cartões',
         r.produto === true || 'o resultado diz que é produto (o agente põe as fotos nos cartões)',

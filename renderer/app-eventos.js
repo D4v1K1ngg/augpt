@@ -419,7 +419,9 @@ const manipuladores = {
   concluido({ resumo, iteracoes }) {
     const t = agente.turno;
     encerrarTurno();
-    agente.conversa.push({ role: 'assistant', content: resumo });
+    // o modelo que respondeu fica guardado na mensagem e aparece no rodapé dela (16/11)
+    const modelo = $('modelo')?.value || '';
+    agente.conversa.push({ role: 'assistant', content: resumo, ...(modelo ? { modelo } : {}) });
     salvarConversa('agente');
     if (!t) return;
     t.resposta.hidden = false;
@@ -427,6 +429,7 @@ const manipuladores = {
     t.resposta.innerHTML = window.md.render(resumo); // troca o texto em streaming pelo definitivo
     window.md.montarGraficos(t.resposta);
     window.botaoDeAudio?.(t.resposta, resumo);
+    marcarModelo(t.resposta, modelo);
     // Painel "Arquivos" da lateral direita (fase 2 da reforma visual) —
     // mesmos dados do cartão de anexo abaixo, só que acumulados pela
     // conversa inteira em vez de só este turno.

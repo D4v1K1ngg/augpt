@@ -913,12 +913,26 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   // Esse SSD vale a pena?" para o Dunu Titan S, a garantia leu, e a resposta comentou o tópico de SSD)
   const citaAssunto = (f) => !assuntos.length || assuntos.some((a) => tituloCita(`${f.titulo} ${f.resumo}`, a));
   // garantia: pedido de produto sem a comunidade lida — o código busca e lê os tópicos que faltam
-  const garantirComunidade = async () => {
-    if (!comComunidade || signal?.aborted) return;
-    if (!fontes.some((f) => f.comunidade)) await executarBusca([pergunta], { comunidade: true });
+  // 16/11 (Davi, 11 rodadas da mesma pergunta de fone: as boas leram um tópico de fórum, as ruins só listas): a busca
+  // na comunidade usa a consulta curta (a pergunta inteira, com "poderia me recomendar…", achava pouco), e se depois
+  // das leituras faltar tópico lido, busca de novo e lê mais — uma vez
+  const curta = consultaCurta(pergunta);
+  const lerComunidade = async () => {
     const lidos = fontes.filter((f) => f.comunidade && f.trechos.length).length;
     const faltam = fontes.filter((x) => x.comunidade && !x.trechos.length && citaAssunto(x)).slice(0, Math.max(0, regras.comunidade - lidos));
     await Promise.all(faltam.map((f) => executarLeitura({ fonte: f.n, foco: 'o que quem usa recomenda, elogia e critica' }, { garantia: true })));
+  };
+  let comunidadeDeNovo = false;
+  const garantirComunidade = async () => {
+    if (!comComunidade || signal?.aborted) return;
+    if (!fontes.some((f) => f.comunidade)) await executarBusca([curta], { comunidade: true });
+    await lerComunidade();
+    const lidos = fontes.filter((f) => f.comunidade && f.trechos.length).length;
+    if (lidos < regras.comunidade && !comunidadeDeNovo && !signal?.aborted) {
+      comunidadeDeNovo = true;
+      await executarBusca([`${curta} recomendação`, curta.split(' ').slice(0, 5).join(' ')], { comunidade: true, porSite: 6 });
+      await lerComunidade();
+    }
   };
   /*
    * Critérios antes dos produtos (14/11, comparação com o ChatGPT no "melhor fone para PUBG competitivo": ele começou
@@ -1021,7 +1035,10 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     // da TP-Link só aparecia quando o buscador colaborava): a pergunta cita a marca → uma busca "site:" junto das
     // primeiras, e a página oficial que vier é lida sempre
     const doFabricante = oficiais.length && modo !== 'rapido' ? [`site:${oficiais[0]} ${buscasIniciais[0]}`] : [];
-    const resultado = await executarBusca([...buscasIniciais, ...doFabricante], { maximo: 3 + doFabricante.length });
+    // em produto, uma busca feita pelo código entra sempre (16/11): a mesma em toda rodada e em todo modelo — as do
+    // entendimento mudam a cada vez, e com elas as páginas
+    const fixa = produto && curta && !buscasIniciais.some((b) => b.toLowerCase() === curta.toLowerCase()) ? [curta] : [];
+    const resultado = await executarBusca([...buscasIniciais, ...fixa, ...doFabricante], { maximo: 3 + fixa.length + doFabricante.length });
     const oficial = doFabricante.length ? fontes.find((f) => doSiteOficial(f.url, oficiais) && !f.trechos.length) : null;
     if (oficial && !signal?.aborted) await executarLeitura({ fonte: oficial.n, foco: pergunta }, { garantia: true });
     // 5/11 (registros: produto levava 5 rodadas e a 1ª palavra saía entre 38 e 59 s): em pedido de produto o
@@ -1269,6 +1286,17 @@ async function anotarPaginas(pergunta, usadas, { chamar, signal } = {}) {
  * grupos numa chamada curta; o CÓDIGO conta em quantos sites diferentes cada ponto aparece (3 páginas do mesmo site
  * contam 1). O escritor recebe o que é confirmado, o que só um site diz e onde as fontes divergem. '' quando não rende.
  */
+/**
+ * A pergunta sem a cortesia e as palavras vazias (16/11): "Poderia me recomendar os melhores fones intra auriculares
+ * para se jogar pubg ?" → "melhores fones intra auriculares jogar pubg". Busca fixa (a mesma em toda rodada) e
+ * consulta da comunidade ("site:reddit.com …" com a pergunta inteira achava pouco).
+ */
+const VAZIAS = new Set('a o as os um uma uns umas de do da dos das em no na nos nas para pra pro por com sem se que qual quais quanto quantos é e ou eu me mim meu minha meus minhas voce você vc seu sua isso esse essa este esta aqui ai aí poderia pode podes poderiam consegue conseguiria queria quero gostaria preciso favor recomendar recomende recomenda indicar indique indica sugerir sugira sugere dizer diga diz falar fale fala saber sabe algum alguma alguns algumas tipo coisa'.split(' '));
+function consultaCurta(pergunta) {
+  const palavras = String(pergunta || '').toLowerCase().replace(/[?!.,;:"“”()]/g, ' ').split(/\s+/).filter((p) => p && !VAZIAS.has(p));
+  return palavras.slice(0, 10).join(' ').trim();
+}
+
 /** Os critérios do uso para o escritor (14/11, pesquisar/buscarCriterios): curto — organiza a resposta, não é mais material. */
 function blocoDosCriterios(criterios, recomendados = []) {
   if (!Array.isArray(criterios) || !criterios.length) return '';
@@ -2357,4 +2385,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
