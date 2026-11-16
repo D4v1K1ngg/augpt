@@ -56,8 +56,13 @@ function pintarConversas() {
   const ordemDosGrupos = ['Fixadas', 'Hoje', 'Ontem', 'Últimos 7 dias', 'Últimos 30 dias', 'Anteriores'];
   const ordenadas = [...visiveis].sort((a, b) => ordemDosGrupos.indexOf(grupoDe(a)) - ordemDosGrupos.indexOf(grupoDe(b)));
   let grupoAtual = null;
+  // 16/11 (Davi): no máximo 10 de cada vez; "⋯" mostra mais 10. Na busca, todas (e a conversa aberta sempre aparece)
+  historico.limite ||= 10;
+  const limite = filtro ? Infinity : Math.max(historico.limite, ordenadas.findIndex((c) => c.id === idAtivo) + 1);
+  const mostradas = ordenadas.slice(0, limite);
+  const restam = ordenadas.length - mostradas.length;
 
-  for (const c of ordenadas) {
+  for (const c of mostradas) {
     const grupo = grupoDe(c);
     if (grupo !== grupoAtual) {
       grupoAtual = grupo;
@@ -97,6 +102,18 @@ function pintarConversas() {
     });
 
     el.lista.appendChild(li);
+  }
+
+  if (restam > 0) {
+    const mais = document.createElement('li');
+    mais.className = 'mais-conversas';
+    mais.innerHTML = `<button type="button" title="Mostrar mais conversas"><span aria-hidden="true">⋯</span> mais ${Math.min(10, restam)} de ${restam}</button>`;
+    mais.querySelector('button').addEventListener('click', (e) => {
+      e.stopPropagation();
+      historico.limite += 10;
+      pintarConversas();
+    });
+    el.lista.appendChild(mais);
   }
 }
 
@@ -1228,7 +1245,9 @@ $('btnLimparExec').addEventListener('click', async () => {
     const ollama = $('statusOllama');
     const modelos = $('btnModelos');
     const pesquisa = $('modoDePesquisa').value === 'investigacao' ? tr('investigação {n} min', { n: config.minutosDeInvestigacao || 10 }) : $('modoDePesquisa').value === 'conversa' ? tr('só conversar') : tr('pesquisa {modo}', { modo: curto($('modoDePesquisa')) });
-    const partes = [$('modelo').value ? curto($('modelo')) : tr('sem modelo'), pesquisa, curto($('modoResposta'))].filter(Boolean);
+    // 16/11: o modelo mudou para a caixa de texto — no topo fica só o estado (sem modelo, o aviso continua)
+    window.espelharModeloNaCaixa?.();
+    const partes = [$('modelo').value ? '' : tr('sem modelo'), pesquisa, curto($('modoResposta'))].filter(Boolean);
     const desligado = ollama.classList.contains('offline');
     // modo simples (30/10, análise do novato): "qwen3.5:9b · pesquisa automático · direta" vira português comum
     const simples = document.body.classList.contains('modo-simples');

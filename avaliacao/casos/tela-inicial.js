@@ -2,7 +2,7 @@
 
 /**
  * A tela inicial (1/11, a partir da maquete do Davi, nas cores e temas do AuGPT): o orbe "Au", o título com o nome,
- * os 4 atalhos e os modos; o fundo de ondas só na tela inicial, parado com o modelo trabalhando, e a opção em Ajustes.
+ * os 10 atalhos e os modos; o fundo de ondas só na tela inicial, parado com o modelo trabalhando, e a opção em Ajustes.
  */
 
 const fs = require('fs');
@@ -12,14 +12,14 @@ const ler = (f) => fs.readFileSync(path.join(__dirname, '../..', f), 'utf8').rep
 
 module.exports = [
   {
-    nome: 'tela inicial: o orbe, o título, os 4 atalhos (pesquisar, comprar, seus arquivos, dia a dia) e os modos de pesquisa; o carrossel saiu; o fundo de ondas atrás da tela do Agente',
+    nome: 'tela inicial: o orbe, o título, os 10 atalhos (pesquisar, comprar, seus arquivos, dia a dia, criar imagem e áudio, buscar imagens e parecidas, YouTube, notícias) e os modos de pesquisa; o carrossel saiu; o fundo de ondas atrás da tela do Agente',
     tipo: 'unidade',
     executar() {
       const html = ler('renderer/index.html');
       const inicio = html.slice(html.indexOf('<div class="inicio" id="inicioAgente">'), html.indexOf('<!-- Fase 2 (facilidade de uso'));
-      const atalhos = [...inicio.matchAll(/class="inicio-atalho" data-pedido="([^"]+)"[\s\S]*?<b>([^<]+)<\/b>/g)].map((m) => m[2]);
+      const atalhos = [...inicio.matchAll(/class="inicio-atalho" data-(?:pedido|aba)="([^"]+)"[\s\S]*?<b>([^<]+)<\/b>/g)].map((m) => m[2]);
       return [
-        atalhos.join(',') === 'Pesquisar,Comprar e comparar,Seus arquivos,Dia a dia' || atalhos.join(','),
+        atalhos.join(',') === 'Pesquisar,Comprar e comparar,Seus arquivos,Dia a dia,Criar imagem,Criar áudio,Buscar imagens,Imagem parecida,Vídeos do YouTube,Notícias' || atalhos.join(','),
         /class="inicio-nucleo"><span>Au<\/span>/.test(inicio) && /<animateMotion/.test(inicio) || 'o orbe',
         /id="modoDoAgente"/.test(inicio) && /data-modo="investigacao"/.test(inicio) && /class="deck-foot inicio-modos"/.test(inicio) || 'os modos continuam (e somem no modo simples)',
         !fs.existsSync(path.join(__dirname, '../../renderer/abertura-deck.js')) && !/abertura-deck\.js|id="deckAbertura"/.test(html) && /<script src="inicio\.js"><\/script>/.test(html) || 'o carrossel saiu',

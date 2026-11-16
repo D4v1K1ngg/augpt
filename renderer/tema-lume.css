@@ -145,7 +145,9 @@ body { font-family: var(--sans); background: var(--void); }
 }
 .composer-caixa .modo-caixa:hover { background: var(--hover); }
 /* o que vem depois do raciocínio (ou do anexo, no chat sem ele) vai para a direita */
-.composer-caixa .modo-caixa, #btnAnexoChat { margin-right: auto; }
+.composer-caixa .modelo-caixa, #btnAnexoChat { margin-right: auto; }
+.composer-caixa .modelo-caixa { max-width: 240px; font-weight: 500; color: var(--muted); text-overflow: ellipsis; }
+.composer-caixa .modelo-caixa:hover { color: var(--text-forte); }
 /* enviar: círculo claro, seta escura */
 .composer-caixa .btn-enviar {
   width: 44px; height: 44px; border-radius: 50%; margin-left: 4px;
@@ -206,3 +208,29 @@ body { font-family: var(--sans); background: var(--void); }
 .item-conversa.fixada::after { content: "📌"; flex: none; order: 3; font-size: 11px; opacity: .65; margin-right: 4px; }
 .item-conversa .tres-pontos { opacity: 0; }
 .item-conversa:hover .tres-pontos, .item-conversa:focus-within .tres-pontos { opacity: 1; }
+
+/* "⋯ mais 10 de N" no fim da lista (16/11) */
+.conversas .mais-conversas { list-style: none; padding: 4px 0 8px; }
+.conversas .mais-conversas button {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 12px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--muted); font: 500 13px var(--sans); cursor: pointer; text-align: left;
+}
+.conversas .mais-conversas button span { font-size: 18px; line-height: 1; letter-spacing: 1px; color: var(--gold); }
+.conversas .mais-conversas button:hover { background: var(--hover); color: var(--text-forte); }
+
+/* ------------------------------ tela inicial: atalhos em 5 colunas e o seletor de pesquisa ------------------------------ */
+.inicio-atalhos { grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 880px; }
+.inicio-atalho { padding: 12px 6px; }
+@media (max-width: 1000px) { .inicio-atalhos { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .inicio-atalhos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.inicio-modos { flex-direction: column; gap: 8px; margin-top: 16px; }
+.inicio-modos .foot-l { font: 600 11px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.deck-foot .modo-do-agente {
+  display: inline-flex; justify-content: center; gap: 2px; padding: 4px; border-radius: 999px;
+  border: 1px solid var(--caixa-borda); background: var(--caixa); box-shadow: 0 10px 30px -20px rgba(0, 0, 0, .6);
+}
+.deck-foot .modo-do-agente button { padding: 7px 14px; border-radius: 999px; font: 500 12.5px var(--sans); color: var(--muted); transition: background .15s, color .15s; }
+.deck-foot .modo-do-agente button:hover { color: var(--text-forte); background: var(--hover); }
+.deck-foot .modo-do-agente button.ativo { background: color-mix(in srgb, var(--gold) 18%, transparent); color: var(--gold); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 45%, transparent); }
+.deck-foot .tempo-investigacao { padding: 0 8px; font-size: 12px; color: var(--muted); }
+.modo-dica { margin: 0; max-width: 560px; font-size: 12px; line-height: 1.45; color: var(--muted); text-align: center; min-height: 1.45em; }

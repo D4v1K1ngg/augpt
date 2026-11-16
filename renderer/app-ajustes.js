@@ -1522,6 +1522,23 @@ el.modelo.addEventListener('change', async () => {
   }
 });
 
+// 16/11 (Davi): o seletor do modelo também na caixa de texto — espelha o do painel do topo, e trocar num troca no outro
+const modeloNaCaixa = $('modeloNaCaixa');
+window.espelharModeloNaCaixa = () => {
+  if (!modeloNaCaixa) return;
+  if (modeloNaCaixa.options.length !== el.modelo.options.length || [...modeloNaCaixa.options].some((o, i) => o.value !== el.modelo.options[i]?.value || o.textContent !== el.modelo.options[i]?.textContent)) modeloNaCaixa.innerHTML = el.modelo.innerHTML;
+  if (modeloNaCaixa.value !== el.modelo.value) modeloNaCaixa.value = el.modelo.value;
+};
+if (modeloNaCaixa) {
+  new MutationObserver(() => window.espelharModeloNaCaixa()).observe(el.modelo, { childList: true, subtree: true, characterData: true });
+  el.modelo.addEventListener('change', () => window.espelharModeloNaCaixa());
+  modeloNaCaixa.addEventListener('change', () => {
+    el.modelo.value = modeloNaCaixa.value;
+    el.modelo.dispatchEvent(new Event('change'));
+  });
+  window.espelharModeloNaCaixa();
+}
+
 el.autonomia.addEventListener('change', async () => {
   config = await api.config.set({ autonomy: el.autonomia.value });
   // O processo principal pede confirmação antes de aceitar 'auto' (Fase 1

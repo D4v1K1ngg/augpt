@@ -16,12 +16,23 @@
   /* ------------------------------ os atalhos ------------------------------ */
   for (const b of inicio.querySelectorAll('.inicio-atalho')) {
     b.addEventListener('click', () => {
+      if (b.dataset.aba) return trocarAba(b.dataset.aba);
+      if (b.dataset.anexar) document.getElementById('btnAnexoAgente')?.click();
       const caixa = el.aEntrada;
       caixa.value = tr(b.dataset.pedido);
       autoAltura?.(caixa);
       caixa.focus();
       caixa.setSelectionRange(caixa.value.length, caixa.value.length);
     });
+  }
+
+  /* ------------------------------ a dica do modo de pesquisa ------------------------------ */
+  const modos = document.getElementById('modoDoAgente');
+  const dica = document.getElementById('modoDica');
+  if (modos && dica) {
+    const pintarDica = () => { dica.textContent = modos.querySelector('button.ativo')?.title || ''; };
+    new MutationObserver(pintarDica).observe(modos, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    pintarDica();
   }
 
   /* ------------------------------ as ondas ------------------------------ */
