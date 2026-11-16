@@ -147,6 +147,7 @@
 
     /* ---------- cada resposta ---------- */
     'você': 'you', 'agente': 'agent', 'preparando…': 'preparing…', 'parar': 'stop',
+    'Copiar a resposta': 'Copy the answer', 'Refazer a resposta': 'Redo the answer',
     'Atividade do agente': 'Agent activity', 'Sites consultados': 'Sites consulted', 'raciocínio': 'reasoning',
     'raciocínio · {n} passo': 'reasoning · {n} step', 'raciocínio · {n} passos': 'reasoning · {n} steps',
     'Entendendo o pedido': 'Understanding the request', 'responde sem pesquisar': 'answers without searching',

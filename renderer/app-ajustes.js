@@ -78,6 +78,7 @@ function preencherConfig() {
   $('cfgImagensNasRespostas').checked = config.imagensNasRespostas !== false;
   if ($('cfgCitacoesNoTexto')) $('cfgCitacoesNoTexto').checked = config.citacoesNoTexto === true;
   $('cfgRevisarImagens').checked = config.revisarImagensCriadas !== false;
+  $('cfgSugestoes').checked = config.sugestoesDeContinuacao !== false;
   $('cfgAnimacaoDeAbertura').checked = config.animacaoDeAbertura !== false;
   $('cfgSomDaAbertura').checked = config.somDaAbertura !== false;
   $('cfgOndeComprar').checked = config.ondeComprar !== false;
@@ -135,6 +136,7 @@ async function salvarAjustes() {
     imagensNasRespostas: $('cfgImagensNasRespostas').checked,
     citacoesNoTexto: Boolean($('cfgCitacoesNoTexto')?.checked),
     revisarImagensCriadas: $('cfgRevisarImagens').checked,
+    sugestoesDeContinuacao: $('cfgSugestoes').checked,
     animacaoDeAbertura: $('cfgAnimacaoDeAbertura').checked,
     somDaAbertura: $('cfgSomDaAbertura').checked,
     ondeComprar: $('cfgOndeComprar').checked,

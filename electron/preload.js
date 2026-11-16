@@ -142,6 +142,8 @@ contextBridge.exposeInMainWorld('augpt', {
     escolherVideo: () => ipcRenderer.invoke('legendas:escolher'),
     legendar: (pedido) => ipcRenderer.invoke('legendas:fazer', pedido),
     pararLegenda: () => ipcRenderer.invoke('legendas:parar'),
+    // 16/11: dublagem (a mesma tela e o mesmo "Parar" da legenda)
+    dublar: (pedido) => ipcRenderer.invoke('dublagem:fazer', pedido),
     mostrarArquivo: (arquivo) => ipcRenderer.invoke('legendas:mostrar', arquivo),
   },
   componentes: {
@@ -181,6 +183,7 @@ contextBridge.exposeInMainWorld('augpt', {
     centralLimpar: () => ipcRenderer.invoke('memory:centralLimpar'),
     centralInstrucao: (assunto, instrucao) => ipcRenderer.invoke('memory:centralInstrucao', { assunto, instrucao }),
   },
+  sugestoes: (pergunta, resposta) => ipcRenderer.invoke('sugestoes:gerar', { pergunta, resposta }),
   agent: {
     // idConversa (Peça 3, "memória curta", 2026-09-19): opcional — null
     // quando a conversa ainda não foi salva (primeiro turno). Repassado até

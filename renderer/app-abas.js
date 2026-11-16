@@ -310,6 +310,7 @@ function bolha(quem, conteudo, classe = '') {
   else {
     corpo.innerHTML = window.md.render(conteudo);
     window.md.montarGraficos(corpo);
+    window.acoesDaResposta?.(corpo, conteudo);
     window.botaoDeAudio?.(corpo, conteudo);
   }
   el.cMensagens.appendChild(div);
@@ -359,6 +360,7 @@ async function enviarMensagem() {
   if (r.ok) {
     chat.alvo.innerHTML = window.md.render(r.conteudo);
     window.md.montarGraficos(chat.alvo);
+    window.acoesDaResposta?.(chat.alvo, r.conteudo);
     window.botaoDeAudio?.(chat.alvo, r.conteudo);
     chat.historico.push({ role: 'assistant', content: r.conteudo });
   } else if (r.interrompido) {

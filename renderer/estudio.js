@@ -595,26 +595,43 @@
 
   /* ---------- 🔊 no fim da resposta (12/11): a resposta vira áudio com a voz escolhida para o chat ---------- */
   let botaoAtivo = null;
+  /** As opções de geração de uma voz (cartão), com os ajustes do motor dela — para o 🔊 do chat e a dublagem. */
+  function opcoesDaVoz(voz) {
+    const m = voz.motor;
+    const p = escolhas[m] || {};
+    const v = (k, d) => p[k] ?? escolhas.geral?.[k] ?? d;
+    const o = { motor: m, modo: voz.modo, idioma: escolhas.idioma || 'auto', formato: 'mp3', legenda: false };
+    for (const par of est.motores[m].parametros) o[par.chave] = v(par.chave, par.padrao);
+    for (const par of est.acabamento) o[par.chave] = escolhas.geral?.[par.chave] ?? par.padrao;
+    if (m === 'qwen') Object.assign(o, { tamanho: v('tamanho', '1.7B'), voz: voz.voz || v('voz', 'ryan') });
+    // a voz pronta traz a própria instrução (16/11: a "Narradora" no chat saía com o tom salvo do Estúdio)
+    o.instrucao = voz.instrucao || v('instrucao', m === 'omni' ? 'male, middle-aged, moderate pitch' : '');
+    if (voz.modo === 'clonar') o.vozSalva = voz.vozSalva;
+    o.nomeDaVoz = voz.nome;
+    delete o.duracao; // duração fixa é para um trecho do Estúdio, não para um texto inteiro
+    if (Number.isFinite(escolhas.semente)) o.semente = escolhas.semente;
+    return o;
+  }
   function opcoesDoChat(markdown) {
     const disponiveis = vozesDisponiveis();
     // a voz escolhida para o chat; sem ela (ou se sumiu), a do Estúdio; o OmniVoice primeiro (rápido e lê siglas)
     let voz = disponiveis.find((v) => v.id === escolhas.vozDoChat) || disponiveis.find((v) => v.id === vozAtual());
     if (!voz) voz = disponiveis.find((v) => v.motor === 'omni' && v.modo !== 'clonar') || disponiveis.find((v) => v.modo !== 'clonar');
     if (!voz) return null;
-    const m = voz.motor;
-    const p = escolhas[m] || {};
-    const v = (k, d) => p[k] ?? escolhas.geral?.[k] ?? d;
-    const o = { motor: m, modo: voz.modo, idioma: escolhas.idioma || 'auto', texto: markdown, formato: 'mp3', legenda: false, daResposta: true };
-    for (const par of est.motores[m].parametros) o[par.chave] = v(par.chave, par.padrao);
-    for (const par of est.acabamento) o[par.chave] = escolhas.geral?.[par.chave] ?? par.padrao;
-    if (m === 'qwen') Object.assign(o, { tamanho: v('tamanho', '1.7B'), voz: voz.voz || v('voz', 'ryan') });
-    o.instrucao = v('instrucao', m === 'omni' ? 'male, middle-aged, moderate pitch' : '');
-    if (voz.modo === 'clonar') o.vozSalva = voz.vozSalva;
-    o.nomeDaVoz = voz.nome;
-    delete o.duracao; // duração fixa é para um trecho do Estúdio, não para a resposta inteira
-    if (Number.isFinite(escolhas.semente)) o.semente = escolhas.semente;
-    return { o, voz };
+    return { o: { ...opcoesDaVoz(voz), texto: markdown, daResposta: true }, voz };
   }
+  // para a dublagem (Tradutor → Legendas e dublagem): as vozes do Estúdio e as opções de cada uma
+  window.estudioVozes = {
+    async lista() {
+      est ||= await api.estudio.estado();
+      return vozesDisponiveis().map((v) => ({ id: v.id, nome: v.nome, grupo: v.grupo }));
+    },
+    atual: () => vozAtual(),
+    opcoes(id) {
+      const voz = vozesDisponiveis().find((v) => v.id === id);
+      return voz ? opcoesDaVoz(voz) : null;
+    },
+  };
   window.botaoDeAudio = async (corpo, markdown) => {
     if (!corpo || !String(markdown || '').trim()) return;
     try {
@@ -645,7 +662,7 @@
       caixa.querySelector('[data-a="salvar"]').addEventListener('click', () => api.estudio.salvarComo(r.arquivo));
       carregarBiblioteca();
     });
-    corpo.appendChild(caixa);
+    (corpo.parentElement?.querySelector(':scope > .resposta-acoes') || corpo).appendChild(caixa);
   };
 
   window.carregarEstudio = () => carregar().catch((err) => ($('estudioMotores').textContent = `Erro: ${err.message}`));

@@ -288,12 +288,12 @@ async function abrirConversa(id) {
 function marcarModelo(alvo, modelo) {
   if (!alvo || !modelo) return;
   const caixa = alvo.parentElement || alvo;
-  caixa.querySelector(':scope > .msg-modelo')?.remove();
+  caixa.querySelector('.msg-modelo')?.remove();
   const linha = document.createElement('div');
   linha.className = 'msg-modelo';
   linha.textContent = `modelo: ${typeof nomeVisivel === 'function' ? nomeVisivel(modelo) : modelo}`;
   linha.title = modelo;
-  caixa.appendChild(linha);
+  (caixa.querySelector(':scope > .resposta-acoes') || caixa).appendChild(linha);
 }
 
 /** Reconstrói a bolha de uma conversa salva. O raciocínio não é guardado. */
@@ -311,6 +311,7 @@ function restaurarTurno(m) {
   } else {
     corpo.innerHTML = window.md.render(m.content);
     window.md.montarGraficos(corpo);
+    window.acoesDaResposta?.(corpo, m.content);
     window.botaoDeAudio?.(corpo, m.content);
     marcarModelo(corpo, m.modelo);
   }

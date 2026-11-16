@@ -428,8 +428,12 @@ const manipuladores = {
     t.resposta.classList.remove('provisoria');
     t.resposta.innerHTML = window.md.render(resumo); // troca o texto em streaming pelo definitivo
     window.md.montarGraficos(t.resposta);
+    window.acoesDaResposta?.(t.resposta, resumo, { ultima: true });
     window.botaoDeAudio?.(t.resposta, resumo);
     marcarModelo(t.resposta, modelo);
+    // 3 perguntas para continuar (16/11): a pergunta sem o bloco dos anexos
+    const pergunta = [...agente.conversa].reverse().find((m) => m.role === 'user')?.content;
+    if (pergunta) window.sugestoesDeContinuacao?.(t.resposta, anexosDoPedido(pergunta).texto, resumo);
     // Painel "Arquivos" da lateral direita (fase 2 da reforma visual) —
     // mesmos dados do cartão de anexo abaixo, só que acumulados pela
     // conversa inteira em vez de só este turno.

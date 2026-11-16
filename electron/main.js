@@ -2645,6 +2645,36 @@ ipcMain.handle('legendas:fazer', async (e, { entrada, para, gravar } = {}) => {
     legendaAbort = null;
   }
 });
+// dublagem (16/11, fase 2): a legenda traduzida + uma fala por trecho no Estúdio de voz + o vídeo com a voz nova
+ipcMain.handle('dublagem:fazer', async (e, { entrada, para, voz, fundo } = {}) => {
+  if (!naJanela(e)) return { ok: false, error: 'só pela janela do AuGPT' };
+  if (legendaAbort) return { ok: false, error: 'já tem uma legenda ou dublagem sendo feita' };
+  const controle = (legendaAbort = new AbortController());
+  try {
+    const { Ditado, MODELOS } = require('../src/ditado');
+    const { Midia } = require('../src/midia');
+    const d = (ditado ||= new Ditado(path.join(app.getPath('userData'), 'componentes')));
+    const modelo = d.modeloInstalado();
+    const r = await require('../src/dublagem').dublar({ entrada, para, voz: voz && typeof voz === 'object' ? voz : {}, fundo: Math.max(0, Math.min(1, Number(fundo ?? 0.15))) }, {
+      midia: new Midia({ ytdlp: ytdlp().caminho, ffmpegDir: ffmpeg().dir, pasta: pastaDeDownloads() }),
+      ffmpeg: ffmpeg().caminho,
+      whisper: { exe: d.exe(), modelo: modelo ? path.join(d.dir, 'modelos', MODELOS[modelo].arquivo) : null },
+      chatStream: ollama.chatStream,
+      host: config.data.host,
+      model: config.data.modelTraducao || config.data.model,
+      numCtx: config.data.numCtx,
+      estudio: estudioDeVoz(),
+      signal: controle.signal,
+      emitir: (p) => win && !win.isDestroyed() && win.webContents.send('agent:event', { canal: 'legendas-progresso', dados: p }),
+    });
+    [r.video, r.srt, r.saida].filter(Boolean).forEach((a) => arquivosDaLegenda.add(path.resolve(a)));
+    return { ok: true, ...r };
+  } catch (err) {
+    return { ok: false, interrompido: controle.signal.aborted, error: err.message };
+  } finally {
+    legendaAbort = null;
+  }
+});
 ipcMain.handle('legendas:parar', () => (legendaAbort?.abort(new Error('interrompida')), { ok: true }));
 ipcMain.handle('legendas:mostrar', (e, arquivo) => {
   if (!naJanela(e) || !arquivosDaLegenda.has(path.resolve(String(arquivo || '')))) return { ok: false };
@@ -2699,6 +2729,17 @@ ipcMain.handle('estudio:salvarVoz', async (e, { nome, texto, autorizada } = {}) 
   }
 });
 // biblioteca (16/11): listar, renomear/favoritar e apagar (vai para a lixeira, com a legenda e o .json)
+// sugestões de próxima pergunta (16/11): o mesmo modelo da conversa, já carregado; 15 s no máximo
+ipcMain.handle('sugestoes:gerar', async (e, { pergunta, resposta } = {}) => {
+  if (!naJanela(e) || config.data.sugestoesDeContinuacao === false || !config.data.model) return [];
+  const { pedidoDeSugestoes, lerSugestoes } = require('../src/sugestoes');
+  try {
+    const r = await ollama.chat({ host: config.data.host, model: config.data.model, messages: [{ role: 'user', content: pedidoDeSugestoes(pergunta, resposta, idiomaEfetivo()) }], json: true, pensar: false, temperature: 0.5, numPredict: 160, numCtx: config.data.numCtx, manterVivo: config.data.manterModeloVivo, signal: AbortSignal.timeout(15000) });
+    return lerSugestoes(r?.content ?? r?.message?.content, pergunta);
+  } catch {
+    return [];
+  }
+});
 ipcMain.handle('estudio:biblioteca', () => estudioDeVoz().biblioteca());
 ipcMain.handle('estudio:atualizarAudio', (e, { arquivo, titulo, favorito } = {}) => {
   if (!naJanela(e)) return { ok: false };

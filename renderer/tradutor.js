@@ -126,9 +126,24 @@
     const arquivo = await api.tradutor.escolherVideo();
     if (arquivo) $('legEntrada').value = arquivo;
   });
+  // dublagem (16/11): com "Vídeo dublado", aparecem a voz (as do Estúdio) e o volume do som original
+  const dublando = () => $('legGravar').value === 'dublar';
+  async function pintarDublagem() {
+    $('legDublagem').hidden = !dublando();
+    $('legFazer').textContent = dublando() ? 'Dublar o vídeo' : 'Fazer a legenda';
+    if (!dublando()) return;
+    const vozes = (await window.estudioVozes?.lista().catch(() => [])) || [];
+    $('legSemVoz').hidden = vozes.length > 0;
+    $('legVoz').hidden = !vozes.length;
+    const atual = $('legVoz').value || window.estudioVozes?.atual();
+    $('legVoz').innerHTML = vozes.map((v) => `<option value="${v.id}" ${v.id === atual ? 'selected' : ''}>${v.nome.replace(/[&<>"]/g, '')}${v.grupo === 'clonada' ? ' (clonada)' : ''}</option>`).join('');
+    $('legFazer').disabled = !vozes.length;
+  }
+  $('legGravar').addEventListener('change', pintarDublagem);
   $('legFazer').addEventListener('click', async () => {
     const entrada = $('legEntrada').value.trim();
     if (!entrada || legendando) return;
+    if (dublando()) return dublar(entrada);
     legendando = true;
     $('legFazer').disabled = true;
     $('legParar').hidden = false;
@@ -148,6 +163,28 @@
     $('legArquivos').textContent = [r.saida, r.srt, r.srtOriginal !== r.srt ? r.srtOriginal : null].filter(Boolean).map(nome).join(' · ');
     $('legResultado').hidden = false;
   });
+  async function dublar(entrada) {
+    const voz = window.estudioVozes?.opcoes($('legVoz').value);
+    if (!voz) return ($('legStatus').textContent = 'Escolha a voz da dublagem.');
+    legendando = true;
+    $('legFazer').disabled = true;
+    $('legParar').hidden = false;
+    $('legResultado').hidden = true;
+    $('legStatus').textContent = 'Começando… (a dublagem transcreve, traduz e gera uma fala por trecho: leva alguns minutos)';
+    const r = await api.tradutor.dublar({ entrada, para: $('tradPara').value, voz, fundo: Number($('legFundo').value) });
+    legendando = false;
+    $('legFazer').disabled = false;
+    $('legParar').hidden = true;
+    if (!r.ok) {
+      $('legStatus').textContent = r.interrompido ? 'Parado.' : `Não deu: ${r.error}`;
+      return;
+    }
+    const nome = (a) => String(a || '').split(/[\\/]/).pop();
+    ultimoArquivo = r.saida;
+    $('legStatus').textContent = `Pronto ✓ ${r.falas} falas dubladas em ${Math.round(r.segundos / 60) || 1} min${r.aceleradas ? ` · ${r.aceleradas} aceleradas para caber no tempo` : ''}`;
+    $('legArquivos').textContent = [r.saida, r.srt].filter(Boolean).map(nome).join(' · ');
+    $('legResultado').hidden = false;
+  }
   $('legParar').addEventListener('click', () => api.tradutor.pararLegenda());
   $('legAbrir').addEventListener('click', () => ultimoArquivo && api.tradutor.mostrarArquivo(ultimoArquivo));
 

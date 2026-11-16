@@ -690,8 +690,8 @@
 
         <!-- 14/11: legendas de vídeo (src/legendas) — o idioma é o "para" de cima -->
         <section class="grupo legendas">
-          <h2>Legendas de vídeo</h2>
-          <p class="dica">Cole o link de um vídeo (YouTube e outros sites) ou escolha um arquivo. O AuGPT transcreve a fala e faz a legenda no idioma escolhido acima, tudo no seu computador.</p>
+          <h2>Legendas e dublagem de vídeo</h2>
+          <p class="dica">Cole o link de um vídeo (YouTube e outros sites) ou escolha um arquivo. O AuGPT transcreve a fala e faz a legenda — ou a dublagem, com uma voz do Estúdio — no idioma escolhido acima, tudo no seu computador.</p>
           <div class="tradutor-barra">
             <input type="text" id="legEntrada" placeholder="https://… ou o caminho do vídeo" aria-label="Link ou arquivo do vídeo" />
             <button class="btn-secundario" id="legEscolher">Escolher arquivo…</button>
@@ -701,7 +701,19 @@
               <option value="faixa">Vídeo com a legenda como faixa (liga e desliga no player)</option>
               <option value="fixa">Vídeo com a legenda gravada na imagem (mais lento)</option>
               <option value="nao">Só os arquivos de legenda (.srt)</option>
+              <option value="dublar">Vídeo dublado: a fala no idioma acima, numa voz do Estúdio</option>
             </select>
+          </div>
+          <div class="tradutor-barra" id="legDublagem" hidden>
+            <label class="leg-campo">Voz <select id="legVoz" aria-label="Voz da dublagem"></select></label>
+            <label class="leg-campo">Som original por baixo
+              <select id="legFundo" aria-label="Volume do som original">
+                <option value="0.15">Baixo (a música e o ambiente continuam)</option>
+                <option value="0.3">Médio</option>
+                <option value="0">Sem o som original</option>
+              </select>
+            </label>
+            <p class="dica leg-aviso" id="legSemVoz" hidden>A dublagem usa o motor de voz do <b>Estúdio de voz</b>: instale lá primeiro.</p>
           </div>
           <div class="estudio-acoes">
             <button class="btn-primario" id="legFazer">Fazer a legenda</button>
@@ -952,6 +964,9 @@
           </label>
           <label class="linha"><span class="linha-texto"><span>Revisar as imagens criadas</span><small>Depois de criar uma imagem, o modelo olha o resultado e, se faltar algo do pedido, corrige o prompt e gera de novo — no máximo 2 vezes. Cada revisão soma uns 15 segundos.</small></span>
             <input type="checkbox" id="cfgRevisarImagens" class="caixa" />
+          </label>
+          <label class="linha"><span class="linha-texto"><span>Sugerir a próxima pergunta</span><small>No fim da última resposta, 3 perguntas curtas para continuar a conversa com um clique. Leva 1 ou 2 segundos depois da resposta.</small></span>
+            <input type="checkbox" id="cfgSugestoes" class="caixa" />
           </label>
         </section>
         <section class="grupo">
@@ -1744,6 +1759,7 @@
 <script src="modo-simples.js"></script>
 <script src="mini.js"></script>
 <script src="estudio.js"></script>
+<script src="acoes-da-resposta.js"></script>
 <script src="tradutor.js"></script>
 </body>
 </html>

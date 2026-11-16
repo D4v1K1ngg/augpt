@@ -438,3 +438,34 @@ body { font-family: var(--sans); background: var(--void); }
 .estudio-comecar p { color: var(--muted); line-height: 1.6; }
 .estudio-comecar .estudio-acoes { justify-content: center; margin-top: 16px; }
 .estudio-comecar code { word-break: break-all; font-size: 12px; }
+
+/* ------------------------------ ações de cada resposta e sugestões de continuação (16/11) ------------------------------ */
+.resposta-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin-top: 10px; color: var(--muted); }
+.acao-resposta { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; transition: background .15s, color .15s; }
+.acao-resposta svg { width: 16px; height: 16px; }
+.acao-resposta:hover { background: var(--hover); color: var(--text-forte); }
+.acao-resposta.feito { color: var(--gold); }
+.resposta-acoes .audio-resposta { margin: 0; gap: 6px; }
+.resposta-acoes .audio-resposta > .btn-link { padding: 5px 8px; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: 12.5px; }
+.resposta-acoes .audio-resposta > .btn-link:hover { background: var(--hover); color: var(--text-forte); }
+.resposta-acoes .audio-resposta:has(audio) { flex-basis: 100%; order: 9; margin-top: 6px; }
+.resposta-acoes .msg-modelo { margin: 0 0 0 auto; font-size: 11.5px; color: var(--muted); opacity: .8; }
+.msg.turno .resposta-acoes, .msg.ia .resposta-acoes { opacity: .75; transition: opacity .2s; }
+.msg.ia:hover .resposta-acoes, .resposta-acoes:focus-within { opacity: 1; }
+.sugestoes-continuacao { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 14px; }
+.sugestao {
+  display: inline-flex; align-items: center; gap: 10px; max-width: 100%; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px;
+  background: none; color: var(--text); font: 13.5px var(--sans); text-align: left; cursor: pointer; transition: border-color .15s, background .15s;
+  animation: narracao-entra .35s ease-out both;
+}
+.sugestao span { color: var(--muted); transition: transform .15s, color .15s; }
+.sugestao:hover { border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); background: color-mix(in srgb, var(--gold) 7%, transparent); }
+.sugestao:hover span { color: var(--gold); transform: translateX(2px); }
+.sugestao:nth-child(2) { animation-delay: .06s; }
+.sugestao:nth-child(3) { animation-delay: .12s; }
+@media (prefers-reduced-motion: reduce) { .sugestao { animation: none; } }
+
+/* dublagem no Tradutor (16/11) */
+.leg-campo { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.leg-campo select { padding: 6px 10px; border: 1px solid var(--caixa-borda); border-radius: 10px; background: var(--caixa); color: var(--text); font: 13px var(--sans); }
+.leg-aviso { margin: 0; }

@@ -522,6 +522,43 @@ class EstudioDeVoz {
     }
   }
 
+  /**
+   * Dublagem (16/11): uma fala por texto, SEM juntar — cada uma num WAV com a duração, para o código encaixar no tempo
+   * do vídeo. As pausas longas dentro de cada fala encurtam como no gerar(). Quem chama apaga `tmp`.
+   */
+  async falas(o = {}, textos = [], { emitir = () => {} } = {}) {
+    const motor = MOTORES[o.motor] ? o.motor : 'omni';
+    if (!this.instalado(motor)) throw new Error(`o ${MOTORES[motor].nome} não está instalado (Estúdio de voz)`);
+    if (!textos.length) throw new Error('nada para falar');
+    if (this.atual) throw new Error('o Estúdio de voz já está gerando um áudio');
+    this.atual = { motor };
+    const tmp = fs.mkdtempSync(path.join(this.pasta, 'tmp-'));
+    try {
+      await this.liberarPlaca(motor);
+      let referencia = null;
+      if (o.modo === 'clonar') {
+        const v = this.vozesSalvas().find((x) => x.id === o.vozSalva);
+        if (!v) throw new Error('escolha uma voz salva para clonar');
+        referencia = { audio: v.audio, texto: v.texto };
+      }
+      const partes = textos.map((t) => prepararParte(t, { porExtenso: o.porExtenso !== false, idioma: o.idioma }));
+      const r = await this.pedir(motor, { tipo: 'gerar', ...o, motor: undefined, texto: undefined, partes, referencia, saida: path.join(tmp, 'parte') }, (m) => emitir({ texto: m.progresso, parte: m.parte, de: m.de }));
+      const maxima = Number(o.pausaMaxima ?? 0.3);
+      if (maxima > 0) {
+        for (const p of r.partes) {
+          const novo = encurtarPausas(fs.readFileSync(p.arquivo), { maxima });
+          if (novo) (fs.writeFileSync(p.arquivo, novo.wav), (p.segundos = novo.segundos));
+        }
+      }
+      return { tmp, taxa: r.taxa, partes: r.partes };
+    } catch (err) {
+      fs.rmSync(tmp, { recursive: true, force: true });
+      throw err;
+    } finally {
+      this.atual = null;
+    }
+  }
+
   /* ---------------- biblioteca (16/11) ---------------- */
 
   dirNarracoes() {
