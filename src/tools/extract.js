@@ -536,7 +536,7 @@ async function ler(url, opcoes = {}) {
 }
 
 /** Texto de página de bloqueio, verificação anti-robô ou login obrigatório (curto e sem conteúdo do assunto). */
-const BLOQUEIO_FORTE = /you've been blocked by network security|target url returned error 40[13]|log in to your reddit account|verify you are human|checking your browser before accessing|enable javascript and cookies to continue|please complete the security check|unusual traffic from your computer/i;
+const BLOQUEIO_FORTE = /you've been blocked by network security|target url returned error 40[13]|log in to your reddit account|verify you are human|checking your browser before accessing|enable javascript and cookies to continue|please complete the security check|unusual traffic from your computer|checking you are a real \S+|help us keep \S+ secure/i;
 // genéricos: só numa página curta (um texto sobre o assunto que cita "access denied" não é bloqueio)
 const BLOQUEIO_FRACO = /^\W*(access denied|attention required|just a moment|forbidden|403 forbidden)\b/i;
 function paginaDeBloqueio(texto) {

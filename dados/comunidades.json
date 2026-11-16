@@ -1,16 +1,84 @@
 {
-  "aviso": "Fontes da comunidade usadas pela pesquisa de produtos (motor de pesquisa, Fase A da estratégia de 2026-09-26). O usuário pode trocar a lista nos Ajustes (campo 'Fontes da comunidade'); este arquivo é o padrão. 'assuntos' vazio = vale para qualquer assunto; com palavras, a fonte só entra quando o assunto do pedido cita uma delas.",
+  "aviso": "Fontes da comunidade usadas pela pesquisa de produtos (motor de pesquisa, Fase A da estratégia de 2026-09-26). O usuário pode trocar a lista nos Ajustes (campo 'Fontes da comunidade'); este arquivo é o padrão. 'assuntos' vazio = vale para qualquer assunto; com palavras, a fonte só entra quando o assunto do pedido cita uma delas. 'leitura': 'bloqueada' marca a fonte que a busca acha mas a página não abre para leitores automáticos (verificação anti-robô) — ela não é escolhida para a busca de critérios.",
   "fontes": [
-    { "nome": "Reddit", "dominio": "reddit.com", "tipo": "reddit", "idioma": "en", "assuntos": [] },
-    { "nome": "Clube do Hardware", "dominio": "clubedohardware.com.br", "tipo": "forum", "idioma": "pt-BR", "assuntos": [] },
-    { "nome": "Fórum Adrenaline", "dominio": "forum.adrenaline.com.br", "tipo": "forum", "idioma": "pt-BR", "assuntos": [] },
+    {
+      "nome": "Reddit",
+      "dominio": "reddit.com",
+      "tipo": "reddit",
+      "idioma": "en",
+      "assuntos": []
+    },
+    {
+      "nome": "Clube do Hardware",
+      "dominio": "clubedohardware.com.br",
+      "tipo": "forum",
+      "idioma": "pt-BR",
+      "assuntos": []
+    },
+    {
+      "nome": "Fórum Adrenaline",
+      "dominio": "forum.adrenaline.com.br",
+      "tipo": "forum",
+      "idioma": "pt-BR",
+      "assuntos": []
+    },
     {
       "nome": "Head-Fi",
       "dominio": "head-fi.org",
       "tipo": "forum",
       "idioma": "en",
-      "assuntos": ["fone", "fones", "headphone", "headset", "iem", "earbud", "audio", "som", "dac", "amplificador"]
+      "assuntos": [
+        "fone",
+        "fones",
+        "headphone",
+        "headphones",
+        "headset",
+        "iem",
+        "iems",
+        "earbud",
+        "earbuds",
+        "audio",
+        "áudio",
+        "som",
+        "dac",
+        "amplificador",
+        "caixa de som",
+        "soundbar"
+      ],
+      "leitura": "bloqueada",
+      "nota": "Desde 11/2026 o Head-Fi responde a leitores automáticos com uma verificação anti-robô (\"Checking you are a real Head-Fi'er\"): a busca acha os tópicos, mas a página não abre — vale o resumo da busca."
     },
-    { "nome": "YouTube", "dominio": "youtube.com", "tipo": "video", "idioma": "all", "assuntos": [] }
+    {
+      "nome": "Audio Science Review",
+      "dominio": "audiosciencereview.com",
+      "tipo": "forum",
+      "idioma": "en",
+      "assuntos": [
+        "fone",
+        "fones",
+        "headphone",
+        "headphones",
+        "headset",
+        "iem",
+        "iems",
+        "earbud",
+        "earbuds",
+        "audio",
+        "áudio",
+        "som",
+        "dac",
+        "amplificador",
+        "caixa de som",
+        "soundbar"
+      ],
+      "nota": "Fórum com medições (16/11: o tópico do Truthear Nova abriu inteiro, 41 mil caracteres)."
+    },
+    {
+      "nome": "YouTube",
+      "dominio": "youtube.com",
+      "tipo": "video",
+      "idioma": "all",
+      "assuntos": []
+    }
   ]
 }

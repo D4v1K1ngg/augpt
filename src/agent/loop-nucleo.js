@@ -11,7 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const ollama = require('../llm/ollama');
 const { Sandbox } = require('../tools/sandbox');
-const { consultasNaComunidade } = require('../tools/comunidade');
+const { consultasNaComunidade, forumEmInglesDoAssunto } = require('../tools/comunidade');
 const { preferenciasDaPergunta } = require('./memoria-no-chat');
 const traducao = require('./traducao');
 const lugares = require('./lugares');
@@ -232,8 +232,12 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
       : null,
     embed: (textos) => ollama.embed({ host: cfg.host, model: cfg.embedModel || 'nomic-embed-text', input: textos, signal }),
     // Reddit e fóruns cadastrados (dados/fontes-da-comunidade.json): "site:reddit.com …", "site:clubedohardware.com.br …"
+    forumEmIngles: (texto) => forumEmInglesDoAssunto(texto, cfg),
     buscarNaComunidade: async (q) => {
-      const lista = consultasNaComunidade(q, { config: cfg, maximo: 3 });
+      // 16/11: 4 fontes (a especializada no assunto vem primeiro e não tira os fóruns brasileiros); a busca que o modelo já
+      // escreveu em inglês vai assim às fontes em inglês
+      const ingles = !/[ãõçáéíóúâêàü]/i.test(q) && /\b(best|for|the|with|vs|review|good|budget|gaming|which|recommend\w*)\b/i.test(q);
+      const lista = consultasNaComunidade(q, { config: cfg, maximo: 4, emIngles: ingles ? q : '' });
       const achados = await Promise.all(lista.map((c) => search.buscar(c.consulta, { searxngUrl: cfg.searxngUrl, marginaliaKey: cfg.marginaliaKey, jinaKey: cfg.jinaKey, ollamaKey: cfg.ollamaKey, idioma: c.idioma }).then(anotarBusca).then((x) => x.resultados).catch(() => [])));
       return achados.flat();
     },

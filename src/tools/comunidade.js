@@ -74,6 +74,15 @@ function fontesDaComunidade(config = {}) {
   });
 }
 
+/**
+ * O fórum em inglês especializado no assunto que deixa ler a página (16/11): a busca de critérios do núcleo ia sempre
+ * ao Reddit, que bloqueia a leitura; para fone, o Audio Science Review abre inteiro. null = nenhum (fica o Reddit).
+ */
+function forumEmInglesDoAssunto(texto, config = {}) {
+  const normal = semAcento(texto);
+  return fontesDaComunidade(config).find((f) => f.tipo === 'forum' && f.idioma === 'en' && f.leitura !== 'bloqueada' && f.assuntos?.some((a) => new RegExp(`\\b${semAcento(a)}\\b`).test(normal)))?.dominio || null;
+}
+
 /** A URL é de uma fonte da comunidade (fórum/Reddit/vídeo da lista)? */
 function ehDaComunidade(url, config = {}) {
   const host = limparDominio(url);
@@ -116,9 +125,12 @@ function consultasNaComunidade(assunto, { config = {}, maximo = 6, emIngles = ''
   // plano deu um (Fase C): "site:reddit.com fone intra pubg" acha pouco
   const ingles = String(emIngles || '').replace(/\b(reddit|forums?|head-?fi)\b/gi, ' ').replace(/\s+/g, ' ').trim();
   const normal = semAcento(tema);
+  const doAssunto = (f) => f.assuntos?.length && f.assuntos.some((a) => new RegExp(`\\b${semAcento(a)}\\b`).test(normal));
   return fontesDaComunidade(config)
     .filter((f) => f.tipo !== 'video')
-    .filter((f) => !f.assuntos?.length || f.assuntos.some((a) => new RegExp(`\\b${semAcento(a)}\\b`).test(normal)))
+    .filter((f) => !f.assuntos?.length || doAssunto(f))
+    // a especializada no assunto antes das gerais (16/11: com "maximo: 3", o Head-Fi era a 4ª e nunca entrava em fone)
+    .sort((a, b) => Number(Boolean(doAssunto(b))) - Number(Boolean(doAssunto(a))))
     .slice(0, maximo)
     .map((f) => ({
       consulta: `site:${f.dominio} ${f.idioma === 'en' && ingles ? ingles : tema}`,
@@ -393,6 +405,7 @@ module.exports = {
   ehDaComunidade,
   tipoDeFonte,
   consultasNaComunidade,
+  forumEmInglesDoAssunto,
   limparDominio,
   urlJsonDoReddit,
   topicoDoReddit,

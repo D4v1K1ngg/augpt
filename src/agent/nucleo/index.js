@@ -956,7 +956,9 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       // tópicos diferentes do mesmo fórum são o que importa aqui (a comunidade do pedido, em paralelo, já conta 2 do Reddit)
       // a de inglês vai ao Reddit ("site:reddit.com what makes an IEM good for competitive FPS" trouxe 6 tópicos do r/iems);
       // a busca da comunidade mandava aos fóruns brasileiros cadastrados e voltavam tópicos de 2017 sobre outra coisa
-      const lista = await executarBusca(buscas.map((b, i) => (i === 0 && !/\bsite:/.test(b) ? `site:reddit.com ${b}` : b)), { porSite: 6 });
+      // 16/11: o fórum especializado que deixa ler (fone → Audio Science Review) no lugar do Reddit, que bloqueia a leitura
+      const forum = deps.forumEmIngles?.(`${pergunta} ${assuntos.join(' ')}`) || 'reddit.com';
+      const lista = await executarBusca(buscas.map((b, i) => (i === 0 && !/\bsite:/.test(b) ? `site:${forum} ${b}` : b)), { porSite: 6 });
       // só as páginas DESTA busca (a lista devolvida, na ordem da relevância): as buscas em paralelo também somam fontes
       const daBusca = [...String(lista).matchAll(/^\[(\d+)\]/gm)].map((m) => fontes.find((f) => f.n === Number(m[1]))).filter(Boolean);
       // quem usa primeiro (Reddit, fórum), lista de afiliado nunca: a busca em português trouxe o "top opções para comprar" do TechTudo
