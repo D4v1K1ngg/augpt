@@ -245,6 +245,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     deps.semVisao = `O modelo em uso (**${modelo}**) não enxerga imagens. Para perguntar sobre fotos, escolha um **Qwen 3.5** no seletor de modelo do topo — até o de 2B enxerga. Para ler o texto de prints e documentos, instale o **Tesseract** em Ajustes → Componentes.`;
   }
   // Fase 5: criar imagens com o FLUX.2 Klein (Ajustes → Componentes)
+  // WebP da web (16/11): o ffmpeg do AuGPT converte para comparar e mostrar ao modelo
+  if (this.userDataPath) imagens.definirFfmpeg(path.join(this.userDataPath, 'componentes', 'ffmpeg', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'));
   const gerador = this.userDataPath ? new GeradorDeImagens(pastaPadrao(this.userDataPath)) : null;
   if (gerador?.instalado()) {
     // revisar e escolher a foto de referência pedem visão

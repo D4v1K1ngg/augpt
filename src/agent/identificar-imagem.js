@@ -54,7 +54,7 @@ const lerJson = (t) => {
 };
 
 const PEDIDO_DE_OLHAR = `Olhe a imagem e responda SÓ com um JSON:
-{"o_que_e": "o que a imagem mostra, em português, uma frase", "pessoa": true ou false, "palpites": ["nome específico, se você reconhece"], "busca": "busca de imagens em inglês, até 8 palavras", "texto": "texto legível na imagem, ou vazio"}
+{"o_que_e": "o que a imagem mostra, em português, uma frase", "categoria": "o tipo do objeto em inglês, 1 a 3 palavras (ex.: in-ear monitors, sneakers, sedan)", "pessoa": true ou false, "palpites": ["nome específico, se você reconhece"], "busca": "busca de imagens em inglês, até 8 palavras", "texto": "texto legível na imagem, ou vazio"}
 - "palpites": até 3, do mais provável ao menos: modelo exato do produto, nome do lugar ou monumento, espécie, raça, obra, personagem, jogo. Vazio se é algo genérico.
 - "busca": com o nome específico quando houver; senão, o objeto ou cena, o estilo e as cores.
 - "pessoa": true se o assunto principal é uma pessoa real. Nunca diga quem é uma pessoa pelo rosto: descreva só a cena.`;
@@ -68,7 +68,7 @@ Diga quais imagens da busca mostram EXATAMENTE a mesma coisa da do usuário (o m
 Responda SÓ com um JSON:
 {"iguais": [números das iguais], "identificacao": "o que é", "certeza": "alta", "media" ou "baixa"}
 - "identificacao": em português, de 1 a 3 frases, direto ao assunto ("É a Torre Eiffel, em Paris, vista do rio Sena."): o nome específico só se os títulos ou a imagem confirmam, e o que vale saber dele. Não fale de "primeira imagem", das outras imagens nem da busca.
-- "certeza": alta só quando o nome está confirmado (a mesma foto achada, ou títulos e imagens batendo); para algo genérico sem nome, "media".`;
+- "certeza": alta só quando o nome está confirmado (a mesma foto achada, ou títulos e imagens batendo); para algo genérico sem nome, "media".${candidatas.some((c) => c.mesma) ? '' : '\n- Nenhuma foto da busca é a MESMA do usuário: o nome é só pela aparência. Comece a "identificacao" com "Pela aparência, parece ser" e não afirme o modelo exato.'}`;
 }
 
 /** Baixa as fotos das buscas (sem repetir) e mede cada uma contra a do usuário. */
@@ -124,7 +124,11 @@ async function identificarImagem({ pergunta, imagem, parecidas = false, deps, di
   const busca = String(olhado.busca || olhado.o_que_e || '').replace(/["\n]/g, ' ').trim().slice(0, 100);
   if (!busca && !palpites.length) return null;
   const texto = String(olhado.texto || '').trim();
-  const buscas = [...new Set([busca, ...(pessoa ? [] : palpites), ...(!pessoa && texto.length >= 4 && texto.length <= 40 ? [texto] : [])].filter(Boolean))].slice(0, 4);
+  // o texto escrito na foto (a marca, o modelo) vem antes dos palpites: é o que a foto prova (16/11: "Truthear" escrito
+  // no fone; os palpites do modelo eram outros modelos da marca e a busca nunca chegava à foto do Nova)
+  // só texto com palavra de verdade ("R L", as marcas de lado do fone, não serve de busca)
+  const escrito = !pessoa && texto.length <= 40 && /\p{L}{3,}/u.test(texto) ? [texto, `${texto} ${String(olhado.categoria || '').trim()}`.trim()] : [];
+  const buscas = [...new Set([busca, ...escrito, ...(pessoa ? [] : palpites)].map((b) => b.trim()).filter(Boolean))].slice(0, 5);
   for (const b of buscas) emit('ferramenta', { nome: 'buscar_imagens', argumentos: { consulta: b }, risco: 'leitura' });
   const hashDoUsuario = imagem.arquivo ? (deps.hashDaImagem || imagens.hashDaImagem)(imagem.arquivo) : null;
   const candidatas = ordenar(await candidatasDasBuscas(buscas, { hashDoUsuario, dir, config, deps }), palpites);
@@ -144,8 +148,15 @@ async function identificarImagem({ pergunta, imagem, parecidas = false, deps, di
   const mesmas = pessoa ? [] : candidatas.filter((c) => c.mesma && c.pagina);
   // "alta" só com nome confirmado: a mesma foto achada ou um palpite de nome próprio (genérico fica no máximo "média")
   let certeza = ['alta', 'media', 'baixa'].includes(conferido?.certeza) ? conferido.certeza : mesmas.length ? 'media' : 'baixa';
-  if (certeza === 'alta' && !mesmas.length && !palpites.length) certeza = 'media';
-  const identificacao = String(conferido?.identificacao || olhado.o_que_e || '').trim();
+  // 16/11 (teste de uso real: um Truthear Nova saiu "Zero Blue2, certeza alta"): sem a mesma foto achada na web,
+  // o nome é palpite pela aparência — no máximo "média"
+  if (certeza === 'alta' && !mesmas.length) certeza = 'media';
+  // sem "a primeira imagem", "as imagens 3 e 5": o usuário não viu as imagens da comparação
+  const identificacao = String(conferido?.identificacao || olhado.o_que_e || '')
+    .split(/(?<=[.!?])\s+/)
+    .filter((frase) => !/\b(primeira imagem|imagens? (d[ae] busca|\d)|nas imagens \d|outras imagens|t[ií]tulos? (da|das) p[aá]gina)/i.test(frase))
+    .join(' ')
+    .trim();
 
   const partes = [];
   if (!parecidas || identificacao) {

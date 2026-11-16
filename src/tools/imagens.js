@@ -272,11 +272,35 @@ const marcacao = (texto, uri) => `![${String(texto || '').replace(/[[\]\n\r]/g, 
  *  - tamanhoDaImagem: { largura, altura }.
  *  - miniaturaBase64: a imagem em até `lado` px, em JPEG, para mandar várias de uma vez ao modelo de visão.
  */
+// WebP (16/11, teste de uso real: a foto do Truthear era .webp e não dava para comparar): o nativeImage não abre WebP;
+// com o ffmpeg do AuGPT (definirFfmpeg), vira um .jpg ao lado, feito uma vez só
+let ffmpegDasImagens = null;
+const definirFfmpeg = (exe) => {
+  if (exe && fs.existsSync(exe)) ffmpegDasImagens = exe;
+};
+function comoJpeg(arquivo) {
+  if (!ffmpegDasImagens || !/\.webp$/i.test(arquivo)) return null;
+  // na pasta temporária: o anexo do usuário fica sem arquivo extra ao lado
+  const dir = path.join(require('os').tmpdir(), 'augpt-webp');
+  const jpg = path.join(dir, `${crypto.createHash('sha1').update(path.resolve(arquivo)).digest('hex')}.jpg`);
+  if (!fs.existsSync(jpg)) {
+    fs.mkdirSync(dir, { recursive: true });
+    try {
+      require('child_process').execFileSync(ffmpegDasImagens, ['-hide_banner', '-loglevel', 'error', '-y', '-i', arquivo, '-frames:v', '1', '-q:v', '3', jpg], { timeout: 15000, windowsHide: true });
+    } catch {
+      return null;
+    }
+  }
+  return fs.existsSync(jpg) ? jpg : null;
+}
 function abrirImagem(arquivo) {
   try {
     const { nativeImage } = require('electron');
-    const img = nativeImage?.createFromPath?.(arquivo);
-    return img && !img.isEmpty() ? img : null;
+    const abrir = (a) => {
+      const img = a && nativeImage?.createFromPath?.(a);
+      return img && !img.isEmpty() ? img : null;
+    };
+    return abrir(arquivo) || abrir(comoJpeg(arquivo));
   } catch {
     return null;
   }
@@ -335,5 +359,5 @@ module.exports = {
   ESQUEMA, NOME_VALIDO, MAX_BYTES,
   guardarImagem, origemDe, buscarImagens, imagemDe, imagensDe, imagensDosProdutos, imagemDeReferencia, imagensDeReferencia,
   tituloCita, extensaoPelosBytes, nomeDoArquivo, marcacao, comLimite,
-  hashDaImagem, distanciaDoHash, tamanhoDaImagem, miniaturaBase64, arquivoDaUri,
+  hashDaImagem, distanciaDoHash, tamanhoDaImagem, miniaturaBase64, arquivoDaUri, definirFfmpeg,
 };
