@@ -17,6 +17,7 @@
   for (const b of inicio.querySelectorAll('.inicio-atalho')) {
     b.addEventListener('click', () => {
       if (b.dataset.aba) return trocarAba(b.dataset.aba);
+      if (b.dataset.painel === 'imagem') abrirPainelDeImagem(true);
       if (b.dataset.anexar) document.getElementById('btnAnexoAgente')?.click();
       const caixa = el.aEntrada;
       caixa.value = tr(b.dataset.pedido);
@@ -24,6 +25,46 @@
       caixa.focus();
       caixa.setSelectionRange(caixa.value.length, caixa.value.length);
     });
+  }
+
+  /* ------------------------------ o painel "Criar imagem" (16/11) ------------------------------ */
+  // Troca os atalhos por "O que você deseja criar?": o carrossel de exemplos (criados pelo FLUX) e os ajustes finos
+  // do gerador, salvos na config na hora (imagemEstilo/Formato/Qualidade/Semente e revisarImagensCriadas).
+  const painel = document.getElementById('inicioImagem');
+  const blocos = ['.inicio-orbe', 'h1', '.lede', '.inicio-atalhos', '.inicio-modos'].map((s) => inicio.querySelector(s));
+  const campos = { iiEstilo: 'imagemEstilo', iiFormato: 'imagemFormato', iiQualidade: 'imagemQualidade', iiSemente: 'imagemSemente' };
+  function preencherCaixa(texto) {
+    const caixa = el.aEntrada;
+    caixa.value = tr(texto);
+    autoAltura?.(caixa);
+    caixa.focus();
+    caixa.setSelectionRange(caixa.value.length, caixa.value.length);
+  }
+  async function abrirPainelDeImagem(sim) {
+    painel.hidden = !sim;
+    for (const b of blocos) if (b) b.style.display = sim ? 'none' : '';
+    if (!sim) return;
+    const cfg = await api.config.get().catch(() => ({}));
+    for (const [id, chave] of Object.entries(campos)) document.getElementById(id).value = cfg[chave] ?? '';
+    if (!document.getElementById('iiFormato').value) document.getElementById('iiFormato').value = 'auto';
+    if (!document.getElementById('iiQualidade').value) document.getElementById('iiQualidade').value = 'rapida';
+    document.getElementById('iiRevisar').checked = cfg.revisarImagensCriadas !== false;
+    const estado = await api.componentes?.estado?.().catch(() => null);
+    document.getElementById('iiAviso').hidden = !estado || estado.imagem?.instalado !== false;
+  }
+  if (painel) {
+    document.getElementById('iiVoltar').addEventListener('click', () => abrirPainelDeImagem(false));
+    for (const ex of painel.querySelectorAll('.ii-exemplo')) ex.addEventListener('click', () => preencherCaixa(ex.dataset.pedido));
+    const carrossel = document.getElementById('iiCarrossel');
+    for (const s of painel.querySelectorAll('.ii-seta')) s.addEventListener('click', () => carrossel.scrollBy({ left: Number(s.dataset.dir) * carrossel.clientWidth * 0.8, behavior: 'smooth' }));
+    for (const [id, chave] of Object.entries(campos)) {
+      document.getElementById(id).addEventListener('change', (e) => {
+        const v = id === 'iiSemente' ? e.target.value.replace(/\D/g, '').slice(0, 10) : e.target.value;
+        e.target.value = v;
+        api.config.set({ [chave]: v });
+      });
+    }
+    document.getElementById('iiRevisar').addEventListener('change', (e) => api.config.set({ revisarImagensCriadas: e.target.checked }));
   }
 
   /* ------------------------------ a dica do modo de pesquisa ------------------------------ */

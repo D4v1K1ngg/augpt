@@ -248,7 +248,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
   if (gerador?.instalado()) {
     // revisar e escolher a foto de referência pedem visão
     deps.revisoesDeImagem = cfg.revisarImagensCriadas === false || !enxerga ? 0 : 2;
-    deps.gerarImagem = async ({ prompt, largura, altura, semente, referencias = [], legenda }) => {
+    deps.ajustesDeImagem = { estilo: cfg.imagemEstilo, formato: cfg.imagemFormato, qualidade: cfg.imagemQualidade, semente: cfg.imagemSemente };
+    deps.gerarImagem = async ({ prompt, largura, altura, semente, passos, referencias = [], legenda }) => {
       // o FLUX usa ~7 GB da placa: os modelos do Ollama saem antes (voltam sozinhos no próximo pedido)
       for (const m of await ollama.psModels(cfg.host).catch(() => [])) await ollama.unloadModel(cfg.host, m.name).catch(() => {});
       for (let i = 0; i < 20 && (await ollama.psModels(cfg.host).catch(() => [])).length; i += 1) await new Promise((ok) => setTimeout(ok, 250));
@@ -265,7 +266,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
       const nome = `${Array.from({ length: 32 }, () => 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]).join('')}.png`;
       const saida = path.join(this.dirImagens(), nome);
       fs.mkdirSync(this.dirImagens(), { recursive: true });
-      const r = await gerador.gerar({ prompt, saida, largura: largura || 1024, altura: altura || 1024, semente, referencias });
+      const r = await gerador.gerar({ prompt, saida, largura: largura || 1024, altura: altura || 1024, semente, passos, referencias });
       // uma cópia na pasta de trabalho, para o usuário achar e usar
       let caminho = null;
       try {

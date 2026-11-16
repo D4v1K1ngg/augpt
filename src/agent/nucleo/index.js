@@ -2025,6 +2025,28 @@ const semImagens = (texto) => String(texto || '').replace(/^[ \t]*!\[[^\]]*\]\([
 /* ------------------------------ criar imagem (Fase 5) ------------------------------ */
 
 const FORMATOS = { quadrado: [1024, 1024], paisagem: [1216, 832], retrato: [832, 1216] };
+// estilos do painel "Criar imagem" (16/11): vão no fim do prompt, em inglês, como o FLUX entende
+const ESTILOS_DE_IMAGEM = {
+  foto: 'professional photograph, natural light, sharp detail',
+  ilustracao: 'digital illustration, clean lines, soft colors',
+  anime: 'anime style, vibrant colors, cel shading',
+  aquarela: 'watercolor painting, soft paper texture',
+  oleo: 'oil painting, visible brush strokes',
+  '3d': 'cinematic 3D render, soft global illumination',
+  pixel: 'pixel art, 16-bit game style',
+  logo: 'minimalist flat vector logo, simple shapes, plain background',
+};
+
+/** Os ajustes finos do painel "Criar imagem": estilo, formato fixo, passos e semente fixa. */
+function comAjustesDeImagem(aj = {}, { editar = false } = {}) {
+  const n = String(aj.semente ?? '').trim();
+  return {
+    estilo: ESTILOS_DE_IMAGEM[aj.estilo] || '',
+    formato: !editar && FORMATOS[aj.formato] ? aj.formato : null,
+    passos: aj.qualidade === 'detalhada' ? 8 : 4,
+    semente: /^\d{1,10}$/.test(n) ? Number(n) % 2147483647 : null,
+  };
+}
 
 function pedidoDePrompt({ pergunta, conversa = [], vista = '', editar = false }) {
   const antes = conversa.filter((m) => m.role === 'user').slice(-3).map((m) => `- ${String(m.content || '').slice(0, 200)}`).join('\n');
@@ -2124,13 +2146,17 @@ async function criarImagem({ pergunta, conversa, imagens, vista, ent, deps }) {
     }
   }
   const revisoes = Math.max(0, Math.min(2, Number(deps.revisoesDeImagem ?? 2)));
-  const semente = Math.floor(Math.random() * 2147483647);
+  const aj = comAjustesDeImagem(deps.ajustesDeImagem, { editar });
+  if (aj.formato) p = { ...p, formato: aj.formato };
+  const semente = aj.semente ?? Math.floor(Math.random() * 2147483647);
+  const comEstilo = (t) => (aj.estilo && !t.toLowerCase().includes(aj.estilo.slice(0, 20).toLowerCase()) ? `${t}, ${aj.estilo}` : t);
   const tentativas = [];
   let img = null;
   for (let rodada = 0; rodada <= revisoes; rodada += 1) {
     emit('ferramenta', { nome: 'gerar_imagem', argumentos: { consulta: p.prompt.slice(0, 200) }, risco: 'leitura' });
     const [largura, altura] = FORMATOS[p.formato] || [null, null];
-    img = await deps.gerarImagem({ prompt: p.prompt, largura, altura, formato: p.formato, semente, referencias: referencia ? [referencia.arquivo] : imagens.map((i) => i.arquivo).filter(Boolean), legenda: p.legenda || pergunta });
+    p = { ...p, prompt: comEstilo(p.prompt) };
+    img = await deps.gerarImagem({ prompt: p.prompt, largura, altura, formato: p.formato, semente, passos: aj.passos, referencias: referencia ? [referencia.arquivo] : imagens.map((i) => i.arquivo).filter(Boolean), legenda: p.legenda || pergunta });
     tentativas.push({ prompt: p.prompt, ms: img.ms });
     if (rodada === revisoes) break;
     const rev = lerRevisao((await chamar([{ role: 'user', content: pedidoDeRevisao({ pergunta, prompt: p.prompt }), images: [img.base64] }], { json: true, numPredict: 600 })).content);
@@ -2150,7 +2176,7 @@ async function criarImagem({ pergunta, conversa, imagens, vista, ent, deps }) {
     '',
     legenda,
     '',
-    `*Criada com o FLUX.2 Klein no seu computador em ${segundos} s${refeitas.length ? `; refeita ${refeitas.length === 1 ? '1 vez' : `${refeitas.length} vezes`} depois da revisão (${refeitas.map((t) => t.problemas).join('; ').slice(0, 300)})` : ''}.${img.caminho ? ` Salva em \`${img.caminho}\`.` : ''}*`,
+    `*Criada com o FLUX.2 Klein no seu computador em ${segundos} s (semente ${semente}${aj.passos > 4 ? ', qualidade detalhada' : ''})${refeitas.length ? `; refeita ${refeitas.length === 1 ? '1 vez' : `${refeitas.length} vezes`} depois da revisão (${refeitas.map((t) => t.problemas).join('; ').slice(0, 300)})` : ''}.${img.caminho ? ` Salva em \`${img.caminho}\`.` : ''}*`,
     ...(referencia ? ['', `*Foto de referência: [${String(referencia.titulo || 'imagem da web').replace(/[[\]]/g, '').slice(0, 90)}](${referencia.pagina || referencia.url}) — o gerador copiou a aparência dela; logotipos e letras podem sair diferentes.*`] : []),
     ...(tirados.length ? ['', `*O gerador ainda erra letras acentuadas, então o texto foi escrito sem acento (${tirados.map((t) => `"${t}"`).join(', ')}).*`] : []),
     '',
@@ -2460,4 +2486,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

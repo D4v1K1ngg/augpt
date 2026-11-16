@@ -234,3 +234,40 @@ body { font-family: var(--sans); background: var(--void); }
 .deck-foot .modo-do-agente button.ativo { background: color-mix(in srgb, var(--gold) 18%, transparent); color: var(--gold); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 45%, transparent); }
 .deck-foot .tempo-investigacao { padding: 0 8px; font-size: 12px; color: var(--muted); }
 .modo-dica { margin: 0; max-width: 560px; font-size: 12px; line-height: 1.45; color: var(--muted); text-align: center; min-height: 1.45em; }
+
+/* ------------------------------ painel "Criar imagem" na tela inicial ------------------------------ */
+.inicio-imagem {
+  width: 100%; max-width: 880px; margin-top: clamp(14px, 2.6vh, 24px); padding: 18px 18px 16px; text-align: left;
+  border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--panel) 86%, transparent); backdrop-filter: blur(10px);
+  box-shadow: 0 24px 60px -36px rgba(0, 0, 0, .55);
+}
+.inicio-imagem[hidden] { display: none; }
+.ii-topo { display: flex; align-items: center; gap: 10px; }
+.ii-topo h2 { margin: 0; font: 600 18px/1.2 var(--sans); color: var(--text-forte); }
+.ii-voltar { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--muted); cursor: pointer; }
+.ii-voltar:hover { color: var(--text-forte); background: var(--hover); }
+.ii-voltar svg { width: 16px; height: 16px; }
+.ii-sub { margin: 8px 0 12px; font-size: 12.5px; color: var(--muted); }
+.ii-aviso { margin: 0 0 12px; padding: 8px 12px; border-radius: 10px; font-size: 12.5px; color: var(--text); background: color-mix(in srgb, var(--gold) 12%, transparent); }
+.ii-carrossel-caixa { position: relative; display: flex; align-items: center; gap: 6px; }
+.ii-carrossel { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 2px; flex: 1; }
+.ii-carrossel::-webkit-scrollbar { display: none; }
+.ii-exemplo {
+  flex: 0 0 150px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 6px; padding: 0 0 8px; border: 1px solid var(--line);
+  border-radius: 14px; overflow: hidden; background: var(--caixa); color: var(--text); font: 500 12.5px var(--sans); cursor: pointer; transition: transform .15s, border-color .15s;
+}
+.ii-exemplo img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.ii-exemplo span { padding: 0 10px; }
+.ii-exemplo:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
+.ii-exemplo:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.ii-seta { flex: 0 0 30px; height: 30px; border: 1px solid var(--line); border-radius: 999px; background: var(--caixa); color: var(--text); font-size: 18px; line-height: 1; cursor: pointer; }
+.ii-seta:hover { color: var(--gold); }
+.ii-ajustes { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.ii-ajustes label { display: flex; flex-direction: column; gap: 4px; font: 600 11px var(--sans); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.ii-ajustes select, .ii-ajustes input:not([type=checkbox]) {
+  min-width: 140px; padding: 7px 10px; border: 1px solid var(--caixa-borda); border-radius: 10px; background: var(--caixa); color: var(--text);
+  font: 500 13px var(--sans); text-transform: none; letter-spacing: 0;
+}
+.ii-ajustes input#iiSemente { min-width: 0; width: 110px; }
+.ii-ajustes .ii-check { flex-direction: row; align-items: center; gap: 6px; align-self: flex-end; padding-bottom: 8px; text-transform: none; letter-spacing: 0; font: 500 13px var(--sans); color: var(--text); }
+.inicio .inicio-imagem .ii-sub { max-width: none; text-wrap: pretty; }

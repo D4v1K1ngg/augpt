@@ -310,6 +310,12 @@ const DEFAULTS = {
   boasVindasConcluida: false,
   // Fase 5: o modelo olha a imagem criada e corrige no máximo 2 vezes
   revisarImagensCriadas: true,
+  // ajustes finos do gerador (16/11, painel "Criar imagem"): estilo, formato ('auto' = o modelo escolhe),
+  // qualidade ('rapida' = 4 passos, 'detalhada' = 8) e semente (vazia = aleatória; um número repete a imagem)
+  imagemEstilo: '',
+  imagemFormato: 'auto',
+  imagemQualidade: 'rapida',
+  imagemSemente: '',
   // investigação com tempo (17/10): minutos que o usuário dá para o AuGPT pesquisar
   minutosDeInvestigacao: 10,
   // pedido de produto: preço de hoje no KaBuM, Zoom e Buscapé em cada cartão (17/10)

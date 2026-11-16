@@ -296,13 +296,69 @@
             <button type="button" class="inicio-atalho" data-pedido="quanto está a rtx 5080?"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.5l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h7.9a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.4"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg><b>Comprar e comparar</b><span>O preço de hoje nas lojas</span></button>
             <button type="button" class="inicio-atalho" data-pedido="acha o contrato do aluguel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg><b>Seus arquivos</b><span>Contrato, boleto, áudio do WhatsApp</span></button>
             <button type="button" class="inicio-atalho" data-pedido="bom dia, Jarvis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg><b>Dia a dia</b><span>Resumo do dia, agenda, timers e clima</span></button>
-            <button type="button" class="inicio-atalho" data-pedido="Crie uma imagem de "><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20c3 0 5-2 5-5a3 3 0 1 0-3 3"/><path d="M9 15 20 4"/></svg><b>Criar imagem</b><span>Ilustração, logo ou edição de foto</span></button>
+            <button type="button" class="inicio-atalho" data-pedido="Crie uma imagem de " data-painel="imagem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20c3 0 5-2 5-5a3 3 0 1 0-3 3"/><path d="M9 15 20 4"/></svg><b>Criar imagem</b><span>Ilustração, logo ou edição de foto</span></button>
             <button type="button" class="inicio-atalho" data-aba="estudio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><b>Criar áudio</b><span>Narração no Estúdio de voz</span></button>
             <button type="button" class="inicio-atalho" data-pedido="Busque imagens de "><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg><b>Buscar imagens</b><span>Fotos de qualquer coisa, com o site</span></button>
             <button type="button" class="inicio-atalho" data-pedido="Encontre imagens parecidas com esta" data-anexar="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="11" height="11" rx="2"/><circle cx="16.5" cy="16.5" r="4"/><path d="m21.5 21.5-2.2-2.2"/></svg><b>Imagem parecida</b><span>Envie uma foto e ache similares</span></button>
             <button type="button" class="inicio-atalho" data-pedido="Veja vídeos do YouTube sobre "><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/></svg><b>Vídeos do YouTube</b><span>Reviews e tutoriais, pela legenda</span></button>
             <button type="button" class="inicio-atalho" data-pedido="Quais as notícias de hoje sobre "><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h13v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v9a2 2 0 0 1-2 2M8 9h5M8 13h5M8 17h3"/></svg><b>Notícias</b><span>O que saiu hoje, com as datas</span></button>
           </div>
+          <!-- painel "Criar imagem" (16/11): exemplos gerados pelo FLUX (renderer/exemplos-imagem) e os ajustes finos do gerador -->
+          <section class="inicio-imagem" id="inicioImagem" hidden aria-labelledby="iiTitulo">
+            <div class="ii-topo">
+              <button type="button" class="ii-voltar" id="iiVoltar" title="Voltar aos atalhos" aria-label="Voltar aos atalhos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+              <h2 id="iiTitulo">O que você deseja criar?</h2>
+            </div>
+            <p class="ii-sub">Escolha um exemplo para começar ou descreva a sua ideia na caixa abaixo. Todos foram criados pelo gerador do AuGPT, no seu computador.</p>
+            <p class="ii-aviso" id="iiAviso" hidden>O gerador de imagens ainda não está instalado: instale em <b>Ajustes → Componentes</b>.</p>
+            <div class="ii-carrossel-caixa">
+              <button type="button" class="ii-seta" data-dir="-1" aria-label="Exemplos anteriores">‹</button>
+              <div class="ii-carrossel" id="iiCarrossel">
+                <button type="button" class="ii-exemplo" data-pedido="Crie uma imagem de um gato astronauta laranja flutuando no espaço, com uma nebulosa colorida atrás, ilustração digital fofa"><img src="exemplos-imagem/gato-astronauta.jpg" alt="" loading="lazy" /><span>Gato astronauta</span></button>
+                <button type="button" class="ii-exemplo" data-pedido="Crie um logo minimalista de uma xícara de café com um pequeno sol nascendo do vapor, em dourado e marrom, fundo branco"><img src="exemplos-imagem/logo-cafe.jpg" alt="" loading="lazy" /><span>Logo minimalista</span></button>
+                <button type="button" class="ii-exemplo" data-pedido="Crie uma foto de montanhas nevadas refletidas num lago calmo ao pôr do sol"><img src="exemplos-imagem/montanhas.jpg" alt="" loading="lazy" /><span>Paisagem realista</span></button>
+                <button type="button" class="ii-exemplo" data-pedido="Crie uma imagem de uma rua de cidade futurista à noite com letreiros neon e chuva refletindo no chão, render 3D cinematográfico"><img src="exemplos-imagem/cidade-neon.jpg" alt="" loading="lazy" /><span>Cidade neon</span></button>
+                <button type="button" class="ii-exemplo" data-pedido="Crie uma pintura em aquarela de uma raposa vermelha numa floresta de outono"><img src="exemplos-imagem/raposa-aquarela.jpg" alt="" loading="lazy" /><span>Aquarela</span></button>
+                <button type="button" class="ii-exemplo" data-pedido="Crie uma foto realista de um quarto gamer aconchegante, com dois monitores, luz quente e plantas"><img src="exemplos-imagem/quarto-gamer.jpg" alt="" loading="lazy" /><span>Setup gamer</span></button>
+                <button type="button" class="ii-exemplo" data-pedido="Crie uma heroína em estilo anime, de cabelo prateado e capa azul, em pé num penhasco, cores vibrantes"><img src="exemplos-imagem/guerreira-anime.jpg" alt="" loading="lazy" /><span>Personagem anime</span></button>
+                <button type="button" class="ii-exemplo" data-pedido="Crie uma pixel art de uma casa na árvore ao entardecer, com vaga-lumes, estilo jogo 16 bits"><img src="exemplos-imagem/casa-arvore.jpg" alt="" loading="lazy" /><span>Pixel art</span></button>
+              </div>
+              <button type="button" class="ii-seta" data-dir="1" aria-label="Mais exemplos">›</button>
+            </div>
+            <div class="ii-ajustes" role="group" aria-label="Ajustes finos do gerador de imagens">
+              <label>Estilo
+                <select id="iiEstilo">
+                  <option value="">Livre (o que o pedido disser)</option>
+                  <option value="foto">Foto realista</option>
+                  <option value="ilustracao">Ilustração</option>
+                  <option value="anime">Anime</option>
+                  <option value="aquarela">Aquarela</option>
+                  <option value="oleo">Pintura a óleo</option>
+                  <option value="3d">Render 3D</option>
+                  <option value="pixel">Pixel art</option>
+                  <option value="logo">Logo minimalista</option>
+                </select>
+              </label>
+              <label>Formato
+                <select id="iiFormato">
+                  <option value="auto">Automático</option>
+                  <option value="quadrado">Quadrado 1:1</option>
+                  <option value="paisagem">Paisagem 3:2</option>
+                  <option value="retrato">Retrato 2:3</option>
+                </select>
+              </label>
+              <label>Qualidade
+                <select id="iiQualidade">
+                  <option value="rapida">Rápida (4 passos)</option>
+                  <option value="detalhada">Detalhada (8 passos, mais lenta)</option>
+                </select>
+              </label>
+              <label title="O mesmo número com o mesmo pedido repete a imagem; vazio, cada imagem sai diferente">Semente
+                <input id="iiSemente" inputmode="numeric" maxlength="10" placeholder="aleatória" />
+              </label>
+              <label class="ii-check" title="O modelo olha a imagem criada e refaz até 2 vezes se algo pedido faltar"><input type="checkbox" id="iiRevisar" /> Revisar e corrigir</label>
+            </div>
+          </section>
           <div class="deck-foot inicio-modos">
             <span class="foot-l">Pesquisa</span>
           <div class="modo-do-agente" id="modoDoAgente" role="group" aria-label="Como o agente responde">
