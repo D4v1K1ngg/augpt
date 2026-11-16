@@ -10,23 +10,29 @@
    <link> do index.html.
    ========================================================================= */
 
+/* tema escuro em tom de café (16/11, Davi: "mantenha a cor quente café que tínhamos antes") — o grafite neutro do
+   protótipo ficou frio; aqui os mesmos papéis, puxados para o marrom */
 :root {
-  --void: #0d0e11;
-  --rail: #121317;
-  --panel: #16181d;
-  --panel-2: #1c1e24;
-  --line: #24262c;
-  --line-forte: #2a2c33;
-  --line-viva: #3b3e47;
-  --text: #dcdde1;
-  --text-forte: #ececee;
-  --muted: #9a9ca5;
-  --fraco: #80838c;
-  --hover: #1f2127;
-  --codigo: #111216;
-  --codigo-topo: #15171b;
-  --tinta: #2a2418;
-  --sombra: rgba(0, 0, 0, .35);
+  --void: #15120f;
+  --rail: #110f0c;
+  --panel: #1c1814;
+  --panel-2: #241f1a;
+  --line: #2f2922;
+  --line-forte: #3b342b;
+  --line-viva: #51483c;
+  --text: #e3dccf;
+  --text-forte: #f4eee3;
+  --muted: #a69c8c;
+  --fraco: #8a8072;
+  --hover: #2a241e;
+  --codigo: #120f0c;
+  --codigo-topo: #1a1612;
+  --tinta: #2e2416;
+  --sombra: rgba(0, 0, 0, .45);
+  --caixa: #342d26;
+  --caixa-borda: #4a4035;
+  --enviar: #f4eee3;
+  --no-enviar: #15120f;
 
   /* Inter, JetBrains Mono e Instrument Serif quando instaladas; senão, as do Windows que mais se parecem */
   --sans: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -51,6 +57,10 @@ html[data-theme="light"] {
   --codigo-topo: #efede8;
   --tinta: #f7e6cf;
   --sombra: rgba(20, 20, 20, .08);
+  --caixa: #ffffff;
+  --caixa-borda: #dcd8d0;
+  --enviar: #1b1c1f;
+  --no-enviar: #ffffff;
 }
 
 body { font-family: var(--sans); background: var(--void); }
@@ -105,13 +115,46 @@ body { font-family: var(--sans); background: var(--void); }
 .msg-corpo td { padding: 10px 16px; }
 
 /* ------------------------------ a caixa de texto ------------------------------ */
+/* 16/11 (referência do Davi): o texto em cima, grande; embaixo, a fileira de botões só com ícone — anexar, tela e o
+   raciocínio à esquerda; segundo plano, microfone e enviar (redondo e claro) à direita */
 .composer-caixa {
   max-width: var(--coluna); margin-left: auto; margin-right: auto;
-  border: 1px solid var(--line-forte); border-radius: 24px; background: var(--panel);
-  box-shadow: 0 12px 40px var(--sombra); padding-top: 8px; padding-bottom: 8px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  padding: 16px 12px 10px 14px; border-radius: 30px;
+  background: var(--caixa); border: 1px solid var(--caixa-borda);
+  box-shadow: 0 14px 44px var(--sombra);
 }
-.composer-caixa:focus-within { border-color: color-mix(in srgb, var(--gold) 55%, var(--line-forte)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 9%, transparent), 0 12px 40px var(--sombra); }
-.composer-caixa textarea { font-size: 15.5px; line-height: 1.6; }
+.composer-caixa::before { display: none !important; }
+.composer-caixa:focus-within { border-color: color-mix(in srgb, var(--gold) 45%, var(--caixa-borda)); box-shadow: 0 14px 44px var(--sombra); }
+.composer-caixa textarea {
+  order: -1; flex: 1 0 100%; min-height: 34px; padding: 2px 8px 10px;
+  font-size: 18px; line-height: 1.5; color: var(--text-forte);
+}
+.composer-caixa textarea::placeholder { color: var(--fraco); }
+/* os botões de ícone: sem borda, redondos ao passar o mouse */
+.composer-caixa :is(.btn-anexo, .btn-microfone) {
+  width: 40px; height: 40px; border: 0; border-radius: 50%; background: transparent;
+  color: var(--text); font-size: 24px; font-weight: 300; line-height: 1;
+}
+.composer-caixa :is(.btn-anexo, .btn-microfone) svg { width: 20px; height: 20px; }
+.composer-caixa :is(.btn-anexo, .btn-microfone):hover { background: var(--hover); color: var(--text-forte); border: 0; }
+/* o raciocínio vira texto, como o "4o" da referência */
+.composer-caixa .modo-caixa {
+  height: 36px; padding: 0 8px; border: 0; border-radius: 10px; background: transparent;
+  color: var(--text-forte); font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.composer-caixa .modo-caixa:hover { background: var(--hover); }
+/* o que vem depois do raciocínio (ou do anexo, no chat sem ele) vai para a direita */
+.composer-caixa .modo-caixa, #btnAnexoChat { margin-right: auto; }
+/* enviar: círculo claro, seta escura */
+.composer-caixa .btn-enviar {
+  width: 44px; height: 44px; border-radius: 50%; margin-left: 4px;
+  background: var(--enviar); color: var(--no-enviar); font-size: 20px; font-weight: 600;
+  box-shadow: none; transform: none;
+}
+.composer-caixa .btn-enviar:hover { background: var(--enviar); filter: brightness(.92); transform: none; }
+.composer-caixa .btn-enviar.parando { background: var(--red); color: #1b0c0a; }
+.composer { padding-bottom: 16px; }
 
 /* ------------------------------ a barra lateral (só cores; a estrutura nova é a fase 2) ------------------------------ */
 .lateral { background: var(--rail); }
