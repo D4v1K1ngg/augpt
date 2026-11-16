@@ -404,3 +404,37 @@ body { font-family: var(--sans); background: var(--void); }
 .estudio-bib-acoes .btn-link:hover { color: var(--text-forte); text-decoration: underline; }
 .estudio-bib-acoes .btn-link.perigo:hover { color: var(--erro, #d9775e); }
 .estudio-bib-item:hover { border-color: color-mix(in srgb, var(--gold) 30%, var(--line)); }
+
+/* ------------------------------ Estúdio: 3 passos para quem chega agora (16/11) ------------------------------ */
+.pagina-coluna.estudio { max-width: 980px; }
+.estudio-passos { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.estudio-passos .estudio-passo { margin: 0; padding: 18px 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); }
+.estudio-passos .estudio-passo h2 { margin-bottom: 14px; }
+.estudio-passos textarea { width: 100%; min-height: 150px; box-sizing: border-box; padding: 14px 16px; resize: vertical; line-height: 1.6; color: var(--text); font: 15px/1.6 var(--sans); border: 1px solid var(--caixa-borda); border-radius: 14px; background: var(--caixa); }
+.estudio-passos textarea:focus { outline: none; border-color: color-mix(in srgb, var(--gold) 55%, var(--caixa-borda)); }
+.estudio-linha-dir { display: inline-flex; gap: 12px; align-items: center; }
+.estudio-voz-opcoes { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.estudio-voz-opcoes label:first-child { display: inline-flex; align-items: center; gap: 8px; }
+.estudio-voz-opcoes select { padding: 5px 10px; border: 1px solid var(--caixa-borda); border-radius: 999px; background: var(--caixa); color: var(--text); font: 13px var(--sans); }
+.estudio-voz-opcoes .estudio-sim { margin: 0; color: var(--text); }
+.estudio-mais-vozes { margin-top: 2px; }
+.estudio-mais-vozes > summary { cursor: pointer; font: 600 11px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.estudio-mais-vozes > summary:hover { color: var(--text-forte); }
+.estudio-vozes-rotulo .dica { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.estudio-acoes { margin: 0; }
+#estudioResultados:not(:empty) { margin-top: 14px; }
+/* ajustes avançados: fechado, embaixo, em 3 colunas */
+.estudio-avancado { margin-top: 14px; padding: 4px 20px; border: 1px solid var(--line); border-radius: 18px; }
+.estudio-avancado > summary { cursor: pointer; padding: 12px 0; font: 600 14px var(--sans); color: var(--text-forte); }
+.estudio-avancado > summary .dica { font-weight: 400; margin-left: 8px; }
+.estudio-avancado-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; padding: 6px 0 16px; }
+.estudio-avancado h3 { margin: 0 0 10px; font: 600 12px var(--sans); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.estudio-avancado .estudio-motores { display: block; margin: 0 0 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+/* sem o motor: um cartão só, no centro, com o botão */
+.estudio-comecar { margin: 10px auto 0; max-width: 560px; padding: 34px 30px; text-align: center; border: 1px solid var(--line); border-radius: 22px; background: var(--panel); }
+.estudio-comecar[hidden] { display: none; }
+.estudio-comecar-icone { font-size: 34px; margin-bottom: 6px; }
+.estudio-comecar h2 { margin: 0 0 8px; font: 600 19px var(--sans); color: var(--text-forte); }
+.estudio-comecar p { color: var(--muted); line-height: 1.6; }
+.estudio-comecar .estudio-acoes { justify-content: center; margin-top: 16px; }
+.estudio-comecar code { word-break: break-all; font-size: 12px; }

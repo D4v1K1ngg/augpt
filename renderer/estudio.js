@@ -51,24 +51,37 @@
 
   /* ------------------------------ as vozes (cartões e o seletor do chat) ------------------------------ */
 
-  /** Todas as vozes que dá para usar agora: as clonadas, as do OmniVoice e as do Qwen (só dos motores instalados). */
+  // vozes prontas do OmniVoice com nome de gente: a "voz descrita" com os atributos já escolhidos
+  const PRONTAS = [
+    { id: 'omni:masc', nome: 'Narrador', tipo: 'Masculina, tom médio', instrucao: 'male, middle-aged, moderate pitch' },
+    { id: 'omni:fem', nome: 'Narradora', tipo: 'Feminina, tom médio', instrucao: 'female, young adult, moderate pitch' },
+    { id: 'omni:grave', nome: 'Locutor grave', tipo: 'Masculina, voz grave', instrucao: 'male, middle-aged, low pitch' },
+    { id: 'omni:jovem', nome: 'Jovem', tipo: 'Feminina, voz jovem e aguda', instrucao: 'female, teenager, high pitch' },
+  ];
+
+  /**
+   * As vozes que dá para usar agora, em 3 grupos: "pronta" (as recomendadas), "clonada" (as do usuário) e "mais"
+   * (o resto, fechado). Sem nome de modelo: quem chega agora não sabe o que é OmniVoice ou Qwen.
+   */
   function vozesDisponiveis() {
     if (!est) return [];
     const omni = est.motores.omni?.instalado;
     const qwen = est.motores.qwen?.instalado;
     const clonador = omni ? 'omni' : qwen ? 'qwen' : null;
     const lista = [];
-    if (clonador) for (const v of est.vozes || []) lista.push({ id: `clone:${v.id}`, nome: v.nome, tipo: v.texto ? `“${String(v.texto).slice(0, 48)}…”` : 'Voz clonada', grupo: 'clonada', motor: clonador, modo: 'clonar', vozSalva: v.id, amostra: v.audio });
     if (omni) {
-      lista.push({ id: 'omni:descrita', nome: 'Voz descrita', tipo: 'Gênero, idade e tom que você escolhe', grupo: 'OmniVoice', motor: 'omni', modo: 'descrita' });
-      lista.push({ id: 'omni:automatica', nome: 'Automática', tipo: 'O modelo escolhe a voz', grupo: 'OmniVoice', motor: 'omni', modo: 'automatica' });
+      for (const p of PRONTAS) lista.push({ ...p, grupo: 'pronta', motor: 'omni', modo: 'descrita' });
+      lista.push({ id: 'omni:descrita', nome: 'Personalizada', tipo: 'Você escolhe gênero, idade e tom', grupo: 'pronta', motor: 'omni', modo: 'descrita', personalizar: true });
     }
+    if (clonador) for (const v of est.vozes || []) lista.push({ id: `clone:${v.id}`, nome: v.nome, tipo: v.texto ? `“${String(v.texto).slice(0, 48)}…”` : 'Voz clonada', grupo: 'clonada', motor: clonador, modo: 'clonar', vozSalva: v.id, amostra: v.audio });
+    if (omni) lista.push({ id: 'omni:automatica', nome: 'Surpresa', tipo: 'O modelo escolhe uma voz', grupo: 'mais', motor: 'omni', modo: 'automatica' });
     if (qwen) {
       for (const [id, r] of est.motores.qwen.vozes) {
         const [nome, desc = ''] = r.split(' — ');
-        lista.push({ id: `qwen:${id}`, nome, tipo: desc, grupo: 'Qwen3-TTS', motor: 'qwen', modo: 'pronta', voz: id });
+        // "masculina, dinâmica (inglês)" → "masculina, dinâmica · sotaque inglês"
+        lista.push({ id: `qwen:${id}`, nome, tipo: desc.replace(/\s*\(([^)]+)\)$/, ' · sotaque $1'), grupo: omni ? 'mais' : 'pronta', motor: 'qwen', modo: 'pronta', voz: id });
       }
-      lista.push({ id: 'qwen:descrita', nome: 'Descrita em texto', tipo: 'Descreva a voz com as suas palavras', grupo: 'Qwen3-TTS', motor: 'qwen', modo: 'descrita' });
+      lista.push({ id: 'qwen:descrita', nome: 'Descrita com palavras', tipo: 'Descreva a voz como quiser', grupo: 'mais', motor: 'qwen', modo: 'descrita', personalizar: true });
     }
     return lista;
   }
@@ -79,16 +92,27 @@
     const modo = modoAtual();
     if (modo === 'clonar') return `clone:${escolhas.vozSalva}`;
     if (m === 'qwen' && modo === 'pronta') return `qwen:${valor('voz', 'ryan')}`;
+    if (m === 'omni' && modo === 'descrita') return PRONTAS.find((p) => p.instrucao === valor('instrucao', PRONTAS[0].instrucao))?.id || 'omni:descrita';
     return `${m}:${modo}`;
   }
 
   function escolherVoz(v) {
+    const eraDoChat = escolhas.vozDoChat && escolhas.vozDoChat === vozAtual();
     escolhas.motor = v.motor;
     (escolhas[v.motor] ||= {}).modo = v.modo;
     if (v.vozSalva) escolhas.vozSalva = v.vozSalva;
     if (v.voz) escolhas[v.motor].voz = v.voz;
+    if (v.instrucao) escolhas[v.motor].instrucao = v.instrucao;
+    // com "usar no chat" marcado, a voz nova vai junto para o chat
+    if (eraDoChat) escolhas.vozDoChat = v.id;
     guardar();
     pintarAjustes();
+    // "Personalizada": abre os detalhes da voz, onde estão gênero, idade e tom
+    if (v.personalizar) {
+      const av = document.querySelector('.estudio-avancado');
+      av.open = true;
+      $('estudioModoCampos').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 
   let amostraTocando = null;
@@ -115,26 +139,24 @@
     const lista = vozesDisponiveis();
     const atual = vozAtual();
     if (!lista.length) {
-      alvo.innerHTML = '<p class="dica">Instale um dos motores acima para escolher a voz.</p>';
+      alvo.innerHTML = '<p class="dica">Instale o motor de voz para escolher a voz.</p>';
       return;
     }
-    const grupos = [['clonada', 'Suas vozes clonadas'], ['OmniVoice', 'OmniVoice'], ['Qwen3-TTS', 'Qwen3-TTS · vozes prontas']];
-    alvo.innerHTML = grupos
-      .map(([g, rotulo]) => {
-        const itens = lista.filter((v) => v.grupo === g);
-        if (!itens.length && g !== 'clonada') return '';
-        const cartoes = itens.map((v) => `
+    const cartao = (v) => `
           <div class="estudio-voz ${v.id === atual ? 'ativo' : ''}" role="radio" tabindex="0" aria-checked="${v.id === atual}" data-voz="${esc(v.id)}">
-            ${v.amostra ? '<button type="button" class="estudio-voz-ouvir" title="Ouvir a amostra" aria-label="Ouvir a amostra">▶</button>' : `<span class="estudio-voz-icone" aria-hidden="true">${v.grupo === 'Qwen3-TTS' ? '◆' : '◎'}</span>`}
+            ${v.amostra ? '<button type="button" class="estudio-voz-ouvir" title="Ouvir a amostra" aria-label="Ouvir a amostra">▶</button>' : `<span class="estudio-voz-icone" aria-hidden="true">${v.personalizar ? '✎' : v.motor === 'qwen' ? '◆' : '◎'}</span>`}
             <span class="estudio-voz-texto"><b>${esc(v.nome)}</b><span>${esc(v.tipo)}</span></span>
             ${v.amostra ? '<span class="estudio-voz-mais"><button type="button" class="estudio-voz-renomear" title="Renomear" aria-label="Renomear esta voz">✎</button><button type="button" class="estudio-voz-apagar" title="Apagar esta voz" aria-label="Apagar esta voz">×</button></span>' : ''}
-          </div>`).join('');
-        const nova = g === 'clonada' && (est.motores.omni?.instalado || est.motores.qwen?.instalado)
-          ? '<button type="button" class="estudio-voz estudio-voz-nova" id="estudioNovaVoz"><span class="estudio-voz-icone" aria-hidden="true">＋</span><span class="estudio-voz-texto"><b>Clonar uma voz</b><span>10 a 20 s de fala limpa</span></span></button>'
-          : '';
-        return `<div class="estudio-vozes-grupo"><div class="estudio-vozes-rotulo">${esc(rotulo)}</div><div class="estudio-vozes-grade">${cartoes}${nova}</div></div>`;
-      })
-      .join('');
+          </div>`;
+    const de = (g) => lista.filter((v) => v.grupo === g);
+    const clonar = '<button type="button" class="estudio-voz estudio-voz-nova" id="estudioNovaVoz"><span class="estudio-voz-icone" aria-hidden="true">＋</span><span class="estudio-voz-texto"><b>Clonar uma voz</b><span>Use 10 a 20 s de alguém falando</span></span></button>';
+    const mais = de('mais');
+    const abertoMais = mais.some((v) => v.id === atual);
+    alvo.innerHTML = [
+      de('pronta').length ? `<div class="estudio-vozes-grupo"><div class="estudio-vozes-rotulo">Vozes prontas</div><div class="estudio-vozes-grade">${de('pronta').map(cartao).join('')}</div></div>` : '',
+      `<div class="estudio-vozes-grupo"><div class="estudio-vozes-rotulo">Suas vozes ${de('clonada').length ? '' : '<span class="dica">— clone a sua voz (ou de alguém que autorizou) para narrar com ela</span>'}</div><div class="estudio-vozes-grade">${de('clonada').map(cartao).join('')}${clonar}</div></div>`,
+      mais.length ? `<details class="estudio-mais-vozes" ${abertoMais ? 'open' : ''}><summary>Mais vozes (${mais.length})</summary><div class="estudio-vozes-grade">${mais.map(cartao).join('')}</div></details>` : '',
+    ].join('');
     for (const c of alvo.querySelectorAll('[data-voz]')) {
       const v = lista.find((x) => x.id === c.dataset.voz);
       c.addEventListener('click', (e) => {
@@ -177,6 +199,7 @@
   }
   function pintarSeletoresDoChat() {
     $('estudioVozDoChat').innerHTML = opcoesDoSeletorDoChat();
+    $('estudioUsarNoChat').checked = Boolean(escolhas.vozDoChat) && escolhas.vozDoChat === vozAtual();
     document.querySelectorAll('.audio-voz').forEach((s) => (s.innerHTML = opcoesDoSeletorDoChat()));
   }
   function mudarVozDoChat(id) {
@@ -213,25 +236,45 @@
   }
 
   function pintarMotores() {
-    const todos = Object.values(est.motores).every((m) => m.instalado) && est.ffmpeg;
     const cartoes = Object.entries(est.motores).map(([id, m]) => `
       <div class="estudio-motor ${m.instalado ? 'ok' : ''}">
         <div><b>${esc(m.nome)}</b> ${m.instalado ? '<span class="estudio-selo">instalado</span>' : `<span class="dica">~${m.gb} GB</span>`}<br/><span class="dica">${esc(m.resumo)}</span></div>
         ${m.instalado ? '' : `<button class="btn-secundario" data-instalar="${id}">Instalar</button>`}
       </div>`).join('') + `
-      <div class="estudio-pasta dica">Pasta: <code>${esc(est.pasta)}</code> <button class="btn-link" id="estudioPasta">Mudar…</button>${est.ffmpeg ? '' : ' · <b>falta o ffmpeg</b> (Ajustes → Componentes)'}</div>
-      <div class="dica" id="estudioInstalacao" aria-live="polite"></div>`;
-    // tudo instalado: os motores saem do caminho, numa linha que abre os detalhes
-    $('estudioMotores').classList.toggle('compacto', Boolean(todos));
-    $('estudioMotores').innerHTML = todos
-      ? `<details class="estudio-motores-ok"><summary>✓ ${Object.values(est.motores).map((m) => esc(m.nome)).join(' e ')} instalados · pasta e motores</summary><div class="estudio-motores-cartoes">${cartoes}</div></details>`
-      : cartoes;
-    $('estudioMotores').querySelectorAll('[data-instalar]').forEach((b) => b.addEventListener('click', async () => {
+      <div class="estudio-pasta dica">Pasta dos motores e dos áudios: <code>${esc(est.pasta)}</code> <button class="btn-link" id="estudioPasta">Mudar…</button></div>`;
+    $('estudioMotores').innerHTML = `<h3>Motores de voz</h3><div class="estudio-motores-cartoes">${cartoes}</div>`;
+    // para começar: falta o motor ou o ffmpeg → só o cartão do que falta, com o botão
+    const algum = Object.values(est.motores).some((m) => m.instalado);
+    const pronto = algum && est.ffmpeg;
+    $('estudioComecar').hidden = pronto;
+    $('estudioCriar').hidden = !pronto || !$('estudioBiblioteca').hidden;
+    if (!pronto) {
+      $('estudioComecar').innerHTML = !algum
+        ? `<div class="estudio-comecar-icone" aria-hidden="true">🎙</div>
+          <h2>Falta só instalar o motor de voz</h2>
+          <p>Ele transforma o texto em fala, no seu computador. A instalação baixa cerca de ${est.motores.omni.gb} GB, uma vez só, para a pasta <code>${esc(est.pasta)}</code>.</p>
+          <div class="estudio-acoes"><button class="btn-primario estudio-gerar" data-instalar="omni">Instalar o motor de voz</button><button class="btn-link" id="estudioPasta2">Escolher outra pasta…</button></div>
+          <p class="dica" id="estudioInstalacao" aria-live="polite"></p>`
+        : `<div class="estudio-comecar-icone" aria-hidden="true">🧩</div>
+          <h2>Falta um componente: o ffmpeg</h2>
+          <p>Ele junta as partes do áudio e grava o arquivo final. Instale em Ajustes → Componentes (um clique).</p>
+          <div class="estudio-acoes"><button class="btn-primario estudio-gerar" id="estudioIrComponentes">Abrir Componentes</button></div>`;
+      $('estudioPasta2')?.addEventListener('click', async () => {
+        const r = await api.estudio.escolherPasta();
+        if (r.ok) await carregar();
+      });
+      $('estudioIrComponentes')?.addEventListener('click', () => {
+        trocarAba('config');
+        document.querySelector('[data-painel="ajComponentes"]')?.click();
+      });
+    }
+    document.querySelectorAll('#viewEstudio [data-instalar]').forEach((b) => b.addEventListener('click', async () => {
       const m = est.motores[b.dataset.instalar];
       if (!confirm(`Instalar o ${m.nome}? Baixa ~${m.gb} GB (Python, PyTorch com CUDA e o modelo na 1ª geração) para:\n${est.pasta}`)) return;
       b.disabled = true;
+      b.textContent = 'Instalando…';
       const r = await api.estudio.instalar(b.dataset.instalar);
-      if (!r.ok) $('estudioInstalacao').textContent = `Não deu: ${r.error}`;
+      if (!r.ok && $('estudioInstalacao')) $('estudioInstalacao').textContent = `Não deu: ${r.error}`;
       await carregar();
     }));
     $('estudioPasta').addEventListener('click', async () => {
@@ -273,14 +316,13 @@
         d.querySelector('select').addEventListener('change', () => {
           dele().instrucao = [...c.querySelectorAll('select[data-grupo]')].map((s) => s.value).filter(Boolean).join(', ');
           guardar();
+          pintarVozes(); // o cartão "Personalizada" (ou a voz pronta que bate) fica marcado
         });
       }
     } else if (modo === 'clonar') {
       const v = (est.vozes || []).find((x) => x.id === escolhas.vozSalva);
-      campo(`<p class="dica">${v ? `Clonando <b>${esc(v.nome)}</b>.` : 'Nenhuma voz clonada escolhida.'} Troque nos cartões de voz acima.</p>`);
+      campo(`<p class="dica">${v ? `Clonando <b>${esc(v.nome)}</b>.` : 'Nenhuma voz clonada escolhida.'} Troque no passo 2, "Escolha a voz".</p>`);
     }
-    // a voz descrita/pronta tem detalhes para mexer: o grupo abre sozinho; nos outros fica fechado
-    $('estudioDetalhesVoz').open = modo === 'descrita' || (modo === 'pronta' && valor('tamanho', '1.7B') === '1.7B' && Boolean(valor('instrucao', '')));
     // sons no meio do texto (OmniVoice)
     $('estudioMarca').hidden = !m.marcas;
     if (m.marcas) $('estudioMarca').innerHTML = `<option value="">Inserir som…</option>${m.marcas.map(([t, r]) => `<option value="${esc(t)}">${esc(r)} ${esc(t)}</option>`).join('')}`;
@@ -467,7 +509,9 @@
       b.classList.toggle('ativo', sim);
       b.setAttribute('aria-selected', String(sim));
     }
-    $('estudioCriar').hidden = qual !== 'criar';
+    $('estudioCriar').hidden = qual !== 'criar' || !$('estudioComecar').hidden;
+    if (qual !== 'criar') $('estudioComecar').hidden = true;
+    else if (est) pintarMotores();
     $('estudioBiblioteca').hidden = qual !== 'biblioteca';
     if (qual === 'biblioteca') carregarBiblioteca().then(pintarBiblioteca);
   }
@@ -503,6 +547,11 @@
   $('estudioSemente').addEventListener('input', (e) => ((escolhas.semente = e.target.value === '' ? undefined : Number(e.target.value)), guardar()));
   $('estudioLegenda').addEventListener('change', (e) => ((escolhas.legenda = e.target.checked), guardar()));
   $('estudioVozDoChat').addEventListener('change', (e) => mudarVozDoChat(e.target.value));
+  $('estudioUsarNoChat').addEventListener('change', (e) => mudarVozDoChat(e.target.checked ? vozAtual() : ''));
+  $('estudioExemplo').addEventListener('click', () => {
+    $('estudioTexto').value = 'Olá! Este é um teste do Estúdio de voz do AuGPT.\n\nEscreva aqui qualquer texto, escolha uma voz e clique em Gerar áudio. Em alguns segundos, o áudio fica pronto para ouvir e salvar.';
+    $('estudioTexto').dispatchEvent(new Event('input'));
+  });
   $('estudioRestaurar').addEventListener('click', () => {
     escolhas = { texto: escolhas.texto, motor: escolhas.motor, vozSalva: escolhas.vozSalva, vozDoChat: escolhas.vozDoChat };
     guardar();
