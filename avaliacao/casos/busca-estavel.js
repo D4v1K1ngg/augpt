@@ -24,3 +24,39 @@ module.exports = [
     },
   },
 ];
+module.exports.push({
+  nome: 'lista principal: os produtos citados em todos os tópicos de comunidade lidos (com as fontes; lista de afiliado não conta) viram a base das opções do redator, e os cartões deles vão para o topo, renumerados, com a comparação no fim',
+  tipo: 'unidade',
+  executar() {
+    const fontes = [
+      { n: 3, url: 'https://www.reddit.com/r/iems/a', titulo: 'IEM for FPS', comunidade: true, trechos: ['The Simgot EM6L is great for footsteps. Truthear Hexa too. Simgot EM6L again.'] },
+      { n: 5, url: 'https://forum.adrenaline.com.br/x', titulo: 'Fones para FPS', comunidade: true, trechos: ['Tenho o Truthear Hexa e o Simgot EM6L, recomendo.'] },
+      { n: 7, url: 'https://pandalargo.com.br/top-10', titulo: 'Top 10 fones', trechos: ['KZ EDX Pro é bom. KZ EDX Pro de novo.'] },
+    ];
+    const c = nucleo.citadosNaComunidade(fontes, 'melhor fone para pubg');
+    const txt = 'Intro.\n\n#### 1. KZ EDX Pro\nLista.\n\n#### 2. Simgot EM6L\nComunidade.\n\n#### 3. Truthear Hexa\nComunidade.\n\n### ⚖️ Comparação\nfim\n';
+    const r = nucleo.comunidadePrimeiro(txt, c.map((x) => x.nome));
+    return [
+      JSON.stringify(c) === '[{"nome":"Simgot EM6L","fontes":[3,5]},{"nome":"Truthear Hexa","fontes":[3,5]}]' || JSON.stringify(c),
+      /monte as opções a partir desta lista[\s\S]*1\. Simgot EM6L \[3\]\[5\]/.test(nucleo.blocoDaComunidade(c)) || 'o redator recebe a lista com as fontes',
+      /#### 1\. Simgot EM6L[\s\S]*#### 2\. Truthear Hexa[\s\S]*#### 3\. KZ EDX Pro[\s\S]*### ⚖️ Comparação\nfim/.test(r) || r,
+      nucleo.comunidadePrimeiro(txt, []) === txt && nucleo.blocoDaComunidade([]) === '' || 'sem comunidade, nada muda',
+    ];
+  },
+});
+module.exports.push({
+  nome: 'página de bloqueio não é leitura: o aviso do Reddit ("blocked by network security… log in", 403) vira leitura sem texto; texto normal que cita "access denied" não; a lista principal usa o resumo da busca do tópico bloqueado',
+  tipo: 'unidade',
+  executar() {
+    const { paginaDeBloqueio } = require('../../src/tools/extract');
+    const fontes = [
+      { n: 2, url: 'https://www.reddit.com/r/iems/a', titulo: 'IEM for FPS', comunidade: true, trechos: [], resumo: 'Get the Simgot EM6L, the Simgot EM6L imaging is great; Truthear Hexa is fine too.' },
+    ];
+    return [
+      paginaDeBloqueio("Title: URL Source: https://www.reddit.com/r/x Warning: Target URL returned error 403: Forbidden Markdown Content: You've been blocked by network security. To continue, log in to your Reddit account") === true || 'o aviso do Reddit',
+      paginaDeBloqueio('Just a moment...') === true && paginaDeBloqueio('Um tópico sobre fones; o erro access denied apareceu no app e eu resolvi assim.') === false || 'genérico só em página curta',
+      /bloqueada: true/.test(require('fs').readFileSync(require.resolve('../../src/tools/extract'), 'utf8')) || 'ler() devolve a página bloqueada sem texto',
+      nucleo.citadosNaComunidade(fontes, 'melhor fone').some((c) => c.nome === 'Simgot EM6L' && c.fontes.includes(2)) || JSON.stringify(nucleo.citadosNaComunidade(fontes, 'melhor fone')),
+    ];
+  },
+});

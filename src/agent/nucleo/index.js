@@ -1170,10 +1170,32 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
   // as garantias do fim (comunidade e mínimo de leituras): o que a pesquisa ainda não leu
   await garantirComunidade();
   await lerAsMaisLigadas();
+  // a lista principal (16/11): os produtos citados em TODOS os tópicos de comunidade lidos (não só nos dos critérios),
+  // com as fontes de cada um; os 2 mais citados sem review lido ganham um
+  let citados = [];
+  if (produto && !signal?.aborted) {
+    citados = citadosNaComunidade(fontes, pergunta);
+    if (process.env.DEPURAR_MATERIAL) {
+      const com = fontes.filter((f) => f.trechos?.length && (f.comunidade || tipoDaPagina(f, { recomendacao: true }).tipo === 'comunidade'));
+      console.error(`[lista] ${com.length} tópicos lidos: ${com.map((f) => `${dominio(f.url)} "${String(f.titulo).slice(0, 40)}"`).join(' | ')}`);
+      for (const f of com) console.error(`[lista]   ${dominio(f.url)}: ${f.trechos.join(' ').replace(/\s+/g, ' ').slice(0, 400)}`);
+      console.error(`[lista] citados: ${JSON.stringify(citados)} · todos: ${JSON.stringify(modelosCitados(com.map((f) => f.trechos.join('\n')), { pergunta }))}`);
+    }
+    const semReview = citados.filter((c) => !fontes.some((f) => f.trechos.length && !c.fontes.includes(f.n) && tituloCita(`${f.titulo} ${f.resumo}`, c.nome))).slice(0, 2);
+    if (semReview.length) {
+      const lista = await executarBusca(semReview.map((c) => `${c.nome} review`), { maximo: semReview.length, porSite: 6 });
+      const achados = [...String(lista).matchAll(/^\[(\d+)\]/gm)].map((m) => fontes.find((f) => f.n === Number(m[1]))).filter((f) => f && !f.trechos.length && tipoDaPagina(f, { recomendacao: true }).tipo !== 'lista de afiliado');
+      const umPorNome = semReview.map((c) => achados.find((f) => tituloCita(`${f.titulo} ${f.resumo}`, c.nome))).filter(Boolean);
+      await Promise.all([...new Set(umPorNome)].map((f) => executarLeitura({ fonte: f.n, foco: 'o que quem testou diz deste produto para este uso' }, { garantia: true })));
+    }
+    if (citados.length) emit('aviso', { texto: `quem usa cita: ${citados.map((c) => c.nome).join(' · ')}` });
+  }
   escrevendo = true; // daqui em diante a escrita começa: página que chegar tarde não muda as fontes
   fontes.criteriosDoUso = criteriosDoUso; // para a escrita (responder)
   fontes.sinaisDeEvitar = sinaisDeEvitar;
-  fontes.recomendadosPelaComunidade = recomendadosPelaComunidade;
+  // os do código em todos os tópicos primeiro; depois os da etapa dos critérios
+  fontes.citadosNaComunidade = citados;
+  fontes.recomendadosPelaComunidade = [...citados.map((c) => c.nome), ...recomendadosPelaComunidade].filter((n, i, t) => t.findIndex((m) => m.toLowerCase() === n.toLowerCase()) === i).slice(0, 5);
   return fontes;
 }
 
@@ -1286,6 +1308,57 @@ async function anotarPaginas(pergunta, usadas, { chamar, signal } = {}) {
  * grupos numa chamada curta; o CÓDIGO conta em quantos sites diferentes cada ponto aparece (3 páginas do mesmo site
  * contam 1). O escritor recebe o que é confirmado, o que só um site diz e onde as fontes divergem. '' quando não rende.
  */
+/**
+ * Os produtos citados nos tópicos de comunidade lidos, com as fontes de cada um (16/11, a lista principal): os nomes
+ * pelo código (modelosCitados, 2+ menções no conjunto), e a fonte é cada tópico que cita o nome.
+ */
+function citadosNaComunidade(fontes, pergunta) {
+  // o texto lido do tópico ou, se a leitura foi bloqueada (o Reddit pede verificação anti-robô), o resumo que a busca
+  // mostrou dele — muitas vezes já com os modelos citados
+  const textoDe = (f) => (f.trechos?.length ? f.trechos.join('\n') : `${f.titulo || ''}\n${f.resumo || ''}`);
+  const daComunidade = fontes.filter((f) => (f.comunidade || tipoDaPagina(f, { recomendacao: true }).tipo === 'comunidade') && String(textoDe(f)).trim().length > 20);
+  if (!daComunidade.length) return [];
+  const nomes = modelosCitados(daComunidade.map(textoDe), { pergunta });
+  const compacto = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return nomes
+    .map((nome) => ({ nome, fontes: daComunidade.filter((f) => compacto(textoDe(f)).includes(compacto(nome))).map((f) => f.n) }))
+    .filter((c) => c.fontes.length)
+    .slice(0, 5);
+}
+
+/** A lista principal para o redator (16/11): os produtos que quem usa cita, na ordem, com as fontes. */
+function blocoDaComunidade(citados = []) {
+  if (!Array.isArray(citados) || !citados.length) return '';
+  const linhas = citados.map((c, i) => `${i + 1}. ${c.nome} ${c.fontes.map((n) => `[${n}]`).join('')}`);
+  return `\n\n(Os produtos que quem usa cita nos fóruns lidos — monte as opções a partir desta lista, nesta ordem, e só complete com outro produto das fontes se faltar opção:\n${linhas.join('\n')})`;
+}
+
+/**
+ * Os cartões dos produtos da comunidade vêm primeiro (16/11): mesmo que o redator ponha uma lista de afiliado em 1º,
+ * o código reordena os "#### N." e renumera. Devolve o texto (igual se nada muda).
+ */
+function comunidadePrimeiro(texto, nomes = []) {
+  const t = String(texto || '');
+  if (!nomes.length) return t;
+  const compacto = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const partes = t.split(/(?=^#### \d+[.)] )/m);
+  const intro = /^#### \d+[.)] /.test(partes[0]) ? '' : partes.shift();
+  if (partes.length < 2) return t;
+  // o último bloco leva junto o que vem depois dos cartões (a comparação, a ressalva): separa
+  const ultimo = partes[partes.length - 1];
+  const corte = ultimo.search(/^(#{2,3} (?!#)|---\s*$)/m);
+  const resto = corte > 0 ? ultimo.slice(corte) : '';
+  if (corte > 0) partes[partes.length - 1] = ultimo.slice(0, corte);
+  const daComunidade = (b) => {
+    const nome = compacto(/^#### \d+[.)]\s*(.+)$/m.exec(b)?.[1] || '');
+    return nomes.some((n) => nome.includes(compacto(n)) || (compacto(n).includes(nome) && nome.length >= 4));
+  };
+  const ordenados = [...partes.filter(daComunidade), ...partes.filter((b) => !daComunidade(b))];
+  if (ordenados.every((b, i) => b === partes[i])) return t;
+  let n = 0;
+  return `${intro}${ordenados.map((b) => b.replace(/^#### \d+([.)]) /m, () => `#### ${(n += 1)}. `).replace(/\s*$/, '\n\n')).join('')}${resto}`;
+}
+
 /**
  * A pergunta sem a cortesia e as palavras vazias (16/11): "Poderia me recomendar os melhores fones intra auriculares
  * para se jogar pubg ?" → "melhores fones intra auriculares jogar pubg". Busca fixa (a mesma em toda rodada) e
@@ -2224,7 +2297,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
     // o lembrete do formato vai junto da pergunta, que é o que o modelo lê por último
     // (15/10: com o formato só no fim do prompt longo, depois das fontes, o mouse saiu sem cartões)
-    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: a resposta direta, "### 🎯 O que importa para este uso", um bloco "#### N. Marca Modelo" por opção — o parágrafo do porquê ligado ao que importa, **Preço:**, **Atenção:** e **Na comunidade:** citando a fonte —, a comparação das duas primeiras ("qual eu escolheria"), a ressalva e as perguntas para acertar na escolha.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)${blocoDosCriterios(fontes.criteriosDoUso, fontes.recomendadosPelaComunidade)}` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pauta || cruzamento ? [pergunta, pauta, cruzamento].filter(Boolean).join('\n\n') : pergunta },
+    { role: 'user', ...(imagens.some((i) => i.base64) ? { images: imagens.map((i) => i.base64) } : {}), content: ent.produto && usadas.length ? `${pergunta}\n\n(Responda no formato de pedido de produto: a resposta direta, "### 🎯 O que importa para este uso", um bloco "#### N. Marca Modelo" por opção — o parágrafo do porquê ligado ao que importa, **Preço:**, **Atenção:** e **Na comunidade:** citando a fonte —, a comparação das duas primeiras ("qual eu escolheria"), a ressalva e as perguntas para acertar na escolha.${opcoesPedidas(pergunta) ? ` O usuário pediu ${opcoesPedidas(pergunta)} opções: escreva ${opcoesPedidas(pergunta)} blocos "#### N.", um por opção — não troque os blocos por tabela ou lista.` : ""} Se as fontes não trazem modelos para indicar, responda normalmente, sem comentar este formato.)${blocoDosCriterios(fontes.criteriosDoUso, fontes.citadosNaComunidade?.length ? [] : fontes.recomendadosPelaComunidade)}${blocoDaComunidade(fontes.citadosNaComunidade)}` : ehAnaliseDePreco(pergunta) && usadas.length && !pedeGrafico(pergunta) ? `${pergunta}\n\n(Responda como uma análise, em texto — não como lista de produtos para comprar: 1) a linha do tempo do preço, do lançamento até hoje, com a data e a fonte de cada preço; 2) a média ou a faixa mais comum; 3) se pedirem, a estimativa — uma faixa, dizendo que é estimativa e por quê. Use só preços do modelo exato perguntado: versões vizinhas (sem o "Ti", "Super", outra memória) não valem — se uma fonte for de outro modelo, deixe de fora.)` : pedeGrafico(pergunta) ? `${pergunta}\n\n(Monte o gráfico pedido num bloco \`\`\`chart com os números que você coletou — "type" de acordo com o pedido; o que for estimativa sua, marque em "estimated".)` : pedeVisual(pergunta) ? `${pergunta}\n\n(Escreva a página inteira — HTML, CSS e JavaScript juntos, sem nada da internet — num bloco que começa com \`\`\`visual: ele roda aqui no chat.)` : pauta || cruzamento ? [pergunta, pauta, cruzamento].filter(Boolean).join('\n\n') : pergunta },
   ];
   const limparEscrita = (t) =>
     semParagrafosDeAnuncio(semImagens(t))
@@ -2245,6 +2318,8 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
       emit('aviso', { texto: `conferência do produto: ${campos.semComunidade} "Na comunidade" sem fonte de comunidade (saiu) · ${campos.semFonteDePreco} preço sem fonte` });
     }
   }
+  // a comunidade primeiro (16/11): os cartões dos produtos que quem usa cita vêm antes, renumerados
+  if (ent.produto && fontes.recomendadosPelaComunidade?.length) escrito = comunidadePrimeiro(escrito, fontes.recomendadosPelaComunidade);
   // o descarte pelo código (14/11): opção que elogia o que os critérios mandam evitar sai
   if (ent.produto && fontes.sinaisDeEvitar?.length) {
     const semContra = semOpcoesContraOsCriterios(escrito, fontes.sinaisDeEvitar, { minimo: Number(opcoesPedidas(pergunta)) || 0 });
@@ -2385,4 +2460,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

@@ -526,7 +526,23 @@ async function ler(url, opcoes = {}) {
   // pra saber por que o Reddit caiu no render — só o "via" final aparecia)
   const tentativas = [];
   const pagina = await lerEmCamadas(url, opcoes, tentativas);
+  // 16/11: a página de bloqueio não é conteúdo — o Reddit respondia ao leitor externo "You've been blocked by network
+  // security… log in" (403) e o AuGPT contava 3 tópicos lidos com só o aviso. Vira leitura sem texto (outra fonte entra).
+  if (paginaDeBloqueio(pagina?.texto)) {
+    tentativas.push('o site bloqueou a leitura (verificação anti-robô ou login)');
+    return { ...pagina, texto: '', bloqueada: true, tentativas: [...tentativas] };
+  }
   return tentativas.length && !pagina.tentativas ? { ...pagina, tentativas: [...tentativas] } : pagina;
+}
+
+/** Texto de página de bloqueio, verificação anti-robô ou login obrigatório (curto e sem conteúdo do assunto). */
+const BLOQUEIO_FORTE = /you've been blocked by network security|target url returned error 40[13]|log in to your reddit account|verify you are human|checking your browser before accessing|enable javascript and cookies to continue|please complete the security check|unusual traffic from your computer/i;
+// genéricos: só numa página curta (um texto sobre o assunto que cita "access denied" não é bloqueio)
+const BLOQUEIO_FRACO = /^\W*(access denied|attention required|just a moment|forbidden|403 forbidden)\b/i;
+function paginaDeBloqueio(texto) {
+  const t = String(texto || '').trim();
+  if (!t) return false;
+  return (t.length < 6000 && BLOQUEIO_FORTE.test(t)) || (t.length < 600 && BLOQUEIO_FRACO.test(t));
 }
 
 async function lerEmCamadas(url, { render, permitirExterno = true, minimo = 250, estrategia = null, conferir = null } = {}, tentativas = []) {
@@ -662,6 +678,6 @@ async function lerEmCamadas(url, { render, permitirExterno = true, minimo = 250,
 module.exports = {
   definirPastaDeDiagnostico,
   reiniciarPlacarReddit,
-  ler, extrairDoHtml, paragrafos, texto, decodificar, podar,
+  ler, paginaDeBloqueio, extrairDoHtml, paragrafos, texto, decodificar, podar,
   tabelaParaMarkdown, dataDePublicacao, dadosEstruturados, pareceListagem, pareceMalcodificado,
 };
