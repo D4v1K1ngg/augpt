@@ -268,7 +268,7 @@ const nomeDeArquivo = (t) => String(t || 'narracao').normalize('NFD').replace(/\
  * narração ganha um .json ao lado (texto, voz, duração, a chave do pedido). O mesmo pedido de novo — mesmo texto,
  * voz e ajustes — devolve o arquivo que já existe, sem gerar; "novo: true" gera outra versão mesmo assim.
  */
-const FORA_DA_CHAVE = new Set(['destino', 'legenda', 'daResposta', 'doChat', 'novo', 'titulo']);
+const FORA_DA_CHAVE = new Set(['destino', 'legenda', 'daResposta', 'doChat', 'novo', 'titulo', 'nomeDaVoz']);
 function chaveDoPedido(o = {}) {
   const pares = Object.keys(o).filter((k) => !FORA_DA_CHAVE.has(k) && o[k] !== undefined).sort().map((k) => [k, o[k]]);
   return crypto.createHash('sha1').update(JSON.stringify(pares)).digest('hex').slice(0, 20);
@@ -276,6 +276,7 @@ function chaveDoPedido(o = {}) {
 
 /** O nome da voz para a biblioteca: a clonada pelo nome, a pronta pelo nome do Qwen, a descrita pelos atributos. */
 function rotuloDaVoz(o = {}, vozes = []) {
+  if (o.nomeDaVoz) return String(o.nomeDaVoz).slice(0, 60); // o nome do cartão que a pessoa escolheu ("Narradora")
   if (o.modo === 'clonar') return vozes.find((v) => v.id === o.vozSalva)?.nome || 'voz clonada';
   if (o.modo === 'pronta') return String((MOTORES.qwen.vozes.find(([id]) => id === o.voz) || [o.voz, o.voz || 'voz pronta'])[1]).split(' — ')[0];
   if (o.modo === 'automatica') return 'voz automática';
@@ -510,7 +511,9 @@ class EstudioDeVoz {
         srt = `${base}.srt`;
         fs.writeFileSync(srt, legenda(r.partes.map((p, i) => ({ texto: textos[i], segundos: p.segundos })), { pausa, velocidade }));
       }
-      const titulo = String(o.titulo || textos[0].split(/(?<=[.!?])\s/)[0]).replace(/\s+/g, ' ').trim().slice(0, 80);
+      // a 1ª frase; curta demais ("Olá!"), o começo do texto até umas 8 palavras
+      const frase = textos[0].split(/(?<=[.!?])\s/)[0];
+      const titulo = String(o.titulo || (frase.length >= 15 ? frase : textos[0].split(/\s+/).slice(0, 8).join(' '))).replace(/\s+/g, ' ').trim().slice(0, 80);
       fs.writeFileSync(`${base}.json`, JSON.stringify({ titulo, texto: String(o.texto).slice(0, 20000), motor, modo: o.modo, voz: rotuloDaVoz(o, this.vozesSalvas()), vozSalva: o.modo === 'clonar' ? o.vozSalva : undefined, chave, segundos, criada: new Date().toISOString(), doChat: Boolean(o.doChat), favorito: false }, null, 2));
       return { arquivo, legenda: srt, segundos, partes: r.partes.length, tempo: (Date.now() - inicio) / 1000, motor, titulo };
     } finally {

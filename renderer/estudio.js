@@ -364,6 +364,7 @@
     if (motor() === 'qwen') Object.assign(o, { tamanho: valor('tamanho', '1.7B'), voz: valor('voz', 'ryan') });
     o.instrucao = valor('instrucao', motor() === 'omni' ? 'male, middle-aged, moderate pitch' : '');
     if (o.modo === 'clonar') o.vozSalva = escolhas.vozSalva;
+    o.nomeDaVoz = vozesDisponiveis().find((v) => v.id === vozAtual())?.nome;
     if (motor() === 'omni' && !Number(o.duracao)) delete o.duracao;
     const s = $('estudioSemente').value;
     if (s !== '') o.semente = Number(s);
@@ -609,6 +610,7 @@
     if (m === 'qwen') Object.assign(o, { tamanho: v('tamanho', '1.7B'), voz: voz.voz || v('voz', 'ryan') });
     o.instrucao = v('instrucao', m === 'omni' ? 'male, middle-aged, moderate pitch' : '');
     if (voz.modo === 'clonar') o.vozSalva = voz.vozSalva;
+    o.nomeDaVoz = voz.nome;
     delete o.duracao; // duração fixa é para um trecho do Estúdio, não para a resposta inteira
     if (Number.isFinite(escolhas.semente)) o.semente = escolhas.semente;
     return { o, voz };
