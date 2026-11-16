@@ -286,3 +286,49 @@ body { font-family: var(--sans); background: var(--void); }
 .ib-chip { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--text); font: 500 12.5px var(--sans); cursor: pointer; }
 .ib-chip:hover { border-color: color-mix(in srgb, var(--gold) 55%, transparent); color: var(--gold); }
 @media (max-width: 640px) { .ib-acoes { grid-template-columns: 1fr; } }
+
+/* ------------------------------ a etapa de trabalho, mais limpa (16/11) ------------------------------ */
+/* medidores (passos, tokens, tempo, contexto): sem moldura e só ao passar o mouse na resposta */
+.turno-medidores { opacity: 0; transition: opacity .2s; }
+.msg.turno:hover .turno-medidores, .turno-medidores:focus-within { opacity: .75; }
+.turno-medidores .medidores { border: 0; background: none; padding: 0; gap: 14px; }
+.turno-medidores .medidor b { font-size: 12px; font-weight: 600; }
+/* a linha do que ele faz agora: um ponto dourado pulsando e a frase com um brilho passando; "parar" fica no botão da caixa */
+.msg.turno .andamento { gap: 10px; padding: 0 0 14px; font-size: 13.5px; }
+.msg.turno .andamento .digitando, .msg.turno .andamento .parar { display: none; }
+.msg.turno .andamento::before {
+  content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--gold);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 45%, transparent); animation: lume-pulso 1.6s ease-out infinite;
+}
+.msg.turno .andamento-txt {
+  flex: 0 1 auto; color: transparent; -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(90deg, var(--muted) 0%, var(--muted) 35%, var(--text-forte) 50%, var(--muted) 65%, var(--muted) 100%);
+  background-size: 250% 100%; animation: lume-brilho 2.4s linear infinite;
+}
+@keyframes lume-pulso { 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes lume-brilho { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+/* a narração vira uma linha do tempo: as frases antigas em tom apagado, a atual em destaque */
+.narracao { gap: 8px; margin: 2px 0 12px; padding-left: 18px; border-left: 1px solid var(--line); }
+.narracao-frase { position: relative; font-size: 14px; color: var(--muted); }
+.narracao-frase::before {
+  content: ''; position: absolute; left: -22px; top: .62em; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--void); border: 1px solid color-mix(in srgb, var(--muted) 60%, transparent);
+}
+.narracao-frase:last-child { color: var(--text); }
+.narracao-frase:last-child::before { background: var(--gold); border-color: var(--gold); }
+.narracao-meta { font-size: 11.5px; opacity: .8; white-space: nowrap; }
+/* "Atividade do agente": sem caixa, um resumo discreto que abre os detalhes */
+.msg.turno .atividade { border: 0; background: none; border-radius: 0; margin: 0 0 12px; }
+.msg.turno .atividade > summary { display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; list-style: none; font-size: 12.5px; color: var(--muted); }
+.msg.turno .atividade > summary::-webkit-details-marker { display: none; }
+.msg.turno .atividade > summary::before { content: '›'; display: inline-block; font-size: 15px; line-height: 1; transition: transform .15s; }
+.msg.turno .atividade[open] > summary::before { transform: rotate(90deg); }
+.msg.turno .atividade > summary:hover { color: var(--text-forte); }
+.msg.turno .atividade[open] { padding: 0 0 4px; }
+.msg.turno .atividade .atividade-etapas { border-top: 0; padding: 4px 0 8px 14px; border-left: 1px solid var(--line); margin-left: 4px; }
+@media (prefers-reduced-motion: reduce) { .msg.turno .andamento::before, .msg.turno .andamento-txt { animation: none; } .msg.turno .andamento-txt { color: var(--muted); background: none; } }
+/* com a narração, a linha "agora" fecha a linha do tempo: o ponto pulsando fica alinhado aos da narração */
+.narracao:has(+ .andamento) { margin-bottom: 0; padding-bottom: 10px; }
+.narracao + .andamento::before { margin-left: -3.5px; }
+.narracao + .andamento { gap: 13px; }
+.narracao:has(+ .andamento) .narracao-frase:last-child::before { background: color-mix(in srgb, var(--muted) 70%, transparent); border-color: transparent; }

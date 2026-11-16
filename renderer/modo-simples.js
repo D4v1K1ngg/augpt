@@ -67,14 +67,14 @@
    * medidores (passos, tokens, contexto), uma frase do que ele está fazendo agora — a busca, o site que está lendo,
    * a escrita. Os detalhes técnicos continuam no modo avançado.
    */
-  const simplesAgora = () => document.body.classList.contains('modo-simples');
   const situacaoOriginal = window.situacao;
   // "executando buscar_na_web" → "Pesquisando na internet…"
   const FERRAMENTAS = { buscar_na_web: 'Pesquisando na internet…', buscar_na_comunidade: 'Vendo o que a comunidade diz…', ler_pagina: 'Lendo uma página…', pesquisar_e_ler: 'Pesquisando e lendo…', abrir_pagina: 'Abrindo a página…', navegar: 'Abrindo o site…', clicar: 'Clicando na página…', preencher_campo: 'Preenchendo na página…', buscar_no_youtube: 'Procurando vídeos…', ver_video: 'Vendo o vídeo…', olhar_tela: 'Olhando a sua tela…', pronto: 'Juntando o que achei…' };
   if (typeof situacaoOriginal === 'function') {
     window.situacao = (texto) => {
       const t = String(texto || '').trim();
-      if (!simplesAgora()) return situacaoOriginal(texto);
+      // 16/11 (visual novo, Davi: "mais refinado e clean"): a frase amigável vale nos dois modos; o nome técnico
+      // da ferramenta continua na Atividade do agente
       if (/^(passo|step) \d+ (de|of) \d+$/i.test(t)) return undefined;
       const ferramenta = /^(?:executando|running) ([a-z_]+)/i.exec(t)?.[1];
       if (ferramenta) return situacaoOriginal(tr(FERRAMENTAS[ferramenta] || 'Trabalhando nisso…'));
@@ -94,7 +94,7 @@
     manipuladores[canal] = (d = {}) => {
       const r = original?.(d);
       try {
-        if (simplesAgora() && agente?.rodando) antes(d);
+        if (agente?.rodando) antes(d);
       } catch {
         // a frase nunca atrapalha a tela
       }

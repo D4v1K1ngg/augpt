@@ -51,7 +51,9 @@
       caixa = document.createElement('div');
       caixa.className = 'narracao';
       caixa.dataset.semTraducao = '';
-      n.turno.atividade.before(caixa);
+      // 16/11 (visual novo): acima da linha "o que ele faz agora", que vira o fim da linha do tempo
+      if (n.turno.andamento?.isConnected) n.turno.andamento.before(caixa);
+      else n.turno.atividade.before(caixa);
       // a narração vira o andamento visível; os passos ficam no cartão, fechado
       n.turno.atividade.open = false;
     }

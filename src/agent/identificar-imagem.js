@@ -26,6 +26,9 @@ const IDENTIFICAR = new RegExp([
   /\bo que (e|eh|seria) (isso|isto|essa|esta|esse|este|aquilo)\b/.source,
   /\b(que|qual) (lugar|planta|flor|arvore|animal|bicho|inseto|passaro|ave|raca|especie|carro|moto|modelo|produto|objeto|peca|marca|obra|quadro|predio|monumento|cidade|personagem|jogo|filme|anime|cogumelo|fruta|pedra) (e|eh|seria) (esse|essa|este|esta|isso|isto)\b/.source,
   /\bde onde (e|eh|vem|veio) (essa|esta|esse|este|isso|isto)\b/.source,
+  // "qual o nome desse fone?", "qual é o modelo dessa placa?", "que fone é esse?" (16/11, print do Davi)
+  /\b(qual|que) (e |eh )?(o )?(nome|modelo|marca|especie|raca) (d(ess|est)[ea]s?|disso|disto)\b/.source,
+  /\b(que|qual) (fone|headset|tenis|sapato|roupa|camisa|relogio|celular|notebook|teclado|mouse|placa|console|controle|oculos|bolsa|mochila|cadeira|monitor|caixa de som|logo|fonte|estilo) (e|eh|seria) (esse|essa|este|esta|isso|isto)\b/.source,
   /\b(bus[cq]|procur|pesquis|encontr|ach)\w* (essa|esta|a) (imagem|foto|figura) (na (web|internet)|no google)\b/.source,
   /\b(bus[cq]|procur|pesquis|encontr|ach)\w* (essa|esta) (imagem|foto|figura)\b/.source,
   /\bonde (encontro|acho|compro|fica) (isso|isto|esse|essa|este|esta)\b/.source,
