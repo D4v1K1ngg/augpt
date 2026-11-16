@@ -2576,7 +2576,7 @@ ipcMain.handle('estudio:gerar', async (e, opcoes = {}) => {
   if (!naJanela(e)) return { ok: false, error: 'só pela janela do AuGPT' };
   try {
     const { destino, daResposta, ...resto } = opcoes; // o destino é sempre a pasta do estúdio; "Salvar como…" copia depois
-    if (daResposta) resto.texto = require('../src/estudio-de-voz').textoDaResposta(resto.texto);
+    if (daResposta) Object.assign(resto, { texto: require('../src/estudio-de-voz').textoDaResposta(resto.texto), doChat: true });
     if (!String(resto.texto || '').trim()) return { ok: false, error: 'a resposta não tem texto para ler' };
     return { ok: true, ...(await estudioDeVoz().gerar(resto, { emitir: (p) => enviar('estudio-progresso', p) })) };
   } catch (err) {
@@ -2694,6 +2694,29 @@ ipcMain.handle('estudio:salvarVoz', async (e, { nome, texto, autorizada } = {}) 
     const voz = await estudioDeVoz().salvarVoz({ nome, texto, autorizada: autorizada === true, origem: estudioAudioEscolhido });
     estudioAudioEscolhido = null;
     return { ok: true, voz, estado: estudioDeVoz().estado() };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+// biblioteca (16/11): listar, renomear/favoritar e apagar (vai para a lixeira, com a legenda e o .json)
+ipcMain.handle('estudio:biblioteca', () => estudioDeVoz().biblioteca());
+ipcMain.handle('estudio:atualizarAudio', (e, { arquivo, titulo, favorito } = {}) => {
+  if (!naJanela(e)) return { ok: false };
+  try {
+    return { ok: true, audio: estudioDeVoz().atualizarAudio(arquivo, { titulo, favorito }) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('estudio:apagarAudio', async (e, { arquivo } = {}) => {
+  if (!naJanela(e)) return { ok: false };
+  for (const a of estudioDeVoz().arquivosDoAudio(arquivo)) await shell.trashItem(a).catch(() => fs.rmSync(a, { force: true }));
+  return { ok: true, biblioteca: estudioDeVoz().biblioteca() };
+});
+ipcMain.handle('estudio:renomearVoz', (e, { id, nome } = {}) => {
+  if (!naJanela(e)) return { ok: false };
+  try {
+    return { ok: true, vozes: estudioDeVoz().renomearVoz(id, nome) };
   } catch (err) {
     return { ok: false, error: err.message };
   }

@@ -16,6 +16,7 @@
  * Pasta: <pasta>/{uv, qwen, omni, hf, vozes, servidor.py}. Pode ficar em outro disco (Ajustes).
  */
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawn, execFile } = require('child_process');
@@ -262,6 +263,25 @@ function encurtarPausas(buf, { maxima = 0.3, abaixoDb = 22, ponta = 0.03 } = {})
 
 const nomeDeArquivo = (t) => String(t || 'narracao').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'narracao';
 
+/*
+ * Biblioteca (16/11, Davi: "salvar os meus áudios clonados, assim não tenho que gerar eles todas as vezes"): cada
+ * narração ganha um .json ao lado (texto, voz, duração, a chave do pedido). O mesmo pedido de novo — mesmo texto,
+ * voz e ajustes — devolve o arquivo que já existe, sem gerar; "novo: true" gera outra versão mesmo assim.
+ */
+const FORA_DA_CHAVE = new Set(['destino', 'legenda', 'daResposta', 'doChat', 'novo', 'titulo']);
+function chaveDoPedido(o = {}) {
+  const pares = Object.keys(o).filter((k) => !FORA_DA_CHAVE.has(k) && o[k] !== undefined).sort().map((k) => [k, o[k]]);
+  return crypto.createHash('sha1').update(JSON.stringify(pares)).digest('hex').slice(0, 20);
+}
+
+/** O nome da voz para a biblioteca: a clonada pelo nome, a pronta pelo nome do Qwen, a descrita pelos atributos. */
+function rotuloDaVoz(o = {}, vozes = []) {
+  if (o.modo === 'clonar') return vozes.find((v) => v.id === o.vozSalva)?.nome || 'voz clonada';
+  if (o.modo === 'pronta') return String((MOTORES.qwen.vozes.find(([id]) => id === o.voz) || [o.voz, o.voz || 'voz pronta'])[1]).split(' — ')[0];
+  if (o.modo === 'automatica') return 'voz automática';
+  return String(o.instrucao || 'voz descrita').slice(0, 80);
+}
+
 class EstudioDeVoz {
   constructor(pasta, { ffmpeg, buscar = (...a) => fetch(...a), baixarConferindo, extrairZip, transcrever = null, liberarPlaca = async () => {} } = {}) {
     this.pasta = pasta;
@@ -437,6 +457,12 @@ class EstudioDeVoz {
     const motor = MOTORES[o.motor] ? o.motor : 'omni';
     if (!this.instalado(motor)) throw new Error(`o ${MOTORES[motor].nome} não está instalado`);
     if (!this.ffmpeg || !fs.existsSync(this.ffmpeg)) throw new Error('o estúdio precisa do ffmpeg (Ajustes → Componentes)');
+    // já está na biblioteca: o mesmo arquivo, sem gerar de novo
+    const chave = chaveDoPedido({ ...o, motor });
+    if (!o.novo) {
+      const ja = this.biblioteca().find((a) => a.chave === chave);
+      if (ja) return { arquivo: ja.arquivo, legenda: ja.legenda ? ja.arquivo.replace(/\.[^.]+$/, '.srt') : null, segundos: ja.segundos, partes: 0, tempo: 0, motor, reaproveitado: true, titulo: ja.titulo };
+    }
     if (this.atual) throw new Error('já tem uma narração sendo gerada');
     // OmniVoice aguenta parágrafos longos (ele mesmo divide em trechos de ~15 s): menos emendas, entonação mais contínua
     const textos = dividirTexto(o.texto, motor === 'omni' ? 900 : 420);
@@ -484,11 +510,78 @@ class EstudioDeVoz {
         srt = `${base}.srt`;
         fs.writeFileSync(srt, legenda(r.partes.map((p, i) => ({ texto: textos[i], segundos: p.segundos })), { pausa, velocidade }));
       }
-      return { arquivo, legenda: srt, segundos, partes: r.partes.length, tempo: (Date.now() - inicio) / 1000, motor };
+      const titulo = String(o.titulo || textos[0].split(/(?<=[.!?])\s/)[0]).replace(/\s+/g, ' ').trim().slice(0, 80);
+      fs.writeFileSync(`${base}.json`, JSON.stringify({ titulo, texto: String(o.texto).slice(0, 20000), motor, modo: o.modo, voz: rotuloDaVoz(o, this.vozesSalvas()), vozSalva: o.modo === 'clonar' ? o.vozSalva : undefined, chave, segundos, criada: new Date().toISOString(), doChat: Boolean(o.doChat), favorito: false }, null, 2));
+      return { arquivo, legenda: srt, segundos, partes: r.partes.length, tempo: (Date.now() - inicio) / 1000, motor, titulo };
     } finally {
       this.atual = null;
       fs.rmSync(tmp, { recursive: true, force: true });
     }
+  }
+
+  /* ---------------- biblioteca (16/11) ---------------- */
+
+  dirNarracoes() {
+    return path.join(this.pasta, 'narracoes');
+  }
+
+  /** O arquivo está na pasta das narrações? (a tela só mexe no que é da biblioteca) */
+  naBiblioteca(arquivo) {
+    const rel = path.relative(path.resolve(this.dirNarracoes()), path.resolve(String(arquivo || '')));
+    return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel) && !rel.includes(path.sep);
+  }
+
+  /** As narrações da pasta, da mais nova para a mais antiga; as de antes da biblioteca (sem .json) entram pelo nome. */
+  biblioteca() {
+    const dir = this.dirNarracoes();
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir)
+      .filter((n) => FORMATOS[path.extname(n).slice(1).toLowerCase()])
+      .map((n) => {
+        const arquivo = path.join(dir, n);
+        const base = arquivo.replace(/\.[^.]+$/, '');
+        let j = {};
+        try {
+          j = JSON.parse(fs.readFileSync(`${base}.json`, 'utf8'));
+        } catch {
+          /* narração de antes da biblioteca */
+        }
+        let criada = j.criada;
+        try {
+          criada ||= fs.statSync(arquivo).mtime.toISOString();
+        } catch {
+          return null;
+        }
+        return {
+          arquivo, criada, titulo: j.titulo || n.replace(/-\d{14}\.[^.]+$/, '').replace(/-/g, ' '), texto: j.texto || '', voz: j.voz || '', motor: j.motor || '',
+          modo: j.modo || '', doChat: Boolean(j.doChat), favorito: Boolean(j.favorito), segundos: Number(j.segundos) || 0, chave: j.chave || '', legenda: fs.existsSync(`${base}.srt`),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.criada.localeCompare(a.criada));
+  }
+
+  /** Renomear e favoritar. */
+  atualizarAudio(arquivo, { titulo, favorito } = {}) {
+    if (!this.naBiblioteca(arquivo) || !fs.existsSync(arquivo)) throw new Error('áudio fora da biblioteca');
+    const json = arquivo.replace(/\.[^.]+$/, '.json');
+    let j = {};
+    try {
+      j = JSON.parse(fs.readFileSync(json, 'utf8'));
+    } catch {
+      j = { criada: fs.statSync(arquivo).mtime.toISOString() };
+    }
+    if (typeof titulo === 'string' && titulo.trim()) j.titulo = titulo.replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (typeof favorito === 'boolean') j.favorito = favorito;
+    fs.writeFileSync(json, JSON.stringify(j, null, 2));
+    return this.biblioteca().find((a) => a.arquivo === arquivo);
+  }
+
+  /** Os arquivos de uma narração (áudio, legenda e .json) — quem chama manda para a lixeira. */
+  arquivosDoAudio(arquivo) {
+    if (!this.naBiblioteca(arquivo)) return [];
+    const base = arquivo.replace(/\.[^.]+$/, '');
+    return [arquivo, `${base}.srt`, `${base}.json`].filter((a) => fs.existsSync(a));
   }
 
   /* ---------------- vozes salvas (para clonar) ---------------- */
@@ -538,6 +631,16 @@ class EstudioDeVoz {
     return this.vozesSalvas().find((v) => v.id === id);
   }
 
+  /** Renomear a voz clonada (16/11: as 7 vozes do Davi se chamavam todas "Minha voz"). */
+  renomearVoz(id, nome) {
+    const json = path.join(this.dirVozes(), path.basename(String(id || '')), 'voz.json');
+    const novo = String(nome || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!id || !novo || !fs.existsSync(json)) throw new Error('voz não encontrada');
+    const j = JSON.parse(fs.readFileSync(json, 'utf8'));
+    fs.writeFileSync(json, JSON.stringify({ ...j, nome: novo }, null, 2));
+    return this.vozesSalvas();
+  }
+
   apagarVoz(id) {
     const dir = path.join(this.dirVozes(), path.basename(String(id || '')));
     if (id && fs.existsSync(path.join(dir, 'voz.json'))) fs.rmSync(dir, { recursive: true, force: true });
@@ -561,4 +664,4 @@ const textoDaResposta = (markdown) =>
     .filter((p) => /[\p{L}\d]/u.test(p))
     .join('\n\n');
 
-module.exports = { textoDaResposta, cheioDeSiglas, encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };
+module.exports = { chaveDoPedido, rotuloDaVoz, textoDaResposta, cheioDeSiglas, encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };

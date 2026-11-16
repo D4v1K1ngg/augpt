@@ -553,46 +553,77 @@
         <header class="pagina-topo">
           <div>
             <h1>Estúdio de voz</h1>
-            <p>Escreva ou cole um texto e gere um arquivo de áudio para vídeo, podcast ou apresentação, com voz pronta, voz descrita ou uma voz clonada. Tudo roda no seu computador.</p>
+            <p>Escolha uma voz, escreva o texto e gere o áudio para vídeo, podcast ou apresentação. Tudo roda no seu computador, e cada áudio fica guardado na biblioteca.</p>
           </div>
-          <div class="pagina-acoes">
-            <button class="btn-secundario" id="estudioAbrirPasta">Abrir narrações</button>
+          <div class="estudio-abas" role="tablist" aria-label="Estúdio de voz">
+            <button type="button" role="tab" class="ativo" aria-selected="true" data-aba-estudio="criar">Criar áudio</button>
+            <button type="button" role="tab" aria-selected="false" data-aba-estudio="biblioteca">Biblioteca <span class="estudio-conta" id="estudioBibliotecaConta"></span></button>
           </div>
         </header>
 
         <section class="estudio-motores" id="estudioMotores"></section>
 
-        <div class="estudio-grade">
-          <section class="estudio-texto">
-            <label for="estudioTexto">Texto</label>
-            <textarea id="estudioTexto" rows="12" placeholder="Cole aqui o roteiro. Cada parágrafo vira uma parte, com uma pausa entre elas."></textarea>
-            <div class="estudio-linha">
-              <span class="dica" id="estudioContagem">0 caracteres</span>
-              <select id="estudioMarca" hidden><option value="">Inserir som…</option></select>
-            </div>
-            <div class="estudio-acoes">
-              <button class="btn-primario" id="estudioGerar">Gerar áudio</button>
-              <button class="btn-secundario" id="estudioCancelar" hidden>Cancelar</button>
-              <span class="dica" id="estudioProgresso" aria-live="polite"></span>
-            </div>
-            <div id="estudioResultados"></div>
+        <!-- 16/11 (Davi: "mais fácil de usar"): 1. a voz em cartões, 2. o texto e o botão; os ajustes ficam ao lado, fechados -->
+        <div id="estudioCriar">
+          <section class="estudio-passo">
+            <h2><span class="estudio-n">1</span> Escolha a voz</h2>
+            <div class="estudio-vozes" id="estudioVozes" role="radiogroup" aria-label="Voz"></div>
           </section>
 
-          <section class="estudio-ajustes" id="estudioAjustes">
-            <div class="estudio-campo"><label>Motor</label><div class="estudio-escolha" id="estudioMotor"></div></div>
-            <div class="estudio-campo"><label for="estudioModo">Modo</label><select id="estudioModo"></select></div>
-            <div id="estudioModoCampos"></div>
-            <div class="estudio-campo"><label for="estudioIdioma">Idioma</label><select id="estudioIdioma"></select></div>
-            <details class="estudio-grupo" open><summary>Ajustes do modelo</summary><div id="estudioParametros"></div>
-              <details class="estudio-grupo"><summary>Avançados</summary><div id="estudioAvancados"></div></details>
-              <div class="estudio-campo"><label for="estudioSemente">Semente <span class="dica">(mesmo número = mesmo resultado; vazio = aleatório)</span></label><input type="number" id="estudioSemente" min="0" step="1" /></div>
-            </details>
-            <details class="estudio-grupo" open><summary>Acabamento</summary><div id="estudioAcabamento"></div>
-              <div class="estudio-campo"><label for="estudioFormato">Formato</label><select id="estudioFormato"></select></div>
-              <label class="estudio-sim"><input type="checkbox" id="estudioLegenda" checked /> Gerar legenda (.srt)</label>
-            </details>
-            <button class="btn-secundario" id="estudioRestaurar">Voltar aos padrões</button>
-          </section>
+          <div class="estudio-grade">
+            <section class="estudio-texto estudio-passo">
+              <h2><span class="estudio-n">2</span> Escreva o texto</h2>
+              <textarea id="estudioTexto" rows="12" aria-label="Texto da narração" placeholder="Cole aqui o roteiro. Cada parágrafo vira uma parte, com uma pausa entre elas."></textarea>
+              <div class="estudio-linha">
+                <span class="dica" id="estudioContagem">0 caracteres</span>
+                <select id="estudioMarca" hidden><option value="">Inserir som…</option></select>
+              </div>
+              <div class="estudio-acoes">
+                <button class="btn-primario estudio-gerar" id="estudioGerar">Gerar áudio</button>
+                <button class="btn-secundario" id="estudioCancelar" hidden>Cancelar</button>
+                <span class="dica" id="estudioProgresso" aria-live="polite"></span>
+              </div>
+              <div id="estudioResultados"></div>
+            </section>
+
+            <section class="estudio-ajustes" id="estudioAjustes" aria-label="Ajustes">
+              <div class="estudio-campo"><label for="estudioIdioma">Idioma</label><select id="estudioIdioma"></select></div>
+              <div class="estudio-campo estudio-voz-chat">
+                <label for="estudioVozDoChat">Voz das respostas do chat</label>
+                <select id="estudioVozDoChat"></select>
+                <span class="dica">O botão 🔊 no fim das respostas fala com esta voz.</span>
+              </div>
+              <details class="estudio-grupo" id="estudioDetalhesVoz"><summary>Detalhes da voz</summary>
+                <div class="estudio-campo"><label>Motor</label><div class="estudio-escolha" id="estudioMotor"></div></div>
+                <div class="estudio-campo"><label for="estudioModo">Modo</label><select id="estudioModo"></select></div>
+                <div id="estudioModoCampos"></div>
+              </details>
+              <details class="estudio-grupo"><summary>Ajustes do modelo</summary><div id="estudioParametros"></div>
+                <details class="estudio-grupo"><summary>Avançados</summary><div id="estudioAvancados"></div></details>
+                <div class="estudio-campo"><label for="estudioSemente">Semente <span class="dica">(mesmo número = mesmo resultado; vazio = aleatório)</span></label><input type="number" id="estudioSemente" min="0" step="1" /></div>
+              </details>
+              <details class="estudio-grupo"><summary>Acabamento e arquivo</summary><div id="estudioAcabamento"></div>
+                <div class="estudio-campo"><label for="estudioFormato">Formato</label><select id="estudioFormato"></select></div>
+                <label class="estudio-sim"><input type="checkbox" id="estudioLegenda" checked /> Gerar legenda (.srt)</label>
+              </details>
+              <button class="btn-link" id="estudioRestaurar">Voltar aos padrões</button>
+            </section>
+          </div>
+        </div>
+
+        <!-- biblioteca (16/11): os áudios gerados ficam aqui para ouvir de novo sem gerar -->
+        <div id="estudioBiblioteca" hidden>
+          <div class="estudio-bib-barra">
+            <input type="search" id="estudioBibBusca" placeholder="Buscar pelo título, texto ou voz" aria-label="Buscar na biblioteca" />
+            <div class="estudio-filtros" id="estudioBibFiltros" role="group" aria-label="Filtrar">
+              <button type="button" class="ativo" data-filtro="todos">Todos</button>
+              <button type="button" data-filtro="clonadas">Vozes clonadas</button>
+              <button type="button" data-filtro="chat">Do chat</button>
+              <button type="button" data-filtro="favoritos">Favoritos</button>
+            </div>
+            <button class="btn-secundario" id="estudioAbrirPasta">Abrir pasta</button>
+          </div>
+          <div class="estudio-bib-lista" id="estudioBibLista"></div>
         </div>
       </div>
     </div>

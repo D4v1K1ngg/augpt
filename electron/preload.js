@@ -128,6 +128,10 @@ contextBridge.exposeInMainWorld('augpt', {
     escolherAudio: () => ipcRenderer.invoke('estudio:escolherAudio'),
     salvarVoz: (dados) => ipcRenderer.invoke('estudio:salvarVoz', dados),
     apagarVoz: (id) => ipcRenderer.invoke('estudio:apagarVoz', { id }),
+    renomearVoz: (id, nome) => ipcRenderer.invoke('estudio:renomearVoz', { id, nome }),
+    biblioteca: () => ipcRenderer.invoke('estudio:biblioteca'),
+    atualizarAudio: (arquivo, mudancas) => ipcRenderer.invoke('estudio:atualizarAudio', { arquivo, ...mudancas }),
+    apagarAudio: (arquivo) => ipcRenderer.invoke('estudio:apagarAudio', { arquivo }),
   },
   // tradutor (12/11): texto → texto com o modelo do Ollama (src/tradutor)
   tradutor: {
