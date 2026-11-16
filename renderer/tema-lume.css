@@ -271,3 +271,18 @@ body { font-family: var(--sans); background: var(--void); }
 .ii-ajustes input#iiSemente { min-width: 0; width: 110px; }
 .ii-ajustes .ii-check { flex-direction: row; align-items: center; gap: 6px; align-self: flex-end; padding-bottom: 8px; text-transform: none; letter-spacing: 0; font: 500 13px var(--sans); color: var(--text); }
 .inicio .inicio-imagem .ii-sub { max-width: none; text-wrap: pretty; }
+
+/* painel "Buscar imagens": as duas ações com foto e os exemplos em pílulas */
+.ib-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ib-acao {
+  display: grid; grid-template-columns: 28px 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--caixa); color: var(--text); font: inherit; cursor: pointer; transition: border-color .15s, transform .15s;
+}
+.ib-acao svg { grid-row: span 2; width: 26px; height: 26px; color: var(--gold); }
+.ib-acao b { font: 600 13.5px var(--sans); color: var(--text-forte); }
+.ib-acao span { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.ib-acao:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
+.ib-exemplos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.ib-chip { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--text); font: 500 12.5px var(--sans); cursor: pointer; }
+.ib-chip:hover { border-color: color-mix(in srgb, var(--gold) 55%, transparent); color: var(--gold); }
+@media (max-width: 640px) { .ib-acoes { grid-template-columns: 1fr; } }

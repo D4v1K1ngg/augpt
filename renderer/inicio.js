@@ -14,25 +14,6 @@
   if (!inicio || !cv) return;
 
   /* ------------------------------ os atalhos ------------------------------ */
-  for (const b of inicio.querySelectorAll('.inicio-atalho')) {
-    b.addEventListener('click', () => {
-      if (b.dataset.aba) return trocarAba(b.dataset.aba);
-      if (b.dataset.painel === 'imagem') abrirPainelDeImagem(true);
-      if (b.dataset.anexar) document.getElementById('btnAnexoAgente')?.click();
-      const caixa = el.aEntrada;
-      caixa.value = tr(b.dataset.pedido);
-      autoAltura?.(caixa);
-      caixa.focus();
-      caixa.setSelectionRange(caixa.value.length, caixa.value.length);
-    });
-  }
-
-  /* ------------------------------ o painel "Criar imagem" (16/11) ------------------------------ */
-  // Troca os atalhos por "O que você deseja criar?": o carrossel de exemplos (criados pelo FLUX) e os ajustes finos
-  // do gerador, salvos na config na hora (imagemEstilo/Formato/Qualidade/Semente e revisarImagensCriadas).
-  const painel = document.getElementById('inicioImagem');
-  const blocos = ['.inicio-orbe', 'h1', '.lede', '.inicio-atalhos', '.inicio-modos'].map((s) => inicio.querySelector(s));
-  const campos = { iiEstilo: 'imagemEstilo', iiFormato: 'imagemFormato', iiQualidade: 'imagemQualidade', iiSemente: 'imagemSemente' };
   function preencherCaixa(texto) {
     const caixa = el.aEntrada;
     caixa.value = tr(texto);
@@ -40,31 +21,58 @@
     caixa.focus();
     caixa.setSelectionRange(caixa.value.length, caixa.value.length);
   }
-  async function abrirPainelDeImagem(sim) {
-    painel.hidden = !sim;
-    for (const b of blocos) if (b) b.style.display = sim ? 'none' : '';
-    if (!sim) return;
-    const cfg = await api.config.get().catch(() => ({}));
-    for (const [id, chave] of Object.entries(campos)) document.getElementById(id).value = cfg[chave] ?? '';
-    if (!document.getElementById('iiFormato').value) document.getElementById('iiFormato').value = 'auto';
-    if (!document.getElementById('iiQualidade').value) document.getElementById('iiQualidade').value = 'rapida';
-    document.getElementById('iiRevisar').checked = cfg.revisarImagensCriadas !== false;
-    const estado = await api.componentes?.estado?.().catch(() => null);
-    document.getElementById('iiAviso').hidden = !estado || estado.imagem?.instalado !== false;
+  for (const b of inicio.querySelectorAll('.inicio-atalho')) {
+    b.addEventListener('click', () => {
+      if (b.dataset.aba) return trocarAba(b.dataset.aba);
+      if (b.dataset.painel) abrirPainel(b.dataset.painel);
+      if (b.dataset.anexar) document.getElementById('btnAnexoAgente')?.click();
+      preencherCaixa(b.dataset.pedido);
+    });
   }
-  if (painel) {
-    document.getElementById('iiVoltar').addEventListener('click', () => abrirPainelDeImagem(false));
-    for (const ex of painel.querySelectorAll('.ii-exemplo')) ex.addEventListener('click', () => preencherCaixa(ex.dataset.pedido));
-    const carrossel = document.getElementById('iiCarrossel');
-    for (const s of painel.querySelectorAll('.ii-seta')) s.addEventListener('click', () => carrossel.scrollBy({ left: Number(s.dataset.dir) * carrossel.clientWidth * 0.8, behavior: 'smooth' }));
-    for (const [id, chave] of Object.entries(campos)) {
-      document.getElementById(id).addEventListener('change', (e) => {
-        const v = id === 'iiSemente' ? e.target.value.replace(/\D/g, '').slice(0, 10) : e.target.value;
-        e.target.value = v;
-        api.config.set({ [chave]: v });
+
+  /* ------------------------------ os painéis "Criar imagem" e "Buscar imagens" (16/11) ------------------------------ */
+  // Trocam a tela inicial por "O que você deseja criar/encontrar?": exemplos que põem o pedido na caixa (com
+  // data-anexar, abrem antes a escolha da foto) e os ajustes finos, salvos na config na hora — cada campo diz a
+  // chave em data-cfg e o padrão em data-padrao; caixa de marcar vem ligada salvo se a config diz false.
+  const PAINEIS = { imagem: 'inicioImagem', busca: 'inicioBusca' };
+  const blocos = ['.inicio-orbe', 'h1', '.lede', '.inicio-atalhos', '.inicio-modos'].map((s) => inicio.querySelector(s));
+  async function abrirPainel(qual) {
+    for (const [nome, id] of Object.entries(PAINEIS)) {
+      const p = document.getElementById(id);
+      if (p) p.hidden = nome !== qual;
+    }
+    for (const b of blocos) if (b) b.style.display = qual ? 'none' : '';
+    const painel = qual && document.getElementById(PAINEIS[qual]);
+    if (!painel) return;
+    const cfg = await api.config.get().catch(() => ({}));
+    for (const c of painel.querySelectorAll('[data-cfg]')) {
+      if (c.type === 'checkbox') c.checked = cfg[c.dataset.cfg] !== false;
+      else c.value = String(cfg[c.dataset.cfg] ?? '') || c.dataset.padrao || '';
+    }
+    if (qual === 'imagem') {
+      const estado = await api.componentes?.estado?.().catch(() => null);
+      document.getElementById('iiAviso').hidden = !estado || estado.imagem?.instalado !== false;
+    }
+  }
+  for (const id of Object.values(PAINEIS)) {
+    const painel = document.getElementById(id);
+    if (!painel) continue;
+    painel.querySelector('.ii-voltar')?.addEventListener('click', () => abrirPainel(null));
+    for (const ex of painel.querySelectorAll('[data-pedido]')) {
+      ex.addEventListener('click', () => {
+        if (ex.dataset.anexar) document.getElementById('btnAnexoAgente')?.click();
+        preencherCaixa(ex.dataset.pedido);
       });
     }
-    document.getElementById('iiRevisar').addEventListener('change', (e) => api.config.set({ revisarImagensCriadas: e.target.checked }));
+    const carrossel = painel.querySelector('.ii-carrossel');
+    for (const s of painel.querySelectorAll('.ii-seta')) s.addEventListener('click', () => carrossel.scrollBy({ left: Number(s.dataset.dir) * carrossel.clientWidth * 0.8, behavior: 'smooth' }));
+    for (const c of painel.querySelectorAll('[data-cfg]')) {
+      c.addEventListener('change', () => {
+        if (c.type === 'checkbox') return api.config.set({ [c.dataset.cfg]: c.checked });
+        if (c.inputMode === 'numeric') c.value = c.value.replace(/\D/g, '').slice(0, 10);
+        api.config.set({ [c.dataset.cfg]: c.value });
+      });
+    }
   }
 
   /* ------------------------------ a dica do modo de pesquisa ------------------------------ */

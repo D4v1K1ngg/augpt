@@ -17,6 +17,7 @@ const traducao = require('./traducao');
 const lugares = require('./lugares');
 const agendaNoChat = require('./agenda-no-chat');
 const imagens = require('../tools/imagens');
+const identificarImagem = require('./identificar-imagem');
 const search = require('../tools/search');
 const { lerComCache } = require('../tools/web');
 const nucleo = require('./nucleo');
@@ -378,17 +379,13 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // (também quando a rota reconheceu e não achou: a segunda tentativa leva os lugares do modelo)
     deps.intencaoDoCodigo = !investigando && !aceitou && !prova ? rotas.intencao(objetivoDaRota) : null;
     // a ação que o entendimento escolheu dentro da pesquisa (23/10: "onde fica iconha?" → mapa) fica com o nome dela no registro
-    // imagens parecidas (16/11, Davi: "envio uma imagem e o modelo busca por similares, como o Google"): com a foto
-    // anexada, a visão descreve o que ela mostra numa busca curta, e a busca de imagens de sempre responde
-    const pedeParecidas = imagensDoPedido.some((i) => i.base64) && /\b(parecid|similar|semelhant|igual|iguais|mesmo estilo|desse estilo|deste estilo|como esta|como essa|como este|como esse|tipo esta|tipo essa)\w*/i.test(objetivo) && /\b(imagem|imagens|foto|fotos|figura|figuras|parecid|similar)\w*/i.test(objetivo);
-    let comParecidas = null;
-    if (pedeParecidas && !deps.semVisao) {
-      deps.emit('aviso', { texto: 'olhando a imagem para buscar parecidas…' });
-      const visto = await deps.chamar([{ role: 'user', content: 'Descreva o que aparece nesta imagem como uma busca de imagens curta, em inglês, com até 8 palavras: o objeto ou cena principal, o estilo e as cores. Só a busca, sem aspas nem explicação.', images: imagensDoPedido.filter((i) => i.base64).slice(0, 1).map((i) => i.base64) }], { numPredict: 40 }).catch(() => null);
-      const busca = String(visto?.content || '').replace(/<think>[\s\S]*?<\/think>/g, '').replace(/["“”\n]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
-      const parecidas = busca ? await rotas.executar('buscar_imagens', contexto({ objetivo: `mostre imagens de ${busca}` })).catch(() => null) : null;
-      if (parecidas) comParecidas = { ...parecidas, texto: `*Busquei imagens parecidas com a sua a partir do que ela mostra: "${busca}".*\n\n${parecidas.texto || ''}`, rota: 'imagens_parecidas' };
-    }
+    // identificar a imagem anexada e buscar parecidas (16/11, Davi: "buscar na web com exatidão a imagem e me dizer
+    // o que ela é", "envio uma imagem e o modelo busca por similares, como o Google") — ver identificar-imagem.js
+    const fotoAnexada = imagensDoPedido.find((i) => i.base64);
+    const identificar = !deps.semVisao && identificarImagem.pedidoDeIdentificacao(objetivo, Boolean(fotoAnexada));
+    const comParecidas = identificar
+      ? await identificarImagem.identificarImagem({ pergunta: objetivo, imagem: fotoAnexada, parecidas: identificar.parecidas, deps: depsDasRotas, dir: this.dirImagens(), config: cfg }).catch(() => null)
+      : null;
     const pelaPesquisa = async () => ({ rota: 'pesquisa', ...(await nucleo.responder({ pergunta: aceitou?.id === 'pesquisa' ? aceitou.pergunta : objetivo, conversa, modo, tamanho: cfg.modoResposta || 'normal', deps, imagens: imagensDoPedido })) });
     const r = comParecidas
       ? comParecidas

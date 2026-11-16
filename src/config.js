@@ -316,6 +316,13 @@ const DEFAULTS = {
   imagemFormato: 'auto',
   imagemQualidade: 'rapida',
   imagemSemente: '',
+  // painel "Buscar imagens" (16/11): quantas fotos, o tipo (vai na busca), orientação e tamanho mínimo (filtram
+  // pelas medidas) e a IA conferindo cada foto
+  buscaImagensQuantidade: '6',
+  buscaImagensTipo: '',
+  buscaImagensOrientacao: '',
+  buscaImagensTamanho: '',
+  buscaImagensConferir: true,
   // investigação com tempo (17/10): minutos que o usuário dá para o AuGPT pesquisar
   minutosDeInvestigacao: 10,
   // pedido de produto: preço de hoje no KaBuM, Zoom e Buscapé em cada cartão (17/10)

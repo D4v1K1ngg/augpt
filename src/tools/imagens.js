@@ -120,7 +120,7 @@ async function buscarImagens(consulta, { config = {}, deps = {}, maximo = 12, gr
     if (!r?.ok) return [];
     return (JSON.parse(r.texto).results || [])
       .filter((x) => x && (x.thumbnail_src || x.img_src) && !FONTES_FORA.test(`${x.img_src || ''} ${x.url || ''}`))
-      .map((x) => ({ url: String((grande ? x.img_src || x.thumbnail_src : x.thumbnail_src || x.img_src)).replace(/^\/\//, 'https://'), titulo: String(x.title || ''), pagina: /^https?:\/\//.test(String(x.url || '')) ? String(x.url) : null }))
+      .map((x) => ({ url: String((grande ? x.img_src || x.thumbnail_src : x.thumbnail_src || x.img_src)).replace(/^\/\//, 'https://'), titulo: String(x.title || ''), miniatura: x.thumbnail_src ? String(x.thumbnail_src).replace(/^\/\//, 'https://') : null, pagina: /^https?:\/\//.test(String(x.url || '')) ? String(x.url) : null }))
       .slice(0, maximo);
   } catch {
     return [];
@@ -265,6 +265,65 @@ async function imagensDeReferencia(assunto, { daWikipedia = [], config = {}, dir
 /** `![texto](augpt-img://…)` — o texto alternativo não pode fechar o colchete nem quebrar linha. */
 const marcacao = (texto, uri) => `![${String(texto || '').replace(/[[\]\n\r]/g, ' ').trim()}](${uri})`;
 
+/*
+ * Medidas da imagem pelo nativeImage do Electron (16/11, "buscar com exatidão"): fora do app (bancada) devolvem null.
+ *  - hashDaImagem: o dHash de 64 bits (9×8 em tons de cinza, cada pixel contra o vizinho). A mesma foto em outro
+ *    tamanho, recomprimida ou com a marca d'água de um site dá distância de até ~10; fotos diferentes, 25 ou mais.
+ *  - tamanhoDaImagem: { largura, altura }.
+ *  - miniaturaBase64: a imagem em até `lado` px, em JPEG, para mandar várias de uma vez ao modelo de visão.
+ */
+function abrirImagem(arquivo) {
+  try {
+    const { nativeImage } = require('electron');
+    const img = nativeImage?.createFromPath?.(arquivo);
+    return img && !img.isEmpty() ? img : null;
+  } catch {
+    return null;
+  }
+}
+function hashDaImagem(arquivo) {
+  const img = abrirImagem(arquivo);
+  if (!img) return null;
+  const bmp = img.resize({ width: 9, height: 8, quality: 'good' }).toBitmap(); // BGRA, 9 px por linha
+  const cinza = (x, y) => {
+    const i = (y * 9 + x) * 4;
+    return bmp[i + 2] * 0.299 + bmp[i + 1] * 0.587 + bmp[i] * 0.114;
+  };
+  let h = 0n;
+  for (let y = 0; y < 8; y += 1) for (let x = 0; x < 8; x += 1) h = (h << 1n) | (cinza(x, y) < cinza(x + 1, y) ? 1n : 0n);
+  return h;
+}
+/** Quantos dos 64 bits diferem (0 = a mesma imagem). */
+function distanciaDoHash(a, b) {
+  if (typeof a !== 'bigint' || typeof b !== 'bigint') return 64;
+  let x = a ^ b;
+  let n = 0;
+  while (x) {
+    n += Number(x & 1n);
+    x >>= 1n;
+  }
+  return n;
+}
+function tamanhoDaImagem(arquivo) {
+  const img = abrirImagem(arquivo);
+  if (!img) return null;
+  const { width, height } = img.getSize();
+  return { largura: width, altura: height };
+}
+function miniaturaBase64(arquivo, lado = 512) {
+  const img = abrirImagem(arquivo);
+  try {
+    if (!img) return fs.readFileSync(arquivo).toString('base64');
+    const { width, height } = img.getSize();
+    const escala = Math.min(1, lado / Math.max(width, height));
+    return (escala < 1 ? img.resize({ width: Math.round(width * escala), quality: 'good' }) : img).toJPEG(85).toString('base64');
+  } catch {
+    return null;
+  }
+}
+/** O arquivo de um `augpt-img://nome` guardado em `dir`. */
+const arquivoDaUri = (dir, uri) => path.join(dir, String(uri || '').replace(/^augpt-img:\/\//, ''));
+
 /** Limite de tempo: imagem é enfeite, nunca segura a resposta. */
 const comLimite = (promessa, ms, padrao = null) =>
   Promise.race([Promise.resolve(promessa).catch(() => padrao), new Promise((ok) => setTimeout(ok, ms, padrao))]);
@@ -276,4 +335,5 @@ module.exports = {
   ESQUEMA, NOME_VALIDO, MAX_BYTES,
   guardarImagem, origemDe, buscarImagens, imagemDe, imagensDe, imagensDosProdutos, imagemDeReferencia, imagensDeReferencia,
   tituloCita, extensaoPelosBytes, nomeDoArquivo, marcacao, comLimite,
+  hashDaImagem, distanciaDoHash, tamanhoDaImagem, miniaturaBase64, arquivoDaUri,
 };

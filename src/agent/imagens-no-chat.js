@@ -49,20 +49,73 @@ const lerJson = (t) => {
   }
 };
 
+/*
+ * Ajustes do painel "Buscar imagens" (16/11): o tipo vai na busca (em inglês); orientação e tamanho filtram pelas
+ * medidas da foto baixada; "a IA confere" manda as fotos ao modelo de visão, que tira as que não mostram o pedido.
+ */
+const TIPOS_DE_IMAGEM = { foto: 'photo', ilustracao: 'illustration', wallpaper: 'wallpaper 4k', png: 'transparent png', desenho: 'line drawing', infografico: 'infographic' };
+const LADO_MINIMO = { '': 300, medio: 640, grande: 1200 };
+
+function ajustesDaBusca(config = {}) {
+  const q = Number(config.buscaImagensQuantidade);
+  return {
+    quantidade: [6, 12, 24].includes(q) ? q : 6,
+    tipo: TIPOS_DE_IMAGEM[config.buscaImagensTipo] || '',
+    orientacao: ['horizontal', 'vertical', 'quadrada'].includes(config.buscaImagensOrientacao) ? config.buscaImagensOrientacao : '',
+    ladoMinimo: LADO_MINIMO[config.buscaImagensTamanho] || LADO_MINIMO[''],
+    conferir: config.buscaImagensConferir !== false,
+  };
+}
+
+/** A foto passa nos filtros de tamanho e orientação? Sem as medidas (fora do app), passa. */
+function passaNoFiltro(tam, aj) {
+  if (!tam) return true;
+  if (Math.max(tam.largura, tam.altura) < aj.ladoMinimo) return false;
+  const r = tam.largura / tam.altura;
+  if (aj.orientacao === 'horizontal') return r >= 1.15;
+  if (aj.orientacao === 'vertical') return r <= 0.87;
+  if (aj.orientacao === 'quadrada') return r > 0.87 && r < 1.15;
+  return true;
+}
+
+/** A visão olha as fotos (até 8 por vez) e diz quais mostram o item; erro ou resposta ilegível: ficam todas. */
+async function conferirComAVisao(item, fotos, { deps, dir }) {
+  if (!fotos.length || typeof deps.chamar !== 'function' || deps.semVisao) return fotos;
+  const boas = [];
+  for (let i = 0; i < fotos.length; i += 8) {
+    const lote = fotos.slice(i, i + 8);
+    const vistas = lote.map((f) => imagens.miniaturaBase64(imagens.arquivoDaUri(dir, f.uri), 384));
+    if (vistas.some((v) => !v)) return fotos;
+    const j = lerJson((await deps.chamar([{ role: 'user', content: `O usuário quer ver imagens de: "${item.nome}"${item.busca && item.busca !== item.nome ? ` (busca: "${item.busca}")` : ''}.
+Estas ${lote.length} imagens vieram da busca, numeradas de 1 a ${lote.length} na ordem. Quais mostram de verdade o que ele pediu, nítidas e sem ser montagem, print de loja ou outra coisa?
+Responda SÓ com um JSON: {"boas": [números]}`, images: vistas }], { json: true, numPredict: 120 }).catch(() => null))?.content);
+    if (!Array.isArray(j?.boas)) return fotos;
+    for (const n of j.boas.map(Number)) if (lote[n - 1] && !boas.includes(lote[n - 1])) boas.push(lote[n - 1]);
+  }
+  return boas;
+}
+
 /** Até `n` fotos de uma busca: as que o título cita o item primeiro, depois as outras da busca (o buscador já ordenou). */
-async function fotosDe(item, { n, dir, config, deps }) {
-  const todas = await (deps.buscarImagens || imagens.buscarImagens)(item.busca || item.nome, { config, deps, maximo: 24, grande: true });
+async function fotosDe(item, { n, dir, config, deps, aj = ajustesDaBusca(config) }) {
+  const todas = await (deps.buscarImagens || imagens.buscarImagens)(`${item.busca || item.nome}${aj.tipo ? ` ${aj.tipo}` : ''}`, { config, deps, maximo: aj.conferir ? 40 : 24, grande: true });
   const citam = todas.filter((c) => imagens.tituloCita(c.titulo, item.nome) || imagens.tituloCita(c.titulo, item.busca || ''));
   const ordem = [...citam, ...todas.filter((c) => !citam.includes(c))];
+  // com a conferência, baixa umas a mais: a visão tira as que não servem
+  const alvo = aj.conferir ? n * 2 : n;
   const achadas = [];
-  for (let i = 0; i < ordem.length && achadas.length < n; i += 4) {
-    const lote = ordem.slice(i, i + 4);
-    const baixadas = await Promise.all(lote.map((c) => imagens.guardarImagem(c.url, { pagina: c.pagina, dir, config, deps }).catch(() => null)));
+  for (let i = 0; i < ordem.length && achadas.length < alvo; i += 6) {
+    const lote = ordem.slice(i, i + 6);
+    const guardar = (u, c) => (u ? imagens.guardarImagem(u, { pagina: c.pagina, dir, config, deps }).catch(() => null) : null);
+    const baixadas = await Promise.all(lote.map(async (c) => (await guardar(c.url, c)) || (c.miniatura && c.miniatura !== c.url ? guardar(c.miniatura, c) : null)));
     lote.forEach((c, k) => {
-      if (baixadas[k] && achadas.length < n && !achadas.some((a) => a.uri === baixadas[k])) achadas.push({ uri: baixadas[k], pagina: c.pagina });
+      if (!baixadas[k] || achadas.length >= alvo || achadas.some((a) => a.uri === baixadas[k])) return;
+      if (!passaNoFiltro((deps.tamanhoDaImagem || imagens.tamanhoDaImagem)(imagens.arquivoDaUri(dir, baixadas[k])), aj)) return;
+      achadas.push({ uri: baixadas[k], pagina: c.pagina });
     });
   }
-  return achadas;
+  if (!aj.conferir) return achadas;
+  deps.emit?.('ferramenta', { nome: 'conferir_imagens', argumentos: { consulta: `a IA confere ${achadas.length} fotos de ${item.nome}` }, risco: 'leitura' });
+  return (await conferirComAVisao(item, achadas, { deps, dir })).slice(0, n);
 }
 
 async function responderImagens({ pergunta, conversa = [], deps, dir, config = {} }) {
@@ -94,11 +147,12 @@ async function responderImagens({ pergunta, conversa = [], deps, dir, config = {
   // sem o modelo: os itens da resposta anterior, ou o próprio pedido sem o verbo
   if (!lista.length) lista = itens.length ? itens.map((nome) => ({ nome, busca: nome })) : [{ nome: pergunta, busca: norm(pergunta).replace(VERBO, '').replace(IMAGEM, '').replace(/\b(uma?|umas?|de|do|da|dos|das|pra|para|mim|me|eu)\b/g, ' ').replace(/\s+/g, ' ').trim() }];
   lista = lista.slice(0, 6);
-  const porItem = lista.length === 1 ? 6 : 3;
+  const aj = ajustesDaBusca(config);
+  const porItem = lista.length === 1 ? aj.quantidade : Math.max(3, Math.round(aj.quantidade / lista.length));
   const resultados = await Promise.all(
     lista.map((item) => {
       emit('ferramenta', { nome: 'buscar_imagens', argumentos: { consulta: item.busca }, risco: 'leitura' });
-      return fotosDe(item, { n: porItem, dir, config, deps }).catch(() => []);
+      return fotosDe(item, { n: porItem, dir, config, deps, aj }).catch(() => []);
     })
   );
   const blocos = [];
@@ -118,4 +172,4 @@ async function responderImagens({ pergunta, conversa = [], deps, dir, config = {
   return { ...vazio, texto };
 }
 
-module.exports = { pedidoDeImagens, itensDaResposta, responderImagens };
+module.exports = { pedidoDeImagens, itensDaResposta, responderImagens, ajustesDaBusca, passaNoFiltro, conferirComAVisao };
