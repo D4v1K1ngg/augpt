@@ -1,0 +1,117 @@
+/* =========================================================================
+   AuGPT — visual novo, fase 1 (16/11, a partir do protótipo do Davi
+   "Desktop — conversa (tema automático)"). O nome e a marca "Au" ficam; vêm do
+   protótipo a paleta grafite neutra (no lugar do grafite esverdeado), a
+   tipografia, a coluna de leitura de 700 px, a sua mensagem em balão, os
+   blocos de código e tabelas e a caixa de texto arredondada.
+
+   Carregado DEPOIS do tema.css: só troca tokens e restiliza — nenhum id,
+   classe ou comportamento muda. Para voltar ao visual anterior, é só tirar o
+   <link> do index.html.
+   ========================================================================= */
+
+:root {
+  --void: #0d0e11;
+  --rail: #121317;
+  --panel: #16181d;
+  --panel-2: #1c1e24;
+  --line: #24262c;
+  --line-forte: #2a2c33;
+  --line-viva: #3b3e47;
+  --text: #dcdde1;
+  --text-forte: #ececee;
+  --muted: #9a9ca5;
+  --fraco: #80838c;
+  --hover: #1f2127;
+  --codigo: #111216;
+  --codigo-topo: #15171b;
+  --tinta: #2a2418;
+  --sombra: rgba(0, 0, 0, .35);
+
+  /* Inter, JetBrains Mono e Instrument Serif quando instaladas; senão, as do Windows que mais se parecem */
+  --sans: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+  --coluna: 700px;
+}
+
+html[data-theme="light"] {
+  --void: #fafaf8;
+  --rail: #f2f1ee;
+  --panel: #ffffff;
+  --panel-2: #f0efeb;
+  --line: #e4e2dc;
+  --line-forte: #d6d3cc;
+  --line-viva: #bdb9b0;
+  --text: #2b2d31;
+  --text-forte: #1b1c1f;
+  --muted: #5f626b;
+  --fraco: #676a72;
+  --hover: #e8e6e1;
+  --codigo: #f7f6f2;
+  --codigo-topo: #efede8;
+  --tinta: #f7e6cf;
+  --sombra: rgba(20, 20, 20, .08);
+}
+
+body { font-family: var(--sans); background: var(--void); }
+
+/* ------------------------------ a conversa ------------------------------ */
+#agenteMensagens, #conversaMensagens { max-width: calc(var(--coluna) + 56px); padding-top: 28px; }
+.msg { margin-bottom: 36px; }
+
+/* quem fala: discreto, sem caixa alta ("AuGPT · 14:02" no protótipo) */
+.msg-quem { font-size: 12px; letter-spacing: 0; text-transform: none; font-weight: 500; color: var(--muted); }
+.msg.ia .msg-quem { color: var(--muted); }
+
+/* a resposta: texto maior e mais arejado */
+.msg-corpo { font-size: 15.5px; line-height: 1.75; color: var(--text); }
+.msg-corpo p { margin: 0 0 14px; }
+.msg-corpo li { margin-bottom: 6px; }
+.msg-corpo li::marker { color: var(--gold); }
+.msg.ia .msg-corpo > h2, .msg.ia .msg-corpo > h3, .msg-corpo h2, .msg-corpo h3 {
+  font: 600 17px/1.4 var(--sans); letter-spacing: 0; color: var(--text-forte);
+  margin: 26px 0 10px; padding-bottom: 0; border-bottom: 0;
+}
+/* o markdown desce um nível ("###" vira h4): o mesmo título, sem o filete dourado do tema anterior */
+.msg.ia .msg-corpo > h4, .msg-corpo h4 { font: 600 16px/1.4 var(--sans); color: var(--text-forte); margin: 24px 0 10px; padding-bottom: 0; border-bottom: 0; }
+.msg-corpo blockquote { border-left-color: var(--gold); }
+
+/* a sua mensagem: balão à direita */
+.msg.eu .msg-corpo {
+  max-width: 82%; padding: 11px 18px; border-radius: 20px 6px 20px 20px;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--text-forte);
+  font-size: 15px; line-height: 1.6;
+}
+
+/* código: fundo próprio, cabeçalho com a linguagem, fonte mono */
+.msg-corpo code { font-family: var(--mono); font-size: .9em; color: var(--gold-hi, var(--gold)); background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 5px; }
+.msg-corpo pre.bloco-codigo {
+  position: relative; margin: 4px 0 16px; padding: 46px 20px 16px; border-radius: 14px;
+  background: var(--codigo); border: 1px solid var(--line); overflow-x: auto;
+}
+.msg-corpo pre.bloco-codigo code { font-family: var(--mono); font-size: 13.5px; line-height: 1.7; color: var(--text); background: none; border: 0; padding: 0; }
+.msg-corpo pre.bloco-codigo::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 34px;
+  background: var(--codigo-topo); border-bottom: 1px solid var(--line); border-radius: 14px 14px 0 0;
+}
+.msg-corpo pre.bloco-codigo[data-lang]::after {
+  content: attr(data-lang); position: absolute; top: 8px; left: 16px; right: auto;
+  font-family: var(--mono); font-size: 12px; color: var(--muted); text-transform: none; letter-spacing: 0;
+}
+
+/* tabelas: borda arredondada, cabeçalho em faixa */
+.msg-corpo table { border: 1px solid var(--line); border-radius: 12px; font-size: 14px; line-height: 1.5; margin: 4px 0 16px; }
+.msg-corpo th { background: var(--codigo-topo); color: var(--text-forte); font-weight: 600; font-size: 13px; padding: 10px 16px; }
+.msg-corpo td { padding: 10px 16px; }
+
+/* ------------------------------ a caixa de texto ------------------------------ */
+.composer-caixa {
+  max-width: var(--coluna); margin-left: auto; margin-right: auto;
+  border: 1px solid var(--line-forte); border-radius: 24px; background: var(--panel);
+  box-shadow: 0 12px 40px var(--sombra); padding-top: 8px; padding-bottom: 8px;
+}
+.composer-caixa:focus-within { border-color: color-mix(in srgb, var(--gold) 55%, var(--line-forte)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 9%, transparent), 0 12px 40px var(--sombra); }
+.composer-caixa textarea { font-size: 15.5px; line-height: 1.6; }
+
+/* ------------------------------ a barra lateral (só cores; a estrutura nova é a fase 2) ------------------------------ */
+.lateral { background: var(--rail); }
