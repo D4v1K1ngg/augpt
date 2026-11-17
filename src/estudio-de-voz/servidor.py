@@ -110,8 +110,7 @@ def gerar(o, pedido):
     partes = [p for p in o.get('partes') or [] if str(p).strip()]
     if not partes:
         raise ValueError('texto vazio')
-    if o.get('semente') not in (None, ''):
-        torch.manual_seed(int(o['semente']))
+    semente = o.get('semente')
     feitos = []
     t0 = time.time()
     # dublagem (17/11): uma duração por parte — o OmniVoice fala no tempo do trecho do vídeo (sem pausa sobrando nem
@@ -120,6 +119,9 @@ def gerar(o, pedido):
     for i, texto in enumerate(partes, 1):
         enviar({'id': pedido, 'progresso': f'Gerando a parte {i} de {len(partes)}…', 'parte': i, 'de': len(partes)})
         oi = dict(o, duracao=duracoes[i - 1]) if i - 1 < len(duracoes) and duracoes[i - 1] else o
+        # a mesma semente em cada parte (17/11: na dublagem, o sorteio seguido mudava a entonação de fala em fala)
+        if semente not in (None, ''):
+            torch.manual_seed(int(semente))
         a, sr = (gerar_qwen if MOTOR == 'qwen' else gerar_omni)(oi, pedido, texto)
         arq = f"{o['saida']}-{i:03d}.wav"
         sf.write(arq, a, sr, subtype='PCM_16')  # o AuGPT encurta as pausas lendo este formato

@@ -21,6 +21,19 @@ const diretor = require('./diretor');
 // idioma da legenda → idioma do Estúdio (o resto: o modelo descobre pelo texto)
 const IDIOMA_DO_ESTUDIO = { pt: 'portuguese', en: 'english', es: 'spanish', fr: 'french', de: 'german', it: 'italian', ja: 'japanese', ko: 'korean', zh: 'chinese', ru: 'russian' };
 const ACELERAR_ATE = 1.5;
+/*
+ * A voz âncora (17/11, Davi: "o Narrador fica trocando de timbre durante o vídeo"): a voz descrita cria uma voz nova a cada
+ * geração — em dezenas de falas curtas, o timbre muda. Antes das falas, a voz descrita lê UMA frase; todas as falas do
+ * vídeo clonam essa frase (a mesma pessoa do começo ao fim). A voz clonada do usuário já é fixa e fica como está.
+ */
+const FRASE_DA_ANCORA = {
+  pt: 'Olá! Eu sou o narrador deste vídeo. Vou contar tudo com calma, clareza e boa entonação, do começo ao fim.',
+  en: 'Hello! I am the narrator of this video. I will tell you everything calmly, clearly and with good intonation, from start to finish.',
+  es: '¡Hola! Soy el narrador de este video. Voy a contarlo todo con calma, claridad y buena entonación, de principio a fin.',
+  fr: 'Bonjour ! Je suis le narrateur de cette vidéo. Je vais tout raconter avec calme, clarté et une bonne intonation, du début à la fin.',
+  de: 'Hallo! Ich bin der Sprecher dieses Videos. Ich erzähle alles ruhig, klar und mit guter Betonung, vom Anfang bis zum Ende.',
+  it: 'Ciao! Sono il narratore di questo video. Racconterò tutto con calma, chiarezza e una buona intonazione, dall\'inizio alla fine.',
+};
 const FOLGA_MS = 120; // respiro entre uma fala e a próxima
 
 /**
@@ -112,7 +125,18 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     emitir({ etapa: 'diretor', texto: `Diretor: encurtando ${longas.length} falas longas demais para o tempo do vídeo…` });
     ({ textos, mudaram: encurtadas } = await diretor.reescrever(textos, longas, llm));
   }
-  const opcoesDaVoz = { ...voz, idioma: IDIOMA_DO_ESTUDIO[para] || 'auto', legenda: false, margem: 0.03, suavizar: 0.03 };
+  let opcoesDaVoz = { ...voz, idioma: IDIOMA_DO_ESTUDIO[para] || 'auto', legenda: false, margem: 0.03, suavizar: 0.03, semente: Number.isFinite(Number(voz.semente)) ? Number(voz.semente) : 1234 };
+  // a voz âncora: uma frase com a voz descrita (ou automática), e as falas clonam essa frase — o timbre não muda
+  let ancora = null;
+  if (comDuracao && voz.modo !== 'clonar') {
+    emitir({ etapa: 'falando', texto: 'Fixando a voz do narrador…' });
+    const frase = FRASE_DA_ANCORA[para] || FRASE_DA_ANCORA.en;
+    const r = await estudio.falas(opcoesDaVoz, [frase]);
+    ancora = path.join(os.tmpdir(), `augpt-ancora-${process.pid}-${Date.now()}.wav`);
+    fs.copyFileSync(r.partes[0].arquivo, ancora);
+    fs.rmSync(r.tmp, { recursive: true, force: true });
+    opcoesDaVoz = { ...opcoesDaVoz, modo: 'clonar', referenciaFixa: { audio: ancora, texto: frase }, instrucao: undefined };
+  }
   const duracoesDe = (idx) => (comDuracao ? idx.map((i) => Math.round(alvos[i]) / 1000) : null);
   emitir({ etapa: 'falando', texto: `Gerando as falas… 0/${segs.length}` });
   const f = await estudio.falas(opcoesDaVoz, textos, {
@@ -197,6 +221,7 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
   } finally {
     fs.rmSync(f.tmp, { recursive: true, force: true });
     if (pastaDoFundo) fs.rmSync(pastaDoFundo, { recursive: true, force: true });
+    if (ancora) fs.rmSync(ancora, { force: true });
   }
 }
 

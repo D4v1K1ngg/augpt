@@ -31,6 +31,10 @@ module.exports = [
         d.semelhanca('O legal nesses bichos é que eles têm trombas longas', 'o legal nesses bichos e que eles tem trombas muito longas') === 1 && d.semelhanca('O legal nesses bichos', 'tá bom') === 0 || 'semelhança do que foi ouvido',
         /duracoes: duracoesDe\(textos\.map\(\(_, i\) => i\)\)/.test(dub) && /'duracoes'\)|duracoes = o\.get\('duracoes'\)/.test(ler('src/estudio-de-voz/servidor.py')) || 'o OmniVoice fala no tempo de cada trecho',
         /const maxima = duracoes \? 0 :/.test(ler('src/estudio-de-voz/index.js')) || 'com a duração fixa, as pausas não são encurtadas depois',
+        // 17/11 (Davi: "o Narrador fica trocando de timbre"): a voz âncora — a descrita lê uma frase e as falas clonam essa
+        // frase (medido no TED-Ed: distância do timbre típico, média 0,123 → 0,025)
+        /if \(comDuracao && voz\.modo !== 'clonar'\)/.test(dub) && /modo: 'clonar', referenciaFixa: \{ audio: ancora, texto: frase \}/.test(dub) && /o\.modo === 'clonar' && o\.referenciaFixa\?\.audio/.test(ler('src/estudio-de-voz/index.js')) || 'a voz âncora: o timbre não muda de fala em fala',
+        /for i, texto in enumerate\(partes, 1\):[\s\S]{0,600}torch\.manual_seed\(int\(semente\)\)/.test(ler('src/estudio-de-voz/servidor.py')) || 'a mesma semente em cada parte',
         /diretor\.ouvir\(f\.partes\.map/.test(dub) && /o\.nota < 0\.55/.test(dub) && /motivo: 'clara'/.test(dub) || 'ouve e refaz as falas que não ficaram claras',
       ];
     },

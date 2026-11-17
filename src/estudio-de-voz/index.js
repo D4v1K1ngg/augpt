@@ -542,7 +542,9 @@ class EstudioDeVoz {
     try {
       await this.liberarPlaca(motor);
       let referencia = null;
-      if (o.modo === 'clonar') {
+      if (o.modo === 'clonar' && o.referenciaFixa?.audio) {
+        referencia = { audio: o.referenciaFixa.audio, texto: o.referenciaFixa.texto }; // a voz âncora da dublagem
+      } else if (o.modo === 'clonar') {
         const v = this.vozesSalvas().find((x) => x.id === o.vozSalva);
         if (!v) throw new Error('escolha uma voz salva para clonar');
         referencia = { audio: v.audio, texto: v.texto };
@@ -605,7 +607,9 @@ class EstudioDeVoz {
     try {
       await this.liberarPlaca(motor);
       let referencia = null;
-      if (o.modo === 'clonar') {
+      if (o.modo === 'clonar' && o.referenciaFixa?.audio) {
+        referencia = { audio: o.referenciaFixa.audio, texto: o.referenciaFixa.texto }; // a voz âncora da dublagem
+      } else if (o.modo === 'clonar') {
         const v = this.vozesSalvas().find((x) => x.id === o.vozSalva);
         if (!v) throw new Error('escolha uma voz salva para clonar');
         referencia = { audio: v.audio, texto: v.texto };
