@@ -24,7 +24,7 @@ module.exports = [
         typeof Ditado.prototype.exeGpu === 'function' && typeof Ditado.prototype.instalarGpu === 'function' || 'o Ditado acha e instala o whisper da placa',
         /const naPlaca = Boolean\(whisper\.gpu && fs\.existsSync\(whisper\.gpu\)\);/.test(fonte) || 'usa a placa quando instalada',
         /if \(!naPlaca \|\| signal\?\.aborted \|\| !whisper\.exe\) throw err;[\s\S]{0,200}transcrever\(whisper\.exe, ' no processador'\)/.test(fonte) || 'falhou na placa: refaz no processador',
-        (ler('electron/main.js').match(/whisper: \{ exe: d\.exe\(\), gpu: d\.exeGpu\(\)/g) || []).length === 2 || 'legendas e dublagem passam o whisper da placa',
+        (ler('electron/main.js').match(/whisper: \{ exe: d\.exe\(\), gpu: d\.exeGpu\(\)/g) || []).length >= 3 || 'legendas, dublagem e o Studio passam o whisper da placa',
       ];
     },
   },

@@ -81,19 +81,22 @@ function temAudio(ffmpeg, video) {
  *  'separado' (17/11: o Demucs tira a voz original — a dublagem vai sobre a música e o ambiente, sem a voz de antes).
  *  deps: os da legenda (midia, ffmpeg, whisper, chatStream, host, model, numCtx, signal, emitir) + estudio (EstudioDeVoz).
  */
-async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.15 }, deps) {
+async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.15, srt = null, fundoPronto = null }, deps) {
   const { ffmpeg, estudio, signal, emitir = () => {} } = deps;
   if (!estudio) throw new Error('a dublagem usa o Estúdio de voz: instale o motor de voz lá');
   const inicio = Date.now();
   // 1. legenda traduzida (os tempos de cada fala)
-  const leg = await legendar({ entrada, para, de, gravar: 'nao' }, deps);
+  // 17/11 (Studio): com a legenda pronta (a que o usuário editou), não transcreve nem traduz de novo
+  const leg = srt && fs.existsSync(srt) && fs.existsSync(entrada) ? { video: entrada, srt, idiomaFalado: null, faltaram: 0 } : await legendar({ entrada, para, de, gravar: 'nao' }, deps);
   const segs = lerSrt(fs.readFileSync(leg.srt, 'utf8')).map((s) => ({ inicio: emMs(s.inicio), fim: emMs(s.fim), texto: s.texto }));
   if (!segs.length) throw new Error('não ouvi fala nesse vídeo');
   // 1b. a voz original sai: o fundo (música, ambiente) separado pelo Demucs, na placa
   const separado = fundo === 'separado';
   const pastaDoFundo = separado ? fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-fundo-')) : null;
   const soFundo = separado ? path.join(pastaDoFundo, 'fundo.wav') : null;
-  if (separado) {
+  if (separado && fundoPronto && fs.existsSync(fundoPronto)) {
+    fs.copyFileSync(fundoPronto, soFundo); // o Studio já separou: reaproveita
+  } else if (separado) {
     if (!estudio.separadorInstalado?.()) throw new Error('o separador de voz não está instalado (Tradutor → Legendas e dublagem → Instalar o separador)');
     await estudio.separar(leg.video, { voz: path.join(pastaDoFundo, 'voz-original.wav'), fundo: soFundo, signal, emitir: (p) => emitir({ etapa: 'separando', texto: p.texto }) });
   }

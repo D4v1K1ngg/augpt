@@ -469,3 +469,76 @@ body { font-family: var(--sans); background: var(--void); }
 .leg-campo { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .leg-campo select { padding: 6px 10px; border: 1px solid var(--caixa-borda); border-radius: 10px; background: var(--caixa); color: var(--text); font: 13px var(--sans); }
 .leg-aviso { margin: 0; }
+
+/* ------------------------------ Studio de vídeo (17/11) ------------------------------ */
+.studio { flex: 1; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; min-height: 0; padding: 14px 16px 12px; }
+.studio-topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 18px; }
+.studio-titulo { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.studio-titulo h1 { margin: 0; font: 600 22px var(--serif); color: var(--text-forte); }
+.studio-arquivo { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }
+.studio-abrir { display: flex; gap: 8px; align-items: center; flex: 1 1 380px; justify-content: flex-end; }
+.studio-abrir input { flex: 1; max-width: 420px; padding: 8px 14px; border: 1px solid var(--caixa-borda); border-radius: 999px; background: var(--caixa); color: var(--text); font: 13.5px var(--sans); }
+.studio-corpo { display: grid; grid-template-columns: 250px minmax(0, 1fr) 270px; gap: 10px; min-height: 0; }
+.studio-ferramentas, .studio-inspetor { overflow-y: auto; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.st-passo { padding: 0 0 12px; margin: 0 0 12px; border-bottom: 1px solid var(--line); }
+.st-passo h3, .studio-inspetor h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font: 600 13px var(--sans); color: var(--text-forte); }
+.st-n { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: color-mix(in srgb, var(--gold) 18%, transparent); color: var(--gold); font: 700 11px var(--sans); }
+.st-passo .dica { margin: 4px 0 8px; font-size: 12px; line-height: 1.45; }
+.st-campo { display: flex; flex-direction: column; gap: 4px; margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+.st-campo.st-inline { flex-direction: row; align-items: center; gap: 8px; margin: 0; }
+.st-campo select, .st-campo input[type=text], .st-campo textarea { padding: 6px 9px; border: 1px solid var(--caixa-borda); border-radius: 9px; background: var(--caixa); color: var(--text); font: 13px var(--sans); }
+.st-campo textarea { resize: vertical; line-height: 1.45; }
+.st-largo { width: 100%; margin-top: 4px; }
+.st-componentes h4 { margin: 0 0 8px; font: 600 11px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.st-comp { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 8px; font-size: 12.5px; }
+.st-comp .dica { display: block; margin: 1px 0 0; font-size: 11.5px; }
+.st-comp .btn-link { font-size: 12px; padding: 2px 0; text-align: left; }
+.st-comp-ponto { flex: none; width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--muted); }
+.st-comp.ok .st-comp-ponto { background: #5fb878; }
+.st-comp.falta .st-comp-ponto { background: var(--gold); }
+.studio-palco { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; gap: 8px; min-height: 0; min-width: 0; }
+.studio-tela { position: relative; min-height: 0; display: grid; place-items: center; overflow: hidden; border-radius: 14px; background: #000; }
+.studio-tela video { width: 100%; height: 100%; object-fit: contain; display: block; }
+.studio-legenda { position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%); max-width: 86%; padding: 4px 12px; border-radius: 6px; background: rgba(0, 0, 0, .72); color: #fff; font: 600 clamp(14px, 2vw, 20px)/1.35 var(--sans); text-align: center; pointer-events: none; }
+.studio-legenda[hidden] { display: none; }
+.studio-vazio { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #b9b1a6; text-align: center; padding: 20px; }
+.studio-vazio[hidden] { display: none; }
+.studio-vazio svg { width: 44px; height: 44px; color: var(--gold); margin-bottom: 4px; }
+.studio-vazio b { font: 600 15px var(--sans); color: #f2ece2; }
+.studio-vazio span { font-size: 12.5px; }
+.studio-controles { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.st-play { width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--gold); color: var(--void); font-size: 13px; cursor: pointer; }
+.st-play:disabled { opacity: .4; cursor: default; }
+.st-tempo { font: 500 13px var(--sans); font-variant-numeric: tabular-nums; color: var(--text); min-width: 96px; }
+.st-fonte { display: inline-flex; padding: 3px; border: 1px solid var(--caixa-borda); border-radius: 999px; background: var(--caixa); }
+.st-fonte button { padding: 5px 12px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 500 12.5px var(--sans); cursor: pointer; }
+.st-fonte button.ativo { background: color-mix(in srgb, var(--gold) 18%, transparent); color: var(--gold); }
+.st-fonte button:disabled { opacity: .45; cursor: default; }
+.studio-status { display: flex; align-items: center; gap: 10px; min-height: 20px; font-size: 12.5px; color: var(--muted); }
+.st-tempos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.st-acoes { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 6px; }
+.studio-inspetor .dica { font-size: 12px; }
+.studio-linha { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); overflow: hidden; }
+.st-linha-topo { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--text-forte); }
+.st-linha-topo input[type=range] { width: 140px; accent-color: var(--gold); }
+.st-trilhas { display: grid; grid-template-columns: 112px minmax(0, 1fr); }
+.st-nomes { border-right: 1px solid var(--line); font-size: 11.5px; color: var(--muted); }
+.st-nomes > div { height: 34px; display: flex; align-items: center; padding: 0 10px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.st-nomes .st-nome-regua { height: 22px; }
+.st-rolagem { overflow-x: auto; overflow-y: hidden; }
+.st-conteudo { position: relative; min-width: 100%; cursor: text; }
+.st-regua { position: relative; height: 22px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--caixa) 60%, transparent); }
+.st-regua span { position: absolute; top: 3px; padding-left: 4px; border-left: 1px solid var(--line); font: 10.5px var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.st-trilha { position: relative; height: 34px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.st-bloco { position: absolute; top: 4px; height: 26px; display: flex; align-items: center; overflow: hidden; padding: 0 6px; border: 0; border-radius: 6px; font: 500 11.5px var(--sans); text-align: left; white-space: nowrap; cursor: pointer; }
+.st-bloco span { overflow: hidden; text-overflow: ellipsis; }
+.st-bloco-video { background: color-mix(in srgb, #6e8bd6 35%, var(--caixa)); color: var(--text-forte); cursor: default; }
+.st-bloco-orig { background: color-mix(in srgb, var(--muted) 28%, var(--caixa)); color: var(--text); }
+.st-bloco-trad { background: color-mix(in srgb, var(--gold) 32%, var(--caixa)); color: var(--text-forte); }
+.st-bloco-fundo { background: color-mix(in srgb, #5fb878 30%, var(--caixa)); color: var(--text-forte); cursor: default; }
+.st-bloco[data-tipo]:hover { filter: brightness(1.15); }
+.st-bloco.sel { box-shadow: inset 0 0 0 2px var(--gold); }
+.st-cabeca { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #ff5a4f; pointer-events: none; }
+.st-cabeca::before { content: ""; position: absolute; top: 0; left: -5px; border: 6px solid transparent; border-top-color: #ff5a4f; }
+@media (max-width: 1100px) { .studio-corpo { grid-template-columns: 220px minmax(0, 1fr); } .studio-inspetor { grid-column: 1 / -1; } }
+.legendas-atalho .dica { margin: 4px 0 10px; }

@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: blob: augpt-img: augpt-mapa:; media-src 'self' blob:; connect-src 'self' augpt-mapa:; worker-src 'self'; frame-src 'self' data: augpt-caixa: https://www.youtube-nocookie.com" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: blob: augpt-img: augpt-mapa:; media-src 'self' blob: augpt-video:; connect-src 'self' augpt-mapa:; worker-src 'self'; frame-src 'self' data: augpt-caixa: https://www.youtube-nocookie.com" />
 <title>AuGPT</title>
 <link rel="stylesheet" href="vendor/maplibre-gl-5.24.0/maplibre-gl.css" />
 <link rel="stylesheet" href="styles.css" />
@@ -217,6 +217,12 @@
           <rect x="7" y="2.5" width="6" height="10" rx="3"/><path d="M4 9.5a6 6 0 0 0 12 0M10 15.5v2.5M7 18h6"/>
         </svg>
         Estúdio de voz
+      </button>
+      <button class="nav-item" id="navStudio" role="tab" aria-selected="false">
+        <svg class="nav-icone" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2.5" y="4" width="15" height="12" rx="2.5"/><path d="M2.5 7.5h15M6 4l1.5 3.5M10 4l1.5 3.5M14 4l1.5 3.5"/>
+        </svg>
+        Studio
       </button>
       <button class="nav-item" id="navTradutor" role="tab" aria-selected="false">
         <svg class="nav-icone" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -645,6 +651,133 @@
     </div>
   </section>
 
+  <!-- ------------------------------ Studio de vídeo (17/11, renderer/studio.js) ------------------------------ -->
+  <section class="pagina studio-pagina" id="viewStudio" hidden>
+    <div class="studio">
+      <header class="studio-topo">
+        <div class="studio-titulo">
+          <h1>Studio</h1>
+          <span class="studio-arquivo" id="stNome">Nenhum vídeo aberto</span>
+        </div>
+        <div class="studio-abrir">
+          <input type="text" id="stLink" placeholder="Cole o link de um vídeo (YouTube e outros sites)" aria-label="Link do vídeo" />
+          <button class="btn-secundario" id="stBaixar">Baixar</button>
+          <button class="btn-primario" id="stAbrir">Abrir vídeo…</button>
+        </div>
+      </header>
+
+      <div class="studio-corpo">
+        <aside class="studio-ferramentas" aria-label="Ferramentas">
+          <div class="st-passo" id="stPassoLegenda">
+            <h3><span class="st-n">1</span> Transcrever e traduzir</h3>
+            <label class="st-campo">Idioma <select id="stIdioma"></select></label>
+            <button class="btn-primario st-largo" id="stLegendar" disabled>Fazer a legenda</button>
+            <p class="dica" id="stInfoLegenda"></p>
+          </div>
+          <div class="st-passo" id="stPassoSeparar">
+            <h3><span class="st-n">2</span> Separar voz e fundo</h3>
+            <p class="dica">Tira a voz de quem fala no vídeo e guarda a música e o ambiente — a dublagem vai por cima, sem a voz original.</p>
+            <button class="btn-secundario st-largo" id="stSeparar" disabled>Separar a voz</button>
+          </div>
+          <div class="st-passo" id="stPassoDublar">
+            <h3><span class="st-n">3</span> Dublar</h3>
+            <label class="st-campo">Voz <select id="stVoz"></select></label>
+            <label class="st-campo">Som original
+              <select id="stFundo">
+                <option value="separado">Só o fundo (sem a voz original)</option>
+                <option value="0.15">Original baixinho por baixo</option>
+                <option value="0">Sem o som original</option>
+              </select>
+            </label>
+            <button class="btn-primario st-largo" id="stDublar" disabled>Dublar o vídeo</button>
+          </div>
+          <div class="st-passo" id="stPassoExportar">
+            <h3><span class="st-n">4</span> Exportar</h3>
+            <button class="btn-secundario st-largo" id="stExpFaixa" disabled>Vídeo com a legenda (liga e desliga)</button>
+            <button class="btn-secundario st-largo" id="stExpFixa" disabled>Legenda gravada na imagem</button>
+            <button class="btn-link" id="stMostrar" disabled>Mostrar os arquivos</button>
+          </div>
+          <div class="st-componentes" id="stComponentes"></div>
+        </aside>
+
+        <main class="studio-palco">
+          <div class="studio-tela">
+            <video id="stVideo" playsinline preload="metadata"></video>
+            <div class="studio-legenda" id="stLegendaTela" aria-live="off"></div>
+            <div class="studio-vazio" id="stVazio">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></svg>
+              <b>Abra um vídeo para começar</b>
+              <span>Um arquivo do computador ou o link de um vídeo da internet.</span>
+            </div>
+          </div>
+          <div class="studio-controles">
+            <button class="st-play" id="stPlay" aria-label="Tocar" disabled>▶</button>
+            <span class="st-tempo" id="stTempo">0:00 / 0:00</span>
+            <div class="st-fonte" role="group" aria-label="O que tocar">
+              <button type="button" data-fonte="original" class="ativo">Original</button>
+              <button type="button" data-fonte="dublado" disabled>Dublado</button>
+            </div>
+            <label class="st-campo st-inline">Legenda na tela
+              <select id="stLegendaVer">
+                <option value="traducao">Traduzida</option>
+                <option value="original">Original</option>
+                <option value="">Nenhuma</option>
+              </select>
+            </label>
+          </div>
+          <div class="studio-status" aria-live="polite">
+            <span id="stStatus"></span>
+            <button class="btn-link" id="stParar" hidden>Parar</button>
+          </div>
+        </main>
+
+        <aside class="studio-inspetor" aria-label="Fala selecionada">
+          <h3>Fala selecionada</h3>
+          <p class="dica" id="stSemSelecao">Clique numa fala na linha do tempo para ver e editar.</p>
+          <div id="stEditor" hidden>
+            <div class="st-tempos">
+              <label class="st-campo">Início <input id="stIni" type="text" inputmode="decimal" /></label>
+              <label class="st-campo">Fim <input id="stFim" type="text" inputmode="decimal" /></label>
+            </div>
+            <label class="st-campo">Original <textarea id="stTxtOrig" rows="3" readonly></textarea></label>
+            <label class="st-campo">Tradução <textarea id="stTxtTrad" rows="5"></textarea></label>
+            <div class="st-acoes">
+              <button class="btn-primario" id="stSalvarFala">Salvar</button>
+              <button class="btn-link perigo" id="stApagarFala">Apagar a fala</button>
+            </div>
+            <p class="dica">A dublagem usa a tradução daqui: edite e dublar de novo.</p>
+          </div>
+        </aside>
+      </div>
+
+      <section class="studio-linha" aria-label="Linha do tempo">
+        <div class="st-linha-topo">
+          <b>Linha do tempo</b>
+          <label class="st-campo st-inline">Zoom <input type="range" id="stZoom" min="8" max="240" value="40" /></label>
+        </div>
+        <div class="st-trilhas">
+          <div class="st-nomes">
+            <div class="st-nome-regua"></div>
+            <div>Vídeo</div>
+            <div>Fala original</div>
+            <div>Tradução</div>
+            <div>Fundo</div>
+          </div>
+          <div class="st-rolagem" id="stRolagem">
+            <div class="st-conteudo" id="stConteudo">
+              <div class="st-regua" id="stRegua"></div>
+              <div class="st-trilha" id="stTrilhaVideo"></div>
+              <div class="st-trilha" id="stTrilhaOrig"></div>
+              <div class="st-trilha" id="stTrilhaTrad"></div>
+              <div class="st-trilha" id="stTrilhaFundo"></div>
+              <div class="st-cabeca" id="stCabeca"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+
   <!-- ------------------------------ tradutor (12/11, renderer/tradutor.js) ------------------------------ -->
   <section class="pagina" id="viewTradutor" hidden>
     <div class="pagina-rolagem">
@@ -688,42 +821,11 @@
           <button class="btn-secundario" id="tradParar" hidden>Parar</button>
         </div>
 
-        <!-- 14/11: legendas de vídeo (src/legendas) — o idioma é o "para" de cima -->
-        <section class="grupo legendas">
+        <!-- 17/11: legendas e dublagem de vídeo se mudaram para o Studio (renderer/studio.js) -->
+        <section class="grupo legendas-atalho">
           <h2>Legendas e dublagem de vídeo</h2>
-          <p class="dica">Cole o link de um vídeo (YouTube e outros sites) ou escolha um arquivo. O AuGPT transcreve a fala e faz a legenda — ou a dublagem, com uma voz do Estúdio — no idioma escolhido acima, tudo no seu computador.</p>
-          <div class="tradutor-barra">
-            <input type="text" id="legEntrada" placeholder="https://… ou o caminho do vídeo" aria-label="Link ou arquivo do vídeo" />
-            <button class="btn-secundario" id="legEscolher">Escolher arquivo…</button>
-          </div>
-          <div class="tradutor-barra">
-            <select id="legGravar" aria-label="O que fazer com a legenda">
-              <option value="faixa">Vídeo com a legenda como faixa (liga e desliga no player)</option>
-              <option value="fixa">Vídeo com a legenda gravada na imagem (mais lento)</option>
-              <option value="nao">Só os arquivos de legenda (.srt)</option>
-              <option value="dublar">Vídeo dublado: a fala no idioma acima, numa voz do Estúdio</option>
-            </select>
-          </div>
-          <div class="tradutor-barra" id="legDublagem" hidden>
-            <label class="leg-campo">Voz <select id="legVoz" aria-label="Voz da dublagem"></select></label>
-            <label class="leg-campo">Som original por baixo
-              <select id="legFundo" aria-label="Volume do som original">
-                <option value="0.15">Baixo (a música e o ambiente continuam)</option>
-                <option value="0.3">Médio</option>
-                <option value="0">Sem o som original</option>
-              </select>
-            </label>
-            <p class="dica leg-aviso" id="legSemVoz" hidden>A dublagem usa o motor de voz do <b>Estúdio de voz</b>: instale lá primeiro.</p>
-          </div>
-          <div class="estudio-acoes">
-            <button class="btn-primario" id="legFazer">Fazer a legenda</button>
-            <button class="btn-secundario" id="legParar" hidden>Parar</button>
-            <span class="dica" id="legStatus" aria-live="polite"></span>
-          </div>
-          <div class="estudio-linha" id="legResultado" hidden>
-            <button class="btn-link" id="legAbrir">Mostrar na pasta</button>
-            <span class="dica" id="legArquivos"></span>
-          </div>
+          <p class="dica">Agora ficam no <b>Studio</b>, com a prévia do vídeo, a linha do tempo, a legenda editável, a separação da voz e a dublagem.</p>
+          <button class="btn-secundario" id="tradIrStudio">Abrir o Studio</button>
         </section>
       </div>
     </div>
@@ -1761,5 +1863,6 @@
 <script src="estudio.js"></script>
 <script src="acoes-da-resposta.js"></script>
 <script src="tradutor.js"></script>
+<script src="studio.js"></script>
 </body>
 </html>

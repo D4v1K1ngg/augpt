@@ -281,16 +281,7 @@ async function legendar({ entrada, para = 'pt', de = 'auto', gravar = 'faixa' },
     fs.writeFileSync(srt, escreverSrt(segmentos));
 
     // 5. a legenda no vídeo
-    let saida = null;
-    if (gravar === 'faixa' || gravar === 'fixa') {
-      emitir({ etapa: 'gravando', texto: gravar === 'fixa' ? 'Gravando a legenda na imagem (refaz o vídeo, demora)…' : 'Pondo a legenda no vídeo…' });
-      const mp4 = /\.mp4$/i.test(video);
-      saida = `${base}.legendado${gravar === 'fixa' ? '-na-imagem' : ''}.${para}.${gravar === 'faixa' && !mp4 ? 'mkv' : 'mp4'}`;
-      const args = gravar === 'fixa'
-        ? ['-y', '-i', video, '-vf', `subtitles='${caminhoNoFiltro(srt)}'`, '-c:a', 'copy', saida]
-        : ['-y', '-i', video, '-i', srt, '-map', '0:v', '-map', '0:a?', '-map', '1', '-c', 'copy', '-c:s', mp4 ? 'mov_text' : 'srt', '-metadata:s:s:0', `language=${ISO3[para] || 'und'}`, '-disposition:s:0', 'default', saida];
-      await rodar(ffmpeg, args, { signal });
-    }
+    const saida = gravar === 'faixa' || gravar === 'fixa' ? await gravarLegenda({ video, srt, para, gravar }, { ffmpeg, signal, emitir }) : null;
     emitir({ etapa: 'pronto', texto: 'Pronto ✓' });
     return { video, srt, srtOriginal, saida, idiomaFalado, segmentos: segmentos.length, faltaram, segundos: Math.round((Date.now() - inicio) / 1000) };
   } finally {
@@ -298,4 +289,21 @@ async function legendar({ entrada, para = 'pt', de = 'auto', gravar = 'faixa' },
   }
 }
 
-module.exports = { idiomaDoTexto, precisaTraduzir, legendar, juntarFrases, emMs, lerSrt, escreverSrt, emDuasLinhas, traduzirSegmentos, lerLote, mensagensDoLote, caminhoNoFiltro };
+/**
+ * Põe um .srt no vídeo (17/11, também o Studio, com a legenda editada): como faixa (liga e desliga no player, sem refazer
+ * o vídeo) ou gravada na imagem (refaz o vídeo). Devolve o arquivo novo, ao lado do vídeo.
+ */
+async function gravarLegenda({ video, srt, para = 'pt', gravar = 'faixa' }, { ffmpeg, signal, emitir = () => {} }) {
+  const base = path.join(path.dirname(video), path.basename(video, path.extname(video)));
+  emitir({ etapa: 'gravando', texto: gravar === 'fixa' ? 'Gravando a legenda na imagem (refaz o vídeo, demora)…' : 'Pondo a legenda no vídeo…' });
+  const mp4 = /\.mp4$/i.test(video);
+  const saida = `${base}.legendado${gravar === 'fixa' ? '-na-imagem' : ''}.${para}.${gravar === 'faixa' && !mp4 ? 'mkv' : 'mp4'}`;
+  const args = gravar === 'fixa'
+    ? ['-y', '-i', video, '-vf', `subtitles='${caminhoNoFiltro(srt)}'`, '-c:a', 'copy', saida]
+    : ['-y', '-i', video, '-i', srt, '-map', '0:v', '-map', '0:a?', '-map', '1', '-c', 'copy', '-c:s', mp4 ? 'mov_text' : 'srt', '-metadata:s:s:0', `language=${ISO3[para] || 'und'}`, '-disposition:s:0', 'default', saida];
+  await rodar(ffmpeg, args, { signal });
+  emitir({ etapa: 'pronto', texto: 'Pronto ✓' });
+  return saida;
+}
+
+module.exports = { gravarLegenda, idiomaDoTexto, precisaTraduzir, legendar, juntarFrases, emMs, lerSrt, escreverSrt, emDuasLinhas, traduzirSegmentos, lerLote, mensagensDoLote, caminhoNoFiltro };

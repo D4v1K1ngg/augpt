@@ -134,6 +134,21 @@ contextBridge.exposeInMainWorld('augpt', {
     apagarAudio: (arquivo) => ipcRenderer.invoke('estudio:apagarAudio', { arquivo }),
   },
   // tradutor (12/11): texto → texto com o modelo do Ollama (src/tradutor)
+  // Studio de vídeo (17/11): o vídeo aberto, a legenda editável, a separação de voz, a dublagem e a exportação
+  studio: {
+    abrir: (link) => ipcRenderer.invoke('studio:abrir', { link }),
+    projeto: (video) => ipcRenderer.invoke('studio:projeto', { video }),
+    legendar: (video, para) => ipcRenderer.invoke('studio:legendar', { video, para }),
+    lerSrt: (arquivo) => ipcRenderer.invoke('studio:lerSrt', { arquivo }),
+    salvarSrt: (arquivo, segmentos) => ipcRenderer.invoke('studio:salvarSrt', { arquivo, segmentos }),
+    separar: (video) => ipcRenderer.invoke('studio:separar', { video }),
+    dublar: (pedido) => ipcRenderer.invoke('studio:dublar', pedido),
+    exportarLegenda: (pedido) => ipcRenderer.invoke('studio:exportarLegenda', pedido),
+    componentes: () => ipcRenderer.invoke('studio:componentes'),
+    instalar: (qual) => ipcRenderer.invoke('studio:instalar', { qual }),
+    parar: () => ipcRenderer.invoke('studio:parar'),
+    mostrar: (arquivo) => ipcRenderer.invoke('studio:mostrar', { arquivo }),
+  },
   tradutor: {
     idiomas: () => ipcRenderer.invoke('tradutor:idiomas'),
     traduzir: (pedido) => ipcRenderer.invoke('tradutor:traduzir', pedido),

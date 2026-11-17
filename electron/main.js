@@ -2681,6 +2681,166 @@ ipcMain.handle('legendas:mostrar', (e, arquivo) => {
   shell.showItemInFolder(arquivo);
   return { ok: true };
 });
+/* ------------------------------ Studio de vídeo (17/11) ------------------------------ */
+// Davi: "uma aba Studio, como um editor de vídeo (Vegas, CapCut, Filmora), com a dublagem e a legenda dentro". O projeto
+// é o vídeo e os arquivos ao lado dele (<nome>.original.srt, <nome>.pt.srt, <nome>.fundo.wav, <nome>.dublado.pt.mp4…).
+// A tela só toca e só mexe no que o Studio abriu ou gerou (videosDoStudio, por token; arquivosDaLegenda para "mostrar").
+const videosDoStudio = new Map(); // token → caminho absoluto
+function tokenDoStudio(arquivo) {
+  const abs = path.resolve(arquivo);
+  for (const [t, a] of videosDoStudio) if (a === abs) return t;
+  const t = require('crypto').randomBytes(12).toString('hex');
+  videosDoStudio.set(t, abs);
+  arquivosDaLegenda.add(abs);
+  return t;
+}
+const doStudio = (arquivo) => [...videosDoStudio.values()].includes(path.resolve(String(arquivo || '')));
+// um .srt/.wav que mora ao lado de um vídeo aberto no Studio e começa com o nome dele
+const aoLadoDoStudio = (arquivo, ext) => {
+  const abs = path.resolve(String(arquivo || ''));
+  if (!ext.test(abs)) return false;
+  return [...videosDoStudio.values()].some((v) => path.dirname(v) === path.dirname(abs) && path.basename(abs).startsWith(`${path.basename(v, path.extname(v))}.`));
+};
+function ditadoDoStudio() {
+  const { Ditado } = require('../src/ditado');
+  return (ditado ||= new Ditado(path.join(app.getPath('userData'), 'componentes')));
+}
+function depsDoStudio(controle) {
+  const { MODELOS } = require('../src/ditado');
+  const { Midia } = require('../src/midia');
+  const d = ditadoDoStudio();
+  const modelo = d.modeloInstalado();
+  return {
+    midia: new Midia({ ytdlp: ytdlp().caminho, ffmpegDir: ffmpeg().dir, pasta: pastaDeDownloads() }),
+    ffmpeg: ffmpeg().caminho,
+    whisper: { exe: d.exe(), gpu: d.exeGpu(), modelo: modelo ? path.join(d.dir, 'modelos', MODELOS[modelo].arquivo) : null },
+    chatStream: ollama.chatStream,
+    host: config.data.host,
+    model: config.data.modelTraducao || config.data.model,
+    numCtx: config.data.numCtx,
+    estudio: estudioDeVoz(),
+    signal: controle.signal,
+    emitir: (p) => enviar('studio-progresso', p),
+  };
+}
+function duracaoDoVideo(video) {
+  return new Promise((ok) => {
+    require('child_process').execFile(ffmpeg().caminho, ['-hide_banner', '-i', video], { windowsHide: true }, (_e, _o, err) => {
+      const m = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(String(err || ''));
+      ok(m ? (Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3])) * 1000 : 0);
+    });
+  });
+}
+/** O projeto: o vídeo e o que já foi feito para ele (legendas, traduções, fundo separado, dublagens, exportações). */
+async function projetoDoStudio(video) {
+  const dir = path.dirname(video);
+  const base = path.basename(video, path.extname(video));
+  const nomes = fs.existsSync(dir) ? fs.readdirSync(dir).filter((n) => n.startsWith(`${base}.`)) : [];
+  const resto = (n) => n.slice(base.length);
+  const arq = (n) => path.join(dir, n);
+  const original = nomes.find((n) => resto(n) === '.original.srt');
+  for (const n of nomes) if (/\.(srt|wav|mp4|mkv)$/i.test(n)) arquivosDaLegenda.add(path.resolve(arq(n)));
+  return {
+    video, nome: base, token: tokenDoStudio(video), duracao: await duracaoDoVideo(video),
+    srtOriginal: original ? arq(original) : null,
+    traducoes: nomes.map((n) => /^\.([a-z]{2})\.srt$/.exec(resto(n))).filter(Boolean).map((m) => ({ idioma: m[1], arquivo: arq(`${base}${m[0]}`) })),
+    dublados: nomes.map((n) => /^\.dublado\.([a-z]{2})\.mp4$/.exec(resto(n))).filter(Boolean).map((m) => ({ idioma: m[1], arquivo: arq(`${base}${m[0]}`), token: tokenDoStudio(arq(`${base}${m[0]}`)) })),
+    legendados: nomes.filter((n) => /^\.legendado/.test(resto(n))).map((n) => ({ arquivo: arq(n), token: tokenDoStudio(arq(n)) })),
+    fundo: nomes.includes(`${base}.fundo.wav`) ? arq(`${base}.fundo.wav`) : null,
+    vozOriginal: nomes.includes(`${base}.voz.wav`) ? arq(`${base}.voz.wav`) : null,
+  };
+}
+// uma tarefa do Studio por vez (a mesma trava e o mesmo "Parar" da legenda/dublagem do Tradutor)
+async function tarefaDoStudio(e, fn) {
+  if (!naJanela(e)) return { ok: false, error: 'só pela janela do AuGPT' };
+  if (legendaAbort) return { ok: false, error: 'já tem uma legenda, dublagem ou separação sendo feita' };
+  const controle = (legendaAbort = new AbortController());
+  try {
+    return { ok: true, ...(await fn(controle)) };
+  } catch (err) {
+    return { ok: false, interrompido: controle.signal.aborted, error: err.message };
+  } finally {
+    legendaAbort = null;
+  }
+}
+ipcMain.handle('studio:abrir', (e, { link } = {}) => tarefaDoStudio(e, async (controle) => {
+  let video = null;
+  if (link) {
+    const deps = depsDoStudio(controle);
+    deps.emitir({ etapa: 'baixando', texto: 'Baixando o vídeo…' });
+    video = (await deps.midia.baixar(String(link), { tipo: 'video', signal: controle.signal, emitir: (p) => deps.emitir({ etapa: 'baixando', texto: `Baixando o vídeo… ${p.porcento != null ? `${Math.round(p.porcento)}%` : ''}`.trim() }) })).arquivo;
+    deps.emitir({ etapa: 'pronto', texto: 'Vídeo baixado ✓' });
+  } else {
+    const r = await dialog.showOpenDialog(win, { title: 'Abrir vídeo no Studio', properties: ['openFile'], filters: [{ name: 'Vídeos', extensions: ['mp4', 'mkv', 'webm', 'mov', 'avi', 'm4v'] }] });
+    if (r.canceled || !r.filePaths.length) return { cancelado: true };
+    video = r.filePaths[0];
+  }
+  return { projeto: await projetoDoStudio(video) };
+}));
+ipcMain.handle('studio:projeto', async (e, { video } = {}) => (naJanela(e) && doStudio(video) ? { ok: true, projeto: await projetoDoStudio(video) } : { ok: false }));
+ipcMain.handle('studio:legendar', (e, { video, para } = {}) => (doStudio(video) ? tarefaDoStudio(e, async (controle) => {
+  const r = await require('../src/legendas').legendar({ entrada: video, para, gravar: 'nao' }, depsDoStudio(controle));
+  return { faltaram: r.faltaram, idiomaFalado: r.idiomaFalado, segundos: r.segundos, projeto: await projetoDoStudio(video) };
+}) : { ok: false, error: 'abra o vídeo no Studio' }));
+ipcMain.handle('studio:lerSrt', (e, { arquivo } = {}) => {
+  if (!naJanela(e) || !aoLadoDoStudio(arquivo, /\.srt$/i) || !fs.existsSync(arquivo)) return null;
+  const { lerSrt, emMs } = require('../src/legendas');
+  return lerSrt(fs.readFileSync(arquivo, 'utf8')).map((s) => ({ inicio: emMs(s.inicio), fim: emMs(s.fim), texto: s.texto }));
+});
+ipcMain.handle('studio:salvarSrt', (e, { arquivo, segmentos } = {}) => {
+  if (!naJanela(e) || !aoLadoDoStudio(arquivo, /\.srt$/i) || !Array.isArray(segmentos)) return { ok: false };
+  const { escreverSrt } = require('../src/legendas');
+  const ms = (x) => new Date(Math.max(0, Math.round(x))).toISOString().slice(11, 23).replace('.', ',');
+  fs.writeFileSync(arquivo, escreverSrt(segmentos.filter((s) => String(s.texto || '').trim()).map((s) => ({ inicio: ms(Number(s.inicio) || 0), fim: ms(Number(s.fim) || 0), texto: String(s.texto).trim() }))));
+  return { ok: true };
+});
+ipcMain.handle('studio:separar', (e, { video } = {}) => (doStudio(video) ? tarefaDoStudio(e, async (controle) => {
+  const base = video.replace(/\.[^.]+$/, '');
+  const est = estudioDeVoz();
+  await est.separar(video, { voz: `${base}.voz.wav`, fundo: `${base}.fundo.wav`, signal: controle.signal, emitir: (p) => enviar('studio-progresso', { etapa: 'separando', ...p }) });
+  enviar('studio-progresso', { etapa: 'pronto', texto: 'Voz e fundo separados ✓' });
+  return { projeto: await projetoDoStudio(video) };
+}) : { ok: false, error: 'abra o vídeo no Studio' }));
+ipcMain.handle('studio:dublar', (e, { video, srt, para, voz, fundo } = {}) => (doStudio(video) && aoLadoDoStudio(srt, /\.srt$/i) ? tarefaDoStudio(e, async (controle) => {
+  const base = video.replace(/\.[^.]+$/, '');
+  const fundoPronto = fs.existsSync(`${base}.fundo.wav`) ? `${base}.fundo.wav` : null;
+  const valor = fundo === 'separado' ? 'separado' : Math.max(0, Math.min(1, Number(fundo ?? 0.15)));
+  const r = await require('../src/dublagem').dublar({ entrada: video, srt, para, voz: voz && typeof voz === 'object' ? voz : {}, fundo: valor, fundoPronto }, depsDoStudio(controle));
+  return { falas: r.falas, aceleradas: r.aceleradas, segundos: r.segundos, saida: r.saida, projeto: await projetoDoStudio(video) };
+}) : { ok: false, error: 'abra o vídeo e faça a legenda primeiro' }));
+ipcMain.handle('studio:exportarLegenda', (e, { video, srt, para, modo } = {}) => (doStudio(video) && aoLadoDoStudio(srt, /\.srt$/i) ? tarefaDoStudio(e, async (controle) => {
+  const deps = depsDoStudio(controle);
+  const saida = await require('../src/legendas').gravarLegenda({ video, srt, para, gravar: modo === 'fixa' ? 'fixa' : 'faixa' }, deps);
+  return { saida, projeto: await projetoDoStudio(video) };
+}) : { ok: false, error: 'abra o vídeo e faça a legenda primeiro' }));
+ipcMain.handle('studio:componentes', async () => {
+  const d = ditadoDoStudio();
+  const est = estudioDeVoz().estado();
+  const comp = await verificadorDeHardware.verificarComputador().catch(() => null);
+  const nvidia = (comp?.gpus || []).some((g) => /nvidia|geforce|rtx|gtx|quadro/i.test(g.nome));
+  return {
+    ffmpeg: fs.existsSync(ffmpeg().caminho),
+    ditado: Boolean(d.exe() && d.modeloInstalado()),
+    whisperGpu: Boolean(d.exeGpu()),
+    nvidia,
+    separador: est.separador,
+    motorVoz: Object.values(est.motores).some((m) => m.instalado),
+    omni: est.motores.omni?.instalado,
+  };
+});
+ipcMain.handle('studio:instalar', (e, { qual } = {}) => tarefaDoStudio(e, async () => {
+  const emitir = (p) => enviar('studio-progresso', { etapa: 'instalando', ...p });
+  if (qual === 'whisperGpu') await ditadoDoStudio().instalarGpu({ emitir });
+  else if (qual === 'separador') await estudioDeVoz().instalarSeparador({ emitir });
+  else throw new Error('componente desconhecido');
+  return {};
+}));
+ipcMain.handle('studio:parar', () => (legendaAbort?.abort(new Error('interrompida')), { ok: true }));
+ipcMain.handle('studio:mostrar', (e, { arquivo } = {}) => {
+  if (!naJanela(e) || !arquivosDaLegenda.has(path.resolve(String(arquivo || '')))) return { ok: false };
+  shell.showItemInFolder(arquivo);
+  return { ok: true };
+});
 ipcMain.handle('estudio:cancelar', () => (estudioDeVoz().cancelar(), { ok: true }));
 // o arquivo gerado (só os da pasta do estúdio) vai em bytes para a tela tocar
 const dentroDoEstudio = (arquivo) => {
@@ -3057,10 +3217,36 @@ protocol.registerSchemesAsPrivileged([
   { scheme: imagens.ESQUEMA, privileges: { standard: true, secure: true } },
   { scheme: caixa.ESQUEMA, privileges: { standard: true, secure: true } },
   { scheme: mapaTiles.ESQUEMA, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
+  // Studio de vídeo (17/11): a prévia toca por augpt-video://v/<token> — só arquivos que o Studio abriu ou gerou
+  { scheme: 'augpt-video', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } },
 ]);
 
 app.whenReady().then(() => {
   protocol.handle(caixa.ESQUEMA, (pedido) => caixa.responderCaixa(pedido.url));
+  protocol.handle('augpt-video', (pedido) => {
+    const arquivo = videosDoStudio.get(new URL(pedido.url).pathname.replace(/^\//, ''));
+    if (!arquivo || !fs.existsSync(arquivo)) return new Response('', { status: 404 });
+    // pedidos de trecho (Range): sem eles o player não pula no vídeo — net.fetch de file:// não responde 206 (17/11,
+    // medido: pedir os 200 s de um vídeo de 4,5 min ficava no 0)
+    const total = fs.statSync(arquivo).size;
+    const tipo = { '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm', '.mkv': 'video/x-matroska', '.wav': 'audio/wav' }[path.extname(arquivo).toLowerCase()] || 'application/octet-stream';
+    const m = /bytes=(\d*)-(\d*)/.exec(pedido.headers.get('range') || '');
+    let inicio = 0;
+    let fim = total - 1;
+    if (m) {
+      if (m[1] === '' && m[2]) inicio = Math.max(0, total - Number(m[2]));
+      else {
+        inicio = Number(m[1]) || 0;
+        if (m[2]) fim = Math.min(total - 1, Number(m[2]));
+      }
+      if (inicio > fim || inicio >= total) return new Response('', { status: 416, headers: { 'Content-Range': `bytes */${total}` } });
+    }
+    const corpo = require('stream').Readable.toWeb(fs.createReadStream(arquivo, { start: inicio, end: fim }));
+    return new Response(corpo, {
+      status: m ? 206 : 200,
+      headers: { 'Content-Type': tipo, 'Accept-Ranges': 'bytes', 'Content-Length': String(fim - inicio + 1), ...(m ? { 'Content-Range': `bytes ${inicio}-${fim}/${total}` } : {}) },
+    });
+  });
   protocol.handle(imagens.ESQUEMA, (pedido) => {
     const nome = new URL(pedido.url).hostname;
     if (!imagens.NOME_VALIDO.test(nome)) return new Response('', { status: 404 });

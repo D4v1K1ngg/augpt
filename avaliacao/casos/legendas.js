@@ -42,7 +42,8 @@ module.exports = [
       };
       const r = await L.traduzirSegmentos(frases, { para: 'pt', chatStream, model: 'x' });
       const ui = fs.readFileSync(path.join(__dirname, '../../renderer/index.html'), 'utf8');
-      const js = fs.readFileSync(path.join(__dirname, '../../renderer/tradutor.js'), 'utf8');
+      // 17/11: a legenda saiu do Tradutor e foi para o Studio
+      const js = fs.readFileSync(path.join(__dirname, '../../renderer/studio.js'), 'utf8');
       const main = fs.readFileSync(path.join(__dirname, '../../electron/main.js'), 'utf8');
       return [
         segs.length === 4 && segs[1].inicio === '00:00:05,000' && segs[1].fim === '00:00:09,000' || JSON.stringify(segs),
@@ -51,8 +52,8 @@ module.exports = [
         r.segmentos.map((s) => s.texto.slice(0, 3)).join() === 'PT ,PT ,PT ' && r.faltaram === 0 && pedidos.length === 2 || `tradução: ${JSON.stringify(r)} ${pedidos}`,
         r.segmentos[1].inicio === '00:00:05,000' && r.segmentos[1].fim === '00:00:11,000' || 'os tempos ficam',
         L.caminhoNoFiltro("C:\\Users\\a b\\x's.srt") === "C\\:/Users/a b/x\\'s.srt" || L.caminhoNoFiltro("C:\\Users\\a b\\x's.srt"),
-        ['legEntrada', 'legEscolher', 'legGravar', 'legFazer', 'legParar', 'legStatus', 'legAbrir'].every((id) => ui.includes(`id="${id}"`)) || 'a seção na tela',
-        /legendas-progresso/.test(js) && /api\.tradutor\.legendar/.test(js) || 'a tela chama e ouve',
+        ['stLink', 'stAbrir', 'stIdioma', 'stLegendar', 'stParar', 'stStatus', 'stExpFaixa', 'stExpFixa', 'stMostrar'].every((id) => ui.includes(`id="${id}"`)) && ui.includes('id="tradIrStudio"') || 'o Studio na tela (e o atalho no Tradutor)',
+        /studio-progresso/.test(js) && /api\.studio\.legendar\(/.test(js) || 'a tela chama e ouve',
         /ipcMain\.handle\('legendas:fazer'/.test(main) && /arquivosDaLegenda\.has/.test(main) || 'IPC, e só o que a legenda gerou aparece na pasta',
       ];
     },

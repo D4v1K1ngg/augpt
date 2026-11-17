@@ -32,15 +32,15 @@ module.exports = [
     },
   },
   {
-    nome: 'dublagem: a opção "Vídeo dublado" no Tradutor, com a voz do Estúdio e o som original; o mesmo "Parar" da legenda',
+    nome: 'dublagem no Studio: a voz do Estúdio, o som original (só o fundo, baixinho ou sem) e a legenda editada; o mesmo "Parar" da legenda',
     tipo: 'unidade',
     executar() {
       const html = ler('renderer/index.html');
       const trad = ler('renderer/tradutor.js');
       const main = ler('electron/main.js');
       return [
-        /<option value="dublar">Vídeo dublado/.test(html) && /id="legVoz"/.test(html) && /id="legFundo"/.test(html) || 'a opção e os campos',
-        /api\.tradutor\.dublar\(\{ entrada, para: \$\('tradPara'\)\.value, voz, fundo/.test(trad) && /window\.estudioVozes\?\.opcoes/.test(trad) || 'a tela manda a voz do Estúdio',
+        /id="stVoz"/.test(html) && /id="stFundo"/.test(html) && /<option value="separado">/.test(html) && /id="stDublar"/.test(html) || 'os campos no Studio',
+        /api\.studio\.dublar\(\{ video: st\.projeto\.video, srt: st\.arquivoTrad, para: idioma\(\), voz, fundo/.test(ler('renderer/studio.js')) && /window\.estudioVozes\?\.opcoes/.test(ler('renderer/studio.js')) && trad.length > 0 || 'o Studio manda a voz do Estúdio e a legenda editada',
         /window\.estudioVozes = \{/.test(ler('renderer/estudio.js')) || 'o Estúdio expõe as vozes',
         /ipcMain\.handle\('dublagem:fazer'/.test(main) && /if \(legendaAbort\) return \{ ok: false, error: 'já tem uma legenda ou dublagem sendo feita' \}/.test(main) && /estudio: estudioDeVoz\(\)/.test(main) || 'o processo principal',
         /dublar: \(pedido\) => ipcRenderer\.invoke\('dublagem:fazer', pedido\)/.test(ler('electron/preload.js')) || 'o preload',
