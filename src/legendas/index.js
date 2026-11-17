@@ -185,7 +185,7 @@ async function legendar({ entrada, para = 'pt', de = 'auto', gravar = 'faixa' },
     emitir({ etapa: 'transcrevendo', texto: 'Transcrevendo a fala… 0%' });
     let idiomaFalado = de !== 'auto' ? de : null;
     const nucleos = Math.max(1, Math.min(8, os.cpus().length - 2));
-    const log = await rodar(whisper.exe, ['-m', whisper.modelo, '-f', wav, '-l', de === 'auto' ? 'auto' : de, '-t', String(nucleos), '-osrt', '-of', `${base}.original`, '-ml', '84', '-sow', '-pp'], {
+    const log = await rodar(whisper.exe, ['-m', whisper.modelo, '-f', wav, '-l', de === 'auto' ? 'auto' : de, '-t', String(nucleos), '-osrt', '-of', wav.replace(/\.wav$/, ''), '-ml', '84', '-sow', '-pp'], {
       cwd: path.dirname(whisper.exe),
       signal,
       aoLinha: (l) => {
@@ -196,7 +196,13 @@ async function legendar({ entrada, para = 'pt', de = 'auto', gravar = 'faixa' },
       },
     });
     if (!idiomaFalado) idiomaFalado = /auto-detected language:\s*([a-z]{2})/i.exec(log)?.[1]?.toLowerCase() || null;
+    // 16/11 (vídeo do Davi: "Obrigado, Gabriel “FalleN” Toledo ｜ …"): o whisper.cpp no Windows não grava em caminho com
+    // caractere especial — saía "1 input file(s) failed". Ele grava ao lado do .wav temporário e o Node move.
     const srtOriginal = `${base}.original.srt`;
+    const doWhisper = wav.replace(/\.wav$/, '.srt');
+    if (!fs.existsSync(doWhisper)) throw new Error('a transcrição não gerou a legenda (o vídeo tem fala?)');
+    fs.copyFileSync(doWhisper, srtOriginal);
+    fs.rmSync(doWhisper, { force: true });
     const originais = juntarFrases(lerSrt(fs.readFileSync(srtOriginal, 'utf8')));
     if (!originais.length) throw new Error('não ouvi fala nesse vídeo');
     fs.writeFileSync(srtOriginal, escreverSrt(originais));

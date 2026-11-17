@@ -56,4 +56,18 @@ module.exports = [
       ];
     },
   },
+  {
+    // 16/11 (vídeo do Davi "Obrigado, Gabriel “FalleN” Toledo ｜ …" deu erro na dublagem): o whisper.cpp no Windows não
+    // grava em caminho com caractere especial; ele grava ao lado do .wav temporário e o Node move para o nome do vídeo
+    nome: 'legendas: o whisper grava a legenda no nome temporário (ASCII) e o Node move para o nome do vídeo — título com “aspas” e ｜ não quebra',
+    tipo: 'unidade',
+    executar() {
+      const src = fs.readFileSync(path.join(__dirname, '../../src/legendas/index.js'), 'utf8').replace(/\r/g, '');
+      return [
+        /'-osrt', '-of', wav\.replace\(\/\\\.wav\$\/, ''\)/.test(src) || 'o -of é o caminho do .wav temporário',
+        !/'-of', `\$\{base\}\.original`/.test(src) || 'nada de gravar direto no nome do vídeo',
+        /fs\.copyFileSync\(doWhisper, srtOriginal\)/.test(src) || 'o Node copia para o nome do vídeo',
+      ];
+    },
+  },
 ];
