@@ -35,7 +35,8 @@ module.exports = [
       const chatStream = async ({ messages }) => {
         const linhas = messages[1].content.split('\n');
         pedidos.push(linhas.length);
-        const traduzir = (l) => l.replace(/^(\d+)\| /, '$1| PT ');
+        // 17/11: a tradução falsa tem de estar em português (a que continua em inglês é recusada e pedida de novo)
+        const traduzir = (l) => l.replace(/^(\d+)\| .*/, '$1| PT esta é a fala traduzida para o português');
         const saida = linhas.length > 1 ? linhas.filter((l) => !/^3\|/.test(l)).reverse().map(traduzir) : linhas.map(traduzir);
         return { content: `Tradução:\n${saida.join('\n')}` };
       };
@@ -67,6 +68,25 @@ module.exports = [
         /'-osrt', '-of', wav\.replace\(\/\\\.wav\$\/, ''\)/.test(src) || 'o -of é o caminho do .wav temporário',
         !/'-of', `\$\{base\}\.original`/.test(src) || 'nada de gravar direto no nome do vídeo',
         /fs\.copyFileSync\(doWhisper, srtOriginal\)/.test(src) || 'o Node copia para o nome do vídeo',
+      ];
+    },
+  },
+  {
+    // 17/11 (Davi: "ele dublou em inglês"): o idioma de cada fala decide a tradução, e "tradução" igual ao original não vale
+    nome: 'legendas: cada fala pelo idioma dela (o whisper só olha os primeiros 30 s); fala devolvida sem traduzir é pedida de novo; nome e número ficam',
+    tipo: 'unidade',
+    async executar() {
+      let chamadas = 0;
+      const chatStream = async ({ messages }) => {
+        chamadas += 1;
+        const linhas = messages[1].content.split('\n');
+        return { content: linhas.map((l) => { const [n, t] = l.split('| '); if (t.startsWith('So here')) return chamadas > 1 ? `${n}| Então aqui estamos` : `${n}| ${t}`; if (t.startsWith('and that')) return `${n}| e isso é tudo`; return `${n}| ${t}`; }).join('\n') };
+      };
+      const r = await L.traduzirSegmentos([{ texto: 'So here we are with the elephants' }, { texto: 'and that is pretty much all' }, { texto: 'FalleN' }], { para: 'pt', chatStream });
+      return [
+        L.idiomaDoTexto('So here we are in front of the elephants') === 'en' && L.idiomaDoTexto('O legal nesses caras é que eles têm narizes') === 'pt' && L.idiomaDoTexto('FalleN') === null || 'idioma de cada fala',
+        !L.precisaTraduzir('Ele é o melhor jogador da história', 'pt') && L.precisaTraduzir('and that is all there is to say', 'pt') || 'só a fala que já está no idioma pedido fica',
+        JSON.stringify(r.segmentos.map((s) => s.texto)) === JSON.stringify(['Então aqui estamos', 'e isso é tudo', 'FalleN']) && r.faltaram === 0 && chamadas === 2 || JSON.stringify({ t: r.segmentos.map((s) => s.texto), f: r.faltaram, chamadas }),
       ];
     },
   },

@@ -98,8 +98,39 @@ const lerLote = (saida) => {
   return mapa;
 };
 
+/*
+ * O idioma de uma fala pelas palavras dela (17/11, Davi: "ele dublou em inglês"): o whisper detecta o idioma só pelos
+ * primeiros 30 s — num vídeo que começa com música ou com alguém falando português, o vídeo inteiro era "português" e
+ * nada era traduzido. Agora cada fala é conferida: só a que já está no idioma pedido fica como está.
+ */
+const PALAVRAS = {
+  pt: ['que', 'não', 'nao', 'uma', 'com', 'para', 'você', 'voce', 'isso', 'mais', 'muito', 'então', 'entao', 'está', 'esta', 'são', 'sao', 'também', 'tambem', 'aqui', 'eu', 'ele', 'ela', 'nós', 'nos', 'mas', 'como', 'do', 'da', 'dos', 'das', 'no', 'na', 'é', 'foi', 'tem', 'gente', 'cara', 'porque', 'quando', 'sempre', 'ainda', 'agora'],
+  en: ['the', 'and', 'you', 'that', 'is', 'it', 'to', 'of', 'in', 'was', 'for', 'with', 'this', 'have', 'are', 'what', 'but', 'they', 'he', 'she', 'we', 'just', 'like', 'so', 'be', 'not', 'there', 'do', 'know', 'think', 'really', 'my', 'me', 'your', 'can', 'all', 'about', 'when', 'one', 'would', 'been', 'from'],
+  es: ['que', 'el', 'los', 'las', 'una', 'con', 'para', 'pero', 'como', 'muy', 'está', 'es', 'yo', 'tú', 'usted', 'nosotros', 'del', 'lo', 'por', 'porque', 'también', 'aquí', 'ahora', 'eso', 'esto', 'hay', 'tiene', 'bueno'],
+  fr: ['le', 'la', 'les', 'des', 'est', 'et', 'que', 'qui', 'pas', 'pour', 'une', 'avec', 'dans', 'je', 'tu', 'nous', 'vous', 'mais', 'très', 'c\'est', 'ce', 'du', 'au', 'sur'],
+  de: ['der', 'die', 'das', 'und', 'ist', 'nicht', 'ich', 'du', 'wir', 'sie', 'mit', 'auf', 'ein', 'eine', 'zu', 'den', 'dem', 'auch', 'aber', 'sehr', 'wie', 'was'],
+  it: ['il', 'che', 'non', 'una', 'con', 'per', 'sono', 'è', 'della', 'del', 'gli', 'questo', 'anche', 'ma', 'molto', 'come', 'io', 'noi', 'voi', 'perché'],
+};
+const PALAVRAS_SET = Object.fromEntries(Object.entries(PALAVRAS).map(([k, v]) => [k, new Set(v)]));
+
+/** O idioma provável de um texto (pt, en, es, fr, de, it) pelas palavras comuns; null quando não dá para dizer. */
+function idiomaDoTexto(texto) {
+  const palavras = String(texto || '').toLowerCase().match(/[\p{L}']+/gu) || [];
+  if (palavras.length < 2) return null;
+  const pontos = Object.entries(PALAVRAS_SET).map(([id, set]) => [id, palavras.filter((p) => set.has(p)).length]).sort((a, b) => b[1] - a[1]);
+  const [primeiro, segundo] = pontos;
+  // empate (pt × es dividem muitas palavras) ou nenhum sinal: não dá para dizer
+  if (!primeiro[1] || primeiro[1] === segundo[1]) return null;
+  // acento e "ã/õ/ç" desempatam português de espanhol
+  if ((primeiro[0] === 'es' || primeiro[0] === 'pt') && /[ãõç]/i.test(texto)) return 'pt';
+  return primeiro[0];
+}
+
+/** A fala precisa de tradução para \`para\`? Só não precisa quando dá para ver que ela já está nesse idioma. */
+const precisaTraduzir = (texto, para) => idiomaDoTexto(texto) !== para;
+
 /**
- * Traduz os segmentos em lotes de `tamanho` linhas numeradas; o que faltar num lote é pedido de novo (só ele) e, se
+ * Traduz os segmentos em lotes de \`tamanho\` linhas numeradas; o que faltar num lote é pedido de novo (só ele) e, se
  * ainda faltar, fica no original. Devolve os segmentos com o texto traduzido e { faltaram }.
  */
 async function traduzirSegmentos(segs, { de = 'auto', para, chatStream, host, model, numCtx = 8192, signal, tamanho = 30, aoProgresso = () => {} }) {
@@ -112,9 +143,22 @@ async function traduzirSegmentos(segs, { de = 'auto', para, chatStream, host, mo
       const r = await chatStream({ host, model, messages: mensagensDoLote(linhas, { de, para }), temperature: 0.2, numCtx: Math.max(numCtx, 8192), numPredict: Math.min(8192, linhas.reduce((t, l) => t + l.texto.length, 0) * 2 + 400), pensar: false, signal, onToken: () => {} });
       return lerLote(r.content);
     };
+    // "traduzida" igual ao original e ainda em outro idioma = o modelo devolveu sem traduzir (17/11): pede de novo
+    const valida = (l, t) => {
+      if (!t) return false;
+      const origem = idiomaDoTexto(l.texto);
+      // igual ao original só vale para nome, número ou fala que já estava no idioma pedido ("FalleN", "2012")
+      if (t.trim().toLowerCase() === l.texto.trim().toLowerCase()) return origem === null || origem === para;
+      const saiu = idiomaDoTexto(t);
+      return saiu === null || saiu === para || saiu !== origem;
+    };
     let mapa = await pedir(lote);
+    for (const l of lote) if (!valida(l, mapa.get(l.n))) mapa.delete(l.n);
     const faltam = lote.filter((l) => !mapa.get(l.n));
-    if (faltam.length && !signal?.aborted) mapa = new Map([...mapa, ...(await pedir(faltam))]);
+    if (faltam.length && !signal?.aborted) {
+      const de2 = await pedir(faltam);
+      for (const l of faltam) if (valida(l, de2.get(l.n))) mapa.set(l.n, de2.get(l.n));
+    }
     for (const l of lote) {
       const t = mapa.get(l.n);
       if (t) saida[l.n - 1].texto = t;
@@ -210,14 +254,19 @@ async function legendar({ entrada, para = 'pt', de = 'auto', gravar = 'faixa' },
     // 4. a tradução (o mesmo idioma: só a transcrição)
     let segmentos = originais;
     let faltaram = 0;
-    if (idiomaFalado !== para) {
-      emitir({ etapa: 'traduzindo', texto: `Traduzindo para ${IDIOMAS.find(([id]) => id === para)?.[1] || para}… 0/${originais.length}` });
-      ({ segmentos, faltaram } = await traduzirSegmentos(originais, {
-        de: idiomaFalado || 'auto', para, chatStream: deps.chatStream, host: deps.host, model: deps.model, numCtx: deps.numCtx, signal,
+    // cada fala pelo idioma dela (17/11): o whisper detecta só pelos primeiros 30 s
+    const indices = originais.map((s, i) => (precisaTraduzir(s.texto, para) ? i : -1)).filter((i) => i >= 0);
+    if (indices.length) {
+      emitir({ etapa: 'traduzindo', texto: `Traduzindo para ${IDIOMAS.find(([id]) => id === para)?.[1] || para}… 0/${indices.length}` });
+      const r = await traduzirSegmentos(indices.map((i) => originais[i]), {
+        de: 'auto', para, chatStream: deps.chatStream, host: deps.host, model: deps.model, numCtx: deps.numCtx, signal,
         aoProgresso: (feitos, total) => emitir({ etapa: 'traduzindo', texto: `Traduzindo… ${feitos}/${total} falas` }),
-      }));
+      });
+      segmentos = originais.map((s) => ({ ...s }));
+      indices.forEach((i, k) => (segmentos[i] = r.segmentos[k]));
+      faltaram = r.faltaram;
     }
-    const srt = idiomaFalado === para ? srtOriginal : `${base}.${para}.srt`;
+    const srt = !indices.length ? srtOriginal : `${base}.${para}.srt`;
     fs.writeFileSync(srt, escreverSrt(segmentos));
 
     // 5. a legenda no vídeo
@@ -238,4 +287,4 @@ async function legendar({ entrada, para = 'pt', de = 'auto', gravar = 'faixa' },
   }
 }
 
-module.exports = { legendar, juntarFrases, emMs, lerSrt, escreverSrt, emDuasLinhas, traduzirSegmentos, lerLote, mensagensDoLote, caminhoNoFiltro };
+module.exports = { idiomaDoTexto, precisaTraduzir, legendar, juntarFrases, emMs, lerSrt, escreverSrt, emDuasLinhas, traduzirSegmentos, lerLote, mensagensDoLote, caminhoNoFiltro };

@@ -181,7 +181,7 @@
     }
     const nome = (a) => String(a || '').split(/[\\/]/).pop();
     ultimoArquivo = r.saida;
-    $('legStatus').textContent = `Pronto ✓ ${r.falas} falas dubladas em ${Math.round(r.segundos / 60) || 1} min${r.aceleradas ? ` · ${r.aceleradas} aceleradas para caber no tempo` : ''}`;
+    $('legStatus').textContent = `Pronto ✓ ${r.falas} falas dubladas em ${Math.round(r.segundos / 60) || 1} min${r.aceleradas ? ` · ${r.aceleradas} aceleradas para caber no tempo` : ''}${r.faltaram ? ` · ⚠ ${r.faltaram} falas sem tradução (ficaram no idioma original)` : ''}`;
     $('legArquivos').textContent = [r.saida, r.srt].filter(Boolean).map(nome).join(' · ');
     $('legResultado').hidden = false;
   }

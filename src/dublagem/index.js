@@ -121,7 +121,7 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     await rodar(ffmpeg, [...args, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', saida], { signal });
     emitir({ etapa: 'pronto', texto: 'Pronto ✓' });
     return {
-      saida, video: leg.video, srt: leg.srt, idiomaFalado: leg.idiomaFalado, falas: segs.length,
+      saida, video: leg.video, srt: leg.srt, idiomaFalado: leg.idiomaFalado, falas: segs.length, faltaram: leg.faltaram || 0,
       aceleradas: plano.filter((p) => p.velocidade > 1.05).length, segundos: Math.round((Date.now() - inicio) / 1000),
     };
   } finally {
