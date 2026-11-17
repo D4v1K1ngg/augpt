@@ -168,7 +168,9 @@ module.exports = [
         // 16/11: com menos de 2 tópicos lidos, o código busca de novo (uma vez)
         reg.comunidade[0] === 'fone dunu titan s' && reg.comunidade.length <= 3 || `garantia: busca na comunidade feita pelo código: ${reg.comunidade}`,
         reg.lidas.filter((u) => /reddit|clubedohardware/.test(u)).length === 2 || `garantia: 2 tópicos lidos: ${reg.lidas}`,
-        /comunidade/.test(sistemaDaEscrita) && /#### 1\. Marca Modelo/.test(sistemaDaEscrita) && /\*\*Na comunidade:\*\*/.test(sistemaDaEscrita) || 'a escrita pede os cartões',
+        // 16/11: "fone dunu titan s" é sobre UM produto, não um pedido de escolha — a comunidade continua, os cartões de
+        // opções não (o formato de recomendação é para "melhor…", "recomende…", "é bom para…"; ver produto-ou-recomendacao.js)
+        !/#### 1\. Marca Modelo/.test(sistemaDaEscrita) || 'sobre um produto só: sem os cartões de opções',
         r.produto === true || 'o resultado diz que é produto (o agente põe as fotos nos cartões)',
         !geral.chamadas[1].opcoes.tools.some((t) => t.function.name === 'buscar_na_comunidade') && reg2.comunidade.length === 0 || 'pedido geral: sem comunidade',
         !/#### 1\. Marca Modelo/.test(geral.escritas[0][0].content) || 'pedido geral: sem formato de cartão',
