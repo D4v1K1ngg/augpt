@@ -77,7 +77,8 @@
 
   window.sugestoesDeContinuacao = async (corpo, pergunta, markdown) => {
     document.querySelectorAll('.sugestoes-continuacao').forEach((s) => s.remove());
-    if (!corpo || !pergunta || !String(markdown || '').trim() || typeof api.sugestoes !== 'function') return;
+    // resposta curta (uma conta, um "bom dia", o clima): sem sugestões — gastava 1 a 2 s de placa à toa
+    if (!corpo || !pergunta || String(markdown || '').trim().length < 400 || typeof api.sugestoes !== 'function') return;
     const caixa = corpo.parentElement || corpo;
     const lista = await api.sugestoes(String(pergunta).slice(0, 600), String(markdown)).catch(() => []);
     // chegou tarde: outra pergunta já começou, ou esta resposta saiu da tela

@@ -388,7 +388,9 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // identificar a imagem anexada e buscar parecidas (16/11, Davi: "buscar na web com exatidão a imagem e me dizer
     // o que ela é", "envio uma imagem e o modelo busca por similares, como o Google") — ver identificar-imagem.js
     const fotoAnexada = imagensDoPedido.find((i) => i.base64);
-    const identificar = !deps.semVisao && identificarImagem.pedidoDeIdentificacao(objetivo, Boolean(fotoAnexada));
+    // com muito texto lido pelo OCR, é print ou documento: a visão de sempre (com o OCR) responde
+    const muitoTexto = String(fotoAnexada?.texto || '').replace(/\s+/g, ' ').trim().length > 160;
+    const identificar = !deps.semVisao && !muitoTexto && identificarImagem.pedidoDeIdentificacao(objetivo, Boolean(fotoAnexada));
     const comParecidas = identificar
       ? await identificarImagem.identificarImagem({ pergunta: objetivo, imagem: fotoAnexada, parecidas: identificar.parecidas, deps: depsDasRotas, dir: this.dirImagens(), config: cfg }).catch(() => null)
       : null;

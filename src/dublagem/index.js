@@ -115,7 +115,9 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     const voz = ['-f', 's16le', '-ar', String(f.taxa), '-ac', '1', '-i', voz16];
     const args = comFundo
       ? ['-y', '-i', leg.video, ...voz, '-filter_complex', `[0:a]volume=${Number(fundo)}[f];[1:a]aresample=48000[v];[f][v]amix=inputs=2:duration=first:normalize=0[a]`, '-map', '0:v', '-map', '[a]']
-      : ['-y', '-i', leg.video, ...voz, '-map', '0:v', '-map', '1:a', '-shortest'];
+      // a faixa de voz acaba na última fala: o apad completa com silêncio até o fim do vídeo (sem ele, o -shortest cortava
+      // o vídeo ali — a música do fim sumia)
+      : ['-y', '-i', leg.video, ...voz, '-filter_complex', '[1:a]aresample=48000,apad[a]', '-map', '0:v', '-map', '[a]', '-shortest'];
     await rodar(ffmpeg, [...args, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', saida], { signal });
     emitir({ etapa: 'pronto', texto: 'Pronto ✓' });
     return {

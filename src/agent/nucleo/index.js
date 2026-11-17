@@ -916,7 +916,9 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   // 16/11 (Davi, 11 rodadas da mesma pergunta de fone: as boas leram um tópico de fórum, as ruins só listas): a busca
   // na comunidade usa a consulta curta (a pergunta inteira, com "poderia me recomendar…", achava pouco), e se depois
   // das leituras faltar tópico lido, busca de novo e lê mais — uma vez
-  const curta = consultaCurta(pergunta);
+  // sobre UM produto (16/11: "o nome desse fone que eu mandei é o simgot supermix 4" buscava "nome desse fone mandei simgot…"):
+  // a busca curta é o assunto entendido ("Simgot SuperMix 4"); a frase do usuário serve para os pedidos de escolha
+  const curta = !recomendacao && assuntos.length ? String(assuntos[0]).slice(0, 80) : consultaCurta(pergunta);
   const lerComunidade = async () => {
     const lidos = fontes.filter((f) => f.comunidade && f.trechos.length).length;
     const faltam = fontes.filter((x) => x.comunidade && !x.trechos.length && citaAssunto(x)).slice(0, Math.max(0, regras.comunidade - lidos));
@@ -930,7 +932,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     const lidos = fontes.filter((f) => f.comunidade && f.trechos.length).length;
     if (lidos < regras.comunidade && !comunidadeDeNovo && !signal?.aborted) {
       comunidadeDeNovo = true;
-      await executarBusca([`${curta} recomendação`, curta.split(' ').slice(0, 5).join(' ')], { comunidade: true, porSite: 6 });
+      await executarBusca([recomendacao ? `${curta} recomendação` : `${curta} review`, curta.split(' ').slice(0, 5).join(' ')], { comunidade: true, porSite: 6 });
       await lerComunidade();
     }
   };
@@ -972,7 +974,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] novas ${novas.map((f) => f.url).join(' ')} · lidas ${lidasAqui.length} · fontes ${antes}→${fontes.length}`);
       if (!lidasAqui.length || signal?.aborted) return;
       const material = lidasAqui.map((f) => `[${f.n}] ${f.titulo || dominio(f.url)}\n${f.trechos.join('\n…\n').slice(0, 3000)}`).join('\n\n');
-      const r2 = await chamar([{ role: 'user', content: `Pedido: ${pergunta}\n\nO que quem usa diz:\n${material}\n\nListe de 3 a 5 critérios que decidem se um produto é bom PARA ESTE USO, segundo este material: cada um com o porquê e, se o material disser, o que evitar (sem nome de produto nos critérios). Em "sinais_de_evitar", as expressões curtas que, na descrição de um produto, mostram o que evitar (ex.: "graves potentes", "bass boost"). Em "recomendados", até 4 produtos (marca e modelo) que quem usa recomenda neste material para este uso. Responda só com um JSON: {"criterios": [{"nome": "...", "porque": "...", "evitar": "...", "fontes": [n]}], "sinais_de_evitar": ["..."], "recomendados": ["..."]}` }], { json: true, numPredict: 650, signal });
+      const r2 = await chamar([{ role: 'user', content: `Pedido: ${pergunta}\n\nO que quem usa diz:\n${material}\n\nListe de 3 a 5 critérios que decidem se um produto é bom PARA ESTE USO, segundo este material: cada um com o porquê e, se o material disser, o que evitar (sem nome de produto nos critérios). Em "sinais_de_evitar", as expressões curtas que, na descrição de um produto, mostram o que ESTE material manda evitar PARA ESTE USO (só o que ele diz; se não diz, lista vazia — ex. do formato: num pedido de fone para jogos de tiro em que o material condena grave exagerado, "bass boost"). Em "recomendados", até 4 produtos (marca e modelo) que quem usa recomenda neste material para este uso. Responda só com um JSON: {"criterios": [{"nome": "...", "porque": "...", "evitar": "...", "fontes": [n]}], "sinais_de_evitar": ["..."], "recomendados": ["..."]}` }], { json: true, numPredict: 650, signal });
       const bruto2 = String(r2?.content || '');
       if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] bruto2 ${bruto2.slice(0, 300)}`);
       const validas = new Set(lidasAqui.map((f) => f.n));
@@ -2485,7 +2487,9 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   // reconhecido por foto leva o aviso, a menos que o OCR leia o nome dele na imagem.
   const identificacao = (/^.*identifica[çc][ãa]o:.*$/im.exec(vista) || [''])[0];
   const ocrConfirma = imagens.some((i) => i.texto && (ent.assuntos || []).some((a) => tituloCita(i.texto, a)));
-  const pelaAparencia = imagens.length > 0 && !ocrConfirma && (ent.produto || /prov[áa]vel|provavelmente|n[ãa]o d[áa] para saber|n[ãa]o identificado/i.test(identificacao));
+  // print de tela, janela, documento (16/11, revisão: o aviso saiu num print da interface do AuGPT): não é foto de produto
+  const ehPrint = imagens.some((i) => String(i.texto || '').replace(/\s+/g, ' ').trim().length > 160) || /\b(print|captura de tela|screenshot|interface|janela|tela d[eo]|documento|planilha|p[áa]gina da web|site)\b/i.test(String(vista || '').slice(0, 800));
+  const pelaAparencia = imagens.length > 0 && !ocrConfirma && !ehPrint && (ent.produto || /prov[áa]vel|provavelmente|n[ãa]o d[áa] para saber|n[ãa]o identificado/i.test(identificacao));
   // a oferta da ação que ajudaria (uma só; não repete a que a resposta anterior já fez)
   const oferta = ent.sugerir && capacidades.ofertaDe(ent.sugerir, deps.idioma);
   const jaOfereceu = oferta && conversa.slice(-4).some((m) => m.role === 'assistant' && String(m.content || '').includes(oferta.slice(0, 40)));

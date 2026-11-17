@@ -54,10 +54,11 @@ const lerJson = (t) => {
 };
 
 const PEDIDO_DE_OLHAR = `Olhe a imagem e responda SÓ com um JSON:
-{"o_que_e": "o que a imagem mostra, em português, uma frase", "categoria": "o tipo do objeto em inglês, 1 a 3 palavras (ex.: in-ear monitors, sneakers, sedan)", "pessoa": true ou false, "palpites": ["nome específico, se você reconhece"], "busca": "busca de imagens em inglês, até 8 palavras", "texto": "texto legível na imagem, ou vazio"}
+{"o_que_e": "o que a imagem mostra, em português, uma frase", "print": true ou false, "categoria": "o tipo do objeto em inglês, 1 a 3 palavras (ex.: in-ear monitors, sneakers, sedan)", "pessoa": true ou false, "palpites": ["nome específico, se você reconhece"], "busca": "busca de imagens em inglês, até 8 palavras", "texto": "texto legível na imagem, ou vazio"}
 - "palpites": até 3, do mais provável ao menos: modelo exato do produto, nome do lugar ou monumento, espécie, raça, obra, personagem, jogo. Vazio se é algo genérico.
 - "busca": com o nome específico quando houver; senão, o objeto ou cena, o estilo e as cores.
-- "pessoa": true se o assunto principal é uma pessoa real. Nunca diga quem é uma pessoa pelo rosto: descreva só a cena.`;
+- "pessoa": true se o assunto principal é uma pessoa real. Nunca diga quem é uma pessoa pelo rosto: descreva só a cena.
+- "print": true se a imagem é um print de tela, uma janela de programa, um documento, um gráfico ou uma foto de texto (o que importa nela é o que está escrito); false para foto de objeto, lugar, animal, planta, obra ou pessoa.`;
 
 function pedidoDeConferir(olhado, candidatas) {
   return `A primeira imagem é a do usuário. As outras ${candidatas.length} vieram da busca na web, nesta ordem:
@@ -117,6 +118,8 @@ async function identificarImagem({ pergunta, imagem, parecidas = false, deps, di
   if (!dir || !config.searxngUrl) return null; // sem a busca de imagens: a visão de sempre responde
   emit('ferramenta', { nome: 'olhar_imagem', argumentos: { consulta: 'o que a imagem mostra' }, risco: 'leitura' });
   const olhado = lerJson((await deps.chamar([{ role: 'user', content: PEDIDO_DE_OLHAR, images: [imagem.base64] }], { json: true, numPredict: 400 }).catch(() => null))?.content) || {};
+  // print, janela, documento (16/11, revisão): "o que é isso?" num print de erro é para ler e explicar, não buscar na web
+  if (olhado.print === true && !parecidas) return null;
   const pessoa = olhado.pessoa === true;
   const palpites = pessoa ? [] : (Array.isArray(olhado.palpites) ? olhado.palpites : []).map((p) => String(p).trim())
     // só nome próprio (maiúscula ou número: "HyperX Cloud II", "Torre Eiffel"); "criação artística" vira busca ruim
