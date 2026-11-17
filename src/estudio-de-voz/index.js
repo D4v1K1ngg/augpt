@@ -315,6 +315,7 @@ class EstudioDeVoz {
       formatos: Object.keys(FORMATOS),
       idiomas: IDIOMAS,
       vozes: this.vozesSalvas(),
+      separador: this.separadorInstalado(),
       gerando: this.atual ? { motor: this.atual.motor } : null,
     };
   }
@@ -338,18 +339,86 @@ class EstudioDeVoz {
     });
   }
 
+  /** O uv (instalador de pacotes do Python), baixado e conferido na 1ª vez. */
+  async garantirUv({ emitir = () => {} } = {}) {
+    fs.mkdirSync(path.join(this.pasta, 'uv'), { recursive: true });
+    if (fs.existsSync(this.uv())) return;
+    const zip = path.join(this.pasta, 'uv', 'uv.zip');
+    await this.baixarConferindo(UV.url, zip, { sha256: UV.sha256, buscar: this.buscar, emitir, rotulo: 'o instalador uv', total: UV.bytes });
+    this.extrairZip(fs.readFileSync(zip), path.join(this.pasta, 'uv'));
+    fs.rmSync(zip, { force: true });
+    if (!fs.existsSync(this.uv())) throw new Error('o pacote do uv não tem o uv.exe');
+  }
+
+  /* ---------------- separar a voz do fundo (17/11, dublagem) ---------------- */
+  // O Demucs (htdemucs, Meta) no Python do OmniVoice — o PyTorch com CUDA já está lá: instala só o pacote (~poucos MB) e o
+  // modelo baixa na 1ª separação (~80 MB, para <pasta>/hf/torch).
+
+  separadorInstalado() {
+    return fs.existsSync(this.python('omni')) && fs.existsSync(path.join(this.pasta, 'omni', 'Lib', 'site-packages', 'demucs'));
+  }
+
+  async instalarSeparador({ emitir = () => {} } = {}) {
+    if (process.platform !== 'win32') throw new Error('a separação de voz, por enquanto, é só no Windows');
+    if (!fs.existsSync(this.python('omni'))) throw new Error('a separação de voz usa o Python do OmniVoice: instale o motor de voz no Estúdio de voz antes');
+    await this.garantirUv({ emitir });
+    emitir({ texto: 'Instalando o separador de voz (Demucs)…' });
+    // sem mexer no PyTorch que o OmniVoice usa: o demucs aceita o que já está instalado
+    await this.rodar(this.uv(), ['pip', 'install', '--python', this.python('omni'), 'demucs'], { emitir, rotulo: 'Demucs: ' });
+    if (!this.separadorInstalado()) throw new Error('a instalação terminou, mas o demucs não apareceu');
+    emitir({ texto: 'Separador de voz instalado ✓ (o modelo baixa na 1ª separação, ~80 MB)', porcento: 100 });
+    return this.estado();
+  }
+
+  /**
+   * Separa a voz do fundo: `entrada` (qualquer áudio/vídeo) → `voz` e `fundo` (WAV 44,1 kHz estéreo). Na placa.
+   * O processo do motor de voz fecha antes (a placa fica para o Demucs) e volta sozinho na próxima fala.
+   */
+  async separar(entrada, { voz, fundo, emitir = () => {}, signal } = {}) {
+    if (!this.separadorInstalado()) throw new Error('o separador de voz não está instalado');
+    if (!this.ffmpeg || !fs.existsSync(this.ffmpeg)) throw new Error('a separação precisa do ffmpeg (Ajustes → Componentes)');
+    for (const m of Object.keys(this.processos)) this.fechar(m);
+    await this.liberarPlaca('omni');
+    const tmp = fs.mkdtempSync(path.join(this.pasta, 'tmp-'));
+    try {
+      const wav = path.join(tmp, 'entrada.wav');
+      emitir({ texto: 'Separando a voz do fundo… preparando o áudio' });
+      await this.ff(['-i', entrada, '-vn', '-ac', '2', '-ar', '44100', '-c:a', 'pcm_s16le', wav]);
+      const script = path.join(this.pasta, 'separar.py');
+      fs.writeFileSync(script, fs.readFileSync(path.join(__dirname, 'separar.py')));
+      await new Promise((ok, falha) => {
+        const p = spawn(this.python('omni'), [script, wav, voz, fundo], { cwd: this.pasta, windowsHide: true, env: { ...process.env, TORCH_HOME: path.join(this.pasta, 'hf', 'torch'), PYTHONIOENCODING: 'utf-8' } });
+        let erro = '';
+        let ultimo = -1;
+        const parar = () => p.kill();
+        signal?.addEventListener('abort', parar, { once: true });
+        p.stderr.on('data', (d) => {
+          const t = String(d);
+          erro = `${erro}${t}`.slice(-3000);
+          const pct = Number((/PROGRESSO (\d+)/.exec(t) || /(\d+)%\|/.exec(t) || [])[1]);
+          if (Number.isFinite(pct) && pct !== ultimo) {
+            ultimo = pct;
+            emitir({ texto: `Separando a voz do fundo… ${pct}%`, porcento: pct });
+          }
+        });
+        p.on('error', falha);
+        p.on('close', (c) => {
+          signal?.removeEventListener('abort', parar);
+          if (signal?.aborted) return falha(new Error('interrompida'));
+          return c === 0 && fs.existsSync(voz) && fs.existsSync(fundo) ? ok() : falha(new Error(`a separação falhou: ${erro.trim().split('\n').slice(-2).join(' ').slice(0, 300)}`));
+        });
+      });
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+    return { voz, fundo };
+  }
+
   /** Instala o motor (só no clique): o uv, um Python 3.11 só do estúdio, o PyTorch com CUDA e o pacote do motor. */
   async instalar(motor, { emitir = () => {} } = {}) {
     if (!MOTORES[motor]) throw new Error('motor desconhecido');
     if (process.platform !== 'win32') throw new Error('o estúdio de voz, por enquanto, é só no Windows');
-    fs.mkdirSync(path.join(this.pasta, 'uv'), { recursive: true });
-    if (!fs.existsSync(this.uv())) {
-      const zip = path.join(this.pasta, 'uv', 'uv.zip');
-      await this.baixarConferindo(UV.url, zip, { sha256: UV.sha256, buscar: this.buscar, emitir, rotulo: 'o instalador uv', total: UV.bytes });
-      this.extrairZip(fs.readFileSync(zip), path.join(this.pasta, 'uv'));
-      fs.rmSync(zip, { force: true });
-      if (!fs.existsSync(this.uv())) throw new Error('o pacote do uv não tem o uv.exe');
-    }
+    await this.garantirUv({ emitir });
     const venv = path.join(this.pasta, motor);
     if (!fs.existsSync(this.python(motor))) {
       emitir({ texto: 'Preparando o Python do estúdio…' });

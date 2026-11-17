@@ -12,6 +12,7 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 const { legendar, lerSrt, emMs } = require('../legendas');
@@ -76,7 +77,8 @@ function temAudio(ffmpeg, video) {
 
 /**
  * dublar({ entrada, para, de, voz, fundo }, deps)
- *  voz: as opções do Estúdio (motor, modo, instrucao, vozSalva, voz…); fundo: volume do áudio original (0 = sem).
+ *  voz: as opções do Estúdio (motor, modo, instrucao, vozSalva, voz…); fundo: volume do áudio original (0 = sem) ou
+ *  'separado' (17/11: o Demucs tira a voz original — a dublagem vai sobre a música e o ambiente, sem a voz de antes).
  *  deps: os da legenda (midia, ffmpeg, whisper, chatStream, host, model, numCtx, signal, emitir) + estudio (EstudioDeVoz).
  */
 async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.15 }, deps) {
@@ -87,6 +89,14 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
   const leg = await legendar({ entrada, para, de, gravar: 'nao' }, deps);
   const segs = lerSrt(fs.readFileSync(leg.srt, 'utf8')).map((s) => ({ inicio: emMs(s.inicio), fim: emMs(s.fim), texto: s.texto }));
   if (!segs.length) throw new Error('não ouvi fala nesse vídeo');
+  // 1b. a voz original sai: o fundo (música, ambiente) separado pelo Demucs, na placa
+  const separado = fundo === 'separado';
+  const pastaDoFundo = separado ? fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-fundo-')) : null;
+  const soFundo = separado ? path.join(pastaDoFundo, 'fundo.wav') : null;
+  if (separado) {
+    if (!estudio.separadorInstalado?.()) throw new Error('o separador de voz não está instalado (Tradutor → Legendas e dublagem → Instalar o separador)');
+    await estudio.separar(leg.video, { voz: path.join(pastaDoFundo, 'voz-original.wav'), fundo: soFundo, signal, emitir: (p) => emitir({ etapa: 'separando', texto: p.texto }) });
+  }
   // 2. uma fala por trecho
   emitir({ etapa: 'falando', texto: `Gerando as falas… 0/${segs.length}` });
   const f = await estudio.falas({ ...voz, idioma: IDIOMA_DO_ESTUDIO[para] || 'auto', legenda: false }, segs.map((s) => s.texto), {
@@ -111,9 +121,11 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     emitir({ etapa: 'gravando', texto: 'Gravando o vídeo dublado…' });
     const base = leg.video.replace(/\.[^.]+$/, '');
     const saida = `${base}.dublado.${para}.mp4`;
-    const comFundo = Number(fundo) > 0 && (await temAudio(ffmpeg, leg.video));
+    const comFundo = !separado && Number(fundo) > 0 && (await temAudio(ffmpeg, leg.video));
     const voz = ['-f', 's16le', '-ar', String(f.taxa), '-ac', '1', '-i', voz16];
-    const args = comFundo
+    const args = separado
+      ? ['-y', '-i', leg.video, ...voz, '-i', soFundo, '-filter_complex', '[2:a]aresample=48000[f];[1:a]aresample=48000[v];[f][v]amix=inputs=2:duration=first:normalize=0[a]', '-map', '0:v', '-map', '[a]']
+      : comFundo
       ? ['-y', '-i', leg.video, ...voz, '-filter_complex', `[0:a]volume=${Number(fundo)}[f];[1:a]aresample=48000[v];[f][v]amix=inputs=2:duration=first:normalize=0[a]`, '-map', '0:v', '-map', '[a]']
       // a faixa de voz acaba na última fala: o apad completa com silêncio até o fim do vídeo (sem ele, o -shortest cortava
       // o vídeo ali — a música do fim sumia)
@@ -121,11 +133,12 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     await rodar(ffmpeg, [...args, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', saida], { signal });
     emitir({ etapa: 'pronto', texto: 'Pronto ✓' });
     return {
-      saida, video: leg.video, srt: leg.srt, idiomaFalado: leg.idiomaFalado, falas: segs.length, faltaram: leg.faltaram || 0,
+      saida, video: leg.video, srt: leg.srt, idiomaFalado: leg.idiomaFalado, falas: segs.length, semVozOriginal: separado, faltaram: leg.faltaram || 0,
       aceleradas: plano.filter((p) => p.velocidade > 1.05).length, segundos: Math.round((Date.now() - inicio) / 1000),
     };
   } finally {
     fs.rmSync(f.tmp, { recursive: true, force: true });
+    if (pastaDoFundo) fs.rmSync(pastaDoFundo, { recursive: true, force: true });
   }
 }
 

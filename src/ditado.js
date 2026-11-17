@@ -23,6 +23,18 @@ const BINARIO = {
   sha256: '6ba69e3482d7826214f90a6a9c84ca07782aec1e1d0c6a7c30c994fd5d816ccb',
   bytes: 8928640,
 };
+/*
+ * O mesmo whisper.cpp com CUDA (17/11, Davi: "o whisper na CPU deixa a legenda de vídeo grande demorada"): para as
+ * legendas e a dublagem, numa pasta à parte (o ditado por voz continua no processador). O pacote do CUDA 12.4 (685 MB):
+ * o do 11.8 (285 MB) não traz as bibliotecas cuBLAS 11 — sem elas o whisper caía no processador sem avisar (medido na
+ * RTX 5070 Ti do Davi). SHA-256 publicado pelo GitHub.
+ */
+const BINARIO_GPU = {
+  versao: '1.9.5',
+  url: 'https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-bin-win-cuda-12.4.0-x64.zip',
+  sha256: 'afef0b881c500958921c3f5523b50e59ee2ec9b6f5cbd25b324c51ed308a957a',
+  bytes: 684913404,
+};
 const HF = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
 const MODELOS = {
   turbo: { nome: 'Whisper large-v3-turbo', arquivo: 'ggml-large-v3-turbo-q5_0.bin', sha256: '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2', bytes: 574041195 },
@@ -484,6 +496,40 @@ class Ditado {
     return procurar(path.join(this.dir, 'bin'));
   }
 
+  /** O whisper-cli com CUDA (legendas e dublagem na placa), se instalado. */
+  exeGpu() {
+    const dir = path.join(this.dir, 'bin-gpu');
+    if (!fs.existsSync(dir)) return null;
+    const procurar = (d) => {
+      for (const nome of fs.readdirSync(d)) {
+        const caminho = path.join(d, nome);
+        if (/^whisper-cli(\.exe)?$/i.test(nome)) return caminho;
+        if (fs.statSync(caminho).isDirectory()) {
+          const achado = procurar(caminho);
+          if (achado) return achado;
+        }
+      }
+      return null;
+    };
+    return procurar(dir);
+  }
+
+  /** Baixa (só no clique) o whisper com CUDA, conferindo o SHA-256. */
+  async instalarGpu({ emitir = () => {} } = {}) {
+    if (process.platform !== 'win32') throw new Error('por enquanto, só no Windows');
+    fs.mkdirSync(this.dir, { recursive: true });
+    const zip = path.join(this.dir, 'whisper-cuda.zip');
+    await baixarConferindo(BINARIO_GPU.url, zip, { sha256: BINARIO_GPU.sha256, buscar: this.buscar, emitir, rotulo: 'o whisper para a placa de vídeo', total: BINARIO_GPU.bytes });
+    emitir({ texto: 'Extraindo…' });
+    const destino = path.join(this.dir, 'bin-gpu');
+    fs.rmSync(destino, { recursive: true, force: true });
+    this.extrairZip(fs.readFileSync(zip), destino);
+    fs.rmSync(zip, { force: true });
+    if (!this.exeGpu()) throw new Error('o pacote baixado não tem o whisper-cli');
+    emitir({ texto: 'Transcrição na placa de vídeo instalada ✓', porcento: 100 });
+    return this.estado();
+  }
+
   modeloInstalado() {
     return Object.keys(MODELOS).find((id) => fs.existsSync(path.join(this.dir, 'modelos', MODELOS[id].arquivo))) || null;
   }
@@ -544,6 +590,7 @@ class Ditado {
       instalado: this.instalado(),
       modelo: modelo ? MODELOS[modelo].nome : null,
       versao: this.exe() ? BINARIO.versao : null,
+      gpu: Boolean(this.exeGpu()),
       recomendado,
       tamanho: MB(BINARIO.bytes + MODELOS[recomendado].bytes),
       nucleos: os.cpus().length,
@@ -588,4 +635,4 @@ class Ditado {
   }
 }
 
-module.exports = { limparPedidoFalado, definirNome, nomeAtual, lembraONome, lembraVariante, temSomDoNome, temSomDeGPT, Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel, contextoDaFala, respostaSugeridaParecida };
+module.exports = { BINARIO_GPU, limparPedidoFalado, definirNome, nomeAtual, lembraONome, lembraVariante, temSomDoNome, temSomDeGPT, Ditado, MODELOS, MODELO_DA_ESCUTA, MODELOS_DA_ESCUTA, variantesDoTreino, sensibilidadeDoTreino, distancia, varianteValida, variantesValidas, juntarVariantes, chamadaEscrita, semRepeticao, BINARIO, limparTranscricao, janelaDeAudio, modeloRecomendado, nucleosParaUsar, ehChamada, semChamada, palavrasDaChamada, comandoDeVoz, pedidoDeCorrecao, correcaoAceitavel, contextoDaFala, respostaSugeridaParecida };

@@ -2629,7 +2629,7 @@ ipcMain.handle('legendas:fazer', async (e, { entrada, para, gravar } = {}) => {
     const r = await require('../src/legendas').legendar({ entrada, para, gravar: ['faixa', 'fixa', 'nao'].includes(gravar) ? gravar : 'faixa' }, {
       midia: new Midia({ ytdlp: ytdlp().caminho, ffmpegDir: ffmpeg().dir, pasta: pastaDeDownloads() }),
       ffmpeg: ffmpeg().caminho,
-      whisper: { exe: d.exe(), modelo: modelo ? path.join(d.dir, 'modelos', MODELOS[modelo].arquivo) : null },
+      whisper: { exe: d.exe(), gpu: d.exeGpu(), modelo: modelo ? path.join(d.dir, 'modelos', MODELOS[modelo].arquivo) : null },
       chatStream: ollama.chatStream,
       host: config.data.host,
       model: config.data.modelTraducao || config.data.model,
@@ -2658,7 +2658,7 @@ ipcMain.handle('dublagem:fazer', async (e, { entrada, para, voz, fundo } = {}) =
     const r = await require('../src/dublagem').dublar({ entrada, para, voz: voz && typeof voz === 'object' ? voz : {}, fundo: Math.max(0, Math.min(1, Number(fundo ?? 0.15))) }, {
       midia: new Midia({ ytdlp: ytdlp().caminho, ffmpegDir: ffmpeg().dir, pasta: pastaDeDownloads() }),
       ffmpeg: ffmpeg().caminho,
-      whisper: { exe: d.exe(), modelo: modelo ? path.join(d.dir, 'modelos', MODELOS[modelo].arquivo) : null },
+      whisper: { exe: d.exe(), gpu: d.exeGpu(), modelo: modelo ? path.join(d.dir, 'modelos', MODELOS[modelo].arquivo) : null },
       chatStream: ollama.chatStream,
       host: config.data.host,
       model: config.data.modelTraducao || config.data.model,

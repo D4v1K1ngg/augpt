@@ -203,7 +203,7 @@ const caminhoNoFiltro = (p) => String(p).replace(/\\/g, '/').replace(/:/g, '\\:'
 async function legendar({ entrada, para = 'pt', de = 'auto', gravar = 'faixa' }, deps) {
   const { midia, ffmpeg, whisper, signal, emitir = () => {} } = deps;
   const inicio = Date.now();
-  if (!whisper?.exe || !whisper?.modelo) throw new Error('as legendas usam o ditado por voz: instale em Ajustes → Voz e ditado');
+  if (!(whisper?.exe || whisper?.gpu) || !whisper?.modelo) throw new Error('as legendas usam o ditado por voz: instale em Ajustes → Voz e ditado');
   if (!ffmpeg || !fs.existsSync(ffmpeg)) throw new Error('as legendas precisam do ffmpeg (Ajustes → Componentes)');
   if (!NOME[para] || para === 'auto') throw new Error('escolha o idioma da legenda');
   const texto = String(entrada || '').trim();
@@ -226,19 +226,30 @@ async function legendar({ entrada, para = 'pt', de = 'auto', gravar = 'faixa' },
 
   try {
     // 3. a transcrição, com os tempos (o .srt sai ao lado do vídeo)
-    emitir({ etapa: 'transcrevendo', texto: 'Transcrevendo a fala… 0%' });
+    // 17/11: na placa de vídeo quando o whisper com CUDA está instalado (4,5 min de fala: 83 s no processador, 5 s na
+    // RTX 5070 Ti); se ele falhar (sem memória na placa, driver), refaz no processador
+    const naPlaca = Boolean(whisper.gpu && fs.existsSync(whisper.gpu));
+    emitir({ etapa: 'transcrevendo', texto: `Transcrevendo a fala${naPlaca ? ' na placa de vídeo' : ''}… 0%` });
     let idiomaFalado = de !== 'auto' ? de : null;
     const nucleos = Math.max(1, Math.min(8, os.cpus().length - 2));
-    const log = await rodar(whisper.exe, ['-m', whisper.modelo, '-f', wav, '-l', de === 'auto' ? 'auto' : de, '-t', String(nucleos), '-osrt', '-of', wav.replace(/\.wav$/, ''), '-ml', '84', '-sow', '-pp'], {
-      cwd: path.dirname(whisper.exe),
+    const transcrever = (exe, ondeTexto) => rodar(exe, ['-m', whisper.modelo, '-f', wav, '-l', de === 'auto' ? 'auto' : de, '-t', String(nucleos), '-osrt', '-of', wav.replace(/\.wav$/, ''), '-ml', '84', '-sow', '-pp'], {
+      cwd: path.dirname(exe),
       signal,
       aoLinha: (l) => {
         const pct = /progress\s*=\s*(\d+)%/.exec(l);
-        if (pct) emitir({ etapa: 'transcrevendo', texto: `Transcrevendo a fala… ${pct[1]}%` });
+        if (pct) emitir({ etapa: 'transcrevendo', texto: `Transcrevendo a fala${ondeTexto}… ${pct[1]}%` });
         const lang = /auto-detected language:\s*([a-z]{2})/i.exec(l);
         if (lang) idiomaFalado = lang[1].toLowerCase();
       },
     });
+    let log;
+    try {
+      log = await transcrever(naPlaca ? whisper.gpu : whisper.exe, naPlaca ? ' na placa de vídeo' : '');
+    } catch (err) {
+      if (!naPlaca || signal?.aborted || !whisper.exe) throw err;
+      emitir({ etapa: 'transcrevendo', texto: 'A placa de vídeo não deu conta: transcrevendo no processador… 0%' });
+      log = await transcrever(whisper.exe, ' no processador');
+    }
     if (!idiomaFalado) idiomaFalado = /auto-detected language:\s*([a-z]{2})/i.exec(log)?.[1]?.toLowerCase() || null;
     // 16/11 (vídeo do Davi: "Obrigado, Gabriel “FalleN” Toledo ｜ …"): o whisper.cpp no Windows não grava em caminho com
     // caractere especial — saía "1 input file(s) failed". Ele grava ao lado do .wav temporário e o Node move.
