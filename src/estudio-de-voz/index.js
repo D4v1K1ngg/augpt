@@ -595,7 +595,7 @@ class EstudioDeVoz {
    * Dublagem (16/11): uma fala por texto, SEM juntar — cada uma num WAV com a duração, para o código encaixar no tempo
    * do vídeo. As pausas longas dentro de cada fala encurtam como no gerar(). Quem chama apaga `tmp`.
    */
-  async falas(o = {}, textos = [], { emitir = () => {} } = {}) {
+  async falas(o = {}, textos = [], { emitir = () => {}, duracoes = null } = {}) {
     const motor = MOTORES[o.motor] ? o.motor : 'omni';
     if (!this.instalado(motor)) throw new Error(`o ${MOTORES[motor].nome} não está instalado (Estúdio de voz)`);
     if (!textos.length) throw new Error('nada para falar');
@@ -611,8 +611,9 @@ class EstudioDeVoz {
         referencia = { audio: v.audio, texto: v.texto };
       }
       const partes = textos.map((t) => prepararParte(t, { porExtenso: o.porExtenso !== false, idioma: o.idioma }));
-      const r = await this.pedir(motor, { tipo: 'gerar', ...o, motor: undefined, texto: undefined, partes, referencia, saida: path.join(tmp, 'parte') }, (m) => emitir({ texto: m.progresso, parte: m.parte, de: m.de }));
-      const maxima = Number(o.pausaMaxima ?? 0.3);
+      // 17/11: com a duração de cada fala (dublagem), o modelo fala no tempo do trecho — as pausas não são encurtadas depois
+      const r = await this.pedir(motor, { tipo: 'gerar', ...o, motor: undefined, texto: undefined, partes, referencia, saida: path.join(tmp, 'parte'), ...(duracoes ? { duracoes } : {}) }, (m) => emitir({ texto: m.progresso, parte: m.parte, de: m.de }));
+      const maxima = duracoes ? 0 : Number(o.pausaMaxima ?? 0.3);
       if (maxima > 0) {
         for (const p of r.partes) {
           const novo = encurtarPausas(fs.readFileSync(p.arquivo), { maxima });

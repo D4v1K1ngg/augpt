@@ -2806,7 +2806,7 @@ ipcMain.handle('studio:dublar', (e, { video, srt, para, voz, fundo } = {}) => (d
   const fundoPronto = fs.existsSync(`${base}.fundo.wav`) ? `${base}.fundo.wav` : null;
   const valor = fundo === 'separado' ? 'separado' : Math.max(0, Math.min(1, Number(fundo ?? 0.15)));
   const r = await require('../src/dublagem').dublar({ entrada: video, srt, para, voz: voz && typeof voz === 'object' ? voz : {}, fundo: valor, fundoPronto }, depsDoStudio(controle));
-  return { falas: r.falas, aceleradas: r.aceleradas, segundos: r.segundos, saida: r.saida, projeto: await projetoDoStudio(video) };
+  return { falas: r.falas, aceleradas: r.aceleradas, encurtadas: r.encurtadas, refeitas: r.refeitas, nota: r.nota, segundos: r.segundos, saida: r.saida, projeto: await projetoDoStudio(video) };
 }) : { ok: false, error: 'abra o vídeo e faça a legenda primeiro' }));
 ipcMain.handle('studio:exportarLegenda', (e, { video, srt, para, modo } = {}) => (doStudio(video) && aoLadoDoStudio(srt, /\.srt$/i) ? tarefaDoStudio(e, async (controle) => {
   const deps = depsDoStudio(controle);

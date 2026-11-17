@@ -15,7 +15,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
-const { legendar, lerSrt, emMs } = require('../legendas');
+const { legendar, lerSrt, emMs, escreverSrt } = require('../legendas');
+const diretor = require('./diretor');
 
 // idioma da legenda → idioma do Estúdio (o resto: o modelo descobre pelo texto)
 const IDIOMA_DO_ESTUDIO = { pt: 'portuguese', en: 'english', es: 'spanish', fr: 'french', de: 'german', it: 'italian', ja: 'japanese', ko: 'korean', zh: 'chinese', ru: 'russian' };
@@ -100,11 +101,57 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     if (!estudio.separadorInstalado?.()) throw new Error('o separador de voz não está instalado (Tradutor → Legendas e dublagem → Instalar o separador)');
     await estudio.separar(leg.video, { voz: path.join(pastaDoFundo, 'voz-original.wav'), fundo: soFundo, signal, emitir: (p) => emitir({ etapa: 'separando', texto: p.texto }) });
   }
-  // 2. uma fala por trecho
+  // 2. o diretor (17/11): cada fala no tempo do trecho original; as longas demais o Qwen encurta antes de gerar
+  const alvos = diretor.tempoAlvo(segs);
+  const comDuracao = (voz.motor || 'omni') === 'omni'; // o Qwen3-TTS não tem duração fixa: fica o encaixe por aceleração
+  const llm = { chatStream: deps.chatStream, host: deps.host, model: deps.model, numCtx: deps.numCtx, signal, para };
+  let textos = segs.map((s) => s.texto);
+  const longas = diretor.longasDemais(textos, alvos);
+  let encurtadas = 0;
+  if (longas.length) {
+    emitir({ etapa: 'diretor', texto: `Diretor: encurtando ${longas.length} falas longas demais para o tempo do vídeo…` });
+    ({ textos, mudaram: encurtadas } = await diretor.reescrever(textos, longas, llm));
+  }
+  const opcoesDaVoz = { ...voz, idioma: IDIOMA_DO_ESTUDIO[para] || 'auto', legenda: false, margem: 0.03, suavizar: 0.03 };
+  const duracoesDe = (idx) => (comDuracao ? idx.map((i) => Math.round(alvos[i]) / 1000) : null);
   emitir({ etapa: 'falando', texto: `Gerando as falas… 0/${segs.length}` });
-  const f = await estudio.falas({ ...voz, idioma: IDIOMA_DO_ESTUDIO[para] || 'auto', legenda: false }, segs.map((s) => s.texto), {
+  const f = await estudio.falas(opcoesDaVoz, textos, {
+    duracoes: duracoesDe(textos.map((_, i) => i)),
     emitir: (p) => emitir({ etapa: 'falando', texto: p.parte ? `Gerando as falas… ${p.parte}/${p.de || segs.length}` : `Gerando as falas… ${p.texto || ''}`.trim() }),
   });
+  // 2b. o diretor ouve (o whisper na placa): fala que não se entende volta ao Qwen, mais simples, e é gerada de novo
+  let refeitas = 0;
+  let nota = null;
+  if (deps.whisper?.modelo) {
+    try {
+      emitir({ etapa: 'diretor', texto: 'Diretor: ouvindo as falas geradas…' });
+      const ouvidas = await diretor.ouvir(f.partes.map((p) => p.arquivo), textos, { ffmpeg, whisper: deps.whisper, para, pasta: f.tmp, signal });
+      if (ouvidas) {
+        const ruins = ouvidas.map((o, i) => ({ i, nota: o.nota })).filter((o) => o.nota < 0.55 && diretor.tamanho(textos[o.i]) >= 6);
+        if (ruins.length) {
+          emitir({ etapa: 'diretor', texto: `Diretor: refazendo ${ruins.length} falas que não ficaram claras…` });
+          const alvo = ruins.map(({ i }) => ({ i, limite: Math.max(8, Math.floor((alvos[i] / 1000) * diretor.CPS * 0.85)) }));
+          const r = await diretor.reescrever(textos, alvo, { ...llm, motivo: 'clara' });
+          const idx = ruins.map((x) => x.i).filter((i) => r.textos[i] !== textos[i]);
+          if (idx.length) {
+            textos = r.textos;
+            const de2 = await estudio.falas(opcoesDaVoz, idx.map((i) => textos[i]), { duracoes: duracoesDe(idx) });
+            idx.forEach((i, k) => {
+              const novo = path.join(f.tmp, `refeita-${i}.wav`);
+              fs.copyFileSync(de2.partes[k].arquivo, novo);
+              f.partes[i] = { arquivo: novo, segundos: de2.partes[k].segundos };
+            });
+            fs.rmSync(de2.tmp, { recursive: true, force: true });
+            refeitas = idx.length;
+          }
+        }
+        nota = Math.round((ouvidas.reduce((t, o) => t + o.nota, 0) / ouvidas.length) * 100);
+      }
+    } catch (err) {
+      if (signal?.aborted) throw err;
+      emitir({ etapa: 'diretor', texto: `Diretor: não consegui ouvir as falas (${err.message}) — segue sem a conferência` });
+    }
+  }
   try {
     // 3. cada fala no seu tempo (acelera o que não cabe) e a faixa inteira
     emitir({ etapa: 'encaixando', texto: 'Encaixando as falas no tempo do vídeo…' });
@@ -118,6 +165,13 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
       falas.push({ inicio: plano[i].inicio, amostras: new Int16Array(b.buffer, b.byteOffset, Math.floor(b.length / 2)) });
     }
     const faixa = montarFaixa(falas, { taxa: f.taxa, totalMs: segs.at(-1).fim });
+    // o que a dublagem falou (com os cortes do diretor), ao lado do vídeo
+    try {
+      const ms = (x) => new Date(Math.max(0, Math.round(x))).toISOString().slice(11, 23).replace('.', ',');
+      fs.writeFileSync(`${leg.video.replace(/\.[^.]+$/, '')}.roteiro-da-dublagem.${para}.srt`, escreverSrt(segs.map((s, i) => ({ inicio: ms(s.inicio), fim: ms(s.inicio + alvos[i]), texto: textos[i] }))));
+    } catch {
+      /* só um registro */
+    }
     const voz16 = path.join(f.tmp, 'voz.raw');
     fs.writeFileSync(voz16, Buffer.from(faixa.buffer));
     // 4. o vídeo novo: a imagem copiada, a voz nova e o original baixinho por baixo
@@ -138,6 +192,7 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     return {
       saida, video: leg.video, srt: leg.srt, idiomaFalado: leg.idiomaFalado, falas: segs.length, semVozOriginal: separado, faltaram: leg.faltaram || 0,
       aceleradas: plano.filter((p) => p.velocidade > 1.05).length, segundos: Math.round((Date.now() - inicio) / 1000),
+      encurtadas, refeitas, nota,
     };
   } finally {
     fs.rmSync(f.tmp, { recursive: true, force: true });

@@ -114,9 +114,13 @@ def gerar(o, pedido):
         torch.manual_seed(int(o['semente']))
     feitos = []
     t0 = time.time()
+    # dublagem (17/11): uma duração por parte — o OmniVoice fala no tempo do trecho do vídeo (sem pausa sobrando nem
+    # aceleração artificial); o Qwen não tem esse controle e ignora
+    duracoes = o.get('duracoes') or []
     for i, texto in enumerate(partes, 1):
         enviar({'id': pedido, 'progresso': f'Gerando a parte {i} de {len(partes)}…', 'parte': i, 'de': len(partes)})
-        a, sr = (gerar_qwen if MOTOR == 'qwen' else gerar_omni)(o, pedido, texto)
+        oi = dict(o, duracao=duracoes[i - 1]) if i - 1 < len(duracoes) and duracoes[i - 1] else o
+        a, sr = (gerar_qwen if MOTOR == 'qwen' else gerar_omni)(oi, pedido, texto)
         arq = f"{o['saida']}-{i:03d}.wav"
         sf.write(arq, a, sr, subtype='PCM_16')  # o AuGPT encurta as pausas lendo este formato
         feitos.append({'arquivo': arq, 'segundos': len(a) / sr})
