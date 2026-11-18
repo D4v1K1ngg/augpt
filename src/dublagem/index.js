@@ -16,6 +16,8 @@ const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 const { legendar, lerSrt, emMs, escreverSrt } = require('../legendas');
+// o fim de cada fala solta devagar (o OmniVoice para seco em ~50 ms) — o mesmo do Estúdio de voz
+const { SOLTAR_DA_FALA: ACABAMENTO } = require('../estudio-de-voz');
 const diretor = require('./diretor');
 
 // idioma da legenda → idioma do Estúdio (o resto: o modelo descobre pelo texto)
@@ -23,11 +25,6 @@ const IDIOMA_DO_ESTUDIO = { pt: 'portuguese', en: 'english', es: 'spanish', fr: 
 // 18/11: até 1,15× a aceleração não se percebe; acima disso a fala é encurtada pelo Qwen (antes: até 1,5×, e soava
 // corrida — no vídeo do FalleN, 1,25× ainda deixava 19 de 64 falas apressadas)
 const ACELERAR_ATE = 1.15;
-/**
- * O fim de cada fala (18/11, Davi: "um corte muito agressivo no fim do 'mim'", "o 'lá' com um corte"): o OmniVoice
- * para de soar em ~50 ms, seco. Um soltar de 120 ms e um pouco de sala (eco curto e baixo) dão a queda natural da voz.
- */
-const ACABAMENTO = 'areverse,afade=t=in:d=0.12:curve=qsin,areverse,apad=pad_dur=0.25,aecho=0.85:0.55:40|75:0.12|0.06';
 /*
  * A voz âncora (17/11, Davi: "o Narrador fica trocando de timbre durante o vídeo"): a voz descrita cria uma voz nova a cada
  * geração — em dezenas de falas curtas, o timbre muda. Antes das falas, a voz descrita lê UMA frase; todas as falas do
@@ -158,8 +155,8 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
   // como a voz deve ler os nomes estrangeiros (só para a voz; a legenda e o roteiro ficam como estão)
   emitir({ etapa: 'diretor', texto: 'Diretor: conferindo a pronúncia dos nomes estrangeiros…' });
   const { mapa: pronuncias } = await diretor.pronuncia(textos, llm);
-  // aspas, parênteses e travessões a voz lê como pausa ou ênfase fora de hora: saem do texto falado
-  const paraFalar = (lista) => diretor.aplicarPronuncia(lista, pronuncias).map((t) => t.replace(/["“”«»()[\]]/g, '').replace(/\s+[—–]\s+/g, ', ').replace(/\s+/g, ' ').trim());
+  // (aspas, parênteses e travessões saem no prepararParte do Estúdio)
+  const paraFalar = (lista) => diretor.aplicarPronuncia(lista, pronuncias);
   let opcoesDaVoz = { ...voz, idioma: IDIOMA_DO_ESTUDIO[para] || 'auto', legenda: false, margem: 0.05, suavizar: 0.05, semente: Number.isFinite(Number(voz.semente)) ? Number(voz.semente) : 1234 };
   // a voz âncora: uma frase com a voz descrita (ou automática), e as falas clonam essa frase — o timbre não muda
   let ancora = null;

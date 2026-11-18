@@ -2578,7 +2578,15 @@ ipcMain.handle('estudio:gerar', async (e, opcoes = {}) => {
     const { destino, daResposta, ...resto } = opcoes; // o destino é sempre a pasta do estúdio; "Salvar como…" copia depois
     if (daResposta) Object.assign(resto, { texto: require('../src/estudio-de-voz').textoDaResposta(resto.texto), doChat: true });
     if (!String(resto.texto || '').trim()) return { ok: false, error: 'a resposta não tem texto para ler' };
-    return { ok: true, ...(await estudioDeVoz().gerar(resto, { emitir: (p) => enviar('estudio-progresso', p) })) };
+    // 18/11 (da dublagem): a grafia falada dos nomes estrangeiros, pelo modelo do chat — só se o áudio ainda não existe
+    const est = estudioDeVoz();
+    const ev = require('../src/estudio-de-voz');
+    const jaTem = !resto.novo && est.biblioteca().some((a) => a.chave === ev.chaveDoPedido({ ...resto, motor: ev.MOTORES[resto.motor] ? resto.motor : 'omni' }));
+    if (!jaTem && resto.pronunciaDeNomes !== false) {
+      enviar('estudio-progresso', { texto: 'Conferindo a pronúncia dos nomes estrangeiros…' });
+      resto.pronuncias = await ev.pronunciasDoTexto(resto, { chatStream: ollama.chatStream, host: config.data.host, model: config.data.modelTraducao || config.data.model, numCtx: config.data.numCtx });
+    }
+    return { ok: true, ...(await est.gerar(resto, { emitir: (p) => enviar('estudio-progresso', p) })), pronuncias: resto.pronuncias || {} };
   } catch (err) {
     return { ok: false, error: err.message };
   }

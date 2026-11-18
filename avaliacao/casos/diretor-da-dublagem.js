@@ -70,7 +70,20 @@ module.exports = [
         d.aplicarPronuncia(['o counter-strike, Neon e Neo.'], { 'Counter-Strike': 'Cáunter Istráique', Neo: 'Níou' })[0] === 'o Cáunter Istráique, Neon e Níou.' || 'troca só a palavra inteira',
         /estudio\.falas\(opcoesDaVoz, paraFalar\(textos\)/.test(dub) && /paraFalar\(idx\.map\(\(i\) => textos\[i\]\)\)/.test(dub) && /diretor\.ouvir\(f\.partes\.map\(\(p\) => p\.arquivo\), textos,/.test(dub) || 'a pronúncia vai só para a voz (o whisper confere com o texto original)',
         // o fim seco do OmniVoice (~50 ms até o silêncio): um soltar de 120 ms e um pouco de sala em cada fala
-        /const ACABAMENTO = 'areverse,afade=t=in:d=0\.12/.test(dub) && /\$\{ACABAMENTO\}/.test(dub) || 'o fim de cada fala sem corte seco',
+        /const \{ SOLTAR_DA_FALA: ACABAMENTO \} = require\('\.\.\/estudio-de-voz'\)/.test(dub) && /\$\{ACABAMENTO\}/.test(dub) || 'o fim de cada fala sem corte seco',
+        // 18/11 (Davi: "implementar essas melhorias para o Estúdio de voz"): o mesmo fim solto, a pronúncia e o texto limpo
+        (() => {
+          const ev = require('../../src/estudio-de-voz');
+          const est = ler('src/estudio-de-voz/index.js');
+          const main = ler('electron/main.js');
+          return [
+            /^areverse,afade=t=in:d=0\.12/.test(ev.SOLTAR_DA_FALA) && /await this\.ff\(\['-i', p\.arquivo, '-af', SOLTAR_DA_FALA, solto\]\)/.test(est) && /Number\(o\.pausa \?\? 0\.4\) - SOLTAR_SEGUNDOS/.test(est) || 'Estúdio: o fim de cada parte solta devagar',
+            ev.prepararParte('Disse "vem" (agora) — e foi [laughter].', { idioma: 'portuguese' }) === 'Disse vem agora, e foi [laughter].' || ev.prepararParte('Disse "vem" (agora) — e foi [laughter].', { idioma: 'portuguese' }),
+            ev.ACABAMENTO.some((p) => p.chave === 'pronunciaDeNomes' && p.padrao === true) && ev.chaveDoPedido({ texto: 'a', pronuncias: { x: 'y' } }) === ev.chaveDoPedido({ texto: 'a' }) || 'Estúdio: a opção de pronúncia, fora da chave da biblioteca',
+            /aplicarPronuncia\(textos, o\.pronuncias\)/.test(est) && /legenda\(r\.partes\.map\(\(p, i\) => \(\{ texto: textos\[i\]/.test(est) || 'a pronúncia só na voz, a legenda com o texto original',
+            /ev\.pronunciasDoTexto\(resto,/.test(main) && /const jaTem = !resto\.novo && est\.biblioteca\(\)\.some/.test(main) || 'o main pede a pronúncia só quando o áudio ainda não existe',
+          ].find((x) => x !== true) ?? true;
+        })(),
         /diretor\.ouvir\(f\.partes\.map/.test(dub) && /o\.nota < 0\.55/.test(dub) && /motivo: 'clara'/.test(dub) || 'ouve e refaz as falas que não ficaram claras',
       ];
     },

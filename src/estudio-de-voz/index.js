@@ -110,7 +110,33 @@ const ACABAMENTO = [
   { chave: 'pausaMaxima', rotulo: 'Pausa máxima dentro da fala (s)', min: 0, max: 1.5, passo: 0.05, padrao: 0.3, ajuda: 'Encurta as paradas longas no meio das frases. 0 = deixa como o modelo fez.' },
   { chave: 'normalizar', rotulo: 'Volume padrão de vídeo (−16 LUFS)', tipo: 'sim', padrao: true },
   { chave: 'porExtenso', rotulo: 'Números e siglas por extenso (português)', tipo: 'sim', padrao: true },
+  // 18/11 (vindo da dublagem): o modelo lê nome estrangeiro com as regras do idioma ("Counter-Strike" → "conter estrique")
+  { chave: 'pronunciaDeNomes', rotulo: 'Pronúncia de nomes estrangeiros (IA)', tipo: 'sim', padrao: true, ajuda: 'O modelo do chat reescreve nomes e termos em inglês do jeito que se fala ("Counter-Strike" → "Cáunter Istráique"), só para a voz. Leva alguns segundos.' },
 ];
+// idioma do Estúdio → código do diretor da dublagem; no automático, pelo próprio texto
+const CODIGO_DO_IDIOMA = { portuguese: 'pt', english: 'en', spanish: 'es', french: 'fr', german: 'de', italian: 'it', japanese: 'ja', korean: 'ko', chinese: 'zh', russian: 'ru' };
+
+/**
+ * O mapa de pronúncia de um texto ({ "Counter-Strike": "Cáunter Istráique" }) pelo modelo do chat — o mesmo diretor da
+ * dublagem, frase a frase. Sem modelo, desligado ou com erro: {} (a narração sai como antes).
+ */
+async function pronunciasDoTexto(o = {}, llm = {}) {
+  if (o.pronunciaDeNomes === false || typeof llm.chatStream !== 'function' || !String(o.texto || '').trim()) return {};
+  const para = CODIGO_DO_IDIOMA[o.idioma] || require('../legendas').idiomaDoTexto(o.texto) || 'pt';
+  const frases = String(o.texto).split(/(?<=[.!?…])\s+|\n+/).map((f) => f.trim()).filter(Boolean);
+  try {
+    return (await require('../dublagem/diretor').pronuncia(frases, { ...llm, para })).mapa;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * O fim de cada parte (18/11, da dublagem: "um corte muito agressivo no fim do 'mim'"): o OmniVoice para de soar em
+ * ~50 ms, seco. Um soltar de 120 ms e um pouco de sala (eco curto e baixo) dão a queda natural da voz; soma 0,25 s.
+ */
+const SOLTAR_DA_FALA = 'areverse,afade=t=in:d=0.12:curve=qsin,areverse,apad=pad_dur=0.25,aecho=0.85:0.55:40|75:0.12|0.06';
+const SOLTAR_SEGUNDOS = 0.25;
 const FORMATOS = { mp3: ['-c:a', 'libmp3lame', '-b:a', '192k'], wav: ['-c:a', 'pcm_s16le'], ogg: ['-c:a', 'libvorbis', '-q:a', '6'], flac: ['-c:a', 'flac'], m4a: ['-c:a', 'aac', '-b:a', '192k'] };
 
 /** Parágrafos; o que passar de ~`maximo` caracteres quebra nas frases (o modelo desanda em texto muito longo). */
@@ -136,7 +162,9 @@ function dividirTexto(texto, maximo = 420) {
 
 /** O texto como o motor deve ler: sem markdown e, em português, números e siglas por extenso (como o Kokoro). */
 function prepararParte(parte, { porExtenso: extenso = true, idioma = 'auto' } = {}) {
-  const limpo = textoParaFalar(parte, { semAviso: true, maximo: Infinity }) || parte;
+  // aspas, parênteses e travessões a voz lê como pausa ou ênfase fora de hora (18/11, na dublagem); as marcas [x] ficam
+  const semMarcas = String(parte).replace(/["“”«»()]/g, '').replace(/\s+[—–]\s+/g, ', ').replace(/[ \t]+/g, ' ');
+  const limpo = textoParaFalar(semMarcas, { semAviso: true, maximo: Infinity }) || semMarcas;
   const pt = idioma === 'portuguese' || (idioma === 'auto' && /[ãõçáéíóúâêô]|\b(de|que|não|para|com|uma)\b/i.test(parte));
   // as marcas do OmniVoice ([laughter]) passam intactas
   return extenso && pt ? limpo.split(/(\[[a-z-]+\])/).map((p, i) => (i % 2 ? p : porExtenso(p))).join('') : limpo;
@@ -268,7 +296,7 @@ const nomeDeArquivo = (t) => String(t || 'narracao').normalize('NFD').replace(/\
  * narração ganha um .json ao lado (texto, voz, duração, a chave do pedido). O mesmo pedido de novo — mesmo texto,
  * voz e ajustes — devolve o arquivo que já existe, sem gerar; "novo: true" gera outra versão mesmo assim.
  */
-const FORA_DA_CHAVE = new Set(['destino', 'legenda', 'daResposta', 'doChat', 'novo', 'titulo', 'nomeDaVoz']);
+const FORA_DA_CHAVE = new Set(['destino', 'legenda', 'daResposta', 'doChat', 'novo', 'titulo', 'nomeDaVoz', 'pronuncias']);
 function chaveDoPedido(o = {}) {
   const pares = Object.keys(o).filter((k) => !FORA_DA_CHAVE.has(k) && o[k] !== undefined).sort().map((k) => [k, o[k]]);
   return crypto.createHash('sha1').update(JSON.stringify(pares)).digest('hex').slice(0, 20);
@@ -549,9 +577,11 @@ class EstudioDeVoz {
         if (!v) throw new Error('escolha uma voz salva para clonar');
         referencia = { audio: v.audio, texto: v.texto };
       }
-      const partes = textos.map((t) => prepararParte(t, { porExtenso: o.porExtenso !== false, idioma: o.idioma }));
+      // a grafia falada dos nomes estrangeiros (o mapa vem de quem chama, pelo modelo do chat) vale só para a voz
+      const ditos = o.pronuncias && Object.keys(o.pronuncias).length ? require('../dublagem/diretor').aplicarPronuncia(textos, o.pronuncias) : textos;
+      const partes = ditos.map((t) => prepararParte(t, { porExtenso: o.porExtenso !== false, idioma: o.idioma }));
       const inicio = Date.now();
-      const r = await this.pedir(motor, { tipo: 'gerar', ...o, motor: undefined, texto: undefined, partes, referencia, saida: path.join(tmp, 'parte') }, (m) => emitir({ texto: m.progresso, parte: m.parte, de: m.de }));
+      const r = await this.pedir(motor, { tipo: 'gerar', ...o, motor: undefined, texto: undefined, pronuncias: undefined, partes, referencia, saida: path.join(tmp, 'parte') }, (m) => emitir({ texto: m.progresso, parte: m.parte, de: m.de }));
       emitir({ texto: 'Juntando as partes e aplicando o acabamento…' });
       // pausas: as pontas de cada parte saem e a parada mais longa dentro da fala fica em `pausaMaxima`
       const maxima = Number(o.pausaMaxima ?? 0.3);
@@ -561,9 +591,16 @@ class EstudioDeVoz {
           if (novo) (fs.writeFileSync(p.arquivo, novo.wav), (p.segundos = novo.segundos));
         }
       }
+      // o fim de cada parte solta devagar, sem corte seco (a cauda ocupa o começo da pausa entre as partes)
+      for (const [i, p] of r.partes.entries()) {
+        const solto = path.join(tmp, `solta-${i}.wav`);
+        await this.ff(['-i', p.arquivo, '-af', SOLTAR_DA_FALA, solto]);
+        p.arquivo = solto;
+        p.segundos += SOLTAR_SEGUNDOS;
+      }
       // junta com a pausa entre as partes (um arquivo de silêncio na taxa do modelo)
       const silencio = path.join(tmp, 'silencio.wav');
-      const pausa = Math.max(0, Number(o.pausa ?? 0.4));
+      const pausa = Math.max(0, Number(o.pausa ?? 0.4) - SOLTAR_SEGUNDOS);
       if (pausa > 0) await this.ff(['-f', 'lavfi', '-i', `anullsrc=r=${r.taxa}:cl=mono`, '-t', String(pausa), silencio]);
       const lista = path.join(tmp, 'lista.txt');
       fs.writeFileSync(lista, r.partes.flatMap((p, i) => [`file '${p.arquivo.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`, ...(pausa > 0 && i < r.partes.length - 1 ? [`file '${silencio.replace(/\\/g, '/')}'`] : [])]).join('\n'));
@@ -778,4 +815,4 @@ const textoDaResposta = (markdown) =>
     .filter((p) => /[\p{L}\d]/u.test(p))
     .join('\n\n');
 
-module.exports = { chaveDoPedido, rotuloDaVoz, textoDaResposta, cheioDeSiglas, encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };
+module.exports = { SOLTAR_DA_FALA, pronunciasDoTexto, chaveDoPedido, rotuloDaVoz, textoDaResposta, cheioDeSiglas, encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };

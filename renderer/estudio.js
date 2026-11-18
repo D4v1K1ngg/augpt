@@ -379,7 +379,7 @@
     d.className = 'estudio-resultado';
     const resumo = r.reaproveitado
       ? `já estava na biblioteca · ${fmt(r.segundos)} de áudio, sem gerar de novo`
-      : `${est.motores[r.motor].nome} · ${fmt(r.segundos)} de áudio em ${fmt(r.tempo)}`;
+      : `${est.motores[r.motor].nome} · ${fmt(r.segundos)} de áudio em ${fmt(r.tempo)}${Object.keys(r.pronuncias || {}).length ? ` · pronúncia: ${Object.entries(r.pronuncias).slice(0, 3).map(([a, b]) => `${a} → ${b}`).join(', ')}` : ''}`;
     d.innerHTML = `<div class="estudio-linha"><b>${esc(r.titulo || o.texto.trim().slice(0, 60))}</b><span class="dica">${esc(resumo)}</span></div>
       ${url ? `<audio controls src="${url}"></audio>` : ''}
       <div class="estudio-linha"><span><button class="btn-secundario" data-a="salvar">Salvar como…</button> <button class="btn-link" data-a="pasta">Mostrar na pasta</button>${r.legenda ? ' <span class="dica">+ legenda .srt</span>' : ''}</span>${r.reaproveitado ? '<button class="btn-link" data-a="outra">Gerar outra versão</button>' : ''}</div>`;
