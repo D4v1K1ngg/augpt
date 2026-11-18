@@ -138,6 +138,16 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
   const llm = { chatStream: deps.chatStream, host: deps.host, model: deps.model, numCtx: deps.numCtx, signal, para };
   let textos = segs.map((s) => s.texto);
   let encurtadas = 0;
+  // o roteiro revisado (18/11): o Qwen lê com o original ao lado e corrige o que soa traduzido ou ouvido errado
+  let revisadas = 0;
+  const srtOriginal = leg.srtOriginal || `${leg.video.replace(/\.[^.]+$/, '')}.original.srt`;
+  if (fs.existsSync(srtOriginal)) {
+    emitir({ etapa: 'diretor', texto: 'Diretor: revisando o roteiro…' });
+    const originais = lerSrt(fs.readFileSync(srtOriginal, 'utf8')).map((s) => ({ inicio: emMs(s.inicio), texto: s.texto }));
+    const r = await diretor.revisar(textos, diretor.originaisDasFalas(segs, originais), { ...llm, assunto: path.basename(leg.video).replace(/\.[^.]+$/, '') });
+    textos = r.textos;
+    revisadas = r.mudaram;
+  }
   const longas = diretor.longasDemais(textos, alvos);
   if (longas.length) {
     emitir({ etapa: 'diretor', texto: `Diretor: encurtando ${longas.length} falas longas demais para o tempo do vídeo…` });
@@ -148,7 +158,8 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
   // como a voz deve ler os nomes estrangeiros (só para a voz; a legenda e o roteiro ficam como estão)
   emitir({ etapa: 'diretor', texto: 'Diretor: conferindo a pronúncia dos nomes estrangeiros…' });
   const { mapa: pronuncias } = await diretor.pronuncia(textos, llm);
-  const paraFalar = (lista) => diretor.aplicarPronuncia(lista, pronuncias);
+  // aspas, parênteses e travessões a voz lê como pausa ou ênfase fora de hora: saem do texto falado
+  const paraFalar = (lista) => diretor.aplicarPronuncia(lista, pronuncias).map((t) => t.replace(/["“”«»()[\]]/g, '').replace(/\s+[—–]\s+/g, ', ').replace(/\s+/g, ' ').trim());
   let opcoesDaVoz = { ...voz, idioma: IDIOMA_DO_ESTUDIO[para] || 'auto', legenda: false, margem: 0.05, suavizar: 0.05, semente: Number.isFinite(Number(voz.semente)) ? Number(voz.semente) : 1234 };
   // a voz âncora: uma frase com a voz descrita (ou automática), e as falas clonam essa frase — o timbre não muda
   let ancora = null;
@@ -287,7 +298,7 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     return {
       saida, video: leg.video, srt: leg.srt, idiomaFalado: leg.idiomaFalado, falas: segs.length, semVozOriginal: separado, faltaram: leg.faltaram || 0,
       aceleradas: plano.filter((p) => p.velocidade > 1.05).length, segundos: Math.round((Date.now() - inicio) / 1000),
-      encurtadas, refeitas, forcadas, nota, ritmo, pronuncias,
+      encurtadas, revisadas, refeitas, forcadas, nota, ritmo, pronuncias,
     };
   } finally {
     // DEPURAR_DUBLAGEM=1: as falas ficam (e o plano de cada uma), para analisar corte e pronúncia

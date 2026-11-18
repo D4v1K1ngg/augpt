@@ -62,12 +62,15 @@ function juntarEmFrases(segs, { pausaMs = 450, maxMs = 11000, maxMsInacabada = 1
  * Frase partida entre duas falas (o limite de tempo cortou): o pedaço curto depois da última pontuação passa para a
  * fala seguinte — 18/11: "…mas no" | "Brasil todos vieram…" soava como duas frases soltas.
  */
-function remendarFrases(segs, { maxPalavras = 4 } = {}) {
+function remendarFrases(segs, { maxPalavras = 4, maxPalavrasDaFrase = 10 } = {}) {
   for (let i = 0; i < segs.length - 1; i += 1) {
     const t = segs[i].texto.trim();
     if (FIM_DE_FRASE.test(t) || segs[i + 1].inicio - segs[i].fim > 450) continue;
-    const m = /^(.*[.,;:!?…])\s+([^.,;:!?…]+)$/.exec(t);
-    if (!m || m[2].split(/\s+/).length > maxPalavras) continue;
+    // a frase incompleta inteira (depois do último ponto) se for curta; senão, só o pedaço depois da última vírgula —
+    // a voz fecha a entonação no fim de cada fala ("…iam a um" | "Cyber Café…" soava como duas frases)
+    const frase = /^(.*[.!?…]["”')\]]*)\s+([^.!?…]+)$/.exec(t);
+    const m = frase && frase[2].split(/\s+/).length <= maxPalavrasDaFrase ? frase : /^(.*[.,;:!?…])\s+([^.,;:!?…]+)$/.exec(t);
+    if (!m || (m !== frase && m[2].split(/\s+/).length > maxPalavras)) continue;
     segs[i].texto = m[1];
     segs[i + 1].texto = `${m[2]} ${segs[i + 1].texto.trim()}`;
   }
@@ -178,6 +181,60 @@ async function reescrever(textos, alvo, { chatStream, host, model, numCtx = 8192
     for (const l of lote) {
       const t = mapa.get(l.n);
       if (t && tamanho(t) >= 2 && (tamanho(t) < tamanho(l.texto) || motivo === 'clara')) {
+        novos[l.n - 1] = t;
+        mudaram += 1;
+      }
+    }
+  }
+  return { textos: novos, mudaram };
+}
+
+/* ------------------------------ revisão do roteiro ------------------------------ */
+
+/**
+ * 18/11 (Davi: "frases ditas corretamente, fluidez"): a tradução é feita trecho a trecho e sai literal ("todos vieram sob
+ * o Fallen") ou com o que o whisper ouviu errado. O Qwen lê o roteiro inteiro com o original ao lado e reescreve só o que
+ * soa estranho dito em voz alta — sem ficar mais longo (o tempo de cada fala não muda).
+ */
+function pedidoDeRevisao(linhas, { para = 'pt', assunto = '' } = {}) {
+  const idioma = NOMES[para] || para;
+  return [
+    {
+      role: 'system',
+      content: `You are the script editor of a ${idioma} voice-over (dubbing).${assunto ? ` Video: "${assunto}".` : ''} Each line "N| original: ... || dub: ..." has the original speech and its ${idioma} dub line.
+Fix ONLY dub lines that sound wrong when spoken aloud: literal or awkward translation, wrong meaning, a name the transcription obviously misheard (use the video context), unnatural word order${para === 'pt' ? ', European Portuguese forms (Brazilian: "me levaram", never "levaram-me"; "você", not "tu")' : ''}. Use natural, fluent spoken ${idioma}, as a professional dubber would say it.
+Keep the meaning, names and numbers. NEVER make a line longer than its dub line. A line may start or end mid-sentence (it continues in the next line): keep it that way.
+Output ONLY "N| fixed dub line" for the lines you changed; output "none" if all are fine.`,
+    },
+    { role: 'user', content: linhas.map((l) => `${l.n}| original: ${l.original || '?'} || dub: ${l.texto}`).join('\n') },
+  ];
+}
+
+/** O texto original de cada fala (as linhas do .original.srt que começam dentro dela). */
+function originaisDasFalas(segs, originais) {
+  return segs.map((s, i) => {
+    const ate = segs[i + 1]?.inicio ?? Infinity;
+    return originais.filter((o) => o.inicio >= s.inicio - 300 && o.inicio < ate - 300).map((o) => o.texto).join(' ').replace(/\s+/g, ' ').trim();
+  });
+}
+
+async function revisar(textos, originais, { chatStream, host, model, numCtx = 8192, signal, para = 'pt', assunto = '' }) {
+  if (typeof chatStream !== 'function' || !textos.length) return { textos, mudaram: 0 };
+  const novos = [...textos];
+  let mudaram = 0;
+  for (let k = 0; k < textos.length; k += 20) {
+    const lote = textos.slice(k, k + 20).map((t, j) => ({ n: k + j + 1, texto: t, original: originais[k + j] }));
+    let mapa = new Map();
+    try {
+      const r = await chatStream({ host, model, messages: pedidoDeRevisao(lote, { para, assunto }), temperature: 0.2, numCtx: Math.max(numCtx, 8192), numPredict: 3000, pensar: false, signal, onToken: () => {} });
+      mapa = lerDiretor(r.content);
+    } catch (err) {
+      if (signal?.aborted) throw err;
+    }
+    for (const l of lote) {
+      const t = mapa.get(l.n);
+      // não mais longa (o tempo é o mesmo), não encolhida demais, e parecida com a fala dela (o Qwen às vezes troca o número)
+      if (t && t !== l.texto && tamanho(t) <= tamanho(l.texto) + 2 && tamanho(t) >= tamanho(l.texto) * 0.6 && semelhanca(l.texto, t) >= 0.4) {
         novos[l.n - 1] = t;
         mudaram += 1;
       }
@@ -315,4 +372,4 @@ async function ouvir(arquivos, textos, { ffmpeg, whisper, para = 'pt', pasta, si
   return ouvidos.map((o, i) => ({ ouvido: o.join(' '), nota: semelhanca(textos[i], o.join(' ')) }));
 }
 
-module.exports = { energiaDaVoz, alinharAoOriginal, juntarEmFrases, remendarFrases, pronuncia, aplicarPronuncia, lerPronuncia, tempoDisponivel, tempoAlvo, longasDemais, reescrever, pedidoDoDiretor, lerDiretor, semelhanca, ouvir, tamanho, CPS, CPS_MAXIMO };
+module.exports = { revisar, originaisDasFalas, pedidoDeRevisao, energiaDaVoz, alinharAoOriginal, juntarEmFrases, remendarFrases, pronuncia, aplicarPronuncia, lerPronuncia, tempoDisponivel, tempoAlvo, longasDemais, reescrever, pedidoDoDiretor, lerDiretor, semelhanca, ouvir, tamanho, CPS, CPS_MAXIMO };

@@ -83,7 +83,7 @@ Each input line is "N| text". Output the SAME numbers, one line per number, in t
 Rules:
 - Never merge, split, skip or add lines: line N of the output translates line N of the input (a sentence can continue on the next line — keep it split the same way).
 - Output ONLY the numbered lines: no notes, no explanations.
-- Natural, spoken ${NOME[para]}, short like a subtitle; keep names, brands, numbers and units.`,
+- Natural, spoken ${NOME[para]}, short like a subtitle; keep names, brands, numbers and units.${para === 'pt' ? '\n- Brazilian Portuguese, never European: "me levaram" (not "levaram-me"), "você" (not "tu"), "ônibus", "tela".' : ''}`,
     },
     { role: 'user', content: linhas.map((l) => `${l.n}| ${l.texto}`).join('\n') },
   ];
