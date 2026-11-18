@@ -30,14 +30,7 @@ const ACELERAR_ATE = 1.15;
  * geração — em dezenas de falas curtas, o timbre muda. Antes das falas, a voz descrita lê UMA frase; todas as falas do
  * vídeo clonam essa frase (a mesma pessoa do começo ao fim). A voz clonada do usuário já é fixa e fica como está.
  */
-const FRASE_DA_ANCORA = {
-  pt: 'Olá! Eu sou o narrador deste vídeo. Vou contar tudo com calma, clareza e boa entonação, do começo ao fim.',
-  en: 'Hello! I am the narrator of this video. I will tell you everything calmly, clearly and with good intonation, from start to finish.',
-  es: '¡Hola! Soy el narrador de este video. Voy a contarlo todo con calma, claridad y buena entonación, de principio a fin.',
-  fr: 'Bonjour ! Je suis le narrateur de cette vidéo. Je vais tout raconter avec calme, clarté et une bonne intonation, du début à la fin.',
-  de: 'Hallo! Ich bin der Sprecher dieses Videos. Ich erzähle alles ruhig, klar und mit guter Betonung, vom Anfang bis zum Ende.',
-  it: 'Ciao! Sono il narratore di questo video. Racconterò tutto con calma, chiarezza e una buona intonazione, dall\'inizio alla fine.',
-};
+const { FRASE_DA_ANCORA } = require('../estudio-de-voz'); // a frase da voz âncora mora no Estúdio
 const FOLGA_MS = 120; // respiro entre uma fala e a próxima
 
 /**

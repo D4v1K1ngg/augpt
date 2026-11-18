@@ -89,6 +89,17 @@ module.exports = [
           return (pausada.avisos.length === 2 && /muitas pausas/.test(pausada.avisos.join()) && /lenta/.test(pausada.avisos.join()) && corrida.avisos.length === 0) || JSON.stringify({ pausada, corrida });
         })(),
         !/aecho/.test(require('../../src/estudio-de-voz').SOLTAR_DA_FALA) || 'o soltar sem eco (coloria o timbre)',
+        // 18/11 (Davi: "a voz clonada não mantém a qualidade da nativa"): a voz clonada pela âncora, como na dublagem
+        (() => {
+          const ev = require('../../src/estudio-de-voz');
+          const est = ler('src/estudio-de-voz/index.js');
+          return [
+            Object.keys(ev.FRASE_DA_ANCORA).length >= 6 && /const \{ FRASE_DA_ANCORA \} = require\('\.\.\/estudio-de-voz'\)/.test(dub) || 'a frase da âncora é uma só (Estúdio e dublagem)',
+            (est.match(/const ancora = await this\.ancoraSePrecisa\(motor, o, \{ emitir \}\);/g) || []).length === 2 && (est.match(/referencia = ancora \|\| \{ audio: v\.audio, texto: v\.texto \}/g) || []).length === 2 || 'gerar e falas clonam pela âncora',
+            /if \(motor !== 'omni' \|\| o\.modo !== 'clonar' \|\| o\.referenciaFixa\?\.audio \|\| o\.ancoraDaVoz === false \|\| !o\.vozSalva\) return null;/.test(est) && /`ancora-\$\{codigo\}\.wav`/.test(est) && /for \(const semente of \[1, 2\]\)/.test(est) || 'a âncora: uma vez por voz e idioma, a com menos pausa',
+            ev.MOTORES.omni.parametros.some((p) => p.chave === 'ancoraDaVoz' && p.padrao === true) || 'a opção "Voz clonada mais fluida"',
+          ].find((x) => x !== true) ?? true;
+        })(),
         // 18/11 (Davi: "implementar essas melhorias para o Estúdio de voz"): o mesmo fim solto, a pronúncia e o texto limpo
         (() => {
           const ev = require('../../src/estudio-de-voz');

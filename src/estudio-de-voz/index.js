@@ -66,6 +66,7 @@ const MOTORES = {
       { chave: 'suavizar', rotulo: 'Entrada/saída suave (s)', min: 0, max: 1, passo: 0.05, padrao: 0.1, avancado: true },
       { chave: 'limparRuido', rotulo: 'Limpar ruído', tipo: 'sim', padrao: true, avancado: true },
       { chave: 'posProcessar', rotulo: 'Cortar silêncio e suavizar', tipo: 'sim', padrao: true, avancado: true },
+      { chave: 'ancoraDaVoz', rotulo: 'Voz clonada mais fluida (âncora)', tipo: 'sim', padrao: true, ajuda: 'A sua gravação lê uma frase calma uma vez, e as narrações clonam essa leitura: o timbre é o seu, o ritmo e a limpeza são os do modelo (menos pausas e som de robô). Desligado: clona direto da gravação.' },
     ],
   },
   qwen: {
@@ -113,6 +114,21 @@ const ACABAMENTO = [
   // 18/11 (vindo da dublagem): o modelo lê nome estrangeiro com as regras do idioma ("Counter-Strike" → "conter estrique")
   { chave: 'pronunciaDeNomes', rotulo: 'Pronúncia de nomes estrangeiros (IA)', tipo: 'sim', padrao: true, ajuda: 'O modelo do chat reescreve nomes e termos em inglês do jeito que se fala ("Counter-Strike" → "Cáunter Istráique"), só para a voz. Leva alguns segundos.' },
 ];
+/**
+ * A frase da voz âncora (17/11 na dublagem; 18/11 também na voz clonada do Estúdio): uma fala calma e corrida. A voz
+ * descrita (dublagem) ou a gravação do usuário (Estúdio) lê esta frase, e o texto clona essa leitura — o timbre fica, o
+ * ritmo e a limpeza passam a ser os do modelo. Medido com a gravação do Davi (frase dramática, 29% de pausa): o mesmo
+ * texto foi de 44 s com 13,3 s de silêncio para 36 s com 5,6 s.
+ */
+const FRASE_DA_ANCORA = {
+  pt: 'Olá! Eu sou o narrador deste vídeo. Vou contar tudo com calma, clareza e boa entonação, do começo ao fim.',
+  en: 'Hello! I am the narrator of this video. I will tell you everything calmly, clearly and with good intonation, from start to finish.',
+  es: '¡Hola! Soy el narrador de este video. Voy a contarlo todo con calma, claridad y buena entonación, de principio a fin.',
+  fr: 'Bonjour ! Je suis le narrateur de cette vidéo. Je vais tout raconter avec calme, clarté et une bonne intonation, du début à la fin.',
+  de: 'Hallo! Ich bin der Sprecher dieses Videos. Ich erzähle alles ruhig, klar und mit guter Betonung, vom Anfang bis zum Ende.',
+  it: "Ciao! Sono il narratore di questo video. Racconterò tutto con calma, chiarezza e una buona intonazione, dall'inizio alla fine.",
+};
+
 // idioma do Estúdio → código do diretor da dublagem; no automático, pelo próprio texto
 const CODIGO_DO_IDIOMA = { portuguese: 'pt', english: 'en', spanish: 'es', french: 'fr', german: 'de', italian: 'it', japanese: 'ja', korean: 'ko', chinese: 'zh', russian: 'ru' };
 
@@ -600,6 +616,7 @@ class EstudioDeVoz {
       if (ja) return { arquivo: ja.arquivo, legenda: ja.legenda ? ja.arquivo.replace(/\.[^.]+$/, '.srt') : null, segundos: ja.segundos, partes: 0, tempo: 0, motor, reaproveitado: true, titulo: ja.titulo };
     }
     if (this.atual) throw new Error('já tem uma narração sendo gerada');
+    const ancora = await this.ancoraSePrecisa(motor, o, { emitir });
     // OmniVoice aguenta parágrafos longos (ele mesmo divide em trechos de ~15 s): menos emendas, entonação mais contínua
     const textos = dividirTexto(o.texto, motor === 'omni' ? 900 : 420);
     if (!textos.length) throw new Error('escreva o texto da narração');
@@ -613,7 +630,7 @@ class EstudioDeVoz {
       } else if (o.modo === 'clonar') {
         const v = this.vozesSalvas().find((x) => x.id === o.vozSalva);
         if (!v) throw new Error('escolha uma voz salva para clonar');
-        referencia = { audio: v.audio, texto: v.texto };
+        referencia = ancora || { audio: v.audio, texto: v.texto };
       }
       // a grafia falada dos nomes estrangeiros (o mapa vem de quem chama, pelo modelo do chat) vale só para a voz
       const ditos = o.pronuncias && Object.keys(o.pronuncias).length ? require('../dublagem/diretor').aplicarPronuncia(textos, o.pronuncias) : textos;
@@ -669,6 +686,36 @@ class EstudioDeVoz {
   }
 
   /**
+   * A âncora da voz clonada (18/11, Davi: "a voz clonada não mantém a qualidade da nativa, fica com tom robótico"): a
+   * gravação lê FRASE_DA_ANCORA uma vez por voz e idioma (2 leituras, fica a com menos pausa), guardada na pasta da voz;
+   * as narrações clonam essa leitura. Só no OmniVoice, com voz salva e a opção ligada. Devolve { audio, texto } ou null.
+   */
+  async ancoraSePrecisa(motor, o, { emitir = () => {} } = {}) {
+    if (motor !== 'omni' || o.modo !== 'clonar' || o.referenciaFixa?.audio || o.ancoraDaVoz === false || !o.vozSalva) return null;
+    const v = this.vozesSalvas().find((x) => x.id === o.vozSalva);
+    if (!v) return null;
+    const pedido = CODIGO_DO_IDIOMA[o.idioma] || require('../legendas').idiomaDoTexto(String(o.texto || '')) || 'pt';
+    const codigo = FRASE_DA_ANCORA[pedido] ? pedido : 'en';
+    const frase = FRASE_DA_ANCORA[codigo];
+    const arq = path.join(path.dirname(v.audio), `ancora-${codigo}.wav`);
+    if (!fs.existsSync(arq)) {
+      emitir({ texto: 'Preparando a voz clonada (só na primeira vez)…' });
+      const base = { ...o, ancoraDaVoz: false, velocidadeDoModelo: 1.1, pausaMaxima: 0, duracao: undefined, legenda: false, pronuncias: undefined };
+      let melhor = Infinity;
+      for (const semente of [1, 2]) {
+        const r = await this.falas({ ...base, semente }, [frase]);
+        try {
+          const pausas = avaliarReferencia(fs.readFileSync(r.partes[0].arquivo), frase)?.pausas ?? 1;
+          if (pausas < melhor) (fs.copyFileSync(r.partes[0].arquivo, arq), (melhor = pausas));
+        } finally {
+          fs.rmSync(r.tmp, { recursive: true, force: true });
+        }
+      }
+    }
+    return { audio: arq, texto: frase };
+  }
+
+  /**
    * Dublagem (16/11): uma fala por texto, SEM juntar — cada uma num WAV com a duração, para o código encaixar no tempo
    * do vídeo. As pausas longas dentro de cada fala encurtam como no gerar(). Quem chama apaga `tmp`.
    */
@@ -677,6 +724,7 @@ class EstudioDeVoz {
     if (!this.instalado(motor)) throw new Error(`o ${MOTORES[motor].nome} não está instalado (Estúdio de voz)`);
     if (!textos.length) throw new Error('nada para falar');
     if (this.atual) throw new Error('o Estúdio de voz já está gerando um áudio');
+    const ancora = await this.ancoraSePrecisa(motor, o, { emitir });
     this.atual = { motor };
     const tmp = fs.mkdtempSync(path.join(this.pasta, 'tmp-'));
     try {
@@ -687,7 +735,7 @@ class EstudioDeVoz {
       } else if (o.modo === 'clonar') {
         const v = this.vozesSalvas().find((x) => x.id === o.vozSalva);
         if (!v) throw new Error('escolha uma voz salva para clonar');
-        referencia = { audio: v.audio, texto: v.texto };
+        referencia = ancora || { audio: v.audio, texto: v.texto };
       }
       const partes = textos.map((t) => prepararParte(t, { porExtenso: o.porExtenso !== false, idioma: o.idioma }));
       // 17/11: com a duração de cada fala (dublagem), o modelo fala no tempo do trecho — as pausas não são encurtadas depois
@@ -857,4 +905,4 @@ const textoDaResposta = (markdown) =>
     .filter((p) => /[\p{L}\d]/u.test(p))
     .join('\n\n');
 
-module.exports = { avaliarReferencia, SOLTAR_DA_FALA, pronunciasDoTexto, chaveDoPedido, rotuloDaVoz, textoDaResposta, cheioDeSiglas, encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };
+module.exports = { FRASE_DA_ANCORA, avaliarReferencia, SOLTAR_DA_FALA, pronunciasDoTexto, chaveDoPedido, rotuloDaVoz, textoDaResposta, cheioDeSiglas, encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };
