@@ -32,6 +32,11 @@ module.exports = [
         { inicio: 6000, fim: 8000, texto: 'Outra frase, depois de uma pausa.' },
       ]);
       const disp = d.tempoDisponivel(juntas);
+      // 18/11 ("ruído entre 0:04 e 0:08"): a fala começa quando a voz original começa — 2 s de silêncio e depois voz
+      const taxa = 16000;
+      const amostras = new Int16Array(taxa * 4);
+      for (let k = taxa * 2; k < taxa * 4; k += 1) amostras[k] = Math.round(8000 * Math.sin(k / 8));
+      const alinhadas = d.alinharAoOriginal([{ inicio: 0, fim: 4000, texto: 'x' }], d.energiaDaVoz(amostras, taxa));
       return [
         JSON.stringify(alvos) === JSON.stringify([2000, 900, 4000]) || `tempo de cada fala: ${alvos}`,
         // o pedaço sem fim de frase junta com o seguinte; a frase que já terminou (e tem 1,5 s ou mais) fica sozinha
@@ -45,7 +50,10 @@ module.exports = [
         // encurta o que não cabe (2 rodadas, a 2ª firme) e a duração forçada fica por último
         /no ritmo natural do modelo/.test(dub) && /for \(let rodada = 1; rodada <= 2 && lista\.length; rodada \+= 1\)/.test(dub) && /motivo: rodada > 1 \|\| encurtadas \? 'apertar' : 'curta'/.test(dub) || 'ritmo natural, encurta em 2 rodadas',
         /2c\. último recurso/.test(dub) && /duracoes = o\.get\('duracoes'\)/.test(ler('src/estudio-de-voz/servidor.py')) || 'a duração forçada só como último recurso',
-        /diretor\.juntarEmFrases\(lerSrt/.test(dub) && /const alvos = diretor\.tempoDisponivel\(segs\)/.test(dub) || 'frases inteiras e o tempo disponível',
+        alinhadas[0].inicio === 1920 && alinhadas[0].inicioWhisper === 0 && alinhadas[0].falaAte === 4000 || `começa com a voz original: ${JSON.stringify(alinhadas)}`,
+        /diretor\.alinharAoOriginal\(segs, diretor\.energiaDaVoz/.test(dub) && /2b'\. ainda não cabe: começa um pouco antes/.test(dub) || 'alinhar à voz original, e voltar o começo antes de forçar',
+        /afftdn=nf=-30:tn=1/.test(dub) && /sidechaincompress=threshold=0\.015:ratio=6/.test(dub) || 'o fundo sem chiado e abaixando enquanto alguém fala',
+        /diretor\.juntarEmFrases\(lerSrt/.test(dub) && /let alvos = diretor\.tempoDisponivel\(segs\)/.test(dub) || 'frases inteiras e o tempo disponível',
         /const maxima = duracoes \? 0 :/.test(ler('src/estudio-de-voz/index.js')) || 'com a duração fixa, as pausas não são encurtadas depois',
         // 17/11 (Davi: "o Narrador fica trocando de timbre"): a voz âncora — a descrita lê uma frase e as falas clonam essa
         // frase (medido no TED-Ed: distância do timbre típico, média 0,123 → 0,025)

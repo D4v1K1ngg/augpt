@@ -41,7 +41,7 @@ module.exports = [
         /\['pip', 'install', '--python', this\.python\('omni'\), 'demucs'\]/.test(est) || 'instala só o demucs no Python do OmniVoice',
         /TORCH_HOME: path\.join\(this\.pasta, 'hf', 'torch'\)/.test(est) || 'o modelo fica na pasta do Estúdio',
         /sf\.read\(/.test(py) && /sf\.write\(saida_voz/.test(py) && /apply_model\(/.test(py) && !/torchaudio\.(load|save)/.test(py) || 'separar.py: soundfile, não torchaudio (quebra no 2.9+)',
-        /const separado = fundo === 'separado';/.test(dub) && /'\[2:a\]aresample=48000\[f\];\[1:a\]aresample=48000\[v\];\[f\]\[v\]amix/.test(dub) || 'a dublagem vai sobre o fundo separado',
+        /const separado = fundo === 'separado';/.test(dub) && /'\[2:a\]aresample=48000,afftdn=nf=-30:tn=1\[f0\];\[1:a\]aresample=48000,asplit=2\[v\]\[vs\]/.test(dub) && /\[fd\]\[v\]amix=inputs=2:duration=first:normalize=0\[a\]/.test(dub) || 'a dublagem vai sobre o fundo separado',
         /estudio\.separar\(leg\.video/.test(dub) || 'a dublagem chama a separação',
       ];
     },

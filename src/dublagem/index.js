@@ -97,7 +97,7 @@ function temAudio(ffmpeg, video) {
  *  'separado' (17/11: o Demucs tira a voz original — a dublagem vai sobre a música e o ambiente, sem a voz de antes).
  *  deps: os da legenda (midia, ffmpeg, whisper, chatStream, host, model, numCtx, signal, emitir) + estudio (EstudioDeVoz).
  */
-async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.15, srt = null, fundoPronto = null }, deps) {
+async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.15, srt = null, fundoPronto = null, vozOriginalPronta = null }, deps) {
   const { ffmpeg, estudio, signal, emitir = () => {} } = deps;
   if (!estudio) throw new Error('a dublagem usa o Estúdio de voz: instale o motor de voz lá');
   const inicio = Date.now();
@@ -111,14 +111,24 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
   const separado = fundo === 'separado';
   const pastaDoFundo = separado ? fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-fundo-')) : null;
   const soFundo = separado ? path.join(pastaDoFundo, 'fundo.wav') : null;
+  let vozOriginal = separado ? path.join(pastaDoFundo, 'voz-original.wav') : null;
   if (separado && fundoPronto && fs.existsSync(fundoPronto)) {
     fs.copyFileSync(fundoPronto, soFundo); // o Studio já separou: reaproveita
+    vozOriginal = vozOriginalPronta && fs.existsSync(vozOriginalPronta) ? vozOriginalPronta : null;
   } else if (separado) {
     if (!estudio.separadorInstalado?.()) throw new Error('o separador de voz não está instalado (Tradutor → Legendas e dublagem → Instalar o separador)');
-    await estudio.separar(leg.video, { voz: path.join(pastaDoFundo, 'voz-original.wav'), fundo: soFundo, signal, emitir: (p) => emitir({ etapa: 'separando', texto: p.texto }) });
+    await estudio.separar(leg.video, { voz: vozOriginal, fundo: soFundo, signal, emitir: (p) => emitir({ etapa: 'separando', texto: p.texto }) });
+  }
+  // 1c. cada fala começa quando a voz original começa de verdade (18/11) — pela voz que o Demucs separou
+  if (vozOriginal && fs.existsSync(vozOriginal)) {
+    const raw = path.join(pastaDoFundo, 'voz16.raw');
+    await rodar(ffmpeg, ['-y', '-i', vozOriginal, '-ac', '1', '-ar', '16000', '-f', 's16le', raw], { signal });
+    const b = fs.readFileSync(raw);
+    diretor.alinharAoOriginal(segs, diretor.energiaDaVoz(new Int16Array(b.buffer, b.byteOffset, Math.floor(b.length / 2))));
+    fs.rmSync(raw, { force: true });
   }
   // 2. o diretor (18/11): o tempo disponível de cada frase; as longas demais o Qwen encurta antes de gerar
-  const alvos = diretor.tempoDisponivel(segs);
+  let alvos = diretor.tempoDisponivel(segs);
   const comDuracao = (voz.motor || 'omni') === 'omni'; // o Qwen3-TTS não tem duração fixa: fica o encaixe por aceleração
   const llm = { chatStream: deps.chatStream, host: deps.host, model: deps.model, numCtx: deps.numCtx, signal, para };
   let textos = segs.map((s) => s.texto);
@@ -171,6 +181,20 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     textos = r.textos;
     encurtadas += idx.length;
     await refazer(idx);
+    lista = apertadas();
+  }
+  // 2b'. ainda não cabe: começa um pouco antes, até onde o whisper marcou (o alinhamento à voz original tinha passado o
+  // começo para a frente), desde que a fala anterior continue cabendo — 18/11: alinhar sem isso deixou 9 falas forçadas
+  if (lista.length) {
+    for (const { i } of lista) {
+      const s = segs[i];
+      if (s.inicioWhisper == null || s.inicioWhisper >= s.inicio) continue;
+      const falta = (f.partes[i].segundos * 1000) / ACELERAR_ATE - alvos[i];
+      const novo = Math.max(s.inicioWhisper, Math.round(s.inicio - falta - 50));
+      if (i > 0 && (f.partes[i - 1].segundos * 1000) / ACELERAR_ATE > novo - 120 - segs[i - 1].inicio) continue;
+      s.inicio = novo;
+    }
+    alvos = diretor.tempoDisponivel(segs);
     lista = apertadas();
   }
   // 2c. último recurso: o modelo fala no tempo disponível (com a aceleração de 1,25× por cima, se ainda faltar)
@@ -239,7 +263,11 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     const comFundo = !separado && Number(fundo) > 0 && (await temAudio(ffmpeg, leg.video));
     const voz = ['-f', 's16le', '-ar', String(f.taxa), '-ac', '1', '-i', voz16];
     const args = separado
-      ? ['-y', '-i', leg.video, ...voz, '-i', soFundo, '-filter_complex', '[2:a]aresample=48000[f];[1:a]aresample=48000[v];[f][v]amix=inputs=2:duration=first:normalize=0[a]', '-map', '0:v', '-map', '[a]']
+      // 18/11: o fundo com o chiado limpo (afftdn) e abaixando ~12 dB enquanto alguém fala — a voz nova e a original (o que
+      // sobra dela no fundo fica abafado; é o "ducking" das dublagens)
+      ? ['-y', '-i', leg.video, ...voz, '-i', soFundo, ...(vozOriginal && fs.existsSync(vozOriginal) ? ['-i', vozOriginal] : []), '-filter_complex', vozOriginal && fs.existsSync(vozOriginal)
+        ? '[2:a]aresample=48000,afftdn=nf=-30:tn=1[f0];[1:a]aresample=48000,asplit=2[v][vs];[3:a]aresample=48000,pan=mono|c0=0.5*c0+0.5*c1[vo];[vs][vo]amix=inputs=2:normalize=0[sc];[f0][sc]sidechaincompress=threshold=0.015:ratio=6:attack=15:release=450:level_sc=2[fd];[fd][v]amix=inputs=2:duration=first:normalize=0[a]'
+        : '[2:a]aresample=48000,afftdn=nf=-30:tn=1[f0];[1:a]aresample=48000,asplit=2[v][vs];[f0][vs]sidechaincompress=threshold=0.015:ratio=6:attack=15:release=450[fd];[fd][v]amix=inputs=2:duration=first:normalize=0[a]', '-map', '0:v', '-map', '[a]']
       : comFundo
       ? ['-y', '-i', leg.video, ...voz, '-filter_complex', `[0:a]volume=${Number(fundo)}[f];[1:a]aresample=48000[v];[f][v]amix=inputs=2:duration=first:normalize=0[a]`, '-map', '0:v', '-map', '[a]']
       // a faixa de voz acaba na última fala: o apad completa com silêncio até o fim do vídeo (sem ele, o -shortest cortava

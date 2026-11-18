@@ -42,11 +42,13 @@ function tempoAlvo(segs) {
 const FIM_DE_FRASE = /[.!?…]["”')\]]*$/;
 
 /** Junta os pedaços de frase seguidos (pausa de até `pausaMs`) numa fala só, até `maxMs` e `maxLetras`. */
-function juntarEmFrases(segs, { pausaMs = 450, maxMs = 11000, maxLetras = 220 } = {}) {
+function juntarEmFrases(segs, { pausaMs = 450, maxMs = 11000, maxMsInacabada = 15000, maxLetras = 220, maxLetrasInacabada = 300 } = {}) {
   const saida = [];
   for (const s of segs) {
     const atual = saida[saida.length - 1];
-    const cabe = atual && s.inicio - atual.fim <= pausaMs && s.fim - atual.inicio <= maxMs && atual.texto.length + s.texto.length + 1 <= maxLetras;
+    // frase que não terminou junta mais (18/11: "pode ser um pouco… [3 s] …controverso" — o limite cortava a frase)
+    const inacabada = atual && !FIM_DE_FRASE.test(atual.texto.trim());
+    const cabe = atual && s.inicio - atual.fim <= pausaMs && s.fim - atual.inicio <= (inacabada ? maxMsInacabada : maxMs) && atual.texto.length + s.texto.length + 1 <= (inacabada ? maxLetrasInacabada : maxLetras);
     // continua a frase (o pedaço anterior não terminou) ou o anterior é curto demais para ser dublado sozinho
     if (cabe && (!FIM_DE_FRASE.test(atual.texto.trim()) || atual.fim - atual.inicio < 1500)) {
       atual.fim = s.fim;
@@ -63,6 +65,46 @@ function tempoDisponivel(segs, { respiro = 120, alemDoTrecho = 3000 } = {}) {
     const ate = proximo == null ? s.fim + alemDoTrecho : proximo - respiro;
     return Math.max(800, Math.min(ate, s.fim + alemDoTrecho) - s.inicio);
   });
+}
+
+/*
+ * Onde a voz original fala de verdade (18/11, o vídeo do FalleN: o whisper marcou a 1ª fala desde 0:00, mas o narrador
+ * só começa em 0:02,5 — a dublagem começava cedo, acabava em 0:05 e deixava um buraco até 0:08 com o resto da voz
+ * original no fundo). A voz que o Demucs separou diz: energia a cada 20 ms; a fala começa no 1º trecho de 100 ms com voz.
+ */
+function energiaDaVoz(amostras, taxa = 16000) {
+  const passo = Math.round(taxa * 0.02);
+  const db = new Float32Array(Math.floor(amostras.length / passo));
+  for (let k = 0; k < db.length; k += 1) {
+    let soma = 0;
+    for (let j = k * passo; j < (k + 1) * passo; j += 1) soma += amostras[j] * amostras[j];
+    db[k] = 10 * Math.log10(soma / passo / (32768 * 32768) + 1e-12);
+  }
+  return db;
+}
+
+/** Ajusta o começo de cada fala ao começo da voz original dentro do trecho (só para a frente) e anota onde ela acaba. */
+function alinharAoOriginal(segs, db, { quadroMs = 20 } = {}) {
+  if (!db?.length) return segs;
+  const ordenado = Float32Array.from(db).sort();
+  const piso = ordenado[Math.floor(ordenado.length * 0.2)];
+  const limiar = Math.max(-50, piso + 15); // 15 dB acima do piso (o silêncio da voz separada)
+  const voz = (k) => k >= 0 && k < db.length && db[k] > limiar;
+  const seguido = (k, n = 5) => Array.from({ length: n }, (_, j) => voz(k + j)).every(Boolean);
+  for (const s of segs) {
+    const a = Math.floor(s.inicio / quadroMs);
+    const b = Math.min(db.length - 1, Math.floor(s.fim / quadroMs));
+    let ini = -1;
+    let fim = -1;
+    for (let k = a; k <= b; k += 1) if (seguido(k)) { ini = k; break; }
+    for (let k = b; k >= a; k -= 1) if (voz(k)) { fim = k; break; }
+    if (ini >= 0 && ini * quadroMs - 80 > s.inicio && ini * quadroMs < s.fim - 600) {
+      s.inicioWhisper = s.inicio; // se a fala não couber, ela pode voltar até aqui
+      s.inicio = ini * quadroMs - 80;
+    }
+    if (fim > ini && ini >= 0) s.falaAte = (fim + 1) * quadroMs;
+  }
+  return segs;
 }
 
 /** Caracteres falados (sem pontuação nem espaços repetidos). */
@@ -194,4 +236,4 @@ async function ouvir(arquivos, textos, { ffmpeg, whisper, para = 'pt', pasta, si
   return ouvidos.map((o, i) => ({ ouvido: o.join(' '), nota: semelhanca(textos[i], o.join(' ')) }));
 }
 
-module.exports = { juntarEmFrases, tempoDisponivel, tempoAlvo, longasDemais, reescrever, pedidoDoDiretor, lerDiretor, semelhanca, ouvir, tamanho, CPS, CPS_MAXIMO };
+module.exports = { energiaDaVoz, alinharAoOriginal, juntarEmFrases, tempoDisponivel, tempoAlvo, longasDemais, reescrever, pedidoDoDiretor, lerDiretor, semelhanca, ouvir, tamanho, CPS, CPS_MAXIMO };
