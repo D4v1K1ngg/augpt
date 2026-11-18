@@ -20,7 +20,9 @@ const diretor = require('./diretor');
 
 // idioma da legenda → idioma do Estúdio (o resto: o modelo descobre pelo texto)
 const IDIOMA_DO_ESTUDIO = { pt: 'portuguese', en: 'english', es: 'spanish', fr: 'french', de: 'german', it: 'italian', ja: 'japanese', ko: 'korean', zh: 'chinese', ru: 'russian' };
-const ACELERAR_ATE = 1.5;
+// 18/11: até 1,15× a aceleração não se percebe; acima disso a fala é encurtada pelo Qwen (antes: até 1,5×, e soava
+// corrida — no vídeo do FalleN, 1,25× ainda deixava 19 de 64 falas apressadas)
+const ACELERAR_ATE = 1.15;
 /*
  * A voz âncora (17/11, Davi: "o Narrador fica trocando de timbre durante o vídeo"): a voz descrita cria uma voz nova a cada
  * geração — em dezenas de falas curtas, o timbre muda. Antes das falas, a voz descrita lê UMA frase; todas as falas do
@@ -102,7 +104,8 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
   // 1. legenda traduzida (os tempos de cada fala)
   // 17/11 (Studio): com a legenda pronta (a que o usuário editou), não transcreve nem traduz de novo
   const leg = srt && fs.existsSync(srt) && fs.existsSync(entrada) ? { video: entrada, srt, idiomaFalado: null, faltaram: 0 } : await legendar({ entrada, para, de, gravar: 'nao' }, deps);
-  const segs = lerSrt(fs.readFileSync(leg.srt, 'utf8')).map((s) => ({ inicio: emMs(s.inicio), fim: emMs(s.fim), texto: s.texto }));
+  // as frases inteiras (18/11): os pedaços que o whisper cortou viram uma fala só
+  const segs = diretor.juntarEmFrases(lerSrt(fs.readFileSync(leg.srt, 'utf8')).map((s) => ({ inicio: emMs(s.inicio), fim: emMs(s.fim), texto: s.texto })));
   if (!segs.length) throw new Error('não ouvi fala nesse vídeo');
   // 1b. a voz original sai: o fundo (música, ambiente) separado pelo Demucs, na placa
   const separado = fundo === 'separado';
@@ -114,18 +117,20 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     if (!estudio.separadorInstalado?.()) throw new Error('o separador de voz não está instalado (Tradutor → Legendas e dublagem → Instalar o separador)');
     await estudio.separar(leg.video, { voz: path.join(pastaDoFundo, 'voz-original.wav'), fundo: soFundo, signal, emitir: (p) => emitir({ etapa: 'separando', texto: p.texto }) });
   }
-  // 2. o diretor (17/11): cada fala no tempo do trecho original; as longas demais o Qwen encurta antes de gerar
-  const alvos = diretor.tempoAlvo(segs);
+  // 2. o diretor (18/11): o tempo disponível de cada frase; as longas demais o Qwen encurta antes de gerar
+  const alvos = diretor.tempoDisponivel(segs);
   const comDuracao = (voz.motor || 'omni') === 'omni'; // o Qwen3-TTS não tem duração fixa: fica o encaixe por aceleração
   const llm = { chatStream: deps.chatStream, host: deps.host, model: deps.model, numCtx: deps.numCtx, signal, para };
   let textos = segs.map((s) => s.texto);
-  const longas = diretor.longasDemais(textos, alvos);
   let encurtadas = 0;
+  const longas = diretor.longasDemais(textos, alvos);
   if (longas.length) {
     emitir({ etapa: 'diretor', texto: `Diretor: encurtando ${longas.length} falas longas demais para o tempo do vídeo…` });
-    ({ textos, mudaram: encurtadas } = await diretor.reescrever(textos, longas, llm));
+    const r = await diretor.reescrever(textos, longas, llm);
+    textos = r.textos;
+    encurtadas += r.mudaram;
   }
-  let opcoesDaVoz = { ...voz, idioma: IDIOMA_DO_ESTUDIO[para] || 'auto', legenda: false, margem: 0.03, suavizar: 0.03, semente: Number.isFinite(Number(voz.semente)) ? Number(voz.semente) : 1234 };
+  let opcoesDaVoz = { ...voz, idioma: IDIOMA_DO_ESTUDIO[para] || 'auto', legenda: false, margem: 0.05, suavizar: 0.05, semente: Number.isFinite(Number(voz.semente)) ? Number(voz.semente) : 1234 };
   // a voz âncora: uma frase com a voz descrita (ou automática), e as falas clonam essa frase — o timbre não muda
   let ancora = null;
   if (comDuracao && voz.modo !== 'clonar') {
@@ -137,13 +142,45 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     fs.rmSync(r.tmp, { recursive: true, force: true });
     opcoesDaVoz = { ...opcoesDaVoz, modo: 'clonar', referenciaFixa: { audio: ancora, texto: frase }, instrucao: undefined };
   }
-  const duracoesDe = (idx) => (comDuracao ? idx.map((i) => Math.round(alvos[i]) / 1000) : null);
+  // 2a. no ritmo natural do modelo (18/11: a duração forçada em todas dava fala corrida e os ruídos do OmniVoice)
   emitir({ etapa: 'falando', texto: `Gerando as falas… 0/${segs.length}` });
   const f = await estudio.falas(opcoesDaVoz, textos, {
-    duracoes: duracoesDe(textos.map((_, i) => i)),
     emitir: (p) => emitir({ etapa: 'falando', texto: p.parte ? `Gerando as falas… ${p.parte}/${p.de || segs.length}` : `Gerando as falas… ${p.texto || ''}`.trim() }),
   });
-  // 2b. o diretor ouve (o whisper na placa): fala que não se entende volta ao Qwen, mais simples, e é gerada de novo
+  /** Troca as falas `idx` pelas geradas de novo (com `duracoes` só no último recurso). */
+  const refazer = async (idx, { duracoes = null } = {}) => {
+    const de2 = await estudio.falas(opcoesDaVoz, idx.map((i) => textos[i]), duracoes ? { duracoes } : {});
+    idx.forEach((i, k) => {
+      const novo = path.join(f.tmp, `refeita-${i}-${Date.now()}.wav`);
+      fs.copyFileSync(de2.partes[k].arquivo, novo);
+      f.partes[i] = { arquivo: novo, segundos: de2.partes[k].segundos };
+    });
+    fs.rmSync(de2.tmp, { recursive: true, force: true });
+  };
+  // 2b. a que não coube nem com 1,25×: o Qwen encurta na medida do que sobrou e ela é gerada de novo, no ritmo natural
+  const apertadas = () => f.partes.map((p, i) => ({ i, razao: (p.segundos * 1000) / alvos[i] })).filter((x) => x.razao > ACELERAR_ATE);
+  let lista = apertadas();
+  // até 2 rodadas; a 2ª (e a das falas já encurtadas antes) com o pedido firme — 18/11: no vídeo do FalleN, a rodada
+  // única não encurtava nenhuma das 9 que sobraram (o Qwen mantinha os detalhes de uma fala já encurtada)
+  for (let rodada = 1; rodada <= 2 && lista.length; rodada += 1) {
+    emitir({ etapa: 'diretor', texto: `Diretor: ${lista.length} falas não cabem no tempo — encurtando${rodada > 1 ? ' mais' : ''}…` });
+    const alvo = lista.map(({ i, razao }) => ({ i, limite: Math.max(8, Math.floor((diretor.tamanho(textos[i]) * ACELERAR_ATE * (rodada > 1 ? 0.85 : 0.95)) / razao)) }));
+    const r = await diretor.reescrever(textos, alvo, { ...llm, motivo: rodada > 1 || encurtadas ? 'apertar' : 'curta' });
+    const idx = lista.map((x) => x.i).filter((i) => r.textos[i] !== textos[i]);
+    if (!idx.length) continue;
+    textos = r.textos;
+    encurtadas += idx.length;
+    await refazer(idx);
+    lista = apertadas();
+  }
+  // 2c. último recurso: o modelo fala no tempo disponível (com a aceleração de 1,25× por cima, se ainda faltar)
+  let forcadas = 0;
+  if (lista.length && comDuracao) {
+    emitir({ etapa: 'diretor', texto: `Diretor: ajustando o ritmo de ${lista.length} falas…` });
+    await refazer(lista.map((x) => x.i), { duracoes: lista.map((x) => Math.round(alvos[x.i] * ACELERAR_ATE) / 1000) });
+    forcadas = lista.length;
+  }
+  // 2d. o diretor ouve (o whisper na placa): fala que não se entende volta ao Qwen, mais simples, e é gerada de novo
   let refeitas = 0;
   let nota = null;
   if (deps.whisper?.modelo) {
@@ -159,13 +196,7 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
           const idx = ruins.map((x) => x.i).filter((i) => r.textos[i] !== textos[i]);
           if (idx.length) {
             textos = r.textos;
-            const de2 = await estudio.falas(opcoesDaVoz, idx.map((i) => textos[i]), { duracoes: duracoesDe(idx) });
-            idx.forEach((i, k) => {
-              const novo = path.join(f.tmp, `refeita-${i}.wav`);
-              fs.copyFileSync(de2.partes[k].arquivo, novo);
-              f.partes[i] = { arquivo: novo, segundos: de2.partes[k].segundos };
-            });
-            fs.rmSync(de2.tmp, { recursive: true, force: true });
+            await refazer(idx);
             refeitas = idx.length;
           }
         }
@@ -180,6 +211,9 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     // 3. cada fala no seu tempo (acelera o que não cabe) e a faixa inteira
     emitir({ etapa: 'encaixando', texto: 'Encaixando as falas no tempo do vídeo…' });
     const plano = encaixar(segs, f.partes.map((p) => p.segundos));
+    // o ritmo de verdade de cada fala (caracteres por segundo do áudio falado, já com a aceleração)
+    const ritmos = f.partes.map((p, i) => diretor.tamanho(textos[i]) / Math.max(0.2, p.segundos / plano[i].velocidade)).sort((x, y) => x - y);
+    const ritmo = { mediano: Math.round(ritmos[Math.floor(ritmos.length / 2)] * 10) / 10, p90: Math.round(ritmos[Math.floor(ritmos.length * 0.9)] * 10) / 10, corridas: ritmos.filter((x) => x > 22).length, maximo: Math.round(ritmos[ritmos.length - 1] * 10) / 10 };
     const falas = [];
     for (const [i, p] of f.partes.entries()) {
       const raw = path.join(f.tmp, `fala-${i}.raw`);
@@ -216,7 +250,7 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     return {
       saida, video: leg.video, srt: leg.srt, idiomaFalado: leg.idiomaFalado, falas: segs.length, semVozOriginal: separado, faltaram: leg.faltaram || 0,
       aceleradas: plano.filter((p) => p.velocidade > 1.05).length, segundos: Math.round((Date.now() - inicio) / 1000),
-      encurtadas, refeitas, nota,
+      encurtadas, refeitas, forcadas, nota, ritmo,
     };
   } finally {
     fs.rmSync(f.tmp, { recursive: true, force: true });

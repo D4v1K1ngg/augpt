@@ -30,6 +30,41 @@ function tempoAlvo(segs) {
   });
 }
 
+/*
+ * 18/11 (o vídeo do FalleN, 294 falas: 63 com menos de 1,2 s e 83 acima de 20 caracteres/s — "rápidas, mal pronunciadas,
+ * com bugs do OmniVoice"): o whisper corta a fala em pedaços de frase, e dublar pedaço por pedaço, à força no tempo de
+ * cada um, dava fala corrida e os ruídos do modelo (ele erra em duração muito curta). Como nos projetos de dublagem
+ * abertos (pyVideoTrans: o "bloco" é o trecho mais o silêncio depois dele; aceleração de no máximo 1,5×), a fala agora é:
+ *  - a FRASE inteira (os pedaços seguidos, sem pausa entre eles, viram uma fala só);
+ *  - com o tempo DISPONÍVEL: do começo dela até o começo da próxima (o silêncio depois também serve);
+ *  - gerada no RITMO NATURAL do modelo; só a que não cabe é encurtada pelo Qwen, e a duração forçada fica por último.
+ */
+const FIM_DE_FRASE = /[.!?…]["”')\]]*$/;
+
+/** Junta os pedaços de frase seguidos (pausa de até `pausaMs`) numa fala só, até `maxMs` e `maxLetras`. */
+function juntarEmFrases(segs, { pausaMs = 450, maxMs = 11000, maxLetras = 220 } = {}) {
+  const saida = [];
+  for (const s of segs) {
+    const atual = saida[saida.length - 1];
+    const cabe = atual && s.inicio - atual.fim <= pausaMs && s.fim - atual.inicio <= maxMs && atual.texto.length + s.texto.length + 1 <= maxLetras;
+    // continua a frase (o pedaço anterior não terminou) ou o anterior é curto demais para ser dublado sozinho
+    if (cabe && (!FIM_DE_FRASE.test(atual.texto.trim()) || atual.fim - atual.inicio < 1500)) {
+      atual.fim = s.fim;
+      atual.texto = `${atual.texto} ${s.texto}`.replace(/\s+/g, ' ').trim();
+    } else saida.push({ ...s });
+  }
+  return saida;
+}
+
+/** O tempo disponível de cada fala: até o começo da próxima (menos um respiro), sem passar do trecho + 3 s; mínimo 0,8 s. */
+function tempoDisponivel(segs, { respiro = 120, alemDoTrecho = 3000 } = {}) {
+  return segs.map((s, i) => {
+    const proximo = segs[i + 1]?.inicio;
+    const ate = proximo == null ? s.fim + alemDoTrecho : proximo - respiro;
+    return Math.max(800, Math.min(ate, s.fim + alemDoTrecho) - s.inicio);
+  });
+}
+
 /** Caracteres falados (sem pontuação nem espaços repetidos). */
 const tamanho = (t) => String(t || '').replace(/[^\p{L}\p{N} ]/gu, '').replace(/\s+/g, ' ').trim().length;
 
@@ -50,7 +85,7 @@ function pedidoDoDiretor(linhas, { para = 'pt', motivo = 'curta' } = {}) {
       role: 'system',
       content: `You are a dubbing director. Each line must be SPOKEN in ${idioma} within the time of the original line, so it must be short.
 Rewrite each line "N| [max K chars] text" in natural spoken ${idioma}, keeping the meaning, with AT MOST K characters.
-${motivo === 'clara' ? 'These lines came out unclear when spoken: also use simpler, common words and avoid tongue-twisters, abbreviations and symbols.\n' : ''}Cut filler words, repetitions and less important details first; keep names and numbers. Output ONLY "N| line", one per input line, same numbers.`,
+${motivo === 'clara' ? 'These lines came out unclear when spoken: also use simpler, common words and avoid tongue-twisters, abbreviations and symbols.\n' : ''}${motivo === 'apertar' ? 'These lines were already shortened and STILL do not fit: each one MUST have at most K characters — drop secondary details and keep only the core idea; never make a line longer.\n' : ''}Cut filler words, repetitions and less important details first; keep names and numbers. Output ONLY "N| line", one per input line, same numbers.`,
     },
     { role: 'user', content: linhas.map((l) => `${l.n}| [max ${l.limite} chars] ${l.texto}`).join('\n') },
   ];
@@ -159,4 +194,4 @@ async function ouvir(arquivos, textos, { ffmpeg, whisper, para = 'pt', pasta, si
   return ouvidos.map((o, i) => ({ ouvido: o.join(' '), nota: semelhanca(textos[i], o.join(' ')) }));
 }
 
-module.exports = { tempoAlvo, longasDemais, reescrever, pedidoDoDiretor, lerDiretor, semelhanca, ouvir, tamanho, CPS, CPS_MAXIMO };
+module.exports = { juntarEmFrases, tempoDisponivel, tempoAlvo, longasDemais, reescrever, pedidoDoDiretor, lerDiretor, semelhanca, ouvir, tamanho, CPS, CPS_MAXIMO };

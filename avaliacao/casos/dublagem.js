@@ -14,14 +14,14 @@ const ler = (f) => fs.readFileSync(path.join(__dirname, '../..', f), 'utf8').rep
 
 module.exports = [
   {
-    nome: 'dublagem: cada fala no seu tempo — cabe até o próximo trecho sem acelerar, acelera até 1,5× o que não cabe; as falas somam na faixa sem estourar',
+    nome: 'dublagem: cada fala no seu tempo — cabe até o próximo trecho sem acelerar, acelera até 1,15× o que não cabe (18/11: 1,5× soava corrido); as falas somam na faixa sem estourar',
     tipo: 'unidade',
     executar() {
       const plano = encaixar([{ inicio: 0, fim: 2000 }, { inicio: 2500, fim: 4000 }, { inicio: 4200, fim: 5000 }, { inicio: 9000, fim: 9500 }], [2.3, 3.5, 1.0, 4]);
       const faixa = montarFaixa([{ inicio: 0, amostras: Int16Array.from([30000, 30000]) }, { inicio: 0, amostras: Int16Array.from([30000]) }, { inicio: 2, amostras: Int16Array.from([-5]) }], { taxa: 1000, totalMs: 5 });
       return [
         plano[0].velocidade === 1 || `a fala que passa do fim mas cabe até o próximo não acelera: ${JSON.stringify(plano[0])}`,
-        plano[1].velocidade === 1.5 || `o que não cabe acelera até 1,5×: ${JSON.stringify(plano[1])}`,
+        plano[1].velocidade === 1.15 || `o que não cabe acelera até 1,15×: ${JSON.stringify(plano[1])}`,
         plano[2].velocidade === 1 || JSON.stringify(plano[2]),
         plano[3].velocidade === 1 || 'a última fala não tem próximo: não acelera',
         faixa[0] === 32767 && faixa[1] === 30000 && faixa[2] === -5 || `soma e satura: ${faixa.slice(0, 3)}`,
