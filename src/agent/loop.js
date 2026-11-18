@@ -1955,8 +1955,10 @@ class Agent extends EventEmitter {
       config: this.config,
       emit: (evento, dados) => this.emit(evento, dados || {}),
       // revisão v3: a resposta do usuário vai pro registro (antes só "43 caracteres")
-      ask: async (pergunta) => {
-        const resposta = await this.esperar('pergunta', { pergunta });
+      // opcoes (18/11): as respostas prováveis viram botões na conversa (renderer/questionario.js)
+      ask: async (pergunta, opcoes = []) => {
+        const lista = (Array.isArray(opcoes) ? opcoes : String(opcoes || '').split('|')).map((o) => String(o).trim()).filter(Boolean).slice(0, 6);
+        const resposta = await this.esperar('pergunta', { pergunta, ...(lista.length ? { opcoes: lista } : {}) });
         // senha dada na resposta ("a senha é 4821") também é segredo
         for (const v of segredosDoTexto(String(resposta ?? ''))) if (!(this.segredos ||= []).includes(v)) this.segredos.push(v);
         this.emit('pergunta-respondida', { pergunta, resposta });

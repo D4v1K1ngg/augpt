@@ -542,3 +542,38 @@ body { font-family: var(--sans); background: var(--void); }
 .st-cabeca::before { content: ""; position: absolute; top: 0; left: -5px; border: 6px solid transparent; border-top-color: #ff5a4f; }
 @media (max-width: 1100px) { .studio-corpo { grid-template-columns: 220px minmax(0, 1fr); } .studio-inspetor { grid-column: 1 / -1; } }
 .legendas-atalho .dica { margin: 4px 0 10px; }
+
+/* ------------------------------ questionário no chat (18/11, renderer/questionario.js) ------------------------------ */
+.questionario { display: flex; flex-direction: column; gap: 14px; margin: 14px 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--text) 3%, transparent); animation: narracao-entra .3s ease-out both; }
+.q-titulo { font: 600 15px var(--sans); color: var(--text); }
+.q-descricao { margin-top: -8px; font-size: 13px; color: var(--muted); }
+.q-pergunta { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.q-pergunta legend { padding: 0; margin-bottom: 8px; font: 500 14px/1.45 var(--sans); color: var(--text); }
+.q-num { color: var(--muted); }
+.q-dica { font-weight: 400; font-size: 12px; color: var(--muted); }
+.q-opcoes { display: flex; flex-direction: column; gap: 6px; }
+.q-opcao { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font-size: 13.5px; color: var(--text); transition: border-color .15s, background .15s; }
+.q-opcao:hover { border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); }
+.q-opcao:has(input:checked) { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 8%, transparent); }
+.q-opcao input[type="radio"], .q-opcao input[type="checkbox"] { accent-color: var(--gold); margin: 0; flex: none; }
+.q-outro-texto, .questionario textarea { flex: 1; min-width: 0; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: 13.5px var(--sans); outline: none; }
+.questionario textarea { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; resize: vertical; }
+.q-escala { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.q-escala input { flex: 1; accent-color: var(--gold); }
+.q-escala output { min-width: 2ch; font-weight: 600; color: var(--text); }
+.q-acoes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.q-aviso { font-size: 12.5px; color: var(--muted); }
+.q-feito, .q-nota { font-size: 13.5px; font-weight: 600; color: var(--gold); }
+.questionario.respondido .q-opcao { cursor: default; }
+.questionario.respondido .q-opcao:not(:has(input:checked)):not(.gabarito) { opacity: .55; }
+.q-pergunta.certa .q-opcao:has(input:checked) { border-color: #3fae6a; background: color-mix(in srgb, #3fae6a 12%, transparent); }
+.q-pergunta.errada .q-opcao:has(input:checked) { border-color: #d0574e; background: color-mix(in srgb, #d0574e 12%, transparent); }
+.q-pergunta .q-opcao.gabarito { border-color: #3fae6a; opacity: 1; }
+.q-retorno { font-size: 13px; line-height: 1.5; color: var(--muted); }
+.q-pergunta.certa .q-retorno { color: #3fae6a; }
+.q-pergunta.errada .q-retorno { color: #d0574e; }
+.pergunta-do-agente { margin: 10px 0; }
+.pergunta-do-agente .questionario { margin: 6px 0 0; }
+.q-de { font-size: 12.5px; color: var(--muted); }
+.pergunta-do-agente.resolvido .q-de::after { content: ' · respondido'; }
+@media (prefers-reduced-motion: reduce) { .questionario { animation: none; } }

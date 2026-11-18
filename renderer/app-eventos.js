@@ -172,28 +172,24 @@ const manipuladores = {
     card.querySelector('.secundario').after(p);
   },
 
-  pergunta({ id, pergunta }) {
-    abrirDetalhe();
+  // 18/11 (Davi: "igual ao ChatGPT, com opções clicáveis"): a pergunta do agente aparece na conversa (não no
+  // raciocínio fechado), com as respostas prováveis como botões e "Outra resposta…"; sem opções, um campo de texto
+  pergunta({ id, pergunta, opcoes = [] }) {
     situacao(tr('o agente fez uma pergunta'));
-    const card = cartao(
-      agente.turno?.noAtual || noSolto(),
-      'pergunta',
-      'o agente perguntou',
-      `<p>${esc(pergunta)}</p>
-       <div class="resposta-campo"><input type="text" placeholder="Sua resposta" /><button class="btn-primario">Responder</button></div>`
+    const caixa = document.createElement('div');
+    caixa.className = 'cartao pergunta pergunta-do-agente';
+    caixa.dataset.id = id; // respondida pelo celular (26/10): renderer/celular.js fecha este cartão
+    caixa.innerHTML = `<div class="q-de">${esc(tr('O AuGPT precisa saber'))}</div>`;
+    const form = window.questionario.criar(
+      { perguntas: [{ texto: pergunta, tipo: opcoes.length ? 'unica' : 'texto', opcoes }] },
+      { rotuloDoBotao: tr('Responder'), aoEnviar: (_texto, [valor]) => (caixa.classList.add('resolvido'), api.agent.respond(id, valor)) }
     );
-    card.dataset.id = id; // respondida pelo celular (26/10): renderer/celular.js fecha este cartão
-    const input = card.querySelector('input');
-    const enviar = async () => {
-      const valor = input.value.trim();
-      if (!valor) return;
-      await api.agent.respond(id, valor);
-      card.classList.add('resolvido');
-      card.querySelector('.resposta-campo').innerHTML = `<span class="secundario">você: ${esc(valor)}</span>`;
-    };
-    card.querySelector('button').addEventListener('click', enviar);
-    input.addEventListener('keydown', (e) => e.key === 'Enter' && enviar());
-    input.focus();
+    form.querySelector('.q-acoes').classList.add('acoes');
+    caixa.append(form);
+    const t = agente.turno;
+    if (t?.ancora) t.ancora.appendChild(caixa);
+    else el.aMensagens.appendChild(caixa);
+    form.querySelector('input:not([type="range"]), textarea')?.focus();
     rolar(el.aRolagem, true);
   },
 

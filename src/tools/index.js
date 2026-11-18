@@ -76,9 +76,9 @@ const controle = [
     risk: 'baixo',
     interactive: true,
     description: 'Faz uma pergunta ao usuário quando faltar informação para continuar.',
-    args: { pergunta: 'pergunta objetiva e específica' },
-    async run({ pergunta }, ctx) {
-      return ctx.ask(pergunta || 'Pode dar mais detalhes?');
+    args: { pergunta: 'pergunta objetiva e específica', opcoes: 'opcional: 2 a 5 respostas prováveis (lista), que viram botões para o usuário escolher' },
+    async run({ pergunta, opcoes }, ctx) {
+      return ctx.ask(pergunta || 'Pode dar mais detalhes?', opcoes);
     },
   },
   {

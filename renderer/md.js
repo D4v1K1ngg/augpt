@@ -97,7 +97,8 @@
       // ```calendario (23/10): o JSON vai escapado no atributo e vira o calendário em montarGraficos
       // ```clima (23/10): idem, vira o cartão do clima
       // ```midia (30/10): o cartão de download (renderer/midia.js)
-      if (['calendario', 'clima', 'mapa', 'compras', 'midia', 'timer', 'arquivos'].includes(String(lang).toLowerCase())) {
+      // ```questionario (18/11): o formulário clicável (renderer/questionario.js)
+      if (['calendario', 'clima', 'mapa', 'compras', 'midia', 'timer', 'arquivos', 'questionario'].includes(String(lang).toLowerCase())) {
         blocos.push(`<div class="cartao-lugar" data-tipo="${String(lang).toLowerCase()}" data-cal="${codigo.trim()}"></div>`);
         return `\u0000BLOCO${blocos.length - 1}\u0000`;
       }
@@ -349,9 +350,13 @@
       try {
         lugar.replaceWith(desenhista.criar(lugar.dataset.cal));
       } catch {
-        lugar.remove(); // JSON quebrado: o texto da resposta continua
+        // JSON quebrado: o texto da resposta continua (o questionário fica como texto, para não sumir)
+        if (lugar.dataset.tipo === 'questionario') lugar.replaceWith(Object.assign(document.createElement('pre'), { className: 'bloco-codigo', textContent: lugar.dataset.cal }));
+        else lugar.remove();
       }
     }
+    // perguntas com as respostas entre parênteses viram questionário (18/11)
+    global.questionario?.converterListas(elemento);
     if (!global.grafico) return;
     for (const lugar of elemento.querySelectorAll('.grafico-lugar[data-grafico]')) {
       const spec = graficos[lugar.dataset.grafico];

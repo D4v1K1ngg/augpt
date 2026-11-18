@@ -160,7 +160,7 @@
     '{n} página em {s} site': '{n} page on {s} site', '{n} página em {s} sites': '{n} page on {s} sites', '{n} páginas em {s} site': '{n} pages on {s} site', '{n} páginas em {s} sites': '{n} pages on {s} sites',
     '{n} página ✓': '{n} page ✓', '{n} páginas ✓': '{n} pages ✓',
     'pensando · {modelo}': 'thinking · {modelo}', 'passo {n} de {de}': 'step {n} of {de}', 'raciocinando…': 'reasoning…',
-    'executando {nome}': 'running {nome}', 'aguardando sua confirmação': 'waiting for your confirmation', 'o agente fez uma pergunta': 'the agent asked a question',
+    'executando {nome}': 'running {nome}', 'aguardando sua confirmação': 'waiting for your confirmation', 'o agente fez uma pergunta': 'the agent asked a question', 'O AuGPT precisa saber': 'AuGPT needs to know', 'Responder': 'Answer',
     'redigindo a resposta a partir de {n} fonte(s)…': 'writing the answer from {n} source(s)…',
     '{n} passos · {f} fonte(s)': '{n} steps · {f} source(s)',
     'Parei em {n} passos sem concluir.': 'I stopped after {n} steps without finishing.',

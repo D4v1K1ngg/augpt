@@ -276,7 +276,8 @@ const usaComoFerramenta = (id, pergunta) => {
 };
 
 // criar algo interativo (item 4, 18/10): a resposta é uma página no bloco ```visual, que roda no chat
-const PEDE_VISUAL = /\b(crie|cria|criar|monte|monta|montar|fa[çc]a|faz|gere|gera|desenvolva|programe|construa)\b[^.?!]{0,60}\b(calculadora|simula[çc][ãa]o|simulador|anima[çc][ãa]o|jogo|joguinho|painel|dashboard|p[áa]gina|visualiza[çc][ãa]o|interativ\w*|linha do tempo|quiz|cron[ôo]metro|rel[óo]gio|conversor|planilha interativa)\b/i;
+// 18/11: sem "quiz" — quiz agora é o questionário no chat (renderer/questionario.js), não uma página HTML
+const PEDE_VISUAL = /\b(crie|cria|criar|monte|monta|montar|fa[çc]a|faz|gere|gera|desenvolva|programe|construa)\b[^.?!]{0,60}\b(calculadora|simula[çc][ãa]o|simulador|anima[çc][ãa]o|jogo|joguinho|painel|dashboard|p[áa]gina|visualiza[çc][ãa]o|interativ\w*|linha do tempo|cron[ôo]metro|rel[óo]gio|conversor|planilha interativa)\b/i;
 const pedeVisual = (pergunta) => PEDE_VISUAL.test(String(pergunta || '')) && !pedeGrafico(pergunta);
 /** Página completa num ```html (18/10: o 2B escreveu a calculadora certa, mas como código): vira ```visual. */
 const comoVisual = (texto) => (/```visual/.test(texto) ? texto : String(texto).replace(/```html\s*\n([\s\S]*?<(?:script|body|canvas|button)[\s\S]*?)```/i, '```visual\n$1```'));
@@ -1772,7 +1773,52 @@ FORMATO (pedido de produto — uma recomendação de quem entende, não uma fich
   **Na comunidade:** o que quem usa no Reddit e nos fóruns relata, com as suas palavras, citando a fonte. Não cole o comentário.
 - Com 2 ou mais opções: "### ⚖️ [1ª opção] ou [2ª opção]: qual eu escolheria" — uma tabela com os tópicos de "O que importa" nas linhas e as duas primeiras opções nas colunas, e 2 ou 3 frases com a escolha e o porquê.
 - Uma ressalva honesta em caixa: "> ⚠️ **Ressalva:** …" — o que as fontes NÃO provam sobre ESTE pedido (o que ninguém mediu ou testou; escreva com o assunto da pergunta, sem copiar exemplos), em 1 ou 2 frases.
-- Termine com "### Para acertar na escolha": 1 ou 2 perguntas curtas que mudariam a recomendação (orçamento, o que é mais importante, o que o usuário já tem).`;
+- Termine com "### Para acertar na escolha": 1 ou 2 perguntas curtas que mudariam a recomendação (orçamento, o que é mais importante, o que o usuário já tem), numa lista numerada, cada uma com 2 a 4 respostas prováveis entre parênteses separadas por " | ", sem preço — ex.: "1. Você joga mais no PC ou no console? (PC | console | os dois)". A tela mostra as respostas como botões.`;
+
+/**
+ * Questionário no chat (18/11, Davi: "se eu pedir para o AuGPT criar um formulário ou um questionário, ele faz um no
+ * chat"): o bloco ```questionario vira um formulário clicável (renderer/questionario.js). A instrução só entra quando o
+ * usuário pede um — o escritor enxuto escreve melhor com menos regras.
+ */
+const PEDE_QUESTIONARIO = /\b(question[aá]rio|formul[aá]rio|quiz|simulado|enquete|teste (de|sobre|com) (conhecimento|perguntas)|me (teste|testa|avalie|avalia)\b|perguntas (para|pra) (eu|mim) (responder|treinar|estudar))/i;
+const INSTRUCAO_DE_QUESTIONARIO = `
+- O usuário pediu um questionário, formulário ou quiz para responder AQUI no chat: a tela mostra o bloco \`\`\`questionario como um formulário clicável. Escreva uma frase de introdução e depois o bloco, com JSON válido, assim:
+\`\`\`questionario
+{"titulo": "…", "descricao": "…", "perguntas": [
+  {"texto": "…?", "tipo": "unica", "opcoes": ["…", "…", "…", "…"], "correta": 1, "explicacao": "…"},
+  {"texto": "…?", "tipo": "multipla", "opcoes": ["…", "…", "…"]},
+  {"texto": "…?", "tipo": "texto"},
+  {"texto": "…?", "tipo": "escala", "min": 1, "max": 5}
+]}
+\`\`\`
+- "tipo": "unica" (uma opção), "multipla" (várias), "texto" (resposta escrita) ou "escala" (nota de min a max).
+- Quiz, teste ou simulado de conhecimento: todas "unica", com "correta" (o índice da opção certa, 0 = a primeira — varie a posição) e uma "explicacao" curta. Formulário ou pesquisa de opinião (coletar dados, preferências): sem "correta".
+- Até 10 perguntas, se o usuário não pediu outro número. Não repita as perguntas fora do bloco.
+- NÃO use o bloco \`\`\`visual nem HTML para isso (o questionário é o bloco \`\`\`questionario, que a tela já desenha).`;
+
+// quiz de conhecimento (tem resposta certa) × formulário de coleta (preferência, opinião, cadastro)
+const PEDE_QUIZ = /\b(quiz|simulado|prova|gabarito|treinar|estudar|revisar|teste (de|sobre) conhecimento|me (teste|testa)\b)/i;
+
+/**
+ * O bloco ```questionario do modelo, conferido (18/11, medido: o 9B pôs "correta" em todas as perguntas de um
+ * formulário de preferência de fone — virava prova): JSON consertado e compacto; fora de quiz, sem "correta" nem
+ * "explicacao". JSON que não abre fica como veio (a tela mostra o texto).
+ */
+function questionarioNaResposta(texto, pergunta = '') {
+  const quiz = PEDE_QUIZ.test(String(pergunta));
+  // ```json com "perguntas" também vira questionário (18/11, medido: o 9B escreveu o quiz certo, mas como ```json)
+  return String(texto || '').replace(/```(questionario|json)?\s*\n?([\s\S]*?)```/g, (bloco, rotulo, json) => {
+    if (rotulo !== 'questionario' && !/"perguntas"\s*:/.test(json)) return bloco;
+    try {
+      const q = JSON.parse(json.replace(/[“”]/g, '"').replace(/,\s*([}\]])/g, '$1'));
+      if (!Array.isArray(q?.perguntas) || !q.perguntas.length || !q.perguntas.every((p) => p && typeof p.texto === 'string')) return bloco;
+      if (!quiz) q.perguntas = q.perguntas.map(({ correta, explicacao, ...resto }) => resto);
+      return `\`\`\`questionario\n${JSON.stringify(q)}\n\`\`\``;
+    } catch {
+      return bloco;
+    }
+  });
+}
 
 const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="${String(f.titulo || dominio(f.url)).replace(/"/g, "'")}" site="${dominio(f.url)}"${f.data ? ` data="${dataBr(f.data)}"` : f.recente ? ' data="último mês"' : ''}>\n${f.conteudo}\n</fonte>`).join('\n');
 
@@ -2340,7 +2386,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   emit('redigindo', { fontes: usadas.length });
   const preferencias = typeof deps.preferencias === 'function' ? String((await Promise.resolve(deps.preferencias(ent.pergunta || pergunta)).catch(() => '')) || '') : '';
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: recomenda, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa || ent.explicacao ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length, explicacao: ent.explicacao === true && !usadas.length, enxuto: deps.escritorEnxuto === true && !ent.produto })}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: recomenda, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa || ent.explicacao ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length, explicacao: ent.explicacao === true && !usadas.length, enxuto: deps.escritorEnxuto === true && !ent.produto })}${PEDE_QUESTIONARIO.test(pergunta) ? INSTRUCAO_DE_QUESTIONARIO : ''}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
     // 30/10 (medido: ~5 s entre o fim da pesquisa e a 1ª palavra era o modelo lendo o material): das respostas
     // anteriores vai só o começo, sem a lista de fontes — o assunto da conversa fica, o texto inteiro não precisa
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
@@ -2465,7 +2511,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   if (pedido && graf.estimativas && graf.estimativas >= graf.pontos / 3) {
     notaDoGrafico += `\n\n*No gráfico, ${graf.estimativas} de ${graf.pontos} valores são estimativas (não aparecem nas fontes lidas): estão tracejados, vazados ou hachurados — passe o mouse para ver.*`;
   }
-  escrito = `${graf.texto}${notaDoGrafico}`;
+  escrito = questionarioNaResposta(`${graf.texto}${notaDoGrafico}`, pergunta);
   // com pesquisa, os anos citados são conferidos contra tudo que foi lido (trechos, resumos e anotações)
   const conferido = fontes.length ? conferirAnos(String(escrito || '').trim(), { material, pergunta, hoje }) : { texto: String(escrito || '').trim(), faltam: [] };
   if (conferido.faltam.length) emit('aviso', { texto: `conferência: ano(s) sem fonte na resposta: ${conferido.faltam.join(', ')}` });
@@ -2511,4 +2557,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
