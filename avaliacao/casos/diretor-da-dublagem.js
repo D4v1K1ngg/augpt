@@ -59,6 +59,14 @@ module.exports = [
         // frase (medido no TED-Ed: distância do timbre típico, média 0,123 → 0,025)
         /if \(comDuracao && voz\.modo !== 'clonar'\)/.test(dub) && /modo: 'clonar', referenciaFixa: \{ audio: ancora, texto: frase \}/.test(dub) && /o\.modo === 'clonar' && o\.referenciaFixa\?\.audio/.test(ler('src/estudio-de-voz/index.js')) || 'a voz âncora: o timbre não muda de fala em fala',
         /for i, texto in enumerate\(partes, 1\):[\s\S]{0,600}torch\.manual_seed\(int\(semente\)\)/.test(ler('src/estudio-de-voz/servidor.py')) || 'a mesma semente em cada parte',
+        // 18/11 (Davi, v4 do FalleN): "…mas no" | "Brasil todos…" — o pedaço solto vai para a fala seguinte
+        (() => { const r = d.remendarFrases([{ inicio: 0, fim: 10000, texto: 'Você gosta do Neo, mas no' }, { inicio: 10100, fim: 15000, texto: 'Brasil todos vieram.' }]); return r[0].texto === 'Você gosta do Neo,' && r[1].texto === 'mas no Brasil todos vieram.'; })() || 'frase partida: o pedaço vai para a próxima fala',
+        // nomes estrangeiros: o Qwen dá a grafia de como se fala, só para a voz (siglas e o que só muda o acento ficam)
+        (() => { const m = d.lerPronuncia('Counter-Strike => Cáunter Istráique\nCS => cê ésse\nFenix => Fénix\nInexistente => X\nNeo => Níou', ['Counter-Strike é CS, com Fenix e Neo']); return JSON.stringify(m) === '{"Counter-Strike":"Cáunter Istráique","Neo":"Níou"}' || JSON.stringify(m); })(),
+        d.aplicarPronuncia(['o counter-strike, Neon e Neo.'], { 'Counter-Strike': 'Cáunter Istráique', Neo: 'Níou' })[0] === 'o Cáunter Istráique, Neon e Níou.' || 'troca só a palavra inteira',
+        /estudio\.falas\(opcoesDaVoz, paraFalar\(textos\)/.test(dub) && /paraFalar\(idx\.map\(\(i\) => textos\[i\]\)\)/.test(dub) && /diretor\.ouvir\(f\.partes\.map\(\(p\) => p\.arquivo\), textos,/.test(dub) || 'a pronúncia vai só para a voz (o whisper confere com o texto original)',
+        // o fim seco do OmniVoice (~50 ms até o silêncio): um soltar de 120 ms e um pouco de sala em cada fala
+        /const ACABAMENTO = 'areverse,afade=t=in:d=0\.12/.test(dub) && /\$\{ACABAMENTO\}/.test(dub) || 'o fim de cada fala sem corte seco',
         /diretor\.ouvir\(f\.partes\.map/.test(dub) && /o\.nota < 0\.55/.test(dub) && /motivo: 'clara'/.test(dub) || 'ouve e refaz as falas que não ficaram claras',
       ];
     },

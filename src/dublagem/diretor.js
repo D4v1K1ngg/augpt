@@ -58,6 +58,22 @@ function juntarEmFrases(segs, { pausaMs = 450, maxMs = 11000, maxMsInacabada = 1
   return saida;
 }
 
+/**
+ * Frase partida entre duas falas (o limite de tempo cortou): o pedaço curto depois da última pontuação passa para a
+ * fala seguinte — 18/11: "…mas no" | "Brasil todos vieram…" soava como duas frases soltas.
+ */
+function remendarFrases(segs, { maxPalavras = 4 } = {}) {
+  for (let i = 0; i < segs.length - 1; i += 1) {
+    const t = segs[i].texto.trim();
+    if (FIM_DE_FRASE.test(t) || segs[i + 1].inicio - segs[i].fim > 450) continue;
+    const m = /^(.*[.,;:!?…])\s+([^.,;:!?…]+)$/.exec(t);
+    if (!m || m[2].split(/\s+/).length > maxPalavras) continue;
+    segs[i].texto = m[1];
+    segs[i + 1].texto = `${m[2]} ${segs[i + 1].texto.trim()}`;
+  }
+  return segs;
+}
+
 /** O tempo disponível de cada fala: até o começo da próxima (menos um respiro), sem passar do trecho + 3 s; mínimo 0,8 s. */
 function tempoDisponivel(segs, { respiro = 120, alemDoTrecho = 3000 } = {}) {
   return segs.map((s, i) => {
@@ -170,6 +186,69 @@ async function reescrever(textos, alvo, { chatStream, host, model, numCtx = 8192
   return { textos: novos, mudaram };
 }
 
+/* ------------------------------ pronúncia (só para a voz) ------------------------------ */
+
+/**
+ * 18/11 (Davi: "Coldzera", "Counter-Strike", "cyber café" mal pronunciados): o modelo de voz lê nomes e termos
+ * estrangeiros com as regras do idioma da dublagem. O Qwen lista esses termos com a grafia de como se fala
+ * ("Counter-Strike => Cáunter Stráique"); a troca vale só para a voz — a legenda e o roteiro ficam como estão.
+ */
+function pedidoDePronuncia(linhas, { para = 'pt' } = {}) {
+  const idioma = NOMES[para] || para;
+  return [
+    {
+      role: 'system',
+      content: `You prepare a script for a ${idioma} text-to-speech voice, which reads every word with ${idioma} spelling rules.
+List the words or names in the lines that are NOT ${idioma} (English names, nicknames, game titles, brands) and would be mispronounced, each with a respelling in ${idioma} orthography that makes the voice say it the way a native ${idioma} speaker says it. Put ONE stress mark per word, on the stressed vowel, and write diphthongs as one syllable ("ai", "ei", "ou").
+Examples for Brazilian Portuguese: "Counter-Strike => Cáunter Istráique", "Get Right => Guét Ráit", "gaming => guêimin", "Neo => Níou", "Taz => Tás".
+If a term is an obvious mis-hearing of a common term, respell the intended term ("Cyber Coffee" => "Sáiber Café").
+Never list ${idioma} words, ${idioma} names, numbers or acronyms (the voice reads those right). Output ONLY "term => respelling", one per line; output "none" if there are none.`,
+    },
+    { role: 'user', content: linhas.join('\n') },
+  ];
+}
+
+const semAcento = (t) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+const escaparRegex =(t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Troca os termos do mapa ({ termo: grafia }) nas falas, palavra inteira, sem diferenciar maiúsculas. */
+function aplicarPronuncia(textos, mapa) {
+  const termos = Object.keys(mapa).sort((a, b) => b.length - a.length);
+  if (!termos.length) return textos;
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])(${termos.map(escaparRegex).join('|')})(?![\\p{L}\\p{N}])`, 'giu');
+  const porMinuscula = Object.fromEntries(termos.map((t) => [t.toLowerCase(), mapa[t]]));
+  return textos.map((t) => String(t).replace(re, (x) => porMinuscula[x.toLowerCase()] || x));
+}
+
+function lerPronuncia(saida, textos) {
+  const todo = textos.join('\n').toLowerCase();
+  const mapa = {};
+  for (const linha of String(saida || '').replace(/<think>[\s\S]*?<\/think>/g, '').split('\n')) {
+    const m = /^\s*[-*•\d.)\s]*["“]?([^"”=]+?)["”]?\s*=>\s*["“]?([^"”]+?)["”]?\s*$/.exec(linha);
+    if (!m) continue;
+    const [termo, grafia] = [m[1].trim(), m[2].trim()];
+    // só o que existe nas falas, mudou de verdade (não só o acento) e tem um tamanho parecido; siglas a voz já soletra
+    if (termo.length < 2 || /^[\p{Lu}\d]{1,5}$/u.test(termo) || !todo.includes(termo.toLowerCase()) || semAcento(grafia) === semAcento(termo) || grafia.length > termo.length * 2.5 + 6) continue;
+    mapa[termo] = grafia;
+  }
+  return mapa;
+}
+
+async function pronuncia(textos, { chatStream, host, model, numCtx = 8192, signal, para = 'pt' }) {
+  if (typeof chatStream !== 'function' || !textos.length) return { textos, mapa: {} };
+  const mapa = {};
+  for (let k = 0; k < textos.length; k += 40) {
+    try {
+      const lote = textos.slice(k, k + 40);
+      const r = await chatStream({ host, model, messages: pedidoDePronuncia(lote, { para }), temperature: 0.2, numCtx: Math.max(numCtx, 8192), numPredict: 1500, pensar: false, signal, onToken: () => {} });
+      Object.assign(mapa, lerPronuncia(r.content, lote));
+    } catch (err) {
+      if (signal?.aborted) throw err;
+    }
+  }
+  return { textos: aplicarPronuncia(textos, mapa), mapa };
+}
+
 /* ------------------------------ ouvir (o whisper confere as falas) ------------------------------ */
 
 const norm = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').split(/\s+/).filter((p) => p.length > 1);
@@ -236,4 +315,4 @@ async function ouvir(arquivos, textos, { ffmpeg, whisper, para = 'pt', pasta, si
   return ouvidos.map((o, i) => ({ ouvido: o.join(' '), nota: semelhanca(textos[i], o.join(' ')) }));
 }
 
-module.exports = { energiaDaVoz, alinharAoOriginal, juntarEmFrases, tempoDisponivel, tempoAlvo, longasDemais, reescrever, pedidoDoDiretor, lerDiretor, semelhanca, ouvir, tamanho, CPS, CPS_MAXIMO };
+module.exports = { energiaDaVoz, alinharAoOriginal, juntarEmFrases, remendarFrases, pronuncia, aplicarPronuncia, lerPronuncia, tempoDisponivel, tempoAlvo, longasDemais, reescrever, pedidoDoDiretor, lerDiretor, semelhanca, ouvir, tamanho, CPS, CPS_MAXIMO };

@@ -365,7 +365,7 @@
     if (!voz) return status('Escolha a voz da dublagem.');
     const r = await tarefa('Dublando… (gera uma fala por trecho: leva alguns minutos)', () => api.studio.dublar({ video: st.projeto.video, srt: st.arquivoTrad, para: idioma(), voz, fundo: $('stFundo').value }));
     if (!r?.ok) return;
-    status(`Dublagem pronta ✓ ${r.falas} falas em ${Math.max(1, Math.round(r.segundos / 60))} min${r.encurtadas ? ` · diretor: ${r.encurtadas} encurtadas para caber no tempo` : ''}${r.refeitas ? `, ${r.refeitas} refeitas por não ficarem claras` : ''}${r.nota != null ? ` · ${r.nota}% entendidas` : ''}${r.aceleradas ? ` · ${r.aceleradas} aceleradas` : ''}`);
+    status(`Dublagem pronta ✓ ${r.falas} falas em ${Math.max(1, Math.round(r.segundos / 60))} min${r.encurtadas ? ` · diretor: ${r.encurtadas} encurtadas para caber no tempo` : ''}${r.refeitas ? `, ${r.refeitas} refeitas por não ficarem claras` : ''}${r.pronuncias && Object.keys(r.pronuncias).length ? ` · pronúncia ajustada: ${Object.keys(r.pronuncias).slice(0, 4).join(', ')}${Object.keys(r.pronuncias).length > 4 ? '…' : ''}` : ''}${r.nota != null ? ` · ${r.nota}% entendidas` : ''}${r.aceleradas ? ` · ${r.aceleradas} aceleradas` : ''}`);
     await carregarProjeto(r.projeto);
     trocarFonte('dublado', { manterTempo: false });
   });

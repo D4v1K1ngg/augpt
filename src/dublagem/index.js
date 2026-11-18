@@ -23,6 +23,11 @@ const IDIOMA_DO_ESTUDIO = { pt: 'portuguese', en: 'english', es: 'spanish', fr: 
 // 18/11: até 1,15× a aceleração não se percebe; acima disso a fala é encurtada pelo Qwen (antes: até 1,5×, e soava
 // corrida — no vídeo do FalleN, 1,25× ainda deixava 19 de 64 falas apressadas)
 const ACELERAR_ATE = 1.15;
+/**
+ * O fim de cada fala (18/11, Davi: "um corte muito agressivo no fim do 'mim'", "o 'lá' com um corte"): o OmniVoice
+ * para de soar em ~50 ms, seco. Um soltar de 120 ms e um pouco de sala (eco curto e baixo) dão a queda natural da voz.
+ */
+const ACABAMENTO = 'areverse,afade=t=in:d=0.12:curve=qsin,areverse,apad=pad_dur=0.25,aecho=0.85:0.55:40|75:0.12|0.06';
 /*
  * A voz âncora (17/11, Davi: "o Narrador fica trocando de timbre durante o vídeo"): a voz descrita cria uma voz nova a cada
  * geração — em dezenas de falas curtas, o timbre muda. Antes das falas, a voz descrita lê UMA frase; todas as falas do
@@ -105,7 +110,7 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
   // 17/11 (Studio): com a legenda pronta (a que o usuário editou), não transcreve nem traduz de novo
   const leg = srt && fs.existsSync(srt) && fs.existsSync(entrada) ? { video: entrada, srt, idiomaFalado: null, faltaram: 0 } : await legendar({ entrada, para, de, gravar: 'nao' }, deps);
   // as frases inteiras (18/11): os pedaços que o whisper cortou viram uma fala só
-  const segs = diretor.juntarEmFrases(lerSrt(fs.readFileSync(leg.srt, 'utf8')).map((s) => ({ inicio: emMs(s.inicio), fim: emMs(s.fim), texto: s.texto })));
+  const segs = diretor.remendarFrases(diretor.juntarEmFrases(lerSrt(fs.readFileSync(leg.srt, 'utf8')).map((s) => ({ inicio: emMs(s.inicio), fim: emMs(s.fim), texto: s.texto }))));
   if (!segs.length) throw new Error('não ouvi fala nesse vídeo');
   // 1b. a voz original sai: o fundo (música, ambiente) separado pelo Demucs, na placa
   const separado = fundo === 'separado';
@@ -140,6 +145,10 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     textos = r.textos;
     encurtadas += r.mudaram;
   }
+  // como a voz deve ler os nomes estrangeiros (só para a voz; a legenda e o roteiro ficam como estão)
+  emitir({ etapa: 'diretor', texto: 'Diretor: conferindo a pronúncia dos nomes estrangeiros…' });
+  const { mapa: pronuncias } = await diretor.pronuncia(textos, llm);
+  const paraFalar = (lista) => diretor.aplicarPronuncia(lista, pronuncias);
   let opcoesDaVoz = { ...voz, idioma: IDIOMA_DO_ESTUDIO[para] || 'auto', legenda: false, margem: 0.05, suavizar: 0.05, semente: Number.isFinite(Number(voz.semente)) ? Number(voz.semente) : 1234 };
   // a voz âncora: uma frase com a voz descrita (ou automática), e as falas clonam essa frase — o timbre não muda
   let ancora = null;
@@ -154,12 +163,12 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
   }
   // 2a. no ritmo natural do modelo (18/11: a duração forçada em todas dava fala corrida e os ruídos do OmniVoice)
   emitir({ etapa: 'falando', texto: `Gerando as falas… 0/${segs.length}` });
-  const f = await estudio.falas(opcoesDaVoz, textos, {
+  const f = await estudio.falas(opcoesDaVoz, paraFalar(textos), {
     emitir: (p) => emitir({ etapa: 'falando', texto: p.parte ? `Gerando as falas… ${p.parte}/${p.de || segs.length}` : `Gerando as falas… ${p.texto || ''}`.trim() }),
   });
   /** Troca as falas `idx` pelas geradas de novo (com `duracoes` só no último recurso). */
   const refazer = async (idx, { duracoes = null } = {}) => {
-    const de2 = await estudio.falas(opcoesDaVoz, idx.map((i) => textos[i]), duracoes ? { duracoes } : {});
+    const de2 = await estudio.falas(opcoesDaVoz, paraFalar(idx.map((i) => textos[i])), duracoes ? { duracoes } : {});
     idx.forEach((i, k) => {
       const novo = path.join(f.tmp, `refeita-${i}-${Date.now()}.wav`);
       fs.copyFileSync(de2.partes[k].arquivo, novo);
@@ -242,7 +251,7 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     for (const [i, p] of f.partes.entries()) {
       const raw = path.join(f.tmp, `fala-${i}.raw`);
       const vel = plano[i].velocidade;
-      await rodar(ffmpeg, ['-y', '-i', p.arquivo, ...(vel > 1.01 ? ['-af', `atempo=${vel}`] : []), '-ac', '1', '-ar', String(f.taxa), '-f', 's16le', raw], { signal });
+      await rodar(ffmpeg, ['-y', '-i', p.arquivo, '-af', `${vel > 1.01 ? `atempo=${vel},` : ''}${ACABAMENTO}`, '-ac', '1', '-ar', String(f.taxa), '-f', 's16le', raw], { signal });
       const b = fs.readFileSync(raw);
       falas.push({ inicio: plano[i].inicio, amostras: new Int16Array(b.buffer, b.byteOffset, Math.floor(b.length / 2)) });
     }
@@ -278,10 +287,12 @@ async function dublar({ entrada, para = 'pt', de = 'auto', voz = {}, fundo = 0.1
     return {
       saida, video: leg.video, srt: leg.srt, idiomaFalado: leg.idiomaFalado, falas: segs.length, semVozOriginal: separado, faltaram: leg.faltaram || 0,
       aceleradas: plano.filter((p) => p.velocidade > 1.05).length, segundos: Math.round((Date.now() - inicio) / 1000),
-      encurtadas, refeitas, forcadas, nota, ritmo,
+      encurtadas, refeitas, forcadas, nota, ritmo, pronuncias,
     };
   } finally {
-    fs.rmSync(f.tmp, { recursive: true, force: true });
+    // DEPURAR_DUBLAGEM=1: as falas ficam (e o plano de cada uma), para analisar corte e pronúncia
+    if (process.env.DEPURAR_DUBLAGEM) fs.writeFileSync(path.join(f.tmp, 'falas.json'), JSON.stringify(segs.map((s, i) => ({ i, inicio: s.inicio, texto: textos[i], arquivo: f.partes[i]?.arquivo, segundos: f.partes[i]?.segundos })), null, 1)), console.error('[dublagem] falas em', f.tmp);
+    else fs.rmSync(f.tmp, { recursive: true, force: true });
     if (pastaDoFundo) fs.rmSync(pastaDoFundo, { recursive: true, force: true });
     if (ancora) fs.rmSync(ancora, { force: true });
   }
