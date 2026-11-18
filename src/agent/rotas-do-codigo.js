@@ -42,6 +42,7 @@ const ROTAS = [
     // áudio anexado e já transcrito pela tela (31/10): a primeira — o texto do áudio tem palavra de tudo
     // ("vai chover", "bom dia") e não pode cair em outra rota
     id: 'audio_transcrito',
+    aceitaTextoLongo: true, // o texto do áudio é longo por natureza
     detecta: ({ objetivo }) => audio.pedidoDeAudio(objetivo),
     responde: ({ deps, config }, pedido) => audio.responderAudio({ pedido, deps, config }),
   },
@@ -68,6 +69,7 @@ const ROTAS = [
     // o PDF do boleto anexado (31/10): valor, vencimento, linha digitável conferida e o lembrete na Agenda;
     // "quais contas eu tenho este mês?" soma os guardados
     id: 'boleto',
+    aceitaTextoLongo: true, // o PDF anexado vem no texto
     detecta: ({ objetivo, config }) => boleto.pedidoDeBoleto(objetivo, { workspace: config?.workspace }) || boleto.pedidoDeContas(objetivo),
     responde: ({ deps, config, pasta }, pedido) => boleto.responderBoleto({ pedido, deps, config, pasta }),
   },
@@ -225,8 +227,20 @@ const ROTAS = [
 ];
 
 /** A primeira rota que reconhece o pedido → { rota, pedido } ou null (vai para a pesquisa). */
+/**
+ * Texto longo colado (18/11, Davi: uma prova de 10 questões com "placa de rede" numa alternativa caiu nos ajustes da
+ * placa): as palavras-chave das rotas só valem em pedido curto e direto; num texto longo quem escolhe a ação é o modelo
+ * (o "acao" do entendimento), como escolhe pesquisar. Conta só o que o usuário escreveu (os anexos ficam de fora).
+ */
+function textoLongo(objetivo) {
+  const proprio = String(objetivo || '').split(/\n\nArquivos anexados/)[0];
+  return proprio.length > 500 || proprio.split('\n').filter((l) => l.trim()).length > 8;
+}
+
 function escolherRota(ctx) {
+  const longo = textoLongo(ctx.objetivo);
   for (const rota of ROTAS) {
+    if (longo && !rota.aceitaTextoLongo) continue;
     const pedido = rota.detecta(ctx);
     if (pedido) return { rota, pedido };
   }
@@ -255,4 +269,4 @@ function executar(id, ctx) {
   return rota ? responderPelaRota(ctx, { rota, pedido: null }) : Promise.resolve(null);
 }
 
-module.exports = { ROTAS, escolherRota, responderPelaRota, executar, intencao };
+module.exports = { textoLongo, ROTAS, escolherRota, responderPelaRota, executar, intencao };

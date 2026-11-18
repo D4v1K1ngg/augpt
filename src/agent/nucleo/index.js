@@ -154,11 +154,13 @@ const SEM_BUSCA = /^\s*(oi|ol[aá]|bom dia|boa (tarde|noite)|e a[ií]|obrigad[oa
 // questão de prova com alternativas, de qualquer matéria (30/10, registros do Davi: uma prova da OAB colada caiu
 // em "consultar o PC") — não usa rota do código. Pesquisar continua: sem fontes, o modelo citou artigo de lei
 // que parecia inventado; só a de exatas (a conta está no enunciado) responde sem pesquisa.
-const ALTERNATIVAS = /(?:^|\n)\s*[•\-*]?\s*\(?[A-Ea-e]\)\s+\S/;
+// "a)", "(a)" e também "a." (18/11: a prova do Davi vinha com "a. \tRealizar a comunicação…" e não era reconhecida)
+const ALTERNATIVAS = /(?:^|\n)\s*[•\-*]?\s*\(?[A-Ea-e][).]\s+\S/;
 // (número de lei, decreto ou resolução — "Lei nº 8.906/94" — não é conta)
 const SEM_NUMERO_DE_LEI = (t) => String(t).replace(/\b(lei|decreto|resolu[cç][aã]o|portaria|medida provis[oó]ria|mp|s[uú]mula|art(igo)?s?\.?)\s*(complementar\s*)?(n[ºo°.]*\s*)?[\d.\/-]+/gi, ' ');
 const QUESTAO_DE_EXATAS = (t) => /\bquest[aã]o\s*\d/i.test(t) && /\\\(|\\\[|\\frac|\^|\b\d+\s*[=+*/x×]\s*\d|\b[a-z]\s*[=+]\s*\d|\bf\(x\)|\blog_?\d|\bmatriz\b/i.test(SEM_NUMERO_DE_LEI(t));
-const QUESTAO_DE_PROVA = (t) => QUESTAO_DE_EXATAS(t) || (/\bquest[aã]o\s*\d/i.test(t) && ALTERNATIVAS.test(t));
+// "Questão 1", "Pergunta 1", "Exercício 1" (18/11: "Pergunta 1 … a. b. c." caiu nos ajustes da placa de rede)
+const QUESTAO_DE_PROVA = (t) => QUESTAO_DE_EXATAS(t) || (/\b(quest[aã]o|pergunta|exerc[ií]cio)\s*\d/i.test(t) && ALTERNATIVAS.test(t));
 // sobre o próprio AuGPT e conta direta (23/10, histórico: "Quem é você?" fez 6 buscas e citou a Wikipédia)
 const SOBRE_O_AUGPT = /^\s*(quem (é|e) (voc[eê]|vc|o augpt)|o que (voc[eê]|vc) (é|e)(?![a-zà-ú])|como (voc[eê]|vc) funciona|quem (te|o) (criou|fez|desenvolveu)|qual (é |e )?(o )?seu nome|voc[eê] (é|e) (uma )?(ia|intelig|rob[oô]))/i;
 const CONTA_DIRETA = /^\s*(resolva|calcule|quanto (é|e|da|dá)|derive|integre|simplifique|fatore)(?![a-zà-ú])[^?]*[\d=+\-*/^√]/i;
