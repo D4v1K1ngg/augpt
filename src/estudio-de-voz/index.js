@@ -133,9 +133,10 @@ async function pronunciasDoTexto(o = {}, llm = {}) {
 
 /**
  * O fim de cada parte (18/11, da dublagem: "um corte muito agressivo no fim do 'mim'"): o OmniVoice para de soar em
- * ~50 ms, seco. Um soltar de 120 ms e um pouco de sala (eco curto e baixo) dão a queda natural da voz; soma 0,25 s.
+ * ~50 ms, seco. Um soltar de 120 ms dá a queda natural da voz; soma 0,25 s. (Sem o eco de sala do 1º ajuste: 18/11, o
+ * Davi achou a voz clonada "artificial, de robô" — o eco passava pela parte inteira e colore o timbre.)
  */
-const SOLTAR_DA_FALA = 'areverse,afade=t=in:d=0.12:curve=qsin,areverse,apad=pad_dur=0.25,aecho=0.85:0.55:40|75:0.12|0.06';
+const SOLTAR_DA_FALA = 'areverse,afade=t=in:d=0.12:curve=qsin,areverse,apad=pad_dur=0.25';
 const SOLTAR_SEGUNDOS = 0.25;
 const FORMATOS = { mp3: ['-c:a', 'libmp3lame', '-b:a', '192k'], wav: ['-c:a', 'pcm_s16le'], ogg: ['-c:a', 'libvorbis', '-q:a', '6'], flac: ['-c:a', 'flac'], m4a: ['-c:a', 'aac', '-b:a', '192k'] };
 
@@ -221,6 +222,43 @@ function filtros({ velocidade = 1, tom = 0, volume = 0, normalizar = true } = {}
   if (Number(volume)) f.push(`volume=${Number(volume)}dB`);
   if (normalizar) f.push('loudnorm=I=-16:TP=-1.5:LRA=11');
   return f.join(',');
+}
+
+/**
+ * A gravação de uma voz clonada serve para clonar? (18/11, Davi: a voz clonada "parece robô, não fica fluida".) O
+ * OmniVoice copia o RITMO da gravação: com a dele (7 s, uma frase dramática e pausada) o mesmo texto saiu com 13 s de
+ * silêncio em 44 s; com uma gravação calma e corrida, 2,8 s em 29 s. Mede a duração, as pausas no meio da fala e as letras
+ * por segundo (com o texto dito), e devolve os avisos. WAV PCM 16 bits mono (o referencia.wav do Estúdio); senão, null.
+ */
+function avaliarReferencia(buf, texto = '') {
+  if (!buf || buf.toString('ascii', 0, 4) !== 'RIFF' || buf.readUInt16LE(22) !== 1 || buf.readUInt16LE(34) !== 16) return null;
+  const taxa = buf.readUInt32LE(24);
+  let pos = 12;
+  while (pos + 8 <= buf.length && buf.toString('ascii', pos, pos + 4) !== 'data') pos += 8 + buf.readUInt32LE(pos + 4);
+  if (pos + 8 > buf.length) return null;
+  const tam = Math.min(buf.readUInt32LE(pos + 4), buf.length - pos - 8) & ~1;
+  const a = new Int16Array(buf.buffer.slice(buf.byteOffset + pos + 8, buf.byteOffset + pos + 8 + tam));
+  const jan = Math.round(taxa * 0.02);
+  const db = [];
+  for (let k = 0; k + jan <= a.length; k += jan) {
+    let s = 0;
+    for (let j = k; j < k + jan; j += 1) s += a[j] * a[j];
+    db.push(10 * Math.log10(s / jan / 1073741824 + 1e-12));
+  }
+  if (db.length < 10) return null;
+  const forte = [...db].sort((x, y) => x - y)[Math.floor(db.length * 0.9)];
+  const fala = db.map((d) => d > forte - 30);
+  const ini = fala.indexOf(true);
+  const fim = fala.lastIndexOf(true);
+  const segundos = Math.round(((fim - ini + 1) * 20) / 100) / 10;
+  const pausas = fala.slice(ini, fim + 1).filter((x) => !x).length / Math.max(1, fim - ini + 1);
+  const letras = String(texto || '').replace(/[^\p{L}\p{N}]/gu, '').length;
+  const ritmo = letras && segundos ? Math.round((letras / segundos) * 10) / 10 : null;
+  const avisos = [];
+  if (segundos < 5) avisos.push(`a gravação é curta (${String(segundos).replace(".", ",")} s): de 10 a 20 s a voz sai mais natural`);
+  if (pausas > 0.2) avisos.push(`tem muitas pausas (${Math.round(pausas * 100)}% de silêncio no meio): a voz clonada copia o ritmo e fala aos trancos`);
+  if (ritmo != null && ritmo < 10) avisos.push('a fala da gravação é lenta ou dramática: a voz clonada fala do mesmo jeito');
+  return { segundos, pausas: Math.round(pausas * 100) / 100, ritmo, avisos };
 }
 
 /**
@@ -746,7 +784,11 @@ class EstudioDeVoz {
     return fs.readdirSync(this.dirVozes()).map((id) => {
       try {
         const j = JSON.parse(fs.readFileSync(path.join(this.dirVozes(), id, 'voz.json'), 'utf8'));
-        return { id, ...j, audio: path.join(this.dirVozes(), id, 'referencia.wav') };
+        const audio = path.join(this.dirVozes(), id, 'referencia.wav');
+        // se a gravação serve para clonar (medida uma vez por voz, também nas que já existiam)
+        if (!this.qualidades) this.qualidades = new Map();
+        if (!this.qualidades.has(audio)) this.qualidades.set(audio, fs.existsSync(audio) ? avaliarReferencia(fs.readFileSync(audio), j.texto) : null);
+        return { id, ...j, audio, qualidade: this.qualidades.get(audio) };
       } catch {
         return null;
       }
@@ -815,4 +857,4 @@ const textoDaResposta = (markdown) =>
     .filter((p) => /[\p{L}\d]/u.test(p))
     .join('\n\n');
 
-module.exports = { SOLTAR_DA_FALA, pronunciasDoTexto, chaveDoPedido, rotuloDaVoz, textoDaResposta, cheioDeSiglas, encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };
+module.exports = { avaliarReferencia, SOLTAR_DA_FALA, pronunciasDoTexto, chaveDoPedido, rotuloDaVoz, textoDaResposta, cheioDeSiglas, encurtarPausas, EstudioDeVoz, MOTORES, ACABAMENTO, FORMATOS, IDIOMAS, UV, dividirTexto, prepararParte, legenda, filtros, tempoSrt, nomeDeArquivo };

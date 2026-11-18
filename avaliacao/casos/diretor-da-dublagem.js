@@ -71,6 +71,24 @@ module.exports = [
         /estudio\.falas\(opcoesDaVoz, paraFalar\(textos\)/.test(dub) && /paraFalar\(idx\.map\(\(i\) => textos\[i\]\)\)/.test(dub) && /diretor\.ouvir\(f\.partes\.map\(\(p\) => p\.arquivo\), textos,/.test(dub) || 'a pronúncia vai só para a voz (o whisper confere com o texto original)',
         // o fim seco do OmniVoice (~50 ms até o silêncio): um soltar de 120 ms e um pouco de sala em cada fala
         /const \{ SOLTAR_DA_FALA: ACABAMENTO \} = require\('\.\.\/estudio-de-voz'\)/.test(dub) && /\$\{ACABAMENTO\}/.test(dub) || 'o fim de cada fala sem corte seco',
+        // 18/11 (Davi: a voz clonada "parece robô, não fica fluida"): a gravação pausada ou curta é avisada
+        (() => {
+          const { avaliarReferencia } = require('../../src/estudio-de-voz');
+          const wav = (seg, buraco) => {
+            const taxa = 16000;
+            const a = new Int16Array(taxa * seg);
+            for (let k = 0; k < a.length; k += 1) a[k] = buraco(k / taxa) ? 0 : Math.round(8000 * Math.sin(k / 3));
+            const b = Buffer.alloc(44 + a.length * 2);
+            b.write('RIFF', 0); b.writeUInt32LE(36 + a.length * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
+            b.writeUInt32LE(taxa, 24); b.writeUInt32LE(taxa * 2, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(a.length * 2, 40);
+            Buffer.from(a.buffer).copy(b, 44);
+            return b;
+          };
+          const pausada = avaliarReferencia(wav(8, (t) => t % 1 > 0.6), 'x'.repeat(60));
+          const corrida = avaliarReferencia(wav(12, () => false), 'x'.repeat(160));
+          return (pausada.avisos.length === 2 && /muitas pausas/.test(pausada.avisos.join()) && /lenta/.test(pausada.avisos.join()) && corrida.avisos.length === 0) || JSON.stringify({ pausada, corrida });
+        })(),
+        !/aecho/.test(require('../../src/estudio-de-voz').SOLTAR_DA_FALA) || 'o soltar sem eco (coloria o timbre)',
         // 18/11 (Davi: "implementar essas melhorias para o Estúdio de voz"): o mesmo fim solto, a pronúncia e o texto limpo
         (() => {
           const ev = require('../../src/estudio-de-voz');

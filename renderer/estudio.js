@@ -321,11 +321,18 @@
       }
     } else if (modo === 'clonar') {
       const v = (est.vozes || []).find((x) => x.id === escolhas.vozSalva);
-      campo(`<p class="dica">${v ? `Clonando <b>${esc(v.nome)}</b>.` : 'Nenhuma voz clonada escolhida.'} Troque no passo 2, "Escolha a voz".</p>`);
+      campo(`<p class="dica">${v ? `Clonando <b>${esc(v.nome)}</b>.` : 'Nenhuma voz clonada escolhida.'} Troque no passo 2, "Escolha a voz".</p>${avisoDaVoz(v)}`);
     }
     // sons no meio do texto (OmniVoice)
     $('estudioMarca').hidden = !m.marcas;
     if (m.marcas) $('estudioMarca').innerHTML = `<option value="">Inserir som…</option>${m.marcas.map(([t, r]) => `<option value="${esc(t)}">${esc(r)} ${esc(t)}</option>`).join('')}`;
+  }
+
+  /** 18/11: a gravação da voz clonada é curta, pausada ou dramática — a voz clonada copia isso; diz como gravar melhor. */
+  function avisoDaVoz(v) {
+    const avisos = v?.qualidade?.avisos || [];
+    if (!avisos.length) return '';
+    return `<p class="dica estudio-aviso-voz">⚠ A gravação desta voz ${esc(avisos.join('; '))}. Para uma narração fluida, clone de novo com 10 a 20 s lendo um texto corrido, com calma (botão "Clonar uma voz").</p>`;
   }
 
   function pintarAjustes() {
@@ -585,6 +592,13 @@
     const r = await api.estudio.salvarVoz({ nome: $('estudioVozNome').value || 'Minha voz', texto: $('estudioVozTexto').value, autorizada: true });
     $('estudioVozSalvar').disabled = false;
     if (!r.ok) return ($('estudioVozErro').textContent = `Não deu: ${r.error}`);
+    // a gravação não serve bem para clonar: avisa antes de fechar (a voz fica salva; dá para trocar o áudio)
+    if (r.voz?.qualidade?.avisos?.length) {
+      $('estudioVozSalvar').hidden = true; // já salvou: salvar de novo duplicaria a voz
+      $('estudioVozErro').innerHTML = `Voz salva. Mas a gravação ${esc(r.voz.qualidade.avisos.join('; '))}. A voz clonada copia o ritmo da gravação: para narrar, prefira 10 a 20 s lendo com calma. <button class="btn-link" type="button" id="estudioVozOk">Entendi</button>`;
+      await new Promise((ok) => ($('estudioVozOk').addEventListener('click', ok, { once: true }), $('dlgEstudioVoz').addEventListener('close', ok, { once: true })));
+      $('estudioVozSalvar').hidden = false;
+    }
     $('dlgEstudioVoz').close();
     est = await api.estudio.estado();
     // a voz nova já fica escolhida
