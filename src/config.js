@@ -8,6 +8,8 @@ const DEFAULTS = {
   model: '',
   modelDecisao: '',
   modelRedacao: '',
+  // especialistas (19/11): { prova: 'modelo', imagem: 'modelo' } — vazio = o modelo do topo (src/agent/especialistas.js)
+  especialistas: {},
   embedModel: 'nomic-embed-text',
   temperature: 0.4,
   numCtx: 16384,

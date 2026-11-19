@@ -122,6 +122,8 @@ async function salvarAjustes() {
     codeTimeoutMs: segundos,
     modelDecisao: $('cfgModeloDecisao').value,
     modelRedacao: $('cfgModeloRedacao').value,
+    // especialistas (19/11): vazio = o modelo do topo
+    especialistas: { prova: $('cfgEspProva').value, imagem: $('cfgEspImagem').value },
     searxngUrl: $('cfgSearx').value.trim(),
     marginaliaKey: $('cfgMarginaliaKey').value.trim() || 'public',
     jinaKey: $('cfgJinaKey').value.trim(),
@@ -173,6 +175,8 @@ function pintarModelosDeEtapa() {
   for (const [id, valor] of [
     ['cfgModeloDecisao', config.modelDecisao],
     ['cfgModeloRedacao', config.modelRedacao],
+    ['cfgEspProva', config.especialistas?.prova],
+    ['cfgEspImagem', config.especialistas?.imagem],
   ]) {
     $(id).innerHTML = '<option value="">o mesmo do topo</option>' + opcoes.map(opcaoHtml).join('');
     $(id).value = valor || '';

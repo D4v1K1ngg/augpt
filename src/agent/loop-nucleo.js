@@ -35,6 +35,7 @@ const { explicarTermos } = require('./glossario');
 const { comLinks } = require('./escritor-de-cartoes');
 const { notaSemNasLojas } = require('./compras-no-chat');
 const { mesmaResposta } = require('./resposta-repetida');
+const { escolherEspecialista } = require('./especialistas');
 
 /**
  * Imagem no tamanho que o modelo lê bem (16/10, foto de 474 px de um EPOS H6PRO:
@@ -67,7 +68,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
   const conversa = (Array.isArray(conversaCrua) ? conversaCrua : []).map((m) => (typeof m?.content === 'string' && /```(calendario|clima|mapa|compras)\n/.test(m.content) ? { ...m, content: m.content.replace(/\n*```(calendario|clima|mapa|compras)\n([\s\S]*?)```/g, (_, tipo, json) => `\n${lugares.rastroDoCartao(tipo, json)}`) } : m));
   // prova com várias questões (18/10): ~700 tokens por questão resolvida; o
   // padrão de 3.072 cortava a resposta na 4ª de 10
-  const questoes = new Set((String(objetivo).match(/\bquest(?:ão|ao)\s*(\d+)/gi) || []).map((q) => q.replace(/\D/g, ''))).size;
+  const questoes = new Set((String(objetivo).match(/\b(?:quest(?:ão|ao)|pergunta|exerc[ií]cio)\s*(\d+)/gi) || []).map((q) => q.replace(/\D/g, ''))).size;
   // página interativa (bloco visual, item 4): o HTML inteiro não cabe em 3.072 (18/10: a animação foi cortada no meio)
   const limiteDaEscrita = Math.max(Number(this.config.numPredictResposta) || 3072, Math.min(12000, questoes * 700), nucleo.pedeVisual(objetivo) ? 8000 : 0);
   const inicio = Date.now();
@@ -85,7 +86,11 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
       /* imagem que não abre: segue sem ela */
     }
   }
-  const modelo = cfg.model;
+  // o especialista do tipo de pedido (19/11, Ajustes → Especialistas): prova, imagem anexada…; vazio = o modelo do topo
+  const especialista = await escolherEspecialista({ objetivo, imagens: imagensDoPedido, config: cfg, listar: async () => (await ollama.listModels(cfg.host)).map((m) => m.name) }).catch(() => null);
+  if (especialista?.faltando) this.emit('aviso', { texto: `especialista de ${especialista.nome.toLowerCase()}: o modelo "${especialista.faltando}" não está instalado — segue com o modelo principal` });
+  else if (especialista?.modelo) this.emit('aviso', { texto: `especialista de ${especialista.nome.toLowerCase()}: ${especialista.modelo}` });
+  const modelo = especialista?.modelo || cfg.model;
   const signal = this.controller.signal;
   const ctxWeb = {
     estado: {},
@@ -130,7 +135,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // o modelo da redação (Ajustes) também vale na pesquisa (12/11: só o caminho antigo das tarefas o usava) —
     // o modelo principal pesquisa e decide, o da redação escreve a resposta
     escrever: async (messages, onToken) => {
-      const r = await ollama.chatStream({ host: cfg.host, model: cfg.modelRedacao || modelo, messages, temperature: 0.4, numCtx: 16384, numPredict: limiteDaEscrita, manterVivo: cfg.manterModeloVivo, signal, onToken: (p) => {
+      const r = await ollama.chatStream({ host: cfg.host, model: especialista?.modelo || cfg.modelRedacao || modelo, messages, temperature: 0.4, numCtx: 16384, numPredict: limiteDaEscrita, manterVivo: cfg.manterModeloVivo, signal, onToken: (p) => {
         escreveu = true;
         // 29/10: o tempo até a primeira palavra da resposta — o que se sente esperando
         if (!tempos.primeiraPalavraMs) tempos.primeiraPalavraMs = Date.now() - inicio;

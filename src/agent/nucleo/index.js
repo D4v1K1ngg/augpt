@@ -676,6 +676,26 @@ const listaParaOModelo = (fontes) => fontes.map((f) => `[${f.n}] ${f.titulo || d
  */
 const PEDE_APARENCIA = /\b(apar[eê]ncia|aparenta|visual|design|cor|cores|bonit\w*|feio|feia|formato|estilo|layout|como (é|e|são|sao|fica|ficou) (o|a|os|as) (visual|design|cor|traseira|frente|dianteira|lateral|interior|painel|cara|parte de tr[aá]s)|onde fica (o|a) (bot[aã]o|porta|entrada|sa[ií]da|pe[cç]a|conector|tecla)|diferen[cç]a visual|parece com|fotos?|imagens?|como ele é|como ela é)\b/i;
 
+/**
+ * A busca que acha o anúncio de um link de loja que não abriu, pelos números dele (19/11): Shopee
+ * (product/LOJA/ITEM ou i.LOJA.ITEM), Mercado Livre (MLB…), Amazon (/dp/…); nas outras, as palavras do endereço.
+ */
+function buscaPeloLink(url) {
+  const u = String(url || '');
+  const shopee = /shopee\.[a-z.]+\/(?:product\/(\d+)\/(\d+)|.*?-i\.(\d+)\.(\d+))/i.exec(u);
+  if (shopee) return `shopee "${shopee[1] || shopee[3]}.${shopee[2] || shopee[4]}"`;
+  const ml = /\b(MLB-?\d{6,})/i.exec(u);
+  if (ml) return `mercado livre ${ml[1].replace('-', '')}`;
+  const amazon = /amazon\.[a-z.]+\/(?:.*\/)?(?:dp|gp\/product)\/([A-Z0-9]{10})/i.exec(u);
+  if (amazon) return `amazon ${amazon[1]}`;
+  try {
+    const palavras = decodeURIComponent(new URL(u).pathname).split(/[^\p{L}\p{N}]+/u).filter((p) => p.length > 2 && !/^\d+$/.test(p));
+    return palavras.length >= 2 ? palavras.slice(0, 10).join(' ') : '';
+  } catch {
+    return '';
+  }
+}
+
 async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = false, recomendacao = produto, assuntos = [], conversa = [], imagemAnexada = '', atual = false, sobreOUsuario = '', linksDoUsuario = [], buscasIniciais = [], partes = [] }) {
   const { chamar, buscar, lerPagina, embed, emit = () => {}, signal, buscarNaComunidade } = deps;
   const oficiais = oficiaisDaPergunta(pergunta);
@@ -926,7 +946,27 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     fontes.push(f);
     porUrl.set(url, f);
     const lido = await executarLeitura({ fonte: f.n, foco: pergunta }, { garantia: true });
-    historico.push({ role: 'user', content: `O usuário mandou este link na pergunta e ele já foi lido (é a fonte [${f.n}]):\n${String(lido).slice(0, 3500)}` });
+    if (f.trechos.length || f.video) {
+      historico.push({ role: 'user', content: `O usuário mandou este link na pergunta e ele já foi lido (é a fonte [${f.n}]):\n${String(lido).slice(0, 3500)}` });
+      continue;
+    }
+    // 19/11 (Davi, um link da Shopee): a loja não abre para leitura automática, e o modelo chutou "eletrônico" pelo número
+    // do produto (era um óleo cicatrizante). O link não lido sai das fontes; o código busca pelos números do anúncio (a
+    // busca seguinte achou o anúncio exato com eles) e o escritor é avisado de que o link não abriu
+    // o link que não abriu sai das fontes: não pode ser citado (19/11, no teste: "baseado no anúncio [1]" com um produto inventado)
+    fontes.splice(fontes.indexOf(f), 1);
+    porUrl.delete(url);
+    fontes.linkNaoAbriu = url;
+    const busca = buscaPeloLink(url);
+    const achado = busca ? await executarBusca([busca], { maximo: 4 }).catch(() => '') : '';
+    // o mesmo anúncio (os mesmos números no endereço) o código lê — não fica a cargo do modelo escolher
+    const numeros = (/"([\d.]+)"/.exec(busca || '')?.[1] || /(MLB\d+|[A-Z0-9]{10})$/.exec(busca || '')?.[1] || '').split('.').filter(Boolean);
+    const mesmo = numeros.length ? fontes.find((x) => !x.trechos.length && numeros.every((n) => String(x.url).replace(/-/g, '').includes(n))) : null;
+    if (mesmo) {
+      await executarLeitura({ fonte: mesmo.n, foco: pergunta }, { garantia: true });
+      if (mesmo.trechos.length) fontes.linkNaoAbriu = '';
+    }
+    historico.push({ role: 'user', content: `O usuário mandou este link, mas a página NÃO abriu (a loja bloqueia a leitura automática): ${url}\nNÃO deduza o produto pelo número nem pelo endereço.${mesmo?.trechos.length ? ` Achei o mesmo anúncio por outro endereço e já li: é a fonte [${mesmo.n}].` : achado ? ` Busquei pelos números do anúncio (${busca}):\n${achado}\nSó use um resultado se for o mesmo anúncio (os mesmos números no endereço).` : ' Busque pelo nome do produto, se a pergunta trouxer.'}` });
   }
 
   // a fonte fala de algum assunto da pergunta? (16/10: o fórum devolveu "Adata é uma marca confiável?
@@ -1359,6 +1399,8 @@ function citadosNaComunidade(fontes, pergunta) {
 const PEDE_RECOMENDACAO = /\b(melhor(es)?|recomend\w*|indic[ao]\w*|suger\w*|sugest\w*|op[cç](ao|oes|ão|ões)|alternativ\w*|qual (comprar|escolher|pegar|levar)|quais? .{0,40}\b(comprar|escolher|pegar)|comprar|vale a pena|compensa|custo[- ]benef\w*|at[eé] (r\$|\d)|top \d+|vs\.?|versus|compar\w*|diferen[cç]a .{0,30}\bentre|ou (o|a|um|uma) |(e|é) bom (para|pra)|serve (para|pra)|presta (para|pra)|bom (para|pra) (jogar|jogos|ouvir|musica|trabalh))/i;
 function pedeRecomendacao(pergunta, conversa = []) {
   const t = String(pergunta || '').normalize('NFD').replace(/\p{M}/gu, '');
+  // "para que serve esse produto?", "o que é isso?", "como usar?" (19/11): é sobre UM produto, não escolher entre opções
+  if (/\b(para|pra) (que|q) serve|\bo que (e|eh) (esse|essa|este|esta|isso|isto|o|a)\b|\bcomo (se )?usa|\bcomo funciona/i.test(t)) return false;
   if (PEDE_RECOMENDACAO.test(t)) return true;
   // continuação curta de uma recomendação ("e para música?"): a resposta anterior estava no formato de produto
   const anterior = String([...conversa].reverse().find((m) => m.role === 'assistant')?.content || '');
@@ -1837,7 +1879,14 @@ function questionarioNaResposta(texto, pergunta = '') {
   });
 }
 
-const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="${String(f.titulo || dominio(f.url)).replace(/"/g, "'")}" site="${dominio(f.url)}"${f.data ? ` data="${dataBr(f.data)}"` : f.recente ? ' data="último mês"' : ''}>\n${f.conteudo}\n</fonte>`).join('\n');
+/**
+ * Anúncio de loja (19/11, Davi: o óleo ozonizado — "tratamento para diabéticos" e "combate infecções" vinham dos anúncios
+ * da Shopee e do Mercado Livre e saíram como fato): a fonte vai marcada, e o escritor atribui ao vendedor.
+ */
+const LOJA = /(^|\.)(shopee|mercadolivre|mercadolibre|amazon|magazineluiza|magalu|americanas|casasbahia|aliexpress|kabum|shein|temu|submarino|pontofrio|carrefour|extra|netshoes|centauro|drogasil|drogaraia|paguemenos|ebay|walmart|lojavirtualnuvem|nuvemshop|olist)\./i;
+const ehLoja = (url) => LOJA.test(dominio(url));
+const REGRA_DE_ANUNCIO = '\n- Fonte com anuncio="sim" é a página de venda de uma loja: o que ela diz de efeito, benefício ou indicação é o VENDEDOR dizendo, não um fato comprovado — escreva "segundo o anúncio", "o vendedor afirma". Em saúde (remédio, cosmético, suplemento, óleo), deixe claro que não são estudos e que vale falar com um profissional.';
+const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="${String(f.titulo || dominio(f.url)).replace(/"/g, "'")}" site="${dominio(f.url)}"${ehLoja(f.url) ? ' anuncio="sim"' : ''}${f.data ? ` data="${dataBr(f.data)}"` : f.recente ? ' data="último mês"' : ''}>\n${f.conteudo}\n</fonte>`).join('\n');
 
 /**
  * Conferência de anos (15/10, medição: Santos Dumont "1873–1933" com a fonte
@@ -1955,7 +2004,10 @@ function conferirResposta(texto, { numeros = [], material = '', produto = false,
   // resposta (ou parágrafo) que ficou começando só com citações soltas
   t = t.replace(/(^|\n\n)(?:\s*\[\d+\])+\s*[.,;:]?[ \t]*(?=\n|$)/g, '$1').replace(/^\s+/, '');
   // a instrução do formato de produto comentada na resposta (2/11: 'Não há blocos "#### N. Marca Modelo" disponíveis nas fontes…')
-  t = t.split('\n').map((l) => (/#### ?N\.|Marca Modelo\b/.test(l) ? l.split(/(?<=[.!?])\s+/).filter((f) => !/#### ?N\.|Marca Modelo\b/.test(f)).join(' ') : l)).join('\n');
+  // 19/11: também 'não posso aplicar o formato rígido de recomendação de hardware ("#### 1. …' — o título citado entre
+  // aspas no meio da frase (o título de verdade começa a linha e fica)
+  const VAZOU = /#### ?N\.|Marca Modelo\b|["“']#### ?\d|formato (r[ií]gido|de (pedido de )?produto|de recomenda\w*)/i;
+  t = t.split('\n').map((l) => (VAZOU.test(l) && !/^\s*#### ?\d+\./.test(l) ? l.split(/(?<=[.!?])\s+/).filter((f) => !VAZOU.test(f)).join(' ') : l)).join('\n');
   // "Hoje (31/10/2026), o menor preço…" no dia 3/11 (no app): a data é da página, não de hoje
   const dataDeHoje = `${String(hoje.getDate()).padStart(2, '0')}/${String(hoje.getMonth() + 1).padStart(2, '0')}/${hoje.getFullYear()}`;
   t = t.replace(/\b(hoje|atualmente|neste momento)\s*\((\d{2}\/\d{2}\/\d{4})\)/gi, (m, palavra, data) => (data === dataDeHoje ? m : `${palavra[0] === palavra[0].toUpperCase() ? 'Em' : 'em'} ${data}`));
@@ -2416,7 +2468,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   emit('redigindo', { fontes: usadas.length });
   const preferencias = typeof deps.preferencias === 'function' ? String((await Promise.resolve(deps.preferencias(ent.pergunta || pergunta)).catch(() => '')) || '') : '';
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: recomenda, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa || ent.explicacao ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length, explicacao: ent.explicacao === true && !usadas.length, enxuto: deps.escritorEnxuto === true && !ent.produto })}${PEDE_QUESTIONARIO.test(pergunta) ? INSTRUCAO_DE_QUESTIONARIO : ''}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: recomenda, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa || ent.explicacao ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length, explicacao: ent.explicacao === true && !usadas.length, enxuto: deps.escritorEnxuto === true && !ent.produto })}${PEDE_QUESTIONARIO.test(pergunta) ? INSTRUCAO_DE_QUESTIONARIO : ''}${usadas.some((f) => ehLoja(f.url)) ? REGRA_DE_ANUNCIO : ''}${fontes.linkNaoAbriu ? `\n- O link que o usuário mandou NÃO abriu (a loja bloqueia a leitura automática). Diga isso numa frase. Se as fontes trazem o mesmo anúncio, responda por elas; senão, peça o nome do produto em uma ou duas frases — sem exemplos inventados de produtos que poderia ser. Nunca deduza o que é o produto pelo número ou pelo endereço do link.` : ''}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
     // 30/10 (medido: ~5 s entre o fim da pesquisa e a 1ª palavra era o modelo lendo o material): das respostas
     // anteriores vai só o começo, sem a lista de fontes — o assunto da conversa fica, o texto inteiro não precisa
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
@@ -2429,7 +2481,12 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
       // marcação dos blocos internos citada como fonte (26/10, no app: "[preferencias_do_usuario]")
       .replace(/\s*\[(imagem_anexada|imagem anexada|preferencias_do_usuario|sobre_o_usuario|anotacoes_do_pesquisador|fontes|capacidades)\]/gi, '')
       // título dentro de negrito (17/10, Llama 3.2 3B: "**#### 1. HyperX…**") não vira cartão nem título
-      .replace(/^\s*\*\*\s*(#{2,4} [^*\n]+?)\s*\*\*\s*$/gm, '$1');
+      .replace(/^\s*\*\*\s*(#{2,4} [^*\n]+?)\s*\*\*\s*$/gm, '$1')
+      // "[1, 2, 15]" (19/11, GPT-OSS 20B): vira "[1][2][15]" — a tela e a conferência entendem; antes o "15" ganhava ⚠
+      // (fora dos blocos de código: "let a=[1,2]" fica como está)
+      .split(/(```[\s\S]*?```|`[^`\n]*`)/)
+      .map((parte, i) => (i % 2 ? parte : parte.replace(/\[(\d{1,2}(?:\s*,\s*\d{1,2})+)\]/g, (_, lista) => lista.split(/\s*,\s*/).map((n) => `[${n}]`).join(''))))
+      .join('');
   const inicioDaEscrita = Date.now();
   // o cartão do utilitário aparece já, antes do texto do modelo (19/11)
   if (cartoesDaFerramenta) emit('resposta-token', { pedaco: `${cartoesDaFerramenta}\n\n` });
@@ -2591,4 +2648,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { LEITURAS_DO_APP, separarCartoes, questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { blocoDeFontes, buscaPeloLink, LEITURAS_DO_APP, separarCartoes, questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
