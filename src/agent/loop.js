@@ -1662,7 +1662,7 @@ class Agent extends EventEmitter {
     const regraDoPedido = tipoDoPedido(anexadas ? anexadas.pedido : objetivo);
     // o PDF anexado que é boleto (31/10): vai pelo núcleo, onde a rota do boleto responde (os outros PDFs, o agente lê)
     const ehBoleto = Boolean(require('./boleto-no-chat').pedidoDeBoleto(objetivo, { workspace: this.config.workspace }));
-    if (this.config.nucleoDePesquisa === true && !this.skillForcada && !tarefaAnterior && (ehBoleto || (!['local', 'site'].includes(regraDoPedido.tipo) && !regraDoPedido.arquivoDeSaida))) {
+    if (this.config.nucleoDePesquisa === true && !this.skillForcada && !tarefaAnterior && (ehBoleto || (!['local', 'site', 'tela'].includes(regraDoPedido.tipo) && !regraDoPedido.arquivoDeSaida))) {
       const pronta = await this.responderPeloNucleo({ objetivo: anexadas ? anexadas.pedido : objetivo, conversa, imagens: anexadas?.arquivos || [] });
       if (pronta !== null) return pronta;
     }
@@ -1690,7 +1690,7 @@ class Agent extends EventEmitter {
       });
       // o usuário escolheu "Resposta direta": nível 1 para tudo que não precisa
       // das ferramentas do laço (arquivo, pasta, site)
-      const direta = this.config.respostaDireta === true && nivel.nivel >= 2 && !['local', 'site'].includes(tipoDoPedido(objetivo).tipo);
+      const direta = this.config.respostaDireta === true && nivel.nivel >= 2 && !['local', 'site', 'tela'].includes(tipoDoPedido(objetivo).tipo);
       if (direta) nivel = { nivel: 1, nome: auto.NOMES[1], motivo: 'resposta direta escolhida por você' };
       if (nivel.nivel === 1 && !direta) {
         let itens = [];
@@ -2183,6 +2183,7 @@ class Agent extends EventEmitter {
     let vetosDePerguntaRepetida = 0;
     let vetosDePerguntaNoAutomatico = 0;
     let vetosDeSite = 0;
+    let vetosDeTela = 0;
     let vetouPerguntaCardapio = false;
     // Controlador v2 (05/10): o que aconteceu desde a última crítica — no
     // modo de crítica por evento, o crítico só roda quando isto tem algo
@@ -3350,7 +3351,10 @@ class Agent extends EventEmitter {
         // anterior mudou a página, vale o teto geral, um pouco mais folgado.
         const acaoDePagina = ACOES_DE_PAGINA.has(nome) && nome !== 'ver_pagina';
         const repetidaSemEfeito = acaoDePagina && vezes > 1 && tentativaAnteriorMudou === false;
-        if ((repetidaSemEfeito || vezes > (acaoDePagina ? 3 : 2)) && !ferramenta.terminal) {
+        // 19/11: Enter, Tab e setas se repetem de propósito na tela (uma lista linha por linha) — a tela tem a leitura de
+        // cada passo; o teto vale para ela só depois de 8 vezes
+        const acaoNaTela = ['tecla_na_tela', 'digitar_na_tela', 'rolar_tela', 'clicar_na_tela'].includes(nome);
+        if ((repetidaSemEfeito || vezes > (acaoNaTela ? 8 : acaoDePagina ? 3 : 2)) && !ferramenta.terminal) {
           // ctx.estado.ofertas só existe quando buscar_produtos ACHOU preço
           // sozinha; ctx.estado.tentandoComprar é setado antes disso, mesmo
           // quando ela falha (caso comum contra loja grande) — ainda assim
@@ -3417,6 +3421,37 @@ class Agent extends EventEmitter {
               `O usuário pediu para AGIR no site (login, cliques, download). ${nome} não faz isso. ` +
               `Comece com {"ferramenta": {"nome": "navegar", "argumentos": {"url": "${url || 'endereço do pedido'}"}}} e depois use preencher_campo, clicar e enviar_formulario na página. ` +
               'Os dados de login estão no próprio pedido — use-os; só pergunte ao usuário se o site recusar.',
+            historico,
+          });
+          continue;
+        }
+        // agir num programa do Windows (19/11): começa pela tela, não pela web nem pelo navegador do AuGPT
+        if (this.tipoDoPedido === 'tela' && !ctx.estado.tela?.elementos && vetosDeTela < 2 &&
+          ['abrir_pagina', 'pesquisar_e_ler', 'buscar_web', 'investigar_subtarefa', 'navegar', 'perguntar_usuario', 'responder'].includes(nome)) {
+          vetosDeTela += 1;
+          this.vetoDoCopiloto({
+            gate: 'tela-primeiro',
+            nome,
+            plano,
+            erro: 'Pedido de agir num programa aberto no computador: comece pela tela.',
+            instrucao:
+              `O usuário pediu para AGIR num programa do computador. ${nome} não faz isso. ` +
+              'Se o programa ainda não está aberto, use {"ferramenta": {"nome": "abrir_programa", "argumentos": {"nome": "…"}}}; se já está, use focar_janela com parte do título ou ver_tela. ' +
+              'Depois use digitar_na_tela, clicar_na_tela e tecla_na_tela com os números da leitura.',
+            historico,
+          });
+          continue;
+        }
+        // e não troca o programa por um arquivo na pasta de trabalho (19/11: o 9B gravou a lista num .txt e respondeu como se
+        // fosse o Bloco de Notas) — o resultado se confere na leitura da janela
+        if (this.tipoDoPedido === 'tela' && ctx.estado.tela?.elementos && vetosDeTela < 4 && ['escrever_arquivo', 'acrescentar_ao_arquivo', 'gerar_docx', 'gerar_pdf'].includes(nome)) {
+          vetosDeTela += 1;
+          this.vetoDoCopiloto({
+            gate: 'tela-sem-arquivo',
+            nome,
+            plano,
+            erro: 'O pedido é no programa aberto, não num arquivo da pasta de trabalho.',
+            instrucao: 'Faça no programa: use digitar_na_tela (um texto de várias linhas vai de uma vez) e tecla_na_tela, e confira o resultado na leitura da janela (ver_tela). Quando estiver certo, conclua dizendo o que ficou na janela.',
             historico,
           });
           continue;

@@ -201,6 +201,10 @@ const AVALIA_NOMEADO =
   /\b(e bo[am]|sao bo[an]s|serve|servem|presta|vale a pena|compensa|se saira|se sai|se sairia|recomend\w*|indic\w*|melhor|dentre|entre esses|entre essas|qual (desses|dessas|deles|delas))\b/;
 
 const ENDERECO = /\bhttps?:\/\/[^\s)'"]+|\bwww\.[a-z0-9-]+\.[a-z]{2,}/i;
+// ver e agir na tela (19/11): o programa ou "na tela/janela", e um verbo de mexer nele (o texto vem sem acento)
+const PROGRAMA_DO_PC = /\b(bloco de notas|notepad|calculadora|paint|word|excel|powerpoint|explorador de arquivos|configuracoes do windows|painel de controle)\b/;
+const NA_TELA = /\b(na|nessa|nesta|da) (minha )?(tela|janela)\b|\b(aberto|aberta) (na tela|no (meu )?navegador|no (meu )?(pc|computador))\b|\bno (programa|aplicativo|app) (aberto|que esta aberto)\b/;
+const ACAO_NA_TELA = /\b(digit\w*|escrev\w*|preench\w*|cliqu\w*|clica|aperte|aperta|selecion\w*|marqu\w*|marca|preencha|preenche)\b/;
 // 2ª revisão: só IMPERATIVO dirigido ao agente — "Resuma … notas fiscais
 // emitidas", "o que … diz sobre login com OAuth", "o preço baixa quando?" são leitura
 // 19/11 (Davi: "acessa esse site para min, faz login e baixa o meu contracheque"): também o imperativo do dia a dia —
@@ -237,6 +241,10 @@ function tipoDoPedido(objetivo) {
   let t = normalizar(objetivo);
   if (!t) return { tipo: 'livre', motivo: 'pedido vazio' };
   t = t.replace(PREFIXO_CORTES, '');
+
+  // agir num programa do Windows (19/11, ver e agir na tela): "abre o bloco de notas e digita…", "preenche o formulário
+  // que está aberto na tela", "clica em Salvar nessa janela" — sem endereço (com endereço é o navegador do AuGPT)
+  if (!ENDERECO.test(String(objetivo)) && !/^\s*(como|qual|quais|o que|por ?que|da pra|e possivel|tem como|onde|quando)\b/.test(t) && ACAO_NA_TELA.test(t) && (PROGRAMA_DO_PC.test(t) || NA_TELA.test(t))) return { tipo: 'tela', motivo: 'agir num programa aberto no computador (ver e clicar na tela)' };
 
   if (LOCAL.test(t)) {
     // 12/10: "Compare 3 IEMs para FPS e gere uma planilha com o comparativo"

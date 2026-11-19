@@ -447,6 +447,32 @@ function configParaAgente() {
   return base;
 }
 
+/**
+ * A faixa "AuGPT está controlando o computador" (19/11): no topo da tela, por cima de tudo, sem pegar clique nem foco —
+ * o usuário sabe que o agente está mexendo e como parar (o mouse no canto superior esquerdo).
+ */
+let faixa = null;
+function faixaDeControle(ativa) {
+  if (!ativa) {
+    if (faixa && !faixa.isDestroyed()) faixa.destroy();
+    faixa = null;
+    return;
+  }
+  if (faixa && !faixa.isDestroyed()) return;
+  const { screen } = require('electron');
+  const area = screen.getPrimaryDisplay().workArea;
+  const largura = 560;
+  faixa = new BrowserWindow({
+    x: Math.round(area.x + (area.width - largura) / 2), y: area.y + 6, width: largura, height: 34,
+    frame: false, transparent: true, alwaysOnTop: true, focusable: false, skipTaskbar: true, resizable: false, show: false,
+    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+  });
+  faixa.setIgnoreMouseEvents(true);
+  faixa.setAlwaysOnTop(true, 'screen-saver');
+  faixa.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent('<body style="margin:0;font:600 13px Segoe UI,sans-serif"><div style="margin:2px;padding:7px 14px;border-radius:999px;background:rgba(32,24,12,.92);color:#f3d27a;border:1px solid #c9a24a;text-align:center;white-space:nowrap">● AuGPT está controlando o computador — leve o mouse ao canto superior esquerdo para parar</div></body>')}`);
+  faixa.once('ready-to-show', () => faixa?.showInactive());
+}
+
 /* ------------------------------ calibração da placa (19/10) ------------------------------ */
 // O Ollama deixava parte do qwen3.5:9b na RAM mesmo cabendo inteiro na placa (55 → 80 tokens/s
 // com todas as camadas nela): depois de uma resposta, se o modelo transbordou, mede uma vez e guarda.
@@ -498,6 +524,9 @@ function criarAgente(idConversa = null) {
   agent.capturarTela = capturarTelaParaOAgente;
   // depois de cada resposta (o usuário está lendo): calibra a placa, se o modelo transbordou
   agent.on('concluido', () => setTimeout(() => calibrarSePreciso(), 1500));
+  // ver e agir na tela (19/11): a faixa de aviso no topo da tela enquanto o agente mexe no computador
+  agent.on('tela-controle', (d) => faixaDeControle(d?.ativo !== false));
+  for (const fim of ['concluido', 'interrompido', 'erro', 'limite']) agent.on(fim, () => faixaDeControle(false));
   for (const evento of EVENTOS) {
     agent.on(evento, (dados) => {
       if (evento === 'config-alterada') config.save(dados);

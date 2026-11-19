@@ -71,7 +71,7 @@ function combinar(regra, decisao, { limite = LIMITE_PADRAO, modelo = 'modelo de 
   const base = { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo };
   if (!decisao || !decisao.valor || !(decisao.valor in ROTA_PARA_TIPO)) return base;
   const comDecisao = { ...base, decisor: { modelo, valor: decisao.valor, confianca: decisao.confianca } };
-  if (regra.tipo === 'local' || regra.tipo === 'site') return comDecisao;
+  if (regra.tipo === 'local' || regra.tipo === 'site' || regra.tipo === 'tela') return comDecisao;
   // 12/10: produto com arquivo de saída ("Compare 3 IEMs e gere uma planilha") — o
   // modelo de decisão vê a planilha e diz "tarefa", tirando o pedido da pesquisa
   // planejada. A regra já separou as duas coisas; ela fica.
@@ -97,7 +97,7 @@ async function decidirRota(objetivo, { config = {}, decidir, signal } = {}) {
   const modelo = String(config.modeloDecisor || '').trim();
   if (!config.roteadorDecisor || !modelo || typeof decidir !== 'function') return { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo };
   // regra exata: nem vale gastar a chamada
-  if (regra.tipo === 'local' || regra.tipo === 'site') return { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo };
+  if (regra.tipo === 'local' || regra.tipo === 'site' || regra.tipo === 'tela') return { ...regra, fonte: 'regra', tipoDaRegra: regra.tipo };
   // Cascata (11/10): se houver um modelo de decisão RÁPIDO configurado, ele
   // responde primeiro e o principal só é consultado quando o rápido não tem
   // confiança. Medido na CPU com 40 pedidos reais rotulados: o tev1 de 0,8B

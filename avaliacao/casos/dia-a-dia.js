@@ -184,7 +184,7 @@ module.exports = [
           /Contas a pagar[\s\S]*ENEL DISTRIBUIÇÃO SÃO PAULO: R\$ 187,45[\s\S]*Total: R\$ 187,45/.test(lista.texto) || lista.texto,
           boleto.pedidoDeBoleto(anexado('boleto.pdf', 'resuma este contrato'), { workspace: dir }) === null && boleto.pedidoDeBoleto(anexado('contrato.pdf'), { workspace: dir }) === null || 'o que não é boleto',
           boleto.pedidoDeBoleto(anexado('../fora.pdf'), { workspace: dir }) === null || 'fora da pasta de trabalho',
-          rotas.reconhecida({ objetivo: anexado('boleto.pdf'), conversa: [], config: { workspace: dir } })?.rota?.id === 'boleto' && /ehBoleto \|\| \(!\['local', 'site'\]/.test(loop) || 'a rota e a porta do núcleo',
+          rotas.reconhecida({ objetivo: anexado('boleto.pdf'), conversa: [], config: { workspace: dir } })?.rota?.id === 'boleto' && /ehBoleto \|\| \(!\['local', 'site'(, 'tela')?\]/.test(loop) || 'a rota e a porta do núcleo',
         ];
       } finally {
         fs.rmSync(dir, { recursive: true, force: true });

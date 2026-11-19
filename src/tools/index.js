@@ -9,6 +9,7 @@ const code = require('./code');
 const web = require('./web');
 const documentos = require('./documentos');
 const navegador = require('./navegador');
+const telaDoPc = require('./tela'); // 19/11: ver e agir na tela do Windows
 const gerar = require('./gerar');
 const grafico = require('./grafico');
 const compras = require('./compras');
@@ -176,7 +177,7 @@ const controle = [
 ];
 
 const EMBUTIDAS = [
-  ...controle, ...files, ...documentos, ...gerar, ...grafico, ...web, ...compras, ...navegador, ...code, ...shell,
+  ...controle, ...files, ...documentos, ...gerar, ...grafico, ...web, ...compras, ...navegador, ...telaDoPc, ...code, ...shell,
 ];
 
 /* ------------------------------------------------------------------ *
