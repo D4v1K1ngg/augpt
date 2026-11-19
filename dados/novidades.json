@@ -1,5 +1,37 @@
 [
   {
+    "versao": "0.45.0",
+    "data": "2026-11-19",
+    "pt": {
+      "titulo": "Studio de vídeo com dublagem, visual novo e o modelo no comando das ferramentas",
+      "itens": [
+        "**Studio de vídeo:** aba nova, com cara de editor, para legendar e dublar vídeos — prévia com a legenda, linha do tempo, legenda editável e exportação. O whisper roda na placa de vídeo (4,5 min de fala em 5 s) e a voz original pode ser separada da música de fundo.",
+        "**Dublagem com diretor:** o modelo de IA revisa o roteiro, encurta o que não cabe no tempo, acerta a pronúncia de nomes estrangeiros e confere cada fala pelo ouvido do whisper. A voz do narrador não muda de timbre e o fundo abaixa enquanto alguém fala.",
+        "**Visual novo:** tema escuro em tom de café, painel de conversas agrupado por data (com fixar), tela inicial enxuta com atalhos em botões e uma linha discreta com copiar, refazer, 🔊 e o modelo em cada resposta.",
+        "**Sugestões e questionários no chat:** depois da resposta, 3 perguntas para continuar com um clique; questionários, formulários e quizzes de verdade no chat (com a correção na hora); e as perguntas de \"Para acertar na escolha\" viram botões.",
+        "**O modelo no comando das ferramentas:** clima, mapa, calendário, cotação, PC e rede são escolhidos pelo modelo e respondidos com as palavras dele, a partir dos dados de agora (o cartão continua). Uma prova colada não cai mais numa ferramenta por causa de uma palavra.",
+        "**Especialistas:** em Ajustes, um modelo para provas e exercícios e outro para imagens anexadas — por exemplo, um modelo maior só para provas. Desligado por padrão.",
+        "**Imagens:** \"Criar imagem\" com exemplos e ajustes finos; identificar a foto anexada e achar imagens parecidas na web.",
+        "**Estúdio de voz mais fácil:** 3 passos, vozes em cartões com amostra, biblioteca dos áudios, pronúncia de nomes estrangeiros e voz clonada mais fluida (com aviso quando a gravação clona mal).",
+        "**Pesquisas melhores:** critérios do que importa antes dos produtos, a comunidade (Reddit e fóruns) em primeiro lugar, listas de afiliado em último, anúncio de loja tratado como o que o vendedor diz e links de loja que não abrem buscados pelos números do anúncio."
+      ]
+    },
+    "en": {
+      "titulo": "Video Studio with dubbing, a new look and the model in charge of the tools",
+      "itens": [
+        "**Video Studio:** a new tab, laid out like an editor, to subtitle and dub videos — preview with subtitles, timeline, editable subtitles and export. Whisper runs on the graphics card (4.5 min of speech in 5 s) and the original voice can be split from the background music.",
+        "**Dubbing with a director:** the AI model revises the script, shortens what does not fit the timing, fixes the pronunciation of foreign names and checks every line by ear with whisper. The narrator keeps the same voice and the background ducks while someone speaks.",
+        "**New look:** a coffee-toned dark theme, conversations grouped by date (with pinning), a leaner home screen with shortcut buttons and a discreet row with copy, redo, 🔊 and the model on each answer.",
+        "**Suggestions and quizzes in the chat:** after an answer, 3 follow-up questions one click away; real questionnaires, forms and quizzes in the chat (graded on the spot); and the \"Getting the choice right\" questions become buttons.",
+        "**The model in charge of the tools:** weather, map, calendar, exchange rates, PC and network are picked by the model and answered in its own words from live data (the card stays). A pasted exam no longer triggers a tool because of a single word.",
+        "**Specialists:** in Settings, one model for exams and exercises and another for attached images — for example, a larger model just for exams. Off by default.",
+        "**Images:** \"Create image\" with examples and fine-tuning; identify an attached photo and find similar images on the web.",
+        "**Easier voice studio:** 3 steps, voice cards with samples, an audio library, pronunciation of foreign names and smoother cloned voices (with a warning when a recording clones poorly).",
+        "**Better research:** criteria for what matters before the products, the community (Reddit and forums) first, affiliate lists last, store listings treated as what the seller says, and store links that do not open searched by the listing numbers."
+      ]
+    }
+  },
+  {
     "versao": "0.44.0",
     "data": "2026-11-13",
     "pt": {
