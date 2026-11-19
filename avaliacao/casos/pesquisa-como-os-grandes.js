@@ -45,7 +45,7 @@ module.exports = [
       return [
         p('Qual a cotação do dolar hoje ?') === '{"moeda":"USD","turismo":false,"quantia":null}' && p('dólar turismo hoje') === '{"moeda":"USD","turismo":true,"quantia":null}' && p('converte 50 euros') === '{"moeda":"EUR","turismo":false,"quantia":50}' && JSON.parse(p('cotação do bitcoin')).moeda === 'BTC' || 'detecção',
         ['o dólar vai subir na black friday?', 'história do dólar no Brasil', 'quanto custa um iPhone em dólares?'].every((t) => cotacao.pedidoDeCotacao(t) === null) || 'o que não é cotação',
-        rotas.escolherRota({ objetivo: 'quanto está o euro?', conversa: [] })?.rota?.id === 'cotacao' && rotas.escolherRota({ objetivo: 'quanto está a rtx 5080?', conversa: [] })?.rota?.id === 'compras' || 'antes das compras',
+        rotas.reconhecida({ objetivo: 'quanto está o euro?', conversa: [] })?.rota?.id === 'cotacao' && rotas.escolherRota({ objetivo: 'quanto está a rtx 5080?', conversa: [] })?.rota?.id === 'compras' || 'antes das compras',
         /\*\*Dólar comercial: R\$ 5,44\*\*/.test(r.texto) && /hoje às 10:55/.test(r.texto) && /\*\*100 dólares ≈ R\$ 543,83\*\*/.test(r.texto) && /PTAX do Banco Central .* de 30\/10\/2026: \*\*R\$ 5,4212\*\*/.test(r.texto) || r.texto,
       ];
     },

@@ -77,6 +77,14 @@ const CAPACIDADES = [
     quando: 'clima, tempo, temperatura, previsão, se vai chover, frio ou calor numa cidade',
   },
   {
+    // 19/11 (Davi: "leva a cotação para o modelo também"): o modelo escolhe e escreve com os dados
+    id: 'cotacao',
+    executa: true,
+    responde: true,
+    faz: 'consulta agora a cotação de uma moeda ou cripto em reais (dólar comercial e turismo, euro, libra, iene, peso, bitcoin, ethereum…), com a variação do dia, a PTAX do Banco Central e a conversão de um valor',
+    quando: 'cotação, câmbio, quanto está o dólar ou outra moeda hoje, converter um valor de uma moeda para reais',
+  },
+  {
     id: 'mapa',
     executa: true,
     responde: true,

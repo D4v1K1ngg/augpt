@@ -50,8 +50,12 @@ const ROTAS = [
     // "qual a cotação do dólar hoje?", "100 dólares em reais", "dólar turismo", "bitcoin" (2/11): os dados (AwesomeAPI e
     // a PTAX do Banco Central), não sites; antes das compras ("quanto está o euro" não é produto)
     id: 'cotacao',
+    peloModelo: true,
     detecta: ({ objetivo }) => cotacao.pedidoDeCotacao(objetivo),
-    responde: ({ deps, config }, pedido) => cotacao.responderCotacao({ pedido, deps, config }),
+    responde: ({ objetivo, deps, config }, pedido) => {
+      const p = pedido || cotacao.pedidoDeCotacao(objetivo);
+      return p ? cotacao.responderCotacao({ pedido: p, deps, config }) : null; // moeda que o código não conhece: a pesquisa responde
+    },
   },
   {
     // "quanto é (12783,23 * 0,17) + 823,42?" (13/11): o código calcula (o 9B errava a conta)

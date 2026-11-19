@@ -235,6 +235,8 @@ const PISTA_DE_ATUAL = /\b(hoje|agora|atual|atualmente|atuais|recentes?|recentem
 const PISTA_DO_USUARIO = /\b(meu|minha|meus|minhas|comigo|aqui em casa)\b|\b(otimiz\w*|aceler\w*|desempenho|performance|fps|travando|lento|lenta)\b[^.?!]*\b(windows|pc|computador|notebook|jogos?|games?)\b|\b(windows|pc|computador|notebook)\b[^.?!]*\b(otimiz\w*|mais r[áa]pido|desempenho|performance|fps|travando|lento)\b/i;
 // a ação que o modelo escolher precisa ter a ver com a pergunta (trava para o modelo pequeno)
 const PISTA_DA_ACAO = {
+  // 19/11: a cotação também é escolhida pelo modelo
+  cotacao: /cota[çc][ãa]o|c[âa]mbio|d[óo]lar|euro|libra|iene|yuan|peso|franco|bitcoin|\bbtc\b|ethereum|cripto|moeda|exchange rate|dollar/i,
   teste_de_rede: /internet|conex|wi-?fi|\brede\b|ping|lag|lat[eê]ncia|velocidade|download|upload|banda|roteador|operadora|provedor|fibra/i,
   rota_de_jogo: /\b(jogo|jogos|jogar|game|games|ping|lag|servidor|servidores|pubg|fortnite|cs ?2|counter|dota|valorant|lol|league)\b/i,
   trafego_de_rede: /internet|\brede\b|banda|consum|programa|aplicativo|conex|lent/i,
@@ -270,9 +272,10 @@ const pedeImagem = (pergunta) => PEDE_IMAGEM.test(String(pergunta || ''));
 // Só leituras rápidas: o teste de velocidade (gasta dados) e os ajustes (mudam o PC) nunca rodam assim.
 const FERRAMENTAS_DE_LEITURA = ['consultar_pc', 'diagnostico_da_rede', 'trafego_de_rede'];
 const PERGUNTA_ABERTA = /\b(como|por ?qu[eê]|dicas?|o que (eu )?(fa[çc]o|fazer|posso fazer|pode ser|devo)|vale a pena|devo|deveria|melhor (forma|jeito|maneira)|how (to|do|can)|why|tips)\b/i;
+const COMO_ESTA = /\bcomo (est[áa]o?|andam?|vai|ficou)\s/i;
 const usaComoFerramenta = (id, pergunta) => {
   const t = String(pergunta || '');
-  return FERRAMENTAS_DE_LEITURA.includes(id) && PERGUNTA_ABERTA.test(t) && !PEDE_QUE_FACA.test(t) && !/\bcomo (est[áa]o?|andam?|vai|ficou)\s/i.test(t);
+  return FERRAMENTAS_DE_LEITURA.includes(id) && PERGUNTA_ABERTA.test(t) && !PEDE_QUE_FACA.test(t) && !COMO_ESTA.test(t);
 };
 
 /**
@@ -281,7 +284,7 @@ const usaComoFerramenta = (id, pergunta) => {
  * entendimento, só LEEM; o que leram vai para o escritor. Fora daqui (resposta própria): o teste de velocidade (gasta
  * dados, pede confirmação) e os ajustes de rede (mudam o PC, pedem aprovação).
  */
-const LEITURAS_DO_APP = ['consultar_pc', 'diagnostico_da_rede', 'trafego_de_rede', 'rota_de_jogo', 'clima', 'mapa', 'calendario'];
+const LEITURAS_DO_APP = ['consultar_pc', 'diagnostico_da_rede', 'trafego_de_rede', 'rota_de_jogo', 'clima', 'mapa', 'calendario', 'cotacao'];
 const CARTOES_DO_APP = /```(clima|mapa|calendario|timer|compras|midia|arquivos)\s*\n?[\s\S]*?```/g;
 /** Os cartões (vão para a tela como estão) e o resto (os dados, para o escritor). */
 function separarCartoes(texto) {
@@ -2358,7 +2361,8 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
         cartoesDaFerramenta = cartoes;
         lidoPelasFerramentas = `O AuGPT consultou agora (dados reais, de agora; só leitura, nada foi mudado):\n${resto.slice(0, 3500)}`;
         // pergunta direta sobre o dado ("vai chover amanhã?", "quanto espaço tenho?"): os dados respondem, sem web
-        if (!PERGUNTA_ABERTA.test(String(pergunta || ''))) Object.assign(ent, { precisaBuscar: false, conversa: false, explicacao: false });
+        // ("como está o bitcoin hoje?" é leitura, não pergunta aberta — 19/11: pesquisou junto, 32 s, e o preço sumiu)
+        if (!PERGUNTA_ABERTA.test(String(pergunta || '')) || COMO_ESTA.test(String(pergunta || ''))) Object.assign(ent, { precisaBuscar: false, conversa: false, explicacao: false });
       }
     } else {
       const feita = await deps.executarAcao(ent.acao, { pergunta, ent });

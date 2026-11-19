@@ -41,7 +41,7 @@ module.exports = [
     },
   },
   {
-    nome: 'utilitários pelo modelo (19/11): PC, rede, clima, mapa e calendário o entendimento escolhe e o modelo escreve com os dados (o cartão fica acima); o código vira reserva; conta, cotação e timer continuam no atalho',
+    nome: 'utilitários pelo modelo (19/11): PC, rede, clima, mapa e calendário o entendimento escolhe e o modelo escreve com os dados (o cartão fica acima); o código vira reserva; conta e timer continuam no atalho',
     tipo: 'unidade',
     executar() {
       const ler = (x) => fs.readFileSync(require('path').join(__dirname, '../..', x), 'utf8').replace(/\r/g, '');
@@ -52,7 +52,9 @@ module.exports = [
         ['clima', 'mapa', 'calendario', 'consultar_pc', 'diagnostico_da_rede', 'trafego_de_rede', 'rota_de_jogo', 'teste_de_rede'].every((id) => rotas.ROTAS.find((r) => r.id === id)?.peloModelo === true) || 'as rotas do modelo',
         ['vai chover amanhã em Campinas?', 'quanto espaço livre tem no meu pc?', 'onde fica a torre eiffel?', 'que dia é hoje?'].every((t) => rotas.escolherRota({ objetivo: t, conversa: [], config: {} }) === null) || 'a palavra não decide',
         rotas.intencao('quantos dias faltam para o Natal?') === 'calendario' && rotas.intencao('quanto espaço livre tem no meu pc?') === 'consultar_pc' || 'o código é a reserva',
-        ['quanto é 12*7?', 'cotação do dólar', 'coloca um timer de 5 minutos'].map((t) => rotas.escolherRota({ objetivo: t, conversa: [], config: {} })?.rota.id).join() === 'conta,cotacao,timer' || 'os atalhos que ficam',
+        ['quanto é 12*7?', 'coloca um timer de 5 minutos'].map((t) => rotas.escolherRota({ objetivo: t, conversa: [], config: {} })?.rota.id).join() === 'conta,timer' || 'os atalhos que ficam',
+        // a cotação também é do modelo (19/11): o entendimento a conhece, a trava aceita, e ela é leitura
+        rotas.escolherRota({ objetivo: 'cotação do dólar', conversa: [], config: {} }) === null && rotas.intencao('quanto está o euro?') === 'cotacao' && nucleo.acaoValida('cotacao', 'quanto está o dólar?') === 'cotacao' && nucleo.LEITURAS_DO_APP.includes('cotacao') || 'cotação pelo modelo',
         rotas.ROTAS.find((r) => r.id === 'ajustes_de_rede').peloModelo({ tipo: 'planejar' }) === true && rotas.ROTAS.find((r) => r.id === 'ajustes_de_rede').peloModelo({ tipo: 'aplicar' }) === false || '"aplicar" o plano continua pelo código',
         cartoes === CARTAO && resto === 'Agora em **Campinas**: 29°.' || 'cartão para a tela, dados para o escritor',
         !nucleo.LEITURAS_DO_APP.includes('teste_de_rede') && !nucleo.LEITURAS_DO_APP.includes('ajustes_de_rede') || 'teste de velocidade e ajustes têm resposta própria',
