@@ -370,7 +370,13 @@ function garantirWorkspacePadrao() {
 function obterNavegador() {
   if (config.data.navegacaoInterativa === false) return null;
   if (!navegador) {
-    navegador = new SessaoNavegador({ visivel: config.data.navegadorVisivel !== false, obterConfig: () => config.data });
+    // 19/11: visível, o navegador fica num painel fixo no canto do chat (a tela desenha a moldura e manda o retângulo)
+    navegador = new SessaoNavegador({
+      visivel: config.data.navegadorVisivel !== false,
+      obterConfig: () => config.data,
+      anfitriao: () => win,
+      aoMudarPainel: (estado) => win && !win.isDestroyed() && win.webContents.send('agent:event', { canal: 'navegador-painel', dados: estado }),
+    });
   }
   return navegador;
 }
@@ -378,6 +384,12 @@ function obterNavegador() {
 ipcMain.handle('browser:close', () => {
   navegador?.fechar();
   return true;
+});
+
+// o retângulo do painel do navegador no chat (null = escondido: outra aba, painel minimizado)
+ipcMain.on('browser:area', (e, area) => {
+  if (e.sender !== win?.webContents) return;
+  navegador?.setArea(area && Number.isFinite(area.x) ? area : null);
 });
 
 ipcMain.handle('browser:state', () => ({

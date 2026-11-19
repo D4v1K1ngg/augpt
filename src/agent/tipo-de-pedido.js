@@ -203,8 +203,10 @@ const AVALIA_NOMEADO =
 const ENDERECO = /\bhttps?:\/\/[^\s)'"]+|\bwww\.[a-z0-9-]+\.[a-z]{2,}/i;
 // 2ª revisão: só IMPERATIVO dirigido ao agente — "Resuma … notas fiscais
 // emitidas", "o que … diz sobre login com OAuth", "o preço baixa quando?" são leitura
+// 19/11 (Davi: "acessa esse site para min, faz login e baixa o meu contracheque"): também o imperativo do dia a dia —
+// "faz login", "baixa", "emite", "clica", "preenche", "seleciona" (só vale junto de um endereço ou de login num site)
 const ACAO_NO_SITE =
-  /\b(entre com|entra com|fa[cç]a (o )?login|realiz(e|a|ar) (o )?login|fazer (o )?login|efetu[ea] (o )?login|logue|loga|logar|cliqu[ei]|preencha|baixe|fa[cç]a (o )?download|emita|selecione|cadastre|envie o formulario)\b|\b(login|senha) (e|eh|:)/;
+  /\b(entre com|entra com|fa[cçz]a? (o )?login|faz (o )?login|realiz(e|a|ar) (o )?login|fazer (o )?login|efetu[ea] (o )?login|logue|loga|logar|cliqu[ei]|clica|preencha|preenche|baixe|baixa|fa[cç]a (o )?download|faz (o )?download|emita|emite|selecione|seleciona|cadastre|cadastra|envie o formulario|envia o formulario)\b|\b(login|senha) (e|eh|:)/;
 // ("acesse o site e resuma" é leitura: só "acesse" não basta)
 // 18/10 (conversas reais): "Acesse esse site 'https://www.unip.br/'" sozinho é
 // abrir o site — virava pesquisa e um "Relatório Técnico" inventado sobre a UNIP

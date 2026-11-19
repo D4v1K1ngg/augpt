@@ -19,6 +19,8 @@ const VERBO = /(?<![a-z])(baix(a|e|ar|ar o|ar a)|fa(c|z|ca) (o )?download|downlo
 const MIDIA = /(?<![a-z])(videos?|musicas?|audios?|mp3|mp4|clipes?|faixas?|cancao|cancoes|podcasts?|episodios?|som)(?![a-z])/;
 const AUDIO = /(?<![a-z])(musicas?|audios?|mp3|cancao|cancoes|faixas?|podcasts?|som|so o audio)(?![a-z])/;
 const URL_RE = /https?:\/\/[^\s<>"')\]]+/i;
+// os sites de vídeo e música que o yt-dlp baixa (os mais usados)
+const SITE_DE_MIDIA = /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtu\.be|tiktok\.com|instagram\.com|twitter\.com|x\.com|facebook\.com|fb\.watch|vimeo\.com|soundcloud\.com|twitch\.tv|kwai\.com|dailymotion\.com|bilibili\.com|reddit\.com|threads\.net|bandcamp\.com|spotify\.com)\//i;
 // o que não é vídeo nem música ("baixar o modelo", "baixa o preço", "baixar o ollama")
 const NAO_E_MIDIA = /(?<![a-z])(modelo|ollama|programa|aplicativo|app|driver|jogo|atualizacao|preco|arquivo|pdf|planilha|imagem|foto|componente|qwen|llama|whisper)(?![a-z])/;
 
@@ -32,7 +34,9 @@ function pedidoDeMidia(texto) {
   // dúvida, não pedido ("como baixar música do YouTube?", "dá pra baixar vídeo do Instagram?") — sem link, a pesquisa responde
   if (!url && /^\s*(como|onde|da pra|da para|e possivel|tem como|qual|quais|por que|porque|e legal|pode(m)?|posso|devo)\b/.test(t)) return null;
   const tipo = AUDIO.test(t) ? 'audio' : /(?<![a-z])(videos?|mp4|clipes?)(?![a-z])/.test(t) ? 'video' : null;
-  if (url) return { url, tipo };
+  // com link, só site de vídeo/música ou pedido que fala de mídia (19/11, Davi: "acessa esse site, faz login e baixa o meu
+  // contracheque" caía aqui e pedia para instalar o yt-dlp)
+  if (url) return SITE_DE_MIDIA.test(url) || (MIDIA.test(t) && !NAO_E_MIDIA.test(t)) ? { url, tipo } : null;
   // a busca: o pedido sem o verbo, as palavras de mídia e o enchimento
   const consulta = original
     .replace(/^\s*(ei|ok|hey)?\s*(jarvis|gpt|augpt)[,!.]?\s*/i, '')

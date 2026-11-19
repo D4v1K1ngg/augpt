@@ -102,9 +102,10 @@ function linhasDosEventos(ctx, eventos = []) {
         const registro = { nome: e.nome, caminho: e.caminho || '', bytes: e.bytes || 0 };
         downloads.push(registro);
         (estado.downloads ||= []).push(registro);
-        linhas.push(`DOWNLOAD CONCLUÍDO: "${e.nome}"${kb} salvo em ${e.caminho || '(pasta escolhida pelo usuário)'}. O arquivo já está no computador do usuário — não precisa baixar de novo.`);
         // dentro da pasta de trabalho: vira anexo na conversa, como os arquivos gerados
         const relativo = workspace && e.caminho && pathRelativoDentro(workspace, e.caminho);
+        // 19/11 (Davi: "o AuGPT saber onde o download está e ter acesso a ele"): o caminho que ler_documento abre
+        linhas.push(`DOWNLOAD CONCLUÍDO: "${e.nome}"${kb} salvo em ${e.caminho || '(pasta escolhida pelo usuário)'}${e.original ? ` (cópia na pasta de trabalho; o usuário salvou o original em ${e.original})` : ''}. O arquivo já está no computador do usuário — não precisa baixar de novo.${relativo ? ` Para ler o conteúdo: ler_documento com caminho "${relativo.replace(/\\/g, '/')}".` : ''}`);
         ctx.emit?.('download-concluido', { nome: e.nome, caminho: e.caminho || '', relativo: relativo || null, bytes: e.bytes || 0 });
       } else if (e.estado === 'em-andamento') {
         relevante = true;

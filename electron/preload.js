@@ -242,6 +242,8 @@ contextBridge.exposeInMainWorld('augpt', {
   browser: {
     close: () => ipcRenderer.invoke('browser:close'),
     state: () => ipcRenderer.invoke('browser:state'),
+    // 19/11: onde fica o painel do navegador no chat (null = escondido)
+    area: (retangulo) => ipcRenderer.send('browser:area', retangulo || null),
   },
   domains: {
     stats: () => ipcRenderer.invoke('domains:stats'),

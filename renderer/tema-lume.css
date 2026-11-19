@@ -602,3 +602,18 @@ body { font-family: var(--sans); background: var(--void); }
 .inicio-atalhos.aberto .inicio-mais svg { transform: rotate(180deg); }
 .inicio-modos { margin-top: 18px; }
 @media (max-width: 1000px), (max-width: 640px) { .inicio-atalhos { display: flex; } }
+
+/* ------------------------------ o navegador do AuGPT no canto do chat (19/11, renderer/painel-navegador.js) ------------------------------ */
+.painel-navegador {
+  position: absolute; right: 18px; bottom: 150px; z-index: 30; width: 440px; height: 330px; display: flex; flex-direction: column;
+  border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--panel);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .6); transition: width .2s, height .2s;
+}
+.painel-navegador.ampliado { width: min(820px, calc(100% - 36px)); height: min(600px, calc(100% - 190px)); }
+.painel-navegador.minimizado { height: 38px; cursor: pointer; }
+.pn-topo { display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 6px 0 12px; border-bottom: 1px solid var(--line); flex: none; }
+.pn-ponto { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 6px var(--gold); flex: none; }
+.pn-titulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 12.5px var(--sans); color: var(--text); }
+.pn-topo button { width: 28px; height: 26px; border: 0; border-radius: 7px; background: none; color: var(--muted); font: 15px/1 var(--sans); cursor: pointer; }
+.pn-topo button:hover { background: var(--hover); color: var(--text-forte); }
+.pn-corpo { flex: 1; background: #fff; }

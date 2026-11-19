@@ -2,7 +2,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { BrowserWindow } = require('electron');
+const { EventEmitter } = require('events');
+const { BrowserWindow, WebContentsView } = require('electron');
 const { protegerSessaoWeb } = require('./sessao-segura');
 
 /**
@@ -247,8 +248,14 @@ const scriptDeCalma = (primeiraMs) => `new Promise((pronto) => {
 const ESPERA_CARREGAR_MS = 8000;
 
 class SessaoNavegador {
-  constructor({ visivel = true, timeout = 30000, obterConfig = () => ({}) } = {}) {
+  constructor({ visivel = true, timeout = 30000, obterConfig = () => ({}), anfitriao = () => null, aoMudarPainel = () => {} } = {}) {
     this.visivel = visivel;
+    // 19/11 (Davi: "a janela do navegador deveria abrir pequena no canto direito do chat e ficar fixa"): com a janela do
+    // app, o navegador é uma vista DENTRO dela, no lugar que a tela reserva (o painel do chat — setArea)
+    this.anfitriao = anfitriao;
+    this.aoMudarPainel = aoMudarPainel;
+    this.area = null;
+    this.vista = null;
     this.timeout = timeout;
     this.obterConfig = obterConfig;
     this.janela = null; // janela ATIVA (a última aberta que continua aberta)
@@ -263,9 +270,79 @@ class SessaoNavegador {
     return Boolean(this.janela) && !this.janela.isDestroyed();
   }
 
+  /** A vista embutida na janela do app, com a cara de uma janela para o resto do código (webContents, closed, destroy). */
+  abrirNoChat(host) {
+    const vista = new WebContentsView({ webPreferences: { partition: PARTICAO, nodeIntegration: false, contextIsolation: true, sandbox: true } });
+    const janela = new EventEmitter();
+    let fechada = false;
+    const aoFechar = () => {
+      if (fechada) return;
+      fechada = true;
+      try {
+        if (!host.isDestroyed()) host.contentView.removeChildView(vista);
+      } catch {
+        /* a janela do app já foi */
+      }
+      if (this.vista === vista) this.vista = null;
+      this.aoMudarPainel({ aberto: false });
+      janela.emit('closed');
+    };
+    Object.assign(janela, {
+      webContents: vista.webContents,
+      vista,
+      isDestroyed: () => fechada || vista.webContents.isDestroyed(),
+      destroy: () => {
+        if (!vista.webContents.isDestroyed()) vista.webContents.close();
+        aoFechar();
+      },
+      loadURL: (...args) => vista.webContents.loadURL(...args),
+      show: () => {},
+      focus: () => vista.webContents.focus(),
+    });
+    vista.webContents.once('destroyed', aoFechar);
+    host.once('closed', aoFechar);
+    host.contentView.addChildView(vista);
+    this.vista = vista;
+    this.aplicarArea();
+    const avisar = () => !janela.isDestroyed() && this.aoMudarPainel({ aberto: true, url: vista.webContents.getURL(), titulo: vista.webContents.getTitle() });
+    vista.webContents.on('did-navigate', avisar);
+    vista.webContents.on('did-navigate-in-page', avisar);
+    vista.webContents.on('page-title-updated', avisar);
+    this.aoMudarPainel({ aberto: true, url: '', titulo: '' });
+    return janela;
+  }
+
+  /** O retângulo do painel do chat (a tela manda quando ele muda); invisível = fora do chat (outra aba). */
+  setArea(area) {
+    this.area = area && area.width > 0 && area.height > 0 ? area : null;
+    this.aplicarArea();
+  }
+
+  aplicarArea() {
+    if (!this.vista || this.vista.webContents.isDestroyed()) return;
+    const a = this.area;
+    this.vista.setVisible(Boolean(a));
+    if (a) this.vista.setBounds({ x: Math.round(a.x), y: Math.round(a.y), width: Math.round(a.width), height: Math.round(a.height) });
+  }
+
   abrir() {
     if (this.aberta) return this.janela;
     instanciaAtual = this;
+    const host = this.visivel ? this.anfitriao?.() : null;
+    if (host && !host.isDestroyed()) {
+      this.janela = this.abrirNoChat(host);
+      protegerSessaoWeb(this.janela.webContents.session, { obterConfig: this.obterConfig });
+      this.prepararDownloads(this.janela.webContents.session);
+      const principal = this.janela;
+      this.janelas = [principal];
+      this.prepararJanela(principal);
+      principal.on('closed', () => {
+        for (const j of this.janelas) if (j !== principal && !j.isDestroyed()) j.destroy();
+        this.janelas = [];
+        this.janela = null;
+      });
+      return this.janela;
+    }
     this.janela = new BrowserWindow({
       width: 1200,
       height: 860,
@@ -299,20 +376,49 @@ class SessaoNavegador {
   }
 
   /** Janela nova aberta pelo site (window.open, target=_blank) vira a ATIVA. */
+  /** As opções da janela que o site abre: perto do painel do chat, por cima da janela do app. */
+  opcoesDaFilha() {
+    const host = this.anfitriao?.();
+    const comHost = host && !host.isDestroyed() && this.visivel;
+    const b = comHost ? host.getContentBounds() : null;
+    return {
+      autoHideMenuBar: true,
+      show: this.visivel,
+      width: 720,
+      height: 640,
+      ...(b ? { x: Math.max(b.x, b.x + b.width - 740), y: Math.max(b.y, b.y + b.height - 700), parent: host } : {}),
+      webPreferences: { partition: PARTICAO, sandbox: true, contextIsolation: true, nodeIntegration: false },
+    };
+  }
+
   prepararJanela(janela) {
-    janela.webContents.setWindowOpenHandler(({ url }) =>
-      /^https?:/i.test(url)
-        ? {
-            action: 'allow',
-            overrideBrowserWindowOptions: {
-              autoHideMenuBar: true,
-              show: this.visivel,
-              webPreferences: { partition: PARTICAO, sandbox: true, contextIsolation: true, nodeIntegration: false },
-            },
-          }
-        : { action: 'deny' }
-    );
-    janela.webContents.on('did-create-window', (filha, { url } = {}) => {
+    janela.webContents.setWindowOpenHandler(({ url, postBody, referrer }) => {
+      if (!/^https?:/i.test(url)) return { action: 'deny' };
+      // 19/11 (contracheque do Davi): "Emitir" manda um FORMULÁRIO para uma janela nova; aberta pelo Electron, ela ia
+      // sem o formulário (GET) e o portal respondia 404. O código abre a janela e envia o formulário junto.
+      if (postBody?.data?.length) {
+        setImmediate(() => this.abrirFilhaComFormulario(url, postBody, referrer));
+        return { action: 'deny' };
+      }
+      return { action: 'allow', overrideBrowserWindowOptions: this.opcoesDaFilha() };
+    });
+    janela.webContents.on('did-create-window', (filha, { url } = {}) => this.adotarJanela(filha, url));
+  }
+
+  abrirFilhaComFormulario(url, postBody, referrer) {
+    if (!this.aberta) return;
+    const filha = new BrowserWindow(this.opcoesDaFilha());
+    this.adotarJanela(filha, url);
+    const tipo = postBody.contentType || 'application/x-www-form-urlencoded';
+    const cabecalho = `Content-Type: ${tipo}${postBody.boundary && !/boundary=/i.test(tipo) ? `; boundary=${postBody.boundary}` : ''}`;
+    filha.loadURL(url, { postData: postBody.data, extraHeaders: cabecalho, ...(referrer?.url ? { httpReferrer: referrer } : {}) }).catch(() => {
+      /* download (ERR_ABORTED) ou falha: o evento e a leitura contam */
+    });
+  }
+
+  /** Janela nova aberta pelo site (window.open, target=_blank) vira a ATIVA. */
+  adotarJanela(filha, url) {
+    {
       this.janelas.push(filha);
       this.janela = filha;
       this.ultimaLeitura = null;
@@ -344,7 +450,7 @@ class SessaoNavegador {
           if (this.janela) this.eventos.push({ tipo: 'janela-fechada' });
         }
       });
-    });
+    }
   }
 
   /**
@@ -356,6 +462,23 @@ class SessaoNavegador {
   prepararDownloads(sessao) {
     if (!sessao || sessoesComDownload.has(sessao)) return;
     sessoesComDownload.add(sessao);
+    // 19/11: o PDF que o site mostra na tela (contracheque, boleto, nota) vira download — aberto no visualizador, o agente
+    // não tinha o arquivo para ler
+    sessao.webRequest?.onHeadersReceived?.((d, responder) => {
+      const h = d.responseHeaders || {};
+      if (d.resourceType === 'mainFrame' || d.resourceType === 'subFrame') {
+        const chave = (nome) => Object.keys(h).find((k) => k.toLowerCase() === nome);
+        const tipo = String((h[chave('content-type')] || [])[0] || '');
+        const disp = chave('content-disposition');
+        const atual = String((disp && h[disp]?.[0]) || '');
+        if (/application\/pdf/i.test(tipo) && !/^\s*attachment/i.test(atual)) {
+          if (disp) delete h[disp];
+          h['Content-Disposition'] = [atual ? atual.replace(/^\s*inline/i, 'attachment') : 'attachment'];
+          if (!/^\s*attachment/i.test(h['Content-Disposition'][0])) h['Content-Disposition'] = [`attachment; ${atual}`];
+        }
+      }
+      responder({ responseHeaders: h });
+    });
     sessao.on('will-download', (_e, item, origem) => {
       const dona = instanciaAtual;
       if (!dona) return;
@@ -393,11 +516,27 @@ class SessaoNavegador {
       download.fim = new Promise((resolve) => {
         item.once('done', (_ev, estado) => {
           dona.downloadsPendentes.delete(download);
+          let caminho = item.getSavePath() || '';
+          let copia = '';
+          // 19/11 (Davi: "o AuGPT saber onde o download está sendo feito e ter acesso a ele"): salvo pela janela "Salvar
+          // como" fora da pasta de trabalho, o arquivo ganha uma cópia em <pasta de trabalho>/downloads para o agente ler
+          if (estado === 'completed' && caminho && cfg.workspace && path.relative(cfg.workspace, caminho).startsWith('..')) {
+            try {
+              const pasta = path.join(cfg.workspace, 'downloads');
+              fs.mkdirSync(pasta, { recursive: true });
+              copia = caminhoLivre(pasta, path.basename(caminho));
+              fs.copyFileSync(caminho, copia);
+            } catch {
+              copia = '';
+            }
+          }
+          if (copia) [caminho, copia] = [copia, caminho];
           dona.eventos.push({
             tipo: 'download',
             estado: estado === 'completed' ? 'concluido' : estado === 'cancelled' ? 'cancelado' : 'falhou',
             nome,
-            caminho: item.getSavePath() || '',
+            caminho,
+            ...(copia ? { original: copia } : {}),
             bytes: item.getReceivedBytes() || 0,
           });
           resolve();
