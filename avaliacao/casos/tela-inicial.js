@@ -17,8 +17,10 @@ module.exports = [
     executar() {
       const html = ler('renderer/index.html');
       const inicio = html.slice(html.indexOf('<div class="inicio" id="inicioAgente">'), html.indexOf('<!-- Fase 2 (facilidade de uso'));
-      const atalhos = [...inicio.matchAll(/class="inicio-atalho" data-(?:pedido|aba)="([^"]+)"[\s\S]*?<b>([^<]+)<\/b>/g)].map((m) => m[2]);
+      const atalhos = [...inicio.matchAll(/class="inicio-atalho(?: extra)?" data-(?:pedido|aba)="([^"]+)"[\s\S]*?<b>([^<]+)<\/b>/g)].map((m) => m[2]);
       return [
+        // 19/11 (Davi: "o card central ficou muito grande"): 5 atalhos à vista, o resto atrás de "Mais"; a descrição vira a dica
+        (inicio.match(/class="inicio-atalho extra"/g) || []).length === 5 && /id="inicioMais"/.test(inicio) && ler('renderer/tema-lume.css').includes('.inicio-atalho.extra { display: none; }') && ler('renderer/inicio.js').includes('b.title = tr(dica)') || '5 à vista e Mais',
         atalhos.join(',') === 'Pesquisar,Comprar e comparar,Seus arquivos,Dia a dia,Criar imagem,Criar áudio,Buscar imagens,Imagem parecida,Vídeos do YouTube,Notícias' || atalhos.join(','),
         /class="inicio-nucleo"><span>Au<\/span>/.test(inicio) && /<animateMotion/.test(inicio) || 'o orbe',
         /id="modoDoAgente"/.test(inicio) && /data-modo="investigacao"/.test(inicio) && /class="deck-foot inicio-modos"/.test(inicio) || 'os modos continuam (e somem no modo simples)',

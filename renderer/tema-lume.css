@@ -577,3 +577,28 @@ body { font-family: var(--sans); background: var(--void); }
 .q-de { font-size: 12.5px; color: var(--muted); }
 .pergunta-do-agente.resolvido .q-de::after { content: ' · respondido'; }
 @media (prefers-reduced-motion: reduce) { .questionario { animation: none; } }
+
+/* ------------------------------ tela inicial enxuta (19/11, Davi: "o card central ficou muito grande e exibe muita coisa") ------------------------------ */
+.inicio-orbe { height: clamp(96px, 15vh, 140px); }
+.inicio-nucleo { width: clamp(68px, 10vh, 92px); }
+.inicio-nucleo span { font-size: clamp(26px, 3.8vh, 34px); }
+.inicio-atalhos {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: min(900px, calc(100vw - 64px)); max-width: none; padding: 0;
+  border: 0; background: none; box-shadow: none; backdrop-filter: none;
+}
+.inicio-atalho, .inicio-mais {
+  flex-direction: row; gap: 8px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 80%, transparent); backdrop-filter: blur(8px);
+  color: var(--text); font: inherit; cursor: pointer; transition: border-color .15s, background .15s;
+}
+.inicio-mais { display: inline-flex; align-items: center; }
+.inicio-atalho:hover, .inicio-mais:hover { transform: none; border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); background: color-mix(in srgb, var(--gold) 9%, var(--panel)); }
+.inicio-atalho svg, .inicio-mais svg { width: 17px; height: 17px; margin: 0; color: var(--gold); flex: none; }
+.inicio-atalho b, .inicio-mais b { font-size: 13px; font-weight: 500; white-space: nowrap; }
+.inicio-mais b { color: var(--muted); }
+.inicio-atalho span { display: none; } /* a descrição vira a dica do botão (title) */
+.inicio-atalho.extra { display: none; }
+.inicio-atalhos.aberto .inicio-atalho.extra { display: flex; animation: narracao-entra .25s ease-out both; }
+.inicio-atalhos.aberto .inicio-mais svg { transform: rotate(180deg); }
+.inicio-modos { margin-top: 18px; }
+@media (max-width: 1000px), (max-width: 640px) { .inicio-atalhos { display: flex; } }

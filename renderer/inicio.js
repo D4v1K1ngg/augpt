@@ -21,7 +21,17 @@
     caixa.focus();
     caixa.setSelectionRange(caixa.value.length, caixa.value.length);
   }
+  // 19/11: os atalhos viraram botões compactos — a descrição vira a dica (title); 5 à vista e o resto em "Mais"
+  const mais = document.getElementById('inicioMais');
+  mais?.addEventListener('click', () => {
+    const lista = inicio.querySelector('.inicio-atalhos');
+    const aberto = lista.classList.toggle('aberto');
+    mais.setAttribute('aria-expanded', String(aberto));
+    mais.querySelector('b').textContent = tr(aberto ? 'Menos' : 'Mais');
+  });
   for (const b of inicio.querySelectorAll('.inicio-atalho')) {
+    const dica = b.querySelector('span')?.textContent;
+    if (dica) b.title = tr(dica);
     b.addEventListener('click', () => {
       if (b.dataset.aba) return trocarAba(b.dataset.aba);
       if (b.dataset.painel) abrirPainel(b.dataset.painel);
