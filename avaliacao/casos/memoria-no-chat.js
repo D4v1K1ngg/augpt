@@ -13,7 +13,7 @@ const rotas = require('../../src/agent/rotas-do-codigo');
 const { MemoriaCentral } = require('../../src/agent/memoria-central');
 const { sistemaDoEscritor } = require('../../src/agent/nucleo');
 
-const rota = (t) => rotas.escolherRota({ objetivo: t, conversa: [], deps: {} })?.rota.id || 'pesquisa';
+const rota = (t) => rotas.reconhecida({ objetivo: t, conversa: [], deps: {} })?.rota.id || 'pesquisa';
 
 module.exports = [
   {

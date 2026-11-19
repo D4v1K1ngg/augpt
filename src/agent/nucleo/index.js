@@ -275,6 +275,20 @@ const usaComoFerramenta = (id, pergunta) => {
   return FERRAMENTAS_DE_LEITURA.includes(id) && PERGUNTA_ABERTA.test(t) && !PEDE_QUE_FACA.test(t) && !/\bcomo (est[áa]o?|andam?|vai|ficou)\s/i.test(t);
 };
 
+/**
+ * 19/11 (Davi: "analisar PC, internet, clima, localização… não deveriam ser acionados por código, mas pelo modelo; e a
+ * resposta fixa deveria mudar: o modelo analisa os dados e apresenta da sua forma"): estes utilitários, escolhidos pelo
+ * entendimento, só LEEM; o que leram vai para o escritor. Fora daqui (resposta própria): o teste de velocidade (gasta
+ * dados, pede confirmação) e os ajustes de rede (mudam o PC, pedem aprovação).
+ */
+const LEITURAS_DO_APP = ['consultar_pc', 'diagnostico_da_rede', 'trafego_de_rede', 'rota_de_jogo', 'clima', 'mapa', 'calendario'];
+const CARTOES_DO_APP = /```(clima|mapa|calendario|timer|compras|midia|arquivos)\s*\n?[\s\S]*?```/g;
+/** Os cartões (vão para a tela como estão) e o resto (os dados, para o escritor). */
+function separarCartoes(texto) {
+  const cartoes = String(texto || '').match(CARTOES_DO_APP) || [];
+  return { cartoes: cartoes.join('\n\n'), resto: String(texto || '').replace(CARTOES_DO_APP, '').replace(/\n{3,}/g, '\n\n').trim() };
+}
+
 // criar algo interativo (item 4, 18/10): a resposta é uma página no bloco ```visual, que roda no chat
 // 18/11: sem "quiz" — quiz agora é o questionário no chat (renderer/questionario.js), não uma página HTML
 const PEDE_VISUAL = /\b(crie|cria|criar|monte|monta|montar|fa[çc]a|faz|gere|gera|desenvolva|programe|construa)\b[^.?!]{0,60}\b(calculadora|simula[çc][ãa]o|simulador|anima[çc][ãa]o|jogo|joguinho|painel|dashboard|p[áa]gina|visualiza[çc][ãa]o|interativ\w*|linha do tempo|cron[ôo]metro|rel[óo]gio|conversor|planilha interativa)\b/i;
@@ -2329,11 +2343,23 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   // modelo não escolhe ação: ele só completa os lugares (23/10)
   if (!ent.acao && !ent.criarImagem && deps.intencaoDoCodigo) ent.acao = deps.intencaoDoCodigo;
   let lidoPelasFerramentas = '';
+  let cartoesDaFerramenta = '';
+  // a leitura que o modelo só SUGERIU (19/11, "meu wi-fi está fraco, o problema é na minha casa?" → sugerir o raio-X):
+  // é rápida e não muda nada — roda já, como a pesquisa na web, em vez de virar uma oferta no fim
+  if (!ent.acao && LEITURAS_DO_APP.includes(ent.sugerir)) [ent.acao, ent.sugerir] = [ent.sugerir, ''];
   if (ent.acao && !ent.criarImagem && typeof deps.executarAcao === 'function') {
     emit('nucleo-entendimento', { ...ent, modo: 'acao' });
-    if (usaComoFerramenta(ent.acao, pergunta)) {
+    // 19/11 (Davi: "o modelo deveria analisar os dados e apresentar da sua própria forma"): os utilitários de leitura só
+    // trazem os dados; quem escreve a resposta é o modelo. O cartão (clima, mapa, calendário) fica acima do texto dele.
+    if (LEITURAS_DO_APP.includes(ent.acao) || usaComoFerramenta(ent.acao, pergunta)) {
       const lida = await deps.executarAcao(ent.acao, { pergunta, ent, comoFerramenta: true }).catch(() => null);
-      if (lida?.texto) lidoPelasFerramentas = `O AuGPT consultou agora (só leitura, nada foi mudado):\n${String(lida.texto).slice(0, 3000)}`;
+      if (lida?.texto) {
+        const { cartoes, resto } = separarCartoes(lida.texto);
+        cartoesDaFerramenta = cartoes;
+        lidoPelasFerramentas = `O AuGPT consultou agora (dados reais, de agora; só leitura, nada foi mudado):\n${resto.slice(0, 3500)}`;
+        // pergunta direta sobre o dado ("vai chover amanhã?", "quanto espaço tenho?"): os dados respondem, sem web
+        if (!PERGUNTA_ABERTA.test(String(pergunta || ''))) Object.assign(ent, { precisaBuscar: false, conversa: false, explicacao: false });
+      }
     } else {
       const feita = await deps.executarAcao(ent.acao, { pergunta, ent });
       if (feita) return feita;
@@ -2346,7 +2372,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   emit('nucleo-entendimento', { ...ent, modo: modoUsado });
   // a pergunta depende do usuário (18/10, "meu computador"): o que o AuGPT já sabe dele vai junto
   // na conversa, não (28/10: "estou cansado" respondeu falando do Ryzen do usuário)
-  const sobreOUsuario = [(ent.sobreOUsuario || lidoPelasFerramentas) && !ent.conversa && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '', lidoPelasFerramentas].filter(Boolean).join('\n\n');
+  const sobreOUsuario = [(ent.sobreOUsuario || (lidoPelasFerramentas && !['clima', 'mapa', 'calendario'].includes(ent.acao))) && !ent.conversa && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '', lidoPelasFerramentas].filter(Boolean).join('\n\n');
   // os links que o usuário colou (da pergunta original — a reescrita do entendimento pode perder o endereço)
   const linksDoUsuario = [...new Set(String(pergunta || '').match(/https?:\/\/[^\s'"<>)\]]+/g) || [])];
   etapa('entendimento', inicioDoEntendimento);
@@ -2401,6 +2427,8 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
       // título dentro de negrito (17/10, Llama 3.2 3B: "**#### 1. HyperX…**") não vira cartão nem título
       .replace(/^\s*\*\*\s*(#{2,4} [^*\n]+?)\s*\*\*\s*$/gm, '$1');
   const inicioDaEscrita = Date.now();
+  // o cartão do utilitário aparece já, antes do texto do modelo (19/11)
+  if (cartoesDaFerramenta) emit('resposta-token', { pedaco: `${cartoesDaFerramenta}\n\n` });
   let escrito = limparEscrita(await escrever(mensagens, (pedaco) => emit('resposta-token', { pedaco })));
   etapa('escrita', inicioDaEscrita);
   const inicioDaConferencia = Date.now();
@@ -2552,9 +2580,11 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const comFoto = pelaAparencia ? `${avisoDaFoto}\n\n${comGraficos}` : comGraficos;
   // direito, saúde e dinheiro (30/10, análise do novato): o modelo pode errar (a questão da OAB) e o erro custa caro
   const cautela = avisoDeCautela(pergunta, deps.idioma);
-  const texto = cautela ? `${comFoto}\n\n*${cautela}*` : comFoto;
+  const comCautela = cautela ? `${comFoto}\n\n*${cautela}*` : comFoto;
+  // o cartão do utilitário (clima, mapa, calendário) fica acima do texto do modelo (19/11)
+  const texto = cartoesDaFerramenta ? `${cartoesDaFerramenta}\n\n${comCautela}` : comCautela;
   etapa('conferencia', inicioDaConferencia);
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { LEITURAS_DO_APP, separarCartoes, questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

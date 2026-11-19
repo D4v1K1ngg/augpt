@@ -10,7 +10,7 @@ const { MARCA_DO_PLANO } = require('../../src/agent/rede-no-chat');
 const { Registro } = require('../../src/registro');
 const { EventEmitter } = require('events');
 
-const id = (objetivo, conversa = []) => rotas.escolherRota({ objetivo, conversa, deps: {} })?.rota.id || 'pesquisa';
+const id = (objetivo, conversa = []) => rotas.reconhecida({ objetivo, conversa, deps: {} })?.rota.id || 'pesquisa';
 
 module.exports = [
   {

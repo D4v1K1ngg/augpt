@@ -49,8 +49,8 @@ module.exports = [
       return [
         ...Object.entries(casos).map(([p, t]) => tipo(p) === t || `"${p}" → ${tipo(p)} (esperado ${t})`),
         ...fora.map((p) => tipo(p) === null || `"${p}" deveria ir para a pesquisa (${tipo(p)})`),
-        rotas.escolherRota({ objetivo: 'que dia é hoje?', conversa: [] })?.rota.id === 'calendario' || 'a rota do calendário',
-        rotas.escolherRota({ objetivo: 'lembre que meu aniversário é 3 de março', conversa: [] })?.rota.id === 'memoria' || 'memória continua antes',
+        rotas.reconhecida({ objetivo: 'que dia é hoje?', conversa: [] })?.rota.id === 'calendario' || 'a rota do calendário',
+        rotas.reconhecida({ objetivo: 'lembre que meu aniversário é 3 de março', conversa: [] })?.rota.id === 'memoria' || 'memória continua antes',
       ];
     },
   },

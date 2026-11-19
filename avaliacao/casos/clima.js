@@ -58,7 +58,7 @@ module.exports = [
         c.pedidoDeClima('vai chover amanhã?')?.quando === 'amanha' && c.pedidoDeClima('vai chover amanhã?').chuva === true || 'amanhã com chuva',
         c.pedidoDeClima('previsão para o fim de semana')?.quando === 'fim_de_semana' || 'fim de semana',
         ...fora.map((p) => c.pedidoDeClima(p) === null || `fora: ${p}`),
-        rotas.escolherRota({ objetivo: 'como está o tempo em Campinas?', conversa: [] })?.rota.id === 'clima' || 'a rota do clima',
+        rotas.reconhecida({ objetivo: 'como está o tempo em Campinas?', conversa: [] })?.rota.id === 'clima' || 'a rota do clima',
       ];
     },
   },

@@ -97,7 +97,7 @@ module.exports = [
       return [
         !errados.length || errados.join(' | '),
         ['abre o site da kabum', 'abre o arquivo gastos.xlsx', 'abre a pasta downloads', 'abre a porta', 'liga o ar condicionado', 'o que abre com o windows?', 'desliga o pc da tomada?'].every((t) => controle.pedidoDoPc(t) === null) || 'o que não é controle do PC',
-        rotas.escolherRota({ objetivo: 'abre o Discord', conversa: [] })?.rota?.id === 'controle_do_pc' && rotas.escolherRota({ objetivo: 'tenho o Discord instalado?', conversa: [] })?.rota?.id === 'consultar_pc' || 'rotas',
+        rotas.reconhecida({ objetivo: 'abre o Discord', conversa: [] })?.rota?.id === 'controle_do_pc' && rotas.reconhecida({ objetivo: 'tenho o Discord instalado?', conversa: [] })?.rota?.id === 'consultar_pc' || 'rotas',
       ];
     },
   },
@@ -184,7 +184,7 @@ module.exports = [
           /Contas a pagar[\s\S]*ENEL DISTRIBUIÇÃO SÃO PAULO: R\$ 187,45[\s\S]*Total: R\$ 187,45/.test(lista.texto) || lista.texto,
           boleto.pedidoDeBoleto(anexado('boleto.pdf', 'resuma este contrato'), { workspace: dir }) === null && boleto.pedidoDeBoleto(anexado('contrato.pdf'), { workspace: dir }) === null || 'o que não é boleto',
           boleto.pedidoDeBoleto(anexado('../fora.pdf'), { workspace: dir }) === null || 'fora da pasta de trabalho',
-          rotas.escolherRota({ objetivo: anexado('boleto.pdf'), conversa: [], config: { workspace: dir } })?.rota?.id === 'boleto' && /ehBoleto \|\| \(!\['local', 'site'\]/.test(loop) || 'a rota e a porta do núcleo',
+          rotas.reconhecida({ objetivo: anexado('boleto.pdf'), conversa: [], config: { workspace: dir } })?.rota?.id === 'boleto' && /ehBoleto \|\| \(!\['local', 'site'\]/.test(loop) || 'a rota e a porta do núcleo',
         ];
       } finally {
         fs.rmSync(dir, { recursive: true, force: true });
@@ -216,7 +216,7 @@ module.exports = [
       return [
         !errados.length || errados.join(' | '),
         ['me lembra daqui a 20 minutos de tirar o bolo', 'quanto tempo dura um timer?', 'o jogo começa às 7h', 'esse alarme do carro é chato', 'o PC demorou 10 minutos pra ligar'].every((t) => timer.pedidoDeTimer(t) === null) || 'o que não é timer',
-        rotas.escolherRota({ objetivo: 'me lembra daqui a 20 minutos de tirar o bolo', conversa: [] })?.rota?.id === 'agenda' && rotas.escolherRota({ objetivo: 'timer de 10 minutos pro miojo', conversa: [] })?.rota?.id === 'timer' || 'rotas',
+        rotas.reconhecida({ objetivo: 'me lembra daqui a 20 minutos de tirar o bolo', conversa: [] })?.rota?.id === 'agenda' && rotas.reconhecida({ objetivo: 'timer de 10 minutos pro miojo', conversa: [] })?.rota?.id === 'timer' || 'rotas',
       ];
     },
   },
@@ -252,7 +252,7 @@ module.exports = [
       return [
         p?.audios?.[0]?.nome === 'PTT-WA0003.opus' && p.audios[0].duracao === '0:42' && p.pergunta === '' || JSON.stringify(p),
         comPergunta?.audios?.length === 2 && comPergunta.pergunta === 'até que horas?' || JSON.stringify(comPergunta),
-        rotas.escolherRota({ objetivo: transcrito('a.opus', '0:42', 'Bom dia! Vai chover amanhã em Campinas?'), conversa: [] })?.rota?.id === 'audio_transcrito' || 'rota',
+        rotas.reconhecida({ objetivo: transcrito('a.opus', '0:42', 'Bom dia! Vai chover amanhã em Campinas?'), conversa: [] })?.rota?.id === 'audio_transcrito' || 'rota',
         audio.pedidoDeAudio(`${transcrito('a.opus', '0:10', 'x')}\n\nArquivos anexados, já copiados para a pasta de trabalho:\n- planilha.xlsx\nUse ler_arquivo para abri-los.`) === null || 'com outro anexo',
         audio.pedidoDeAudio('O que diz este áudio?') === null || 'sem transcrição',
         /EXTENSOES_AUDIO = new Set\(\['\.opus', '\.ogg'/.test(main) && /audio: true, bytes: fs\.readFileSync\(origem\)/.test(main) || 'o anexo leva os bytes do áudio',
@@ -296,8 +296,8 @@ module.exports = [
         p('bom dia', [{ role: 'user', content: 'oi' }]) === null || 'no meio da conversa',
         p('Jarvis, resumo do dia', [{ role: 'user', content: 'oi' }])?.acao === 'resumo' && p('como está meu dia?')?.acao === 'resumo' || 'pedido direto',
         p('bom dia, me ajuda com uma planilha') === null || 'bom dia com pedido',
-        rotas.escolherRota({ objetivo: 'o que eu tenho pra hoje?', conversa: [] })?.rota?.id === 'agenda' || 'agenda',
-        rotas.escolherRota({ objetivo: 'Bom dia, Jarvis', conversa: [] })?.rota?.id === 'resumo_do_dia' || 'rota',
+        rotas.reconhecida({ objetivo: 'o que eu tenho pra hoje?', conversa: [] })?.rota?.id === 'agenda' || 'agenda',
+        rotas.reconhecida({ objetivo: 'Bom dia, Jarvis', conversa: [] })?.rota?.id === 'resumo_do_dia' || 'rota',
       ];
     },
   },

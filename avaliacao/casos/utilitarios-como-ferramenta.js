@@ -11,7 +11,7 @@
 const nucleo = require('../../src/agent/nucleo');
 const rotas = require('../../src/agent/rotas-do-codigo');
 
-const rota = (q) => rotas.escolherRota({ objetivo: q, conversa: [] })?.rota?.id || null;
+const rota = (q) => rotas.reconhecida({ objetivo: q, conversa: [] })?.rota?.id || null;
 
 const deps = (entendimento, extra = {}) => {
   const escritas = [];
@@ -64,7 +64,7 @@ module.exports = [
     },
   },
   {
-    nome: 'utilitários: na pergunta aberta a leitura roda calada (comoFerramenta), a resposta é a do escritor e o que foi lido chega a ele junto com os dados do PC; no pedido direto a resposta é a do utilitário',
+    nome: 'utilitários: a leitura roda calada (comoFerramenta) e quem responde é o escritor, com o que foi lido e os dados do PC — na pergunta aberta e também no pedido direto (19/11, Davi: "o modelo analisa os dados e apresenta da sua forma")',
     tipo: 'unidade',
     async executar() {
       const chamadas = [];
@@ -75,10 +75,10 @@ module.exports = [
       const b = deps({ precisa_buscar: false, acao: 'consultar_pc' }, { executarAcao });
       const r2 = await nucleo.responder({ pergunta: 'quanto espaço livre meu pc tem?', modo: 'rapido', hoje: '11/11/2026', deps: b.d });
       return [
-        JSON.stringify(chamadas) === '[["consultar_pc",true],["consultar_pc",false]]' || JSON.stringify(chamadas),
+        JSON.stringify(chamadas) === '[["consultar_pc",true],["consultar_pc",true]]' || JSON.stringify(chamadas),
         /Modo de Jogo/.test(r1.texto) && !/^Disco C/.test(r1.texto) || `a resposta aberta: ${r1.texto.slice(0, 120)}`,
         /12 GB livres/.test(sistema) && /RTX de teste/.test(sistema) && /<sobre_o_usuario>/.test(sistema) || 'o escritor recebe o que foi lido e os dados do PC',
-        r2.texto.startsWith('Disco C: 12 GB livres') && b.escritas.length === 0 || `o pedido direto: ${r2.texto.slice(0, 120)}`,
+        b.escritas.length === 1 && /12 GB livres/.test(b.escritas[0]?.[0]?.content || '') || `o pedido direto: ${r2.texto.slice(0, 120)}`,
       ];
     },
   },

@@ -9,7 +9,7 @@ const os = require('os');
 const m = require('../../src/agent/imagens-no-chat');
 const rotas = require('../../src/agent/rotas-do-codigo');
 
-const rota = (t) => rotas.escolherRota({ objetivo: t, conversa: [], deps: {} })?.rota.id || 'pesquisa';
+const rota = (t) => rotas.reconhecida({ objetivo: t, conversa: [], deps: {} })?.rota.id || 'pesquisa';
 
 module.exports = [
   {

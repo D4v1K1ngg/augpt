@@ -34,7 +34,8 @@ module.exports = [
         // lugar por relação: o código reconhece a intenção, o modelo resolve o lugar
         rotas.escolherRota({ objetivo: 'onde fica a capital da Bahia?', conversa: [] }) === null && rotas.intencao('onde fica a capital da Bahia?') === 'mapa' || 'capital da Bahia',
         rotas.intencao('como está o tempo na capital do Paraná?') === 'clima' || 'tempo na capital',
-        rotas.intencao('quem descobriu o Brasil?') === null && rotas.intencao('qual a temperatura da minha cpu?') === null || 'sem intenção',
+        // 19/11: a temperatura da CPU é do PC (o código reconhece como reserva), nunca do clima
+        rotas.intencao('quem descobriu o Brasil?') === null && rotas.intencao('qual a temperatura da minha cpu?') !== 'clima' || 'sem intenção',
         // o modelo devolveu o que já estava escrito ("a maior cidade do Brasil" → ["Brasil"]): não resolveu
         require('../../src/agent/lugares').naoResolveu('onde fica a maior cidade do Brasil?', ['Brasil']) && !require('../../src/agent/lugares').naoResolveu('onde fica a capital da Bahia?', ['Salvador, BA']) && !require('../../src/agent/lugares').naoResolveu('onde fica iconha?', ['Iconha']) || 'relação não resolvida',
       ];

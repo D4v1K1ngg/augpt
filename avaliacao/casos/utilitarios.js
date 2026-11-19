@@ -24,7 +24,7 @@ module.exports = [
     tipo: 'unidade',
     executar() {
       const cartoes = capacidades.utilitarios({ instalados: { youtube: true, imagem: false }, plataforma: 'win32' });
-      const rota = (t) => rotas.escolherRota({ objetivo: t, conversa: [], deps: {} })?.rota.id || 'pesquisa';
+      const rota = (t) => rotas.reconhecida({ objetivo: t, conversa: [], deps: {} })?.rota.id || 'pesquisa';
       const texto = capacidades.textoDosUtilitarios(cartoes);
       const linux = capacidades.utilitarios({ plataforma: 'linux' });
       return [

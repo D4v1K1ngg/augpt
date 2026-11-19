@@ -60,8 +60,8 @@ module.exports = [
         igual('rota de Campinas para Santos de bicicleta', { tipo: 'rota', origem: 'Campinas', destino: 'Santos', modo: 'bike' }),
         igual('how long from London to Paris by car?', { tipo: 'rota', origem: 'London', destino: 'Paris', modo: 'carro' }),
         ...fora.map((q) => p(q) === null || `fora: ${q} → ${JSON.stringify(p(q))}`),
-        rotas.escolherRota({ objetivo: 'onde fica a Torre Eiffel?', conversa: [] })?.rota.id === 'mapa' || 'a rota do mapa',
-        rotas.escolherRota({ objetivo: 'como está o tempo em Campinas?', conversa: [] })?.rota.id === 'clima' || 'o clima continua antes',
+        rotas.reconhecida({ objetivo: 'onde fica a Torre Eiffel?', conversa: [] })?.rota.id === 'mapa' || 'a rota do mapa',
+        rotas.reconhecida({ objetivo: 'como está o tempo em Campinas?', conversa: [] })?.rota.id === 'clima' || 'o clima continua antes',
       ];
     },
   },

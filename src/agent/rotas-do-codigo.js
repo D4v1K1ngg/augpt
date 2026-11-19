@@ -118,6 +118,7 @@ const ROTAS = [
     // "que dia é hoje?", "quais feriados temos este mês?", "quantos dias faltam pro Natal?" (23/10):
     // o código responde, com o calendário interativo na resposta
     id: 'calendario',
+    peloModelo: true,
     detecta: ({ objetivo }) => calendario.pedidoDeCalendario(objetivo),
     responde: ({ objetivo, deps, config }, pedido) => calendario.responderCalendario({ pergunta: objetivo, deps, config, ...(pedido ? { pedido } : {}) }),
   },
@@ -125,6 +126,7 @@ const ROTAS = [
     // "como está o tempo em Campinas?", "vai chover amanhã?" (23/10): Open-Meteo e o cartão do clima;
     // sem resposta do Open-Meteo, a rota devolve e a pesquisa responde
     id: 'clima',
+    peloModelo: true,
     detecta: ({ objetivo }) => clima.pedidoDeClima(objetivo),
     intencao: (objetivo) => clima.intencaoDeClima(objetivo),
     responde: ({ objetivo, conversa, deps, config, pasta, ent }, pedido) => clima.responderClima({ pergunta: objetivo, conversa, deps, config, pasta, lugares: ent?.lugares, ...(pedido ? { pedido } : {}) }),
@@ -133,6 +135,7 @@ const ROTAS = [
     // "onde fica a Torre Eiffel?", "quanto tempo de Campinas até São Paulo?" (23/10): Nominatim, OSRM
     // e o globo na resposta; lugar que o mapa não conhece ou serviço fora, a pesquisa responde
     id: 'mapa',
+    peloModelo: true,
     detecta: ({ objetivo }) => mapa.pedidoDeMapa(objetivo),
     intencao: (objetivo) => mapa.intencaoDeMapa(objetivo),
     responde: ({ objetivo, conversa, deps, config, pasta, ent }, pedido) => mapa.responderMapa({ pergunta: objetivo, conversa, deps, config, pasta, lugares: ent?.lugares, ...(pedido ? { pedido } : {}) }),
@@ -186,33 +189,39 @@ const ROTAS = [
   {
     // antes de tudo: "aplicar" e "desfazer ajustes" dependem da resposta anterior
     id: 'ajustes_de_rede',
+    peloModelo: (pedido) => pedido?.tipo === 'planejar',
     detecta: ({ objetivo, conversa }) => rede.pedidoDeAjuste(objetivo, conversa),
     responde: ({ objetivo, conversa, deps, pasta }, pedido) => rede.responderAjuste({ pergunta: objetivo, conversa, deps, pasta, ...(pedido ? { pedido } : {}) }),
   },
   {
     // antes do teste de rede: "meu ping no PUBG" é de servidor do jogo
     id: 'rota_de_jogo',
+    peloModelo: true,
     detecta: ({ objetivo }) => rede.pedidoDeRota(objetivo),
     responde: ({ objetivo, deps, jogo }, pedido) => rede.responderRota({ pergunta: objetivo, deps, ...(pedido ? {} : { jogo }) }),
   },
   {
     id: 'diagnostico_da_rede',
+    peloModelo: true,
     detecta: ({ objetivo }) => rede.pedidoDeDiagnostico(objetivo),
     responde: ({ objetivo, conversa, deps }) => rede.responderDiagnostico({ pergunta: objetivo, conversa, deps }),
   },
   {
     // "quanto espaço livre meu pc tem?", "qual a marca do meu mouse?"
     id: 'consultar_pc',
+    peloModelo: true,
     detecta: ({ objetivo }) => pc.pedidoDeConsultaPC(objetivo),
     responde: ({ objetivo, deps }, pedido) => pc.responderConsultaPC({ pergunta: objetivo, deps, ...(pedido ? { ids: pedido.ids } : {}) }),
   },
   {
     id: 'trafego_de_rede',
+    peloModelo: true,
     detecta: ({ objetivo }) => rede.pedidoDeTrafego(objetivo),
     responde: ({ objetivo, deps }) => rede.responderTrafego({ pergunta: objetivo, deps }),
   },
   {
     id: 'teste_de_rede',
+    peloModelo: true,
     detecta: ({ objetivo, conversa }) => rede.pedidoDeRede(objetivo, conversa),
     // pela ação ou pelo "sim": o modo da oferta (ping ou completo), já confirmado
     responde: ({ objetivo, conversa, deps, signal, modo, confirmado }, pedido) =>
@@ -237,11 +246,24 @@ function textoLongo(objetivo) {
   return proprio.length > 500 || proprio.split('\n').filter((l) => l.trim()).length > 8;
 }
 
+/** O que o CÓDIGO reconhece no pedido, inclusive as rotas que o modelo escolhe (peloModelo): é a reserva do entendimento. */
+function reconhecida(ctx) {
+  if (textoLongo(ctx.objetivo)) return ROTAS.filter((r) => r.aceitaTextoLongo).map((rota) => ({ rota, pedido: rota.detecta(ctx) })).find((x) => x.pedido) || null;
+  for (const rota of ROTAS) {
+    const pedido = rota.detecta(ctx);
+    if (pedido) return { rota, pedido };
+  }
+  return null;
+}
+
 function escolherRota(ctx) {
   const longo = textoLongo(ctx.objetivo);
   for (const rota of ROTAS) {
     if (longo && !rota.aceitaTextoLongo) continue;
     const pedido = rota.detecta(ctx);
+    // 19/11 (Davi: "PC, internet, clima, localização não deveriam ser acionados por código, mas pelo modelo"): estas o
+    // entendimento escolhe (o "acao"), e o modelo escreve a resposta com os dados — a palavra do pedido não decide
+    if (pedido && rota.peloModelo && (typeof rota.peloModelo !== 'function' || rota.peloModelo(pedido))) continue;
     if (pedido) return { rota, pedido };
   }
   return null;
@@ -260,7 +282,20 @@ async function responderPelaRota(ctx, escolha) {
  * ação vale se ele não escolher outra.
  */
 function intencao(objetivo) {
-  return ROTAS.find((r) => r.intencao?.(objetivo))?.id || null;
+  // 19/11: as rotas que o modelo escolhe (peloModelo) também servem de reserva — se o entendimento não escolher ação e o
+  // código reconhecer ("quantos dias faltam para o Natal?" foi para a web: 43 s), ela roda e o modelo escreve com os dados
+  const ctx = { objetivo, conversa: [], config: {} };
+  const reconhece = (r) => {
+    if (r.intencao?.(objetivo)) return true;
+    if (!r.peloModelo || textoLongo(objetivo)) return false;
+    try {
+      const pedido = r.detecta(ctx);
+      return Boolean(pedido) && (typeof r.peloModelo !== 'function' || r.peloModelo(pedido));
+    } catch {
+      return false;
+    }
+  };
+  return ROTAS.find(reconhece)?.id || null;
 }
 
 /** Ação pelo id (entendimento ou "sim" a uma oferta), sem passar pela detecção. */
@@ -269,4 +304,4 @@ function executar(id, ctx) {
   return rota ? responderPelaRota(ctx, { rota, pedido: null }) : Promise.resolve(null);
 }
 
-module.exports = { textoLongo, ROTAS, escolherRota, responderPelaRota, executar, intencao };
+module.exports = { reconhecida, textoLongo, ROTAS, escolherRota, responderPelaRota, executar, intencao };
