@@ -23,6 +23,24 @@ const DESTRUTIVAS = /^(ctrl\+s|ctrl\+w|alt\+f4|ctrl\+shift\+s|ctrl\+shift\+w|shi
 // colar põe na janela o que o usuário copiou — pode ser pessoal (19/11: num teste, o 9B colou o que estava copiado)
 const COLAR = /^(ctrl\+v|shift\+insert|ctrl\+shift\+v)$/i;
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
+// as páginas das Configurações do Windows (ms-settings:<página>), pelas palavras do pedido (sem acento)
+const PAGINAS_DAS_CONFIGURACOES = {
+  'gaming-gamemode': /modo de jogo|game ?mode/,
+  'gaming-gamebar': /game ?bar|barra de jogo/,
+  'colors': /modo escuro|tema escuro|modo claro|cores/,
+  'nightlight': /luz noturna/,
+  'quiethours': /nao perturbe|assistente de foco/,
+  'display': /\btela\b|monitor|resolucao|escala|video/,
+  'sound': /\bsom\b|audio|alto-?falante|microfone/,
+  'bluetooth': /bluetooth/,
+  'network-wifi': /wi-?fi/,
+  'windowsupdate': /atualiza/,
+  'powersleep': /energia|bateria|suspender/,
+  'notifications': /notifica/,
+  'mousetouchpad': /mouse|touchpad/,
+  'appsfeatures': /aplicativos|programas instalados/,
+  'privacy': /privacidade/,
+};
 
 /** A janela de trabalho: a escolhida (focar_janela), senão a da frente que não é o AuGPT. */
 async function janelaAlvo(ctx) {
@@ -157,16 +175,21 @@ module.exports = [
   {
     name: 'abrir_programa',
     risk: 'medio',
-    description: 'Abre um programa do Windows pelo nome (Bloco de Notas, Calculadora, Paint, Explorador…) e o deixa como janela de trabalho. O Bloco de Notas abre numa aba nova, em branco.',
-    args: { nome: 'nome do programa, como "bloco de notas"' },
+    description: 'Abre um programa do Windows pelo nome (Bloco de Notas, Calculadora, Paint, Explorador…) e o deixa como janela de trabalho. O Bloco de Notas abre numa aba nova, em branco. Para as Configurações, diga também a página: "configurações modo de jogo", "configurações som", "configurações tela", "configurações bluetooth"…',
+    args: { nome: 'nome do programa, como "bloco de notas" ou "configurações modo de jogo"' },
     obrigatorios: ['nome'],
     async run({ nome }, ctx) {
       const { spawn } = require('child_process');
       const antes = new Set((await tela.janelas()).janelas.map((w) => w.hwnd));
-      const n = String(nome).toLowerCase();
+      const n = String(nome).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
       const conhecidos = { notepad: /bloco|notepad|notas/, calc: /calculadora|calc/, mspaint: /paint/, explorer: /explorador|explorer|arquivos/ };
-      const exe = Object.keys(conhecidos).find((k) => conhecidos[k].test(n));
-      if (exe) spawn(`${exe}.exe`, [], { detached: true, stdio: 'ignore' }).unref();
+      // as Configurações do Windows abrem direto na página (20/11, o modo de jogo): ms-settings:<página>
+      const ehConfiguracoes = /configurac|settings|modo de jogo|modo escuro|luz noturna|bluetooth/.test(n);
+      const exe = ehConfiguracoes ? null : Object.keys(conhecidos).find((k) => conhecidos[k].test(n));
+      if (ehConfiguracoes) {
+        const pagina = Object.entries(PAGINAS_DAS_CONFIGURACOES).find(([, re]) => re.test(n))?.[0] || '';
+        spawn('explorer.exe', [`ms-settings:${pagina}`], { detached: true, stdio: 'ignore' }).unref();
+      } else if (exe) spawn(`${exe}.exe`, [], { detached: true, stdio: 'ignore' }).unref();
       else {
         const pc = require('../agent/controle-do-pc');
         const app = pc.acharApp(await pc.appsDoIniciar(), String(nome));
@@ -177,7 +200,7 @@ module.exports = [
       for (let i = 0; i < 40 && !alvo; i += 1) {
         await pausa(250);
         const { janelas, frente } = await tela.janelas();
-        alvo = janelas.find((w) => !antes.has(w.hwnd) && w.pid !== process.pid) || (exe && janelas.find((w) => w.hwnd === frente && new RegExp(exe, 'i').test(w.processo)));
+        alvo = janelas.find((w) => !antes.has(w.hwnd) && w.pid !== process.pid) || (exe && janelas.find((w) => w.hwnd === frente && new RegExp(exe, 'i').test(w.processo))) || (ehConfiguracoes && janelas.find((w) => w.hwnd === frente && /configura|settings/i.test(w.titulo)));
       }
       if (!alvo) throw new Error(`abri "${nome}", mas a janela não apareceu`);
       (ctx.estado.tela ||= {}).hwnd = alvo.hwnd;
