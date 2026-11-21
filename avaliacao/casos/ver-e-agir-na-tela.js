@@ -35,6 +35,8 @@ module.exports = [
         // 20/11 (Davi: "abrir as configurações do Windows e desativar o modo de jogo"): ligar/desligar um ajuste do Windows
         ['Abre as configurações do Windows e desativa o modo de jogo', 'desativa o modo de jogo do windows', 'liga o modo escuro'].every((p) => tipoDoPedido(p).tipo === 'tela') || 'ligar/desligar no Windows',
         tipoDoPedido('como ativar o modo de jogo?').tipo !== 'tela' && tipoDoPedido('desativa a economia de energia da placa de rede').tipo !== 'tela' && tipoDoPedido('desliga o pc às 23h').tipo !== 'tela' || 'pergunta, placa de rede e desligar o PC ficam onde estavam',
+        // 21/11 (Davi: "testa com jogos mais simples, paciência, xadrez"): jogar no que está aberto é agir na tela
+        ['Joga uma partida de jogo da velha na janela que está aberta na tela', 'jogue o xadrez aberto na janela'].every((p) => tipoDoPedido(p).tipo === 'tela') && tipoDoPedido('como jogar xadrez?').tipo !== 'tela' && tipoDoPedido('joga xadrez comigo').tipo !== 'tela' || 'jogar na tela',
         ler('src/tools/tela.js').includes("'gaming-gamemode': /modo de jogo") && ler('src/tools/tela.js').includes('ms-settings:${pagina}') || 'as Configurações abrem na página',
       ];
     },
