@@ -114,11 +114,12 @@ module.exports = [
     nome: 'boas-vindas (17/10): teste da placa — diz se o modelo roda na placa, dividido ou no processador, com tokens por segundo; no processador com placa AMD, a dica fala do Vulkan e do driver Adrenalin',
     tipo: 'unidade',
     async executar() {
-      const teste = (sizeVram, gpus) =>
+      const teste = (sizeVram, gpus, log = '') =>
         v.testarAceleracao({
           host: 'http://h',
           modelo: 'qwen3.5:4b',
           gpus,
+          lerLog: () => log,
           buscar: async (url) => ({ json: async () => (/api\/ps/.test(url) ? { models: [{ name: 'qwen3.5:4b', size: 100, size_vram: sizeVram }] } : { eval_count: 100, eval_duration: 2e9, load_duration: 3e9 }) }),
         });
       const placa = await teste(100, [{ nome: 'NVIDIA GeForce RTX 3060 Ti' }]);
@@ -128,6 +129,29 @@ module.exports = [
         placa.naPlaca === 100 && placa.tokensPorSegundo === 50 && /na placa de vídeo/.test(placa.veredito) || `placa: ${JSON.stringify(placa)}`,
         /dividido: 60%/.test(dividido.veredito) || `dividido: ${dividido.veredito}`,
         /só no processador/.test(cpuAmd.veredito) && /Vulkan/.test(cpuAmd.veredito) && /Adrenalin/.test(cpuAmd.veredito) || `AMD no processador: ${cpuAmd.veredito}`,
+      ];
+    },
+  },
+  {
+    nome: 'boas-vindas (21/11): notebook com duas placas (Acer Nitro 5, RTX 3050 + Radeon integrada) — o teste da placa lê no log do Ollama quais placas ele achou e diz quando ele não vê a NVIDIA',
+    tipo: 'unidade',
+    async executar() {
+      const linha = (lib, desc, tipo) => 'time=x level=INFO source=types.go:32 msg="inference compute" id=0 library=' + lib + ' name=X0 description="' + desc + '" type=' + tipo + ' total="4.0 GiB"\n';
+      const antigo = 'msg="discovering available GPUs..."\n' + linha('CUDA', 'NVIDIA GeForce RTX 3050 Laptop GPU', 'discrete');
+      const soIntegrada = antigo + 'msg="discovering available GPUs..."\n' + linha('Vulkan', 'AMD Radeon(TM) Graphics', 'integrated');
+      const placas = v.placasDoOllama(soIntegrada);
+      const nvidia = [{ nome: 'NVIDIA GeForce RTX 3050 Laptop GPU' }];
+      const teste = (log, sizeVram = 100) => v.testarAceleracao({ host: 'http://h', modelo: 'qwen3.5:2b', gpus: nvidia, lerLog: () => log, buscar: async (url) => ({ json: async () => (/api\/ps/.test(url) ? { models: [{ name: 'qwen3.5:2b', size: 100, size_vram: sizeVram }] } : { eval_count: 100, eval_duration: 2e9 }) }) });
+      const naIntegrada = await teste(soIntegrada);
+      const certo = await teste(antigo);
+      const naoCoube = await teste(antigo, 50);
+      return [
+        placas.length === 1 && placas[0].biblioteca === 'Vulkan' && placas[0].tipo === 'integrated' || 'só a última procura conta: ' + JSON.stringify(placas),
+        /não encontrou a sua NVIDIA GeForce RTX 3050/.test(naIntegrada.veredito) && /integrada/.test(naIntegrada.veredito) && /driver da NVIDIA/.test(naIntegrada.veredito) || naIntegrada.veredito,
+        !/NVIDIA/.test(certo.veredito) || 'com a NVIDIA vista e o modelo inteiro nela, nada a dizer: ' + certo.veredito,
+        /não coube inteiro nela/.test(naoCoube.veredito) || naoCoube.veredito,
+        v.avisoDeDuasPlacas({ gpus: [{ nome: 'AMD Radeon RX 6600' }], placas: [] }) === '' || 'sem NVIDIA, sem aviso',
+        v.placasDoOllama('') .length === 0 || 'sem log',
       ];
     },
   },

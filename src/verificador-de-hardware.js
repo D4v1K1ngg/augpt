@@ -152,11 +152,46 @@ function recomendarModelos({ vramGB = 0, ramTotalGB = 0, discoLivreGB = null, gp
 }
 
 /**
+ * As placas que o Ollama achou, do log dele (21/11, Davi: "no notebook da minha irmã, Acer Nitro 5 com RTX 3050 de 4 GB
+ * e Ryzen 5, o Qwen 3.5 2B rodou no gráfico integrado"). Só a última procura (a de quando o Ollama ligou): cada placa
+ * vira { biblioteca: 'CUDA' | 'Vulkan' | 'ROCm' | …, nome, tipo: 'discrete' | 'integrated' }. Sem log, lista vazia.
+ */
+function placasDoOllama(log = '') {
+  const inicio = log.lastIndexOf('discovering available GPUs');
+  const trecho = inicio >= 0 ? log.slice(inicio) : log;
+  return [...trecho.matchAll(/msg="inference compute"[^\n]*/g)].map(([linha]) => ({
+    biblioteca: (linha.match(/library=(\S+)/) || [])[1] || '',
+    nome: (linha.match(/description="([^"]*)"/) || [])[1] || (linha.match(/name=(\S+)/) || [])[1] || '',
+    tipo: (linha.match(/type=(\S+)/) || [])[1] || '',
+  })).filter((p) => p.biblioteca && !/^cpu$/i.test(p.biblioteca));
+}
+
+const logDoOllama = (env = process.env) => {
+  const arquivo = process.platform === 'win32' ? path.join(env.LOCALAPPDATA || '', 'Ollama', 'server.log') : path.join(os.homedir(), '.ollama', 'logs', 'server.log');
+  try {
+    return fs.readFileSync(arquivo, 'utf8');
+  } catch {
+    return '';
+  }
+};
+
+/** Notebook com duas placas: a NVIDIA está no Windows, mas o Ollama não a usa — o que dizer. Vazio quando está tudo certo. */
+function avisoDeDuasPlacas({ gpus = [], placas = [], naPlaca = 0 }) {
+  const nvidia = gpus.find((g) => /nvidia|geforce|rtx|gtx|quadro/i.test(g.nome));
+  if (!nvidia) return '';
+  if (placas.some((p) => p.biblioteca === 'CUDA')) {
+    return naPlaca >= 90 ? '' : ` O Ollama vê a sua ${nvidia.nome}, mas o modelo não coube inteiro nela: feche jogos e programas que usam a placa, ou use um modelo menor.`;
+  }
+  const vistas = placas.map((p) => `${p.nome || p.biblioteca} (${p.tipo === 'integrated' ? 'integrada' : p.biblioteca})`).join(', ');
+  return ` O Ollama não encontrou a sua ${nvidia.nome}${vistas ? ` — só vê: ${vistas}` : ''}. Em notebook com duas placas, a causa é quase sempre o driver da NVIDIA: atualize pelo app da NVIDIA (ou nvidia.com/drivers), confira se o notebook não está no modo só integrada/Eco (no Acer, NitroSense → modo de GPU), reinicie o computador e teste de novo.`;
+}
+
+/**
  * Teste da placa (17/10): carrega o modelo com o contexto do AuGPT, gera um texto curto e diz onde
  * ele rodou (placa, dividido ou processador) e a quantos tokens por segundo. É o jeito de saber se
  * uma placa sem ROCm (ex.: RX 580) está mesmo sendo usada pelo Vulkan do Ollama.
  */
-async function testarAceleracao({ host, modelo, buscar = (...a) => fetch(...a), gpus = [] }) {
+async function testarAceleracao({ host, modelo, buscar = (...a) => fetch(...a), gpus = [], lerLog = logDoOllama }) {
   const pedir = (caminho, corpo) => buscar(`${String(host).replace(/\/$/, '')}${caminho}`, { method: corpo ? 'POST' : 'GET', body: corpo ? JSON.stringify(corpo) : undefined, signal: AbortSignal.timeout(180000) }).then((r) => r.json());
   const r = await pedir('/api/generate', { model: modelo, prompt: 'Conte de 1 a 40, separando com vírgulas.', stream: false, think: false, options: { num_ctx: 16384, num_predict: 120 } });
   if (r.error) throw new Error(r.error);
@@ -169,9 +204,11 @@ async function testarAceleracao({ host, modelo, buscar = (...a) => fetch(...a), 
   if (naPlaca >= 90) veredito = `rodando na placa de vídeo (${naPlaca}%), ${tokensPorSegundo} tokens por segundo`;
   else if (naPlaca >= 10) veredito = `dividido: ${naPlaca}% na placa e o resto no processador, ${tokensPorSegundo} tokens por segundo — um modelo menor caberia inteiro e ficaria mais rápido`;
   else veredito = `rodando só no processador (${tokensPorSegundo} tokens por segundo): a placa de vídeo não está sendo usada. ${amd ? 'Em placa AMD sem ROCm (como a RX 580), o Ollama usa o Vulkan: atualize o driver da AMD (Adrenalin) e o Ollama (em Componentes) e teste de novo.' : 'Atualize o driver da placa e o Ollama (em Componentes) e teste de novo.'}`;
+  const placas = placasDoOllama(lerLog());
+  veredito += avisoDeDuasPlacas({ gpus, placas, naPlaca });
   // placa lenta (17/10, RX 580: 8 minutos numa pergunta): o ajuste que mais ajuda é pesquisar e escrever menos
   if (tokensPorSegundo && tokensPorSegundo < 25) veredito += ` Placa lenta para IA: em Ajustes → Geral, Profundidade "rápido" e Tipo de resposta "direta" deixam cada resposta várias vezes mais rápida.`;
-  return { modelo, naPlaca, tokensPorSegundo, carregouEmS: r.load_duration ? Math.round(r.load_duration / 1e8) / 10 : null, veredito };
+  return { modelo, naPlaca, placas, tokensPorSegundo, carregouEmS: r.load_duration ? Math.round(r.load_duration / 1e8) / 10 : null, veredito };
 }
 
-module.exports = { testarAceleracao, placaAntiga, PLACA_AMD_ANTIGA, verificarComputador, detectarGpus, lerGpusNvidiaSmi, lerGpusDoRegistro, recomendarModelos, espacoLivreGB, pastaDosModelos, MODELOS, EMBEDDING };
+module.exports = { placasDoOllama, avisoDeDuasPlacas, testarAceleracao, placaAntiga, PLACA_AMD_ANTIGA, verificarComputador, detectarGpus, lerGpusNvidiaSmi, lerGpusDoRegistro, recomendarModelos, espacoLivreGB, pastaDosModelos, MODELOS, EMBEDDING };
