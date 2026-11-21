@@ -48,6 +48,15 @@ const urlZipSearxng = (tag) => `https://github.com/searxng/searxng/archive/refs/
 
 const urlZipSearxngMaster = () => 'https://github.com/searxng/searxng/archive/refs/heads/master.zip';
 
+/**
+ * A versão do SearXNG fixa (21/11, Davi: "uma pessoa de fora vai ter toda a qualidade de pesquisa que eu tenho?"): o
+ * SearXNG não publica versões ("releases/latest" dá 404), e o instalador caía sempre no master do dia — cada pessoa com
+ * um SearXNG diferente do que foi testado. Este é o commit que roda no PC do Davi desde 13/11 (conferido arquivo a
+ * arquivo): os buscadores do settings.yml (Yandex e os outros) foram medidos nele. Para atualizar: testar e trocar aqui.
+ */
+const COMMIT_SEARXNG = '219b63b207c98b85471de5abab773e76432f1961';
+const urlZipSearxngFixo = () => `https://github.com/searxng/searxng/archive/${COMMIT_SEARXNG}.zip`;
+
 /** Porta preferida se estiver livre; senão, deixa o SO escolher uma. */
 function portaLivre(preferida) {
   return new Promise((resolve) => {
@@ -412,19 +421,22 @@ class RuntimeSearXNG extends EventEmitter {
 
   /** Baixa o código-fonte do SearXNG (release mais recente; cai para master se a API falhar). */
   async _baixarSearxng() {
-    let urlZip = urlZipSearxngMaster();
-    try {
-      const r = await baixarBinario(urlUltimaTagSearxng(), { timeout: 15000, headers: { Accept: 'application/vnd.github+json' } });
-      if (r.ok) {
-        const dados = JSON.parse(r.buffer.toString('utf8'));
-        if (dados?.tag_name) urlZip = urlZipSearxng(dados.tag_name);
-      }
-    } catch {
-      /* API indisponível: segue com master, que sempre existe */
-    }
-
     const pastaSearx = path.join(this.dirRuntime, 'searxng-src');
-    const zipSearx = await baixarBinario(urlZip, { timeout: 120000 });
+    // a versão testada; só se o GitHub não a servir, a última publicada (ou o master)
+    let zipSearx = await baixarBinario(urlZipSearxngFixo(), { timeout: 120000 }).catch(() => ({ ok: false, status: 0 }));
+    if (!zipSearx.ok) {
+      let urlZip = urlZipSearxngMaster();
+      try {
+        const r = await baixarBinario(urlUltimaTagSearxng(), { timeout: 15000, headers: { Accept: 'application/vnd.github+json' } });
+        if (r.ok) {
+          const dados = JSON.parse(r.buffer.toString('utf8'));
+          if (dados?.tag_name) urlZip = urlZipSearxng(dados.tag_name);
+        }
+      } catch {
+        /* API indisponível: segue com master, que sempre existe */
+      }
+      zipSearx = await baixarBinario(urlZip, { timeout: 120000 });
+    }
     if (!zipSearx.ok) throw new Error(`não consegui baixar o SearXNG (HTTP ${zipSearx.status})`);
     extrairZipPara(zipSearx.buffer, pastaSearx, { descartarRaizComum: true });
 
@@ -579,7 +591,7 @@ class RuntimeSearXNG extends EventEmitter {
   }
 }
 
-module.exports = {
+module.exports = { COMMIT_SEARXNG, urlZipSearxngFixo,
   RuntimeSearXNG,
   portaLivre,
   gerarSettingsYml,

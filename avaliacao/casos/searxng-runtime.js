@@ -425,4 +425,17 @@ module.exports = [
       ];
     },
   },
+  {
+    nome: 'searxng-runtime (21/11): quem instala de fora baixa o MESMO SearXNG testado (um commit fixo), não o master do dia; o master só se o GitHub não servir esse',
+    tipo: 'unidade',
+    executar() {
+      const { COMMIT_SEARXNG, urlZipSearxngFixo } = require('../../src/searxng-runtime');
+      const fonte = fs.readFileSync(path.join(__dirname, '../../src/searxng-runtime.js'), 'utf8');
+      return [
+        /^[0-9a-f]{40}$/.test(COMMIT_SEARXNG) || 'commit completo',
+        urlZipSearxngFixo() === 'https://github.com/searxng/searxng/archive/' + COMMIT_SEARXNG + '.zip' || urlZipSearxngFixo(),
+        /baixarBinario\(urlZipSearxngFixo\(\)[\s\S]{0,200}if \(!zipSearx\.ok\)/.test(fonte) || 'o fixo primeiro, o resto só se falhar',
+      ];
+    },
+  },
 ];
