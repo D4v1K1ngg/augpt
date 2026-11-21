@@ -1,5 +1,29 @@
 [
   {
+    "versao": "0.46.0",
+    "data": "2026-11-21",
+    "pt": {
+      "titulo": "O AuGPT vê e mexe na tela, navegador no canto do chat e downloads ao alcance",
+      "itens": [
+        "**Ver e agir na tela do Windows:** peça \"abre o bloco de notas e escreve…\", \"preenche o formulário aberto na tela\" ou \"desativa o modo de jogo do Windows\" e o AuGPT lê a janela, clica e digita. Uma faixa avisa enquanto ele controla o computador; levar o mouse ao canto superior esquerdo para tudo. Ele não digita senhas, e apagar, salvar por cima, fechar e colar pedem confirmação.",
+        "**Navegador no canto do chat:** o navegador do AuGPT abre pequeno e fixo no canto direito do chat, com ampliar, minimizar e fechar.",
+        "**Downloads ao alcance:** o que o AuGPT baixa num site (ex.: um contracheque em PDF) vai para a pasta downloads e ele já consegue ler. Sites que emitem documentos numa janela nova não dão mais \"404\".",
+        "**Pesquisa igual para todos:** o SearXNG baixado na instalação é a mesma versão testada, não a do dia.",
+        "**Notebook com duas placas:** o \"Testar a placa de vídeo\" (Ajustes → Componentes) diz quando o Ollama não está vendo a placa NVIDIA e o que fazer."
+      ]
+    },
+    "en": {
+      "titulo": "AuGPT sees and uses the screen, a browser in the chat corner and downloads within reach",
+      "itens": [
+        "**See and act on the Windows screen:** ask \"open Notepad and write…\", \"fill in the form open on screen\" or \"turn off Windows Game Mode\" and AuGPT reads the window, clicks and types. A banner shows while it controls the computer; moving the mouse to the top-left corner stops everything. It never types passwords, and deleting, overwriting, closing and pasting ask first.",
+        "**Browser in the chat corner:** the AuGPT browser opens small and pinned to the right corner of the chat, with expand, minimize and close.",
+        "**Downloads within reach:** what AuGPT downloads from a site (e.g. a PDF payslip) goes to the downloads folder and it can read it right away. Sites that issue documents in a new window no longer return \"404\".",
+        "**Same search quality for everyone:** the SearXNG downloaded at setup is the tested version, not whatever is current that day.",
+        "**Laptops with two GPUs:** \"Test the graphics card\" (Settings → Components) tells you when Ollama cannot see the NVIDIA card and what to do."
+      ]
+    }
+  },
+  {
     "versao": "0.45.0",
     "data": "2026-11-19",
     "pt": {
