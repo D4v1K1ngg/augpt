@@ -64,4 +64,45 @@ module.exports = [
       ];
     },
   },
+  {
+    // 21/11 (Davi: "faça os pontos 1 e 2"): no teste dos jogos, o xadrez parou no 7º lance (cada lance gastava 2 a 3 dos
+    // 40 passos) e o 9B jogava mal (na paciência só virava o monte)
+    nome: 'tela/jogos: mover_na_tela faz o lance num passo (de "e2" para "e4", pelo nome ou número); num jogo, a leitura traz a regra do jogo e o lance que muda a janela dá um passo a mais',
+    tipo: 'unidade',
+    async executar() {
+      const ferramentas = require('../../src/tools/tela');
+      const mover = ferramentas.find((f) => f.name === 'mover_na_tela');
+      const original = { ...tela };
+      const cliques = [];
+      let depois = false;
+      const casa = (nome, x) => ({ tipo: 'botão', nome, x, y: 100, w: 50, h: 50 });
+      Object.assign(tela, {
+        janelas: async () => ({ frente: 7, janelas: [{ hwnd: 7, pid: -1, titulo: 'Xadrez', processo: 'electron', x: 0, y: 0, w: 900, h: 700 }] }),
+        elementos: async () => ({ elementos: [casa(`e2: ${depois ? 'vazia' : 'peão branco'}`, 100), casa(`e4: ${depois ? 'peão branco' : 'vazia'}`, 200), casa('e5: vazia', 300)] }),
+        cursor: async () => ({ x: 500, y: 500 }),
+        focar: async () => {},
+        clicar: async (x) => { cliques.push(x); if (cliques.length === 2) depois = true; },
+      });
+      try {
+        let extras = 0;
+        const ctx = { objetivo: 'Joga uma partida de xadrez na janela aberta na tela', estado: {}, estenderPassos: (n) => (extras += n) };
+        const r = await mover.run({ de: 'e2', para: 'e4' }, ctx);
+        const ctxPergunta = { objetivo: 'preenche o formulário aberto na tela', estado: {} };
+        const semJogo = await ferramentas.find((f) => f.name === 'ver_tela').run({}, ctxPergunta);
+        let erro = '';
+        await mover.run({ de: 'h9', para: 'e4' }, ctx).catch((e) => (erro = e.message));
+        return [
+          cliques.join() === '125,225' || `cliques ${cliques}`,
+          extras === 1 || `passos extras ${extras}`,
+          /REGRA DO JOGO — .*xeque/.test(r) && !/REGRA DO JOGO/.test(semJogo) || 'regra só no jogo',
+          /não achei "h9"/.test(erro) || erro,
+          ler('src/agent/loop.js').includes("'clicar_na_tela', 'mover_na_tela'].includes(nome)") && /Math\.min\(200/.test(ler('src/agent/loop.js')) && ler('src/agent/loop.js').includes('`@tela:${ctx.estado.tela.assinatura}`') || 'loop',
+          // a mesma ação numa janela que mudou não é repetição: a assinatura muda com a leitura
+          (await mover.run({ de: 'e4', para: 'e5' }, ctx).then(() => ctx.estado.tela.assinatura)) !== undefined && /^[0-9a-z]+$/.test(ctx.estado.tela.assinatura) || 'assinatura curta',
+        ];
+      } finally {
+        Object.assign(tela, original);
+      }
+    },
+  },
 ];

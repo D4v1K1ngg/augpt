@@ -42,6 +42,30 @@ const PAGINAS_DAS_CONFIGURACOES = {
   'privacy': /privacidade/,
 };
 
+// Jogos (21/11, Davi: "testa com jogos mais simples, paciência, xadrez"): no teste, o 9B lia e clicava certo mas jogava
+// mal — perdeu o jogo da velha sem bloquear, na paciência só virou o monte (passou por um Ás). Uma regra curta do jogo,
+// junto de cada leitura, lembra o que olhar antes do lance.
+const DICAS_DE_JOGO = [
+  [/jogo da velha|tic.?tac/, 'antes de cada lance: 1) se você completa 3 em linha, jogue lá; 2) se o adversário completa 3 no próximo lance, bloqueie essa casa; 3) senão, o centro, depois um canto.'],
+  [/paciencia|solitaire|klondike/, 'antes de virar o monte: 1) Ás vai para a fundação, e depois o 2, o 3… do mesmo naipe; 2) procure uma carta aberta (das colunas ou do descarte) que vá numa coluna: cor diferente e um número abaixo — de preferência a que libera uma carta virada; 3) Rei vai em coluna vazia; 4) só sem nenhum desses lances, vire o monte.'],
+  [/xadrez|chess/, 'antes de cada lance: 1) se o seu rei está em xeque, tire-o do xeque; 2) capture uma peça que o adversário deixou sem defesa; 3) não ponha peça sua numa casa onde um peão ou peça do adversário a captura de graça; 4) desenvolva cavalos e bispos e ocupe o centro. Um lance é uma chamada: mover_na_tela com de "e2" e para "e4".'],
+];
+const semAcento = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+const ehJogo = (ctx) => /\bjog(a|ue|ar)\b/.test(semAcento(ctx.objetivo));
+const dicaDoJogo = (titulo, objetivo) => (DICAS_DE_JOGO.find(([re]) => re.test(semAcento(`${titulo} ${objetivo}`))) || [])[1] || '';
+
+/** Um elemento da última leitura pelo número ou pelo nome ("e2", "Descarte", "Fundação de copas"). */
+function elementoPorNumeroOuNome(ctx, alvo) {
+  if (/^\s*\d+\s*$/.test(String(alvo))) return elementoPorNumero(ctx, alvo);
+  const lista = ctx.estado.tela?.elementos || [];
+  const a = semAcento(alvo);
+  const e = lista.find((x) => semAcento(x.nome) === a) ||
+    lista.find((x) => semAcento(x.nome).startsWith(a) && !/[a-z0-9]/.test(semAcento(x.nome)[a.length] || '')) ||
+    lista.find((x) => semAcento(x.nome).includes(a));
+  if (!e) throw new Error(`não achei "${alvo}" na última leitura — use o número ou o nome como aparece na leitura`);
+  return e;
+}
+
 /** A janela de trabalho: a escolhida (focar_janela), senão a da frente que não é o AuGPT. */
 async function janelaAlvo(ctx) {
   const { janelas, frente } = await tela.janelas();
@@ -93,9 +117,19 @@ async function lerTela(ctx, { aviso = '' } = {}) {
   ctx.estado.tela.elementos = acionaveis;
   ctx.estado.tela.janela = alvo;
   ctx.emit?.('tela-controle', { ativo: true, janela: alvo.titulo });
+  const dica = ehJogo(ctx) ? dicaDoJogo(alvo.titulo, ctx.objetivo) : '';
+  // num jogo, cada lance gasta passos e uma partida não cabe nos 40 (21/11: o xadrez parou no 7º lance): a janela que
+  // mudou depois de uma ação dá um passo a mais; parada (o mesmo clique sem efeito), não — o teto geral segura
+  // curta: entra também na chave da trava de ação repetida do loop (o mesmo clique numa janela que mudou é outro lance)
+  let assinatura = 0;
+  for (const c of `${acionaveis.map(rotulo).join('|')}#${textos.join('|')}`) assinatura = (assinatura * 31 + c.charCodeAt(0)) | 0;
+  assinatura = (assinatura >>> 0).toString(36);
+  if (ehJogo(ctx) && aviso && ctx.estado.tela.assinatura && assinatura !== ctx.estado.tela.assinatura) ctx.estenderPassos?.(1);
+  ctx.estado.tela.assinatura = assinatura;
   return [
     aviso,
     `JANELA: "${alvo.titulo}" (${alvo.processo})`,
+    dica && `REGRA DO JOGO — ${dica} Cada lance é UMA chamada de mover_na_tela com de e para (números ou nomes da leitura); para só apertar um botão (virar o monte), clicar_na_tela.`,
     acionaveis.length ? acionaveis.slice(0, 120).map((e, i) => `[${i + 1}] ${rotulo(e)}`).join('\n') : '(a janela não mostra botões nem campos para o Windows — use apontar_na_tela com a descrição do que procura)',
     textos.length ? `\nTEXTOS NA JANELA: ${textos.slice(0, 60).join(' · ').slice(0, 1500)}` : '',
     // as outras janelas (19/11: sem saber que o formulário já estava aberto, o modelo abriu o Edge do usuário)
@@ -217,7 +251,7 @@ module.exports = [
   {
     name: 'clicar_na_tela',
     risk: 'alto',
-    description: 'Clica num elemento da janela de trabalho: pelo número da última leitura (ver_tela) ou, se ele não estiver na lista, pela descrição (o AuGPT acha na imagem). Depois devolve a nova leitura.',
+    description: 'Clica num elemento da janela de trabalho: pelo número da última leitura (ver_tela) ou, se ele não estiver na lista, pela descrição (o AuGPT acha na imagem). Depois devolve a nova leitura. Para mover uma peça ou carta (clicar na origem e depois no destino), use mover_na_tela, num passo só.',
     args: { numero: 'número do elemento na leitura', descricao: 'o que clicar, se não houver número (ex.: "o botão azul Enviar")', duplo: 'true para clique duplo' },
     async run({ numero: n, posicao, indice, elemento, descricao, duplo } = {}, ctx) {
       const numero = n ?? posicao ?? indice ?? (typeof elemento === 'number' || /^\d+$/.test(String(elemento ?? '')) ? elemento : undefined);
@@ -236,6 +270,28 @@ module.exports = [
       await tela.clicar(x, y, { duplo: duplo === true || duplo === 'true' });
       await pausa(500);
       return lerTela(ctx, { aviso: `Cliquei em ${o}.` });
+    },
+  },
+  {
+    name: 'mover_na_tela',
+    risk: 'alto',
+    description: 'Um lance inteiro num passo: clica no elemento "de" e depois no "para" (mover peça ou carta num jogo, levar um item a outro lugar). Cada um pelo número da leitura ou pelo nome como aparece nela (ex.: de "e2" para "e4"; de "Descarte" para "Coluna 3"). Depois devolve a nova leitura.',
+    args: { de: 'número ou nome do elemento de origem', para: 'número ou nome do destino' },
+    obrigatorios: ['de', 'para'],
+    async run({ de, para } = {}, ctx) {
+      await prepararJanela(ctx);
+      if (!ctx.estado.tela?.elementos) await lerTela(ctx);
+      const a = elementoPorNumeroOuNome(ctx, de);
+      // o destino pelo nome é achado depois do 1º clique (a janela pode se redesenhar); pelo número, vale a leitura de antes
+      const b0 = /^\s*\d+\s*$/.test(String(para)) ? elementoPorNumero(ctx, para) : null;
+      await tela.clicar(a.x + a.w / 2, a.y + a.h / 2);
+      await pausa(300);
+      if (!b0) ctx.estado.tela.elementos = (await tela.elementos(ctx.estado.tela.hwnd)).elementos.filter((e) => e.tipo !== 'texto');
+      const b = b0 || elementoPorNumeroOuNome(ctx, para);
+      await conferirParada();
+      await tela.clicar(b.x + b.w / 2, b.y + b.h / 2);
+      await pausa(500);
+      return lerTela(ctx, { aviso: `Cliquei em ${rotulo(a)} e depois em ${rotulo(b)}.` });
     },
   },
   {

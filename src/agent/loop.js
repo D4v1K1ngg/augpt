@@ -736,7 +736,7 @@ class Agent extends EventEmitter {
    */
   /** Teto de passos da execução: o configurado + as buscas do motor de pesquisa. */
   limiteDePassos() {
-    return this.config.maxIterations + (this.passosExtras || 0);
+    return this.config.maxIterations + (this.passosExtras || 0) + (this.passosDoJogo || 0);
   }
 
   /**
@@ -1592,6 +1592,7 @@ class Agent extends EventEmitter {
     // passos (aparecem numeradas na tela), mas não comem o orçamento de
     // DECISÕES do modelo — `passosExtras` soma no limite de passos.
     this.passosExtras = 0;
+    this.passosDoJogo = 0;
     this.planoDeResposta = null;
     this.listaDaPesquisa = '';
     this.entradasDaMatriz = [];
@@ -1944,6 +1945,8 @@ class Agent extends EventEmitter {
       // nomeados que uma leitura precisa citar. Montado pelo código.
       escopo: escopoDoPedido(objetivo, { entidades: serieDePrecos.produtosDoPedido(objetivo) }),
       estado: {}, // rascunho compartilhado entre ferramentas dentro da execução
+      // jogos na tela (21/11): o lance que mudou a janela dá um passo a mais, até 200 (src/tools/tela.js)
+      estenderPassos: (n = 1) => { this.passosDoJogo = Math.min(200, (this.passosDoJogo || 0) + n); },
       // páginas já lidas em outras conversas (src/tools/web.js, lerDoDisco)
       dirCachePaginas: this.userDataPath ? path.join(this.userDataPath, 'cache-paginas') : null,
       userDataPath: this.userDataPath,
@@ -3326,7 +3329,9 @@ class Agent extends EventEmitter {
         // repetição mesmo investigando um sub-tema totalmente diferente da
         // 1ª e da 2ª. Na execução real, 2 chamadas legítimas passaram e as 3
         // seguintes (investigando outra coisa) foram bloqueadas por isso.
-        const chave = chaveDeRepeticao(nome, argumentos, ctx.estado.pagina, ctx.estado.preenchidos);
+        // na tela, a chave leva a leitura da janela (21/11, jogos: clicar no monte da paciência 9 vezes, cada uma com a janela
+        // diferente, não é repetição — a trava mandava responder no meio da partida)
+        const chave = chaveDeRepeticao(nome, argumentos, ctx.estado.pagina, ctx.estado.preenchidos) + (/_na_tela$|^rolar_tela$/.test(nome) && ctx.estado.tela?.assinatura ? `@tela:${ctx.estado.tela.assinatura}` : '');
         const vezes = (assinaturas.get(chave) || 0) + 1;
         assinaturas.set(chave, vezes);
         const tentativaAnteriorMudou = resultadoPorChave.get(chave);
@@ -3353,7 +3358,7 @@ class Agent extends EventEmitter {
         const repetidaSemEfeito = acaoDePagina && vezes > 1 && tentativaAnteriorMudou === false;
         // 19/11: Enter, Tab e setas se repetem de propósito na tela (uma lista linha por linha) — a tela tem a leitura de
         // cada passo; o teto vale para ela só depois de 8 vezes
-        const acaoNaTela = ['tecla_na_tela', 'digitar_na_tela', 'rolar_tela', 'clicar_na_tela'].includes(nome);
+        const acaoNaTela = ['tecla_na_tela', 'digitar_na_tela', 'rolar_tela', 'clicar_na_tela', 'mover_na_tela'].includes(nome);
         if ((repetidaSemEfeito || vezes > (acaoNaTela ? 8 : acaoDePagina ? 3 : 2)) && !ferramenta.terminal) {
           // ctx.estado.ofertas só existe quando buscar_produtos ACHOU preço
           // sozinha; ctx.estado.tentandoComprar é setado antes disso, mesmo
@@ -3437,7 +3442,7 @@ class Agent extends EventEmitter {
             instrucao:
               `O usuário pediu para AGIR num programa do computador. ${nome} não faz isso. ` +
               'Se o programa ainda não está aberto, use {"ferramenta": {"nome": "abrir_programa", "argumentos": {"nome": "…"}}}; se já está, use focar_janela com parte do título ou ver_tela. ' +
-              'Depois use digitar_na_tela, clicar_na_tela e tecla_na_tela com os números da leitura.',
+              'Depois use digitar_na_tela, clicar_na_tela e tecla_na_tela com os números da leitura (num jogo, um lance é mover_na_tela de … para …).',
             historico,
           });
           continue;
