@@ -1035,7 +1035,10 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
         const bruto = String(r?.content || '');
         for (const c of safeJson(bruto.slice(bruto.indexOf('{')))?.candidatos || []) {
           const nome = novos[Number(c?.n) - 1];
-          if (nome) categoriaDe.set(nome.toLowerCase(), { serve: c.serve !== false, tipo: String(c.tipo || '').slice(0, 40) });
+          // o tipo em dúvida é "serve" (22/11: "Ninja Dual XL" saiu como "Mistura de produtos" — a busca trouxe várias coisas)
+          const tipo = String(c.tipo || '').slice(0, 40);
+          const emDuvida = !tipo || /mistura|v[aá]rios|incert|indefin|desconhec|amb[ií]guo|n[aã]o (sei|[eé] poss|identific|d[aá] para)|unclear|mixed|unknown/i.test(tipo);
+          if (nome) categoriaDe.set(nome.toLowerCase(), { serve: c.serve !== false || emDuvida, tipo });
         }
       } catch {
         // falhou: ficam todos
@@ -1455,8 +1458,9 @@ function citadosNaComunidade(fontes, pergunta, { hoje = new Date() } = {}) {
   // 22/11: nos tópicos de entusiastas cada um cita um modelo diferente, uma vez — sem nenhum com 2+ menções, valem os de
   // marca conhecida citados uma vez (o consenso, abaixo, põe na frente o que aparece em mais de um site)
   const textos = daComunidade.map(textoDe);
+  // e com menos de 3 (22/11: o fone saiu com uma opção só — a lista tinha só o Truthear Nova), eles completam a lista
   let nomes = modelosCitados(textos, { pergunta });
-  if (!nomes.length) nomes = modelosCitados(textos, { pergunta, minimo: 1, soDaMarca: true });
+  if (nomes.length < 3) nomes = [...nomes, ...modelosCitados(textos, { pergunta, minimo: 1, soDaMarca: true }).filter((n) => !nomes.some((m) => mesmoModelo(m, n)))];
   // 22/11 (consenso): o mais citado em tópicos de SITES diferentes vem primeiro — o que só um tópico cita fica para o
   // fim (no Qwen 9B, o "Redragon Bio H801" de um tópico só virou a 1ª opção)
   // 22/11 (recência): o tópico com mais de ANOS_DE_TOPICO_RECENTE anos não conta como site do consenso (o r/gamesEcultura
@@ -1517,7 +1521,9 @@ function blocoDaComunidade(citados = []) {
   if (!Array.isArray(citados) || !citados.length) return '';
   const linhas = citados.map((c, i) => `${i + 1}. ${c.nome} ${c.fontes.map((n) => `[${n}]`).join('')}${c.soAntigos ? ` — só em tópico antigo (${c.soAntigos}): pode já ter sido substituído` : c.fontes.length === 1 ? ' — citado em um tópico só' : ''}`);
   const consenso = citados.some((c) => c.fontes.length >= 2) && citados.some((c) => c.fontes.length === 1) ? ' A 1ª opção é um dos citados em mais de um tópico; o citado em um tópico só entra depois.' : '';
-  return `\n\n(Os produtos que quem usa cita nos fóruns lidos — monte as opções a partir desta lista, nesta ordem, e só complete com outro produto das fontes se faltar opção:${consenso}\n${linhas.join('\n')})`;
+  // 22/11: com 1 produto na lista, a resposta saía com uma opção só — são de 2 a 3, completando pelos testes e tópicos
+  const completar = citados.length < 3 ? ` Traga de 2 a 3 opções (ou quantas o usuário pediu): se a lista não basta, complete com produto que um teste ou um tópico lido recomenda para este uso — não com produto que só uma lista de loja cita.` : '';
+  return `\n\n(Os produtos que quem usa cita nos fóruns lidos — monte as opções a partir desta lista, nesta ordem, e só complete com outro produto das fontes se faltar opção:${consenso}${completar}\n${linhas.join('\n')})`;
 }
 
 /**

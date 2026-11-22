@@ -84,11 +84,13 @@ module.exports = [
       };
       const conferido = await rodar((n) => JSON.stringify({ candidatos: [{ n: Number(n('Truthear Hexa')), tipo: 'fone intra-auricular', serve: true }, { n: Number(n('HyperX Stinger')), tipo: 'headset', serve: false }] }));
       const quebrado = await rodar(() => 'não sei');
+      const duvida = await rodar((n) => JSON.stringify({ candidatos: [{ n: Number(n('HyperX Stinger')), tipo: 'Mistura de produtos (fone e headset)', serve: false }] }));
       return [
         conferido.citados.includes('Truthear Hexa') && !conferido.citados.includes('HyperX Stinger') || `citados: ${conferido.citados}`,
         conferido.avisos.some((a) => /fora do tipo pedido: HyperX Stinger \(headset\)/.test(a)) || `avisos: ${conferido.avisos.join(' | ')}`,
         conferido.buscasPeloNome.filter((q) => q === 'HyperX Stinger').length === 1 || `uma busca por nome: ${conferido.buscasPeloNome}`,
         quebrado.citados.includes('Truthear Hexa') && quebrado.citados.includes('HyperX Stinger') || `resposta quebrada tira ninguém: ${quebrado.citados}`,
+        duvida.citados.includes('HyperX Stinger') || `tipo em dúvida ("Mistura de produtos") fica: ${duvida.citados}`,
       ];
     },
   },

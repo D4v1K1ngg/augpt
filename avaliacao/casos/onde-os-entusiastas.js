@@ -107,3 +107,21 @@ module.exports.push({
     ];
   },
 });
+module.exports.push({
+  nome: 'opções da comunidade: com menos de 3 nomes de 2+ menções, os de marca citados uma vez completam a lista (o mais citado na frente); com menos de 3 na lista, o escritor traz de 2 a 3 opções completando pelos testes e tópicos, não pela lista de loja',
+  tipo: 'unidade',
+  executar() {
+    const fontes = [
+      { n: 1, url: 'https://www.reddit.com/r/iems/a', titulo: 'IEM for FPS', comunidade: true, trechos: ['Truthear Nova is great. Truthear Nova again. I also like the Simgot EM6L.'] },
+      { n: 2, url: 'https://www.reddit.com/r/inearfidelity/b', titulo: 'FPS IEMs', comunidade: true, trechos: ['Get the Truthear Nova or the Moondrop Aria 2.'] },
+    ];
+    const c = nucleo.citadosNaComunidade(fontes, 'melhor fone intra auricular para pubg');
+    const um = nucleo.blocoDaComunidade([{ nome: 'Truthear Nova', fontes: [1, 2], sites: 1 }]);
+    const tres = nucleo.blocoDaComunidade(['A 1', 'B 2', 'C 3'].map((nome, i) => ({ nome, fontes: [i + 1], sites: 1 })));
+    return [
+      c[0]?.nome === 'Truthear Nova' && ['Simgot EM6L', 'Moondrop Aria 2'].every((n) => c.some((x) => x.nome === n)) || JSON.stringify(c.map((x) => x.nome)),
+      /Traga de 2 a 3 opções[\s\S]*não com produto que só uma lista de loja cita/.test(um) || um,
+      !/Traga de 2 a 3 opções/.test(tres) || 'com 3 na lista, nada a completar',
+    ];
+  },
+});
