@@ -80,5 +80,227 @@
       "idioma": "all",
       "assuntos": []
     }
+  ],
+  "avisoPorCategoria": "22/11 (item 4 da busca de produtos): onde os entusiastas de cada categoria conversam e quem testa de verdade. 'assuntos' casa com o pedido (sem acento); 'subreddits' são preferidos na leitura dos tópicos em inglês; 'testes' são sites que medem (contam como teste, não como lista de afiliado, mesmo com 'best … 2026' no título) e ganham uma busca 'site:'; 'agregadores' resumem o que muita gente diz (contam como comunidade).",
+  "porCategoria": [
+    {
+      "categoria": "fones",
+      "assuntos": [
+        "fone",
+        "fones",
+        "iem",
+        "iems",
+        "intra auricular",
+        "intra auriculares",
+        "intra-auricular",
+        "in-ear",
+        "earbud",
+        "earbuds",
+        "headphone",
+        "headphones",
+        "headset",
+        "headsets"
+      ],
+      "subreddits": [
+        "iems",
+        "inearfidelity",
+        "HeadphoneAdvice",
+        "headphones"
+      ],
+      "testes": [
+        "rtings.com"
+      ],
+      "agregadores": [
+        "iemranking.com",
+        "crowdrecap.com"
+      ]
+    },
+    {
+      "categoria": "mouse",
+      "assuntos": [
+        "mouse",
+        "mouses",
+        "mice"
+      ],
+      "subreddits": [
+        "MouseReview"
+      ],
+      "testes": [
+        "rtings.com"
+      ],
+      "agregadores": [
+        "crowdrecap.com"
+      ]
+    },
+    {
+      "categoria": "teclado",
+      "assuntos": [
+        "teclado",
+        "teclados",
+        "keyboard",
+        "keyboards"
+      ],
+      "subreddits": [
+        "MechanicalKeyboards"
+      ],
+      "testes": [
+        "rtings.com"
+      ],
+      "agregadores": [
+        "crowdrecap.com"
+      ]
+    },
+    {
+      "categoria": "monitor",
+      "assuntos": [
+        "monitor",
+        "monitores"
+      ],
+      "subreddits": [
+        "Monitors"
+      ],
+      "testes": [
+        "rtings.com"
+      ],
+      "agregadores": []
+    },
+    {
+      "categoria": "tv",
+      "assuntos": [
+        "tv",
+        "tvs",
+        "televisao",
+        "televisor",
+        "smart tv"
+      ],
+      "subreddits": [
+        "4kTV"
+      ],
+      "testes": [
+        "rtings.com"
+      ],
+      "agregadores": []
+    },
+    {
+      "categoria": "pc",
+      "assuntos": [
+        "placa de video",
+        "placas de video",
+        "gpu",
+        "rtx",
+        "radeon",
+        "geforce",
+        "processador",
+        "cpu",
+        "ssd",
+        "fonte de alimentacao",
+        "placa-mae",
+        "placa mae",
+        "pc gamer"
+      ],
+      "subreddits": [
+        "buildapc",
+        "hardware"
+      ],
+      "testes": [
+        "techpowerup.com"
+      ],
+      "agregadores": []
+    },
+    {
+      "categoria": "celular",
+      "assuntos": [
+        "celular",
+        "celulares",
+        "smartphone",
+        "smartphones",
+        "iphone",
+        "galaxy"
+      ],
+      "subreddits": [
+        "PickAnAndroidForMe",
+        "Android"
+      ],
+      "testes": [
+        "gsmarena.com",
+        "notebookcheck.net"
+      ],
+      "agregadores": []
+    },
+    {
+      "categoria": "notebook",
+      "assuntos": [
+        "notebook",
+        "notebooks",
+        "laptop",
+        "laptops"
+      ],
+      "subreddits": [
+        "SuggestALaptop",
+        "GamingLaptops"
+      ],
+      "testes": [
+        "notebookcheck.net"
+      ],
+      "agregadores": []
+    },
+    {
+      "categoria": "air fryer",
+      "assuntos": [
+        "air fryer",
+        "airfryer",
+        "fritadeira"
+      ],
+      "subreddits": [
+        "airfryer"
+      ],
+      "testes": [],
+      "agregadores": [
+        "crowdrecap.com"
+      ]
+    },
+    {
+      "categoria": "cafeteira",
+      "assuntos": [
+        "cafeteira",
+        "cafeteiras",
+        "espresso",
+        "expresso"
+      ],
+      "subreddits": [
+        "espresso",
+        "Coffee"
+      ],
+      "testes": [],
+      "agregadores": []
+    },
+    {
+      "categoria": "aspirador",
+      "assuntos": [
+        "aspirador",
+        "aspiradores",
+        "robo aspirador"
+      ],
+      "subreddits": [
+        "RobotVacuums"
+      ],
+      "testes": [
+        "rtings.com"
+      ],
+      "agregadores": []
+    },
+    {
+      "categoria": "cadeira",
+      "assuntos": [
+        "cadeira gamer",
+        "cadeira de escritorio",
+        "cadeiras"
+      ],
+      "subreddits": [
+        "OfficeChairs"
+      ],
+      "testes": [],
+      "agregadores": []
+    }
   ]
 }

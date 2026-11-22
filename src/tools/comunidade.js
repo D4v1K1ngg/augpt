@@ -83,6 +83,31 @@ function forumEmInglesDoAssunto(texto, config = {}) {
   return fontesDaComunidade(config).find((f) => f.tipo === 'forum' && f.idioma === 'en' && f.leitura !== 'bloqueada' && f.assuntos?.some((a) => new RegExp(`\\b${semAcento(a)}\\b`).test(normal)))?.dominio || null;
 }
 
+/**
+ * Onde os entusiastas da categoria do pedido conversam e quem testa de verdade (22/11, `porCategoria` em
+ * dados/comunidades.json): { subreddits, testes, agregadores }, juntando as categorias que o texto cita (vazio = nenhuma).
+ */
+let porCategoria = null;
+function ondeOsEntusiastas(texto) {
+  if (!porCategoria) {
+    try {
+      porCategoria = JSON.parse(fs.readFileSync(ARQUIVO, 'utf8')).porCategoria || [];
+    } catch {
+      porCategoria = [];
+    }
+  }
+  const normal = semAcento(texto);
+  const cita = (a) => new RegExp(`(^|[^a-z0-9])${semAcento(a).replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[ -]/g, '[ -]?')}([^a-z0-9]|$)`).test(normal);
+  const delas = porCategoria.filter((c) => (c.assuntos || []).some(cita));
+  const juntar = (campo) => [...new Set(delas.flatMap((c) => c[campo] || []))];
+  return { categorias: delas.map((c) => c.categoria), subreddits: juntar('subreddits'), testes: juntar('testes'), agregadores: juntar('agregadores') };
+}
+/** Todos os sites de teste e agregadores da tabela (o tipo da página: teste próprio / comunidade). */
+function sitesDaTabela() {
+  ondeOsEntusiastas('');
+  return { testes: new Set(porCategoria.flatMap((c) => c.testes || [])), agregadores: new Set(porCategoria.flatMap((c) => c.agregadores || [])) };
+}
+
 /** A URL é de uma fonte da comunidade (fórum/Reddit/vídeo da lista)? */
 function ehDaComunidade(url, config = {}) {
   const host = limparDominio(url);
@@ -408,6 +433,8 @@ module.exports = {
   tipoDeFonte,
   consultasNaComunidade,
   forumEmInglesDoAssunto,
+  ondeOsEntusiastas,
+  sitesDaTabela,
   limparDominio,
   urlJsonDoReddit,
   topicoDoReddit,

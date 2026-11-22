@@ -381,10 +381,16 @@ function tipoDaPagina({ url, titulo = '', resumo = '' } = {}, { recomendacao = f
     return { ajuste: 0, tipo: '' };
   }
   const t = `${titulo} ${resumo}`;
+  // 22/11 (item 4): quem mede (RTINGS, TechPowerUp…) é teste mesmo com "best … 2026" no título; o agregador (crowdrecap,
+  // iemranking) resume muita gente e conta como comunidade — dados/comunidades.json, porCategoria
+  const tabela = require('./comunidade').sitesDaTabela();
+  const daTabela = (conjunto) => [...conjunto].some((d) => dominio === d || dominio.endsWith(`.${d}`));
+  if (recomendacao && daTabela(tabela.agregadores)) return { ajuste: 0.1, tipo: 'comunidade' };
+  if (recomendacao && daTabela(tabela.testes)) return { ajuste: 0.05, tipo: 'teste próprio' };
   // "melhores preços / ofertas da Black Friday" é notícia de preço, não ranking de produtos
   const deLista = TITULO_DE_LISTA.test(titulo) && !/melhor(es)?\s+(pre[çc]os?|ofertas?|promo[çc][õo]es|descontos?|deals?|prices?)\b/i.test(titulo);
   if (SITES_DE_LISTA.test(dominio) || deLista) return { ajuste: -0.12, tipo: 'lista de afiliado' };
-  const forum = /(^|\.)(forum|forums|reddit|stackexchange|head-fi|clubedohardware|audiosciencereview)\.|\.forum\.|discourse\.|\/forums?\//.test(`${dominio}/${String(url).split('/').slice(3).join('/')}`);
+  const forum = /(^|\.)(forum|forums|reddit|redditmedia|stackexchange|head-fi|clubedohardware|audiosciencereview)\.|\.forum\.|discourse\.|\/forums?\//.test(`${dominio}/${String(url).split('/').slice(3).join('/')}`);
   if (forum && recomendacao) return { ajuste: 0.1, tipo: 'comunidade' };
   if (SINAL_DE_TESTE.test(t)) return { ajuste: 0.05, tipo: 'teste próprio' };
   return { ajuste: 0, tipo: '' };

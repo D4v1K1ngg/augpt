@@ -68,6 +68,7 @@ const { oficiaisDaPergunta, doSiteOficial } = require('../../tools/imitacao');
 const { separarGraficos, recolocarGraficos, graficoDoTexto, pedeGrafico, INSTRUCAO_DE_GRAFICO, INSTRUCAO_DE_VISUAL } = require('./graficos');
 const capacidades = require('../capacidades');
 const { pareceIngles } = require('../traducao');
+const { ondeOsEntusiastas } = require('../../tools/comunidade');
 
 /**
  * Profundidade da pesquisa (15/10, a partir do Perplexica — modo qualidade:
@@ -1059,11 +1060,22 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       // produtos, são lidos sempre. Em paralelo com os critérios; o "quem usa cita" sai deles.
       const buscaProdutos = String(j1.busca_produtos || '').trim().slice(0, 100);
       const tiposDe = (f) => tipoDaPagina(f, { recomendacao: true }).tipo;
+      // 22/11 (item 4): onde os entusiastas da categoria conversam (dados/comunidades.json, porCategoria) — o tópico do
+      // subreddit da categoria (r/iems, r/MouseReview) vem antes dos outros, e o site que mede (RTINGS, TechPowerUp) ganha
+      // uma busca "site:" e uma página lida
+      const onde = ondeOsEntusiastas(`${pergunta} ${assuntos.join(' ')}`);
+      const doSubreddit = (f) => onde.subreddits.some((s) => new RegExp(`/r/${s}/`, 'i').test(String(f.url)));
+      const doTeste = (f) => onde.testes.some((d) => dominio(f.url) === d || dominio(f.url).endsWith(`.${d}`));
       const lerProdutosEmIngles = buscaProdutos.length >= 8 && !pareceIngles(pergunta)
-        ? executarBusca([/reddit/i.test(buscaProdutos) ? buscaProdutos : `${buscaProdutos} reddit`], { porSite: 6 }).then((lista) => {
-          if (process.env.DEPURAR_MATERIAL) console.error(`[em inglês] ${String(lista).split('\n').filter((l) => /^\[\d+\]/.test(l)).map((l) => { const f = fontes.find((x) => x.n === Number(/^\[(\d+)\]/.exec(l)[1])); return `${f?.url} (${f && tiposDe(f)}${f?.trechos.length ? ', lida' : ''})`; }).join(' | ')}`);
-          const daBusca = [...String(lista).matchAll(/^\[(\d+)\]/gm)].map((m) => fontes.find((f) => f.n === Number(m[1]))).filter((f) => f && !f.trechos.length && tiposDe(f) === 'comunidade');
-          return Promise.all(daBusca.slice(0, 2).map((f) => ((f.comunidade = true), executarLeitura({ fonte: f.n, foco: 'o que quem usa recomenda, elogia e critica' }, { garantia: true }))));
+        ? executarBusca([/reddit/i.test(buscaProdutos) ? buscaProdutos : `${buscaProdutos} reddit`, ...onde.testes.slice(0, 1).map((d) => `site:${d} ${buscaProdutos}`)], { porSite: 6 }).then((lista) => {
+          if (process.env.DEPURAR_MATERIAL) console.error(`[em inglês] ${onde.categorias.join(',') || 'sem categoria'} · ${String(lista).split('\n').filter((l) => /^\[\d+\]/.test(l)).map((l) => { const f = fontes.find((x) => x.n === Number(/^\[(\d+)\]/.exec(l)[1])); return `${f?.url} (${f && tiposDe(f)}${f?.trechos.length ? ', lida' : ''})`; }).join(' | ')}`);
+          const daBusca = [...String(lista).matchAll(/^\[(\d+)\]/gm)].map((m) => fontes.find((f) => f.n === Number(m[1]))).filter((f) => f && !f.trechos.length);
+          const topicos = daBusca.filter((f) => tiposDe(f) === 'comunidade').sort((a, b) => doSubreddit(b) - doSubreddit(a)).slice(0, 2);
+          const teste = daBusca.find((f) => doTeste(f) && !topicos.includes(f));
+          return Promise.all([
+            ...topicos.map((f) => ((f.comunidade = true), executarLeitura({ fonte: f.n, foco: 'o que quem usa recomenda, elogia e critica' }, { garantia: true }))),
+            ...(teste ? [executarLeitura({ fonte: teste.n, foco: 'os produtos que o teste recomenda para este uso e por quê' }, { garantia: true })] : []),
+          ]);
         }).catch(() => {})
         : Promise.resolve();
       const antes = fontes.length;
