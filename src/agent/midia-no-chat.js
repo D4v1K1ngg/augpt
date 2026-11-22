@@ -32,7 +32,9 @@ function pedidoDeMidia(texto) {
   const url = URL_RE.exec(original)?.[0]?.replace(/[.,;!?]+$/, '');
   if (!url && (!MIDIA.test(t) || NAO_E_MIDIA.test(t))) return null;
   // dúvida, não pedido ("como baixar música do YouTube?", "dá pra baixar vídeo do Instagram?") — sem link, a pesquisa responde
-  if (!url && /^\s*(como|onde|da pra|da para|e possivel|tem como|qual|quais|por que|porque|e legal|pode(m)?|posso|devo)\b/.test(t)) return null;
+  // 22/11: "Quantos títulos dá para baixar no Prime Video para assistir offline?" — a dúvida no meio da frase também
+  if (!url && (/^\s*(como|onde|da pra|da para|e possivel|tem como|qual|quais|quantos|quantas|quanto|quando|sera|por que|porque|e legal|pode(m)?|posso|devo)\b/.test(t)
+    || /(?<![a-z])(como|da pra|da para|e possivel|tem como|consigo|consegue|pode(m)?|posso|quantos|quantas)( se)? baixar(?![a-z])/.test(t))) return null;
   const tipo = AUDIO.test(t) ? 'audio' : /(?<![a-z])(videos?|mp4|clipes?)(?![a-z])/.test(t) ? 'video' : null;
   // com link, só site de vídeo/música ou pedido que fala de mídia (19/11, Davi: "acessa esse site, faz login e baixa o meu
   // contracheque" caía aqui e pedia para instalar o yt-dlp)
