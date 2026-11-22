@@ -67,6 +67,7 @@ const { tituloCita } = require('../../tools/imagens');
 const { oficiaisDaPergunta, doSiteOficial } = require('../../tools/imitacao');
 const { separarGraficos, recolocarGraficos, graficoDoTexto, pedeGrafico, INSTRUCAO_DE_GRAFICO, INSTRUCAO_DE_VISUAL } = require('./graficos');
 const capacidades = require('../capacidades');
+const { pareceIngles } = require('../traducao');
 
 /**
  * Profundidade da pesquisa (15/10, a partir do Perplexica — modo qualidade:
@@ -712,6 +713,12 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   const total = regras.rodadas;
   let buscasFeitas = 0;
   let leiturasFeitas = 0;
+  // 22/11 (Davi, 6 modelos na pergunta do fone para PUBG): em produto, as leituras do código (as mais ligadas, a
+  // comunidade, os critérios) gastavam as 10 do modo antes da 1ª rodada — "leituras esgotaram na rodada 1" e o modelo,
+  // que já buscava "IEM for FPS gaming footsteps reddit", não lia nada. Uma parte fica para as páginas que ELE escolhe.
+  let leiturasDoModelo = 0;
+  const reservaDoModelo = produto ? Math.ceil(regras.leituras / 3) : 0;
+  const leiturasEsgotadas = () => leiturasFeitas >= regras.leituras && leiturasDoModelo >= reservaDoModelo;
   let pediuLeitura = false;
   const fontes = [];
   const lidas = () => fontes.filter((f) => f.trechos.length && !f.imagem).length;
@@ -862,8 +869,9 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     const f = fontes.find((x) => x.n === Number(fonte));
     if (!f) return `Não existe a fonte [${fonte}] nos resultados.`;
     if (f.trechos.length) return `[${f.n}] já foi lida — o que ela traz:\n${f.trechos.join('\n…\n').slice(0, 1500)}\nLeia outra fonte ou chame pronto.`;
-    if (leiturasFeitas >= regras.leituras && !garantia) return `Limite de ${regras.leituras} páginas lidas nesta pesquisa: use o que já tem ou chame pronto.`;
+    if (leiturasEsgotadas() && !garantia) return `Limite de ${regras.leituras} páginas lidas nesta pesquisa: use o que já tem ou chame pronto.`;
     leiturasFeitas += 1;
+    if (!garantia) leiturasDoModelo += 1;
     if (f.video && comYoutube) {
       emit('ferramenta', { nome: 'ver_video', argumentos: { url: f.url, foco: String(foco || '') }, risco: 'leitura' });
       return lerVideo(f, foco);
@@ -886,6 +894,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       clearTimeout(relogio);
       if (pronta?.demorou) {
         leiturasFeitas -= 1;
+        if (!garantia) leiturasDoModelo -= 1;
         // chegou depois? os trechos ainda entram na escrita, se ela não começou
         f.adiantada.then((p) => (p?.texto && !f.trechos.length && !escrevendo ? aproveitar(f, p, foco) : null)).catch(() => {});
         return `A página [${f.n}] está demorando para abrir: leia outra fonte.`;
@@ -1009,11 +1018,24 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   const buscarCriterios = async () => {
     if (!produto || !recomendacao || deps.criteriosAntes === false || typeof chamar !== 'function' || typeof buscarNaComunidade !== 'function' || signal?.aborted) return;
     try {
-      const r1 = await chamar([{ role: 'user', content: `Pedido: ${pergunta}\n\nAntes de escolher produtos, é preciso saber o que torna um produto BOM PARA ESTE USO. Escreva 2 buscas curtas para achar isso onde quem usa conversa — uma em inglês, uma em português —, sem nome de marca nem de modelo. Use o uso que o PEDIDO diz; se ele não diz, o uso mais comum desse tipo de produto — nunca invente um uso. Exemplos só do formato: para "melhor fone para jogar CS competitivo": "what makes an IEM good for competitive FPS" e "o que importa num fone para jogos de tiro"; para "qual air fryer comprar": "what to look for when buying an air fryer" e "o que avaliar antes de comprar uma air fryer". Responda só com um JSON: {"buscas": ["...", "..."]}` }], { json: true, numPredict: 120, signal });
+      const r1 = await chamar([{ role: 'user', content: `Pedido: ${pergunta}\n\nAntes de escolher produtos, é preciso saber o que torna um produto BOM PARA ESTE USO. Escreva 2 buscas curtas para achar isso onde quem usa conversa — uma em inglês, uma em português —, sem nome de marca nem de modelo. Use o uso que o PEDIDO diz; se ele não diz, o uso mais comum desse tipo de produto — nunca invente um uso. Exemplos só do formato: para "melhor fone para jogar CS competitivo": "what makes an IEM good for competitive FPS" e "o que importa num fone para jogos de tiro"; para "qual air fryer comprar": "what to look for when buying an air fryer" e "o que avaliar antes de comprar uma air fryer". Em "busca_produtos", uma busca em inglês, sem marca nem modelo, para achar QUAIS produtos quem usa recomenda para este uso, com o nome que os entusiastas dão à categoria (ex. do formato: "best IEM for competitive FPS"; "best air fryer for a family of four"). Responda só com um JSON: {"buscas": ["...", "..."], "busca_produtos": "..."}` }], { json: true, numPredict: 160, signal });
       const bruto1 = String(r1?.content || '');
-      const buscas = (safeJson(bruto1.slice(bruto1.indexOf('{')))?.buscas || []).map((b) => String(b || '').trim().slice(0, 120)).filter((b) => b.length >= 8).slice(0, 2);
+      const j1 = safeJson(bruto1.slice(bruto1.indexOf('{'))) || {};
+      const buscas = (j1.buscas || []).map((b) => String(b || '').trim().slice(0, 120)).filter((b) => b.length >= 8).slice(0, 2);
       if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] buscas ${JSON.stringify(buscas)} · bruto ${bruto1.slice(0, 120)}`);
       if (!buscas.length || signal?.aborted) return;
+      // 22/11 (Davi: só o Gemma escolheu o Simgot EM6L — foi o único que buscou em inglês e leu o r/inearfidelity; os
+      // outros leram listas de afiliado em português e escolheram HyperX e JBL): os tópicos em inglês de quem usa, pelos
+      // produtos, são lidos sempre. Em paralelo com os critérios; o "quem usa cita" sai deles.
+      const buscaProdutos = String(j1.busca_produtos || '').trim().slice(0, 100);
+      const tiposDe = (f) => tipoDaPagina(f, { recomendacao: true }).tipo;
+      const lerProdutosEmIngles = buscaProdutos.length >= 8 && !pareceIngles(pergunta)
+        ? executarBusca([/reddit/i.test(buscaProdutos) ? buscaProdutos : `${buscaProdutos} reddit`], { porSite: 6 }).then((lista) => {
+          if (process.env.DEPURAR_MATERIAL) console.error(`[em inglês] ${String(lista).split('\n').filter((l) => /^\[\d+\]/.test(l)).map((l) => { const f = fontes.find((x) => x.n === Number(/^\[(\d+)\]/.exec(l)[1])); return `${f?.url} (${f && tiposDe(f)}${f?.trechos.length ? ', lida' : ''})`; }).join(' | ')}`);
+          const daBusca = [...String(lista).matchAll(/^\[(\d+)\]/gm)].map((m) => fontes.find((f) => f.n === Number(m[1]))).filter((f) => f && !f.trechos.length && tiposDe(f) === 'comunidade');
+          return Promise.all(daBusca.slice(0, 2).map((f) => ((f.comunidade = true), executarLeitura({ fonte: f.n, foco: 'o que quem usa recomenda, elogia e critica' }, { garantia: true }))));
+        }).catch(() => {})
+        : Promise.resolve();
       const antes = fontes.length;
       // tópicos diferentes do mesmo fórum são o que importa aqui (a comunidade do pedido, em paralelo, já conta 2 do Reddit)
       // a de inglês vai ao Reddit ("site:reddit.com what makes an IEM good for competitive FPS" trouxe 6 tópicos do r/iems);
@@ -1029,7 +1051,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
         .filter((f) => !f.trechos.length && tipo(f) !== 'lista de afiliado')
         .sort((a, b) => (tipo(b) === 'comunidade') - (tipo(a) === 'comunidade'))
         .slice(0, 2);
-      await Promise.all(novas.map((f) => executarLeitura({ fonte: f.n, foco: 'o que importa e o que evitar para este uso' }, { garantia: true })));
+      await Promise.all([lerProdutosEmIngles, ...novas.map((f) => executarLeitura({ fonte: f.n, foco: 'o que importa e o que evitar para este uso' }, { garantia: true }))]);
       const lidasAqui = novas.filter((f) => f.trechos.length);
       if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] novas ${novas.map((f) => f.url).join(' ')} · lidas ${lidasAqui.length} · fontes ${antes}→${fontes.length}`);
       if (!lidasAqui.length || signal?.aborted) return;
@@ -1165,8 +1187,8 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
     // rodada a mais quase sempre era só o modelo dizendo "pronto" (15 tokens, 1,4–1,9 s)
     const sitesLidos = new Set(fontes.filter((f) => f.trechos.length).map((f) => dominio(f.url))).size;
     const bastaNaNormal = modo !== 'profundo' && sitesLidos >= 2;
-    if ((rodada > 1 || (atalho && bastaNaNormal)) && minimos && !lacunaAberta && (leiturasFeitas >= regras.leituras || semNovidade >= 1 || bastaNaNormal || rodada > rodadaDosMinimos + 1) && !(await antesDeParar(rodada))) {
-      emit('aviso', { texto: `pesquisa encerrada na rodada ${rodada - 1} de ${total}: ${leiturasFeitas >= regras.leituras ? 'as leituras desta pesquisa se esgotaram' : semNovidade >= 1 ? 'a última rodada não trouxe nada novo' : bastaNaNormal ? 'mínimos cumpridos, com leitura de vários sites' : 'os mínimos do modo já estavam cumpridos'}` });
+    if ((rodada > 1 || (atalho && bastaNaNormal)) && minimos && !lacunaAberta && (leiturasEsgotadas() || semNovidade >= 1 || bastaNaNormal || rodada > rodadaDosMinimos + 1) && !(await antesDeParar(rodada))) {
+      emit('aviso', { texto: `pesquisa encerrada na rodada ${rodada - 1} de ${total}: ${leiturasEsgotadas() ? 'as leituras desta pesquisa se esgotaram' : semNovidade >= 1 ? 'a última rodada não trouxe nada novo' : bastaNaNormal ? 'mínimos cumpridos, com leitura de vários sites' : 'os mínimos do modo já estavam cumpridos'}` });
       break;
     }
     const antesDaRodada = { fontes: fontes.length, lidas: lidas() };
@@ -1326,13 +1348,17 @@ function semFontesForaDoAssuntoSemGarantia(pergunta, ordenados, temGarantidas = 
   // a melhor de TODAS as fontes (as garantidas também): uma página solta não vira "a melhor" só por sobrar
   const melhor = Math.max(referencia, ...lista.map((it) => (typeof it.semelhanca === 'number' ? it.semelhanca : -Infinity)));
   if (!Number.isFinite(melhor)) return lista; // sem embeddings: fica a regra do produto
+  const perguntaEmIngles = pareceIngles(pergunta);
   return lista.filter((it) => {
     if (typeof it.semelhanca !== 'number') return true;
     // 10/11 (no app): a página "iPhone 18 Pro Max vs Galaxy S26 Ultra: Comparison" saiu pela semelhança — pergunta em
     // português, página em inglês, e o embedding mede mal entre idiomas. Fonte que cita o produto pedido fica.
     if (padroes.length) return true;
     const distancia = melhor - it.semelhanca;
-    return !(distancia >= 0.25 || (distancia >= 0.12 && !it.palavras));
+    // 22/11: página em outra língua não tem as palavras da pergunta — "IEM recommendation for competitive FPS gaming
+    // (footsteps?)" saía de uma pergunta em português por isso (0,14 da melhor, 0 palavras); vale só o limite maior
+    const outraLingua = !perguntaEmIngles && pareceIngles(`${it.f?.titulo || ''} ${String(it.texto || '').slice(0, 600)}`);
+    return !(distancia >= 0.25 || (distancia >= 0.12 && !it.palavras && !outraLingua));
   });
 }
 

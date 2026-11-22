@@ -248,6 +248,19 @@ module.exports = [
     checagens: checagensDaResposta(),
   },
   {
+    // 22/11 (Davi, 6 modelos: só o Gemma escolheu o Simgot EM6L — foi o único que buscou em inglês e leu o r/inearfidelity;
+    // os outros, listas de afiliado em português → HyperX Cloud Earbuds II, JBL Quantum 50, Moondrop Rays)
+    id: 'fone-pubg-competitivo',
+    tipo: 'produto',
+    pedido: 'Qual o melhor fone intra auricular para se jogar pubg de pc competitivamente ?',
+    criterios: [
+      'escolhe um IEM com marca e modelo dos que quem usa recomenda para FPS (ex.: Simgot EM6L, Truthear Hexa, Moondrop, Kiwi Ears), não um fone gamer de lista de loja (HyperX Cloud Earbuds, JBL Quantum)',
+      'justifica com o que importa em jogo de tiro (imaging, separação, ouvir passos), sem dizer que graves fortes ajudam a ouvir passos',
+      'cita o que a comunidade (Reddit ou fórum) recomenda',
+    ],
+    checagens: checagensDaResposta(),
+  },
+  {
     id: 'fones-pubg',
     tipo: 'produto',
     pedido: 'Me recomende um top 5 melhores fones intra auriculares para se jogar pubg de pc',

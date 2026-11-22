@@ -145,3 +145,43 @@ module.exports.push({
     ];
   },
 });
+module.exports.push({
+  nome: 'quem usa, em inglês (22/11, só o Gemma achou o Simgot EM6L): a busca dos produtos em inglês + "reddit" é feita e os tópicos lidos; o filtro não tira a página em inglês sem as palavras da pergunta; em produto, sobram leituras para o modelo depois das do código',
+  tipo: 'unidade',
+  async executar() {
+    const naWeb = [];
+    const lidas = [];
+    let rodadas = 0;
+    let respostaDaLeitura = '';
+    const naoLida = (texto) => {
+      const lidasPeloCodigo = new Set([...(/Já lidas pelo código: ([^\n]*)/.exec(texto)?.[1] || '').matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
+      return [...texto.matchAll(/^\[(\d+)\]/gm)].map((m) => Number(m[1])).find((n) => !lidasPeloCodigo.has(n));
+    };
+    const lidasComFoco = [];
+    const deps = {
+      emit: (tipo, d) => (tipo === 'ferramenta' && d?.nome === 'ler_pagina' ? lidasComFoco.push(`${d.argumentos.foco} ${d.argumentos.url}`) : null),
+      chamar: async (messages, opcoes = {}) => {
+        const texto = messages.map((m) => m.content).join('\n');
+        if (opcoes.json && /Escreva 2 buscas/.test(texto)) return { content: JSON.stringify({ buscas: ['what makes an IEM good for competitive FPS', 'o que importa num fone para jogos de tiro'], busca_produtos: 'best IEM for competitive FPS' }) };
+        if (opcoes.json) return { content: '{}' };
+        rodadas += 1;
+        // o modelo pede, na 1ª rodada, uma página que ele escolheu (uma da lista que o código não leu)
+        if (rodadas === 1) return { content: '', chamadas: [{ function: { name: 'ler_pagina', arguments: { fonte: naoLida(texto), foco: 'x' } } }] };
+        if (rodadas === 2) respostaDaLeitura = String(messages[messages.length - 1]?.content || '');
+        return { content: '', chamadas: [{ function: { name: 'pronto', arguments: {} } }] };
+      },
+      buscar: async (q) => (naWeb.push(q), Array.from({ length: 4 }, (_, i) => ({ titulo: `${q} ${i}`, url: /reddit/.test(q) ? `https://www.reddit.com/r/inearfidelity/comments/${i}/iem_for_gaming` : `https://loja${i}.com/${encodeURIComponent(q)}`, resumo: 'texto' }))),
+      buscarNaComunidade: async (q) => [0, 1].map((i) => ({ titulo: `${q} — thread ${i}`, url: `https://www.clubedohardware.com.br/${encodeURIComponent(q)}/${i}`, resumo: 'discussão' })),
+      lerPagina: async (url) => (lidas.push(url), { texto: 'Simgot EM6L and Truthear Hexa have great imaging for footsteps. '.repeat(20) }),
+    };
+    await nucleo.pesquisar({ pergunta: 'qual o melhor fone intra auricular para jogar PUBG competitivo?', modo: 'profundo', deps, hoje: 'x', produto: true, buscasIniciais: ['melhor fone intra auricular PUBG', 'fone gamer PUBG', 'fone in-ear FPS'] });
+    const it = (t, sem, p) => ({ f: { titulo: t }, texto: t, semelhanca: sem, palavras: p });
+    const ficou = nucleo.semFontesForaDoAssunto('Qual o melhor fone intra auricular para se jogar pubg de pc competitivamente ?', [it('Melhor fone intra auricular gamer', 0.8, 3), it('IEM recommendation for competitive FPS gaming (footsteps?) — what are the best IEMs for footsteps', 0.66, 0), it('Receita de bolo de cenoura', 0.66, 0)]).map((x) => x.f.titulo);
+    return [
+      naWeb.includes('best IEM for competitive FPS reddit') || `a busca dos produtos em inglês: ${naWeb}`,
+      lidasComFoco.filter((u) => /^o que quem usa recomenda.*reddit\.com\/r\/inearfidelity/.test(u)).length >= 2 || `os tópicos em inglês lidos por quem usa: ${lidasComFoco}`,
+      (/Simgot EM6L and Truthear/.test(respostaDaLeitura) && !/Limite de/.test(respostaDaLeitura)) || `a leitura que o modelo escolheu (sobrou leitura para ele): ${respostaDaLeitura.slice(0, 120)}`,
+      ficou.length === 2 && ficou.some((t) => /^IEM/.test(t)) && !ficou.includes('Receita de bolo de cenoura') || JSON.stringify(ficou),
+    ];
+  },
+});

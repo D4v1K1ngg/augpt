@@ -98,7 +98,7 @@ module.exports = [
         JSON.stringify(ent.partes) === '["preço de lançamento da RTX 5070 Ti","preço de hoje","estimativa na Black Friday"]' || JSON.stringify(ent.partes),
         /"partes": \["\.\.\."\]/.test(nucleo.pedidoDeEntendimento({ pergunta: 'x', conversa: [], hoje: 'hoje' })) || 'o entendimento pede as partes',
         /if \(conferiuPartes \|\| partes\.length < 2 \|\| rodada >= total \|\| signal\?\.aborted\) return false;/.test(indice) || 'uma vez, só com 2+ partes e rodada sobrando',
-        (indice.match(/if \(await antesDeParar\(rodada\)\) continue;/g) || []).length === 2 && /!lacunaAberta && \(leiturasFeitas/.test(indice) || 'nos pontos de parada',
+        (indice.match(/if \(await antesDeParar\(rodada\)\) continue;/g) || []).length === 2 && /!lacunaAberta && \(leiturasEsgotadas\(\)/.test(indice) || 'nos pontos de parada',
         /partes: ent\.partes \|\| \[\]/.test(indice) || 'o entendimento passa as partes à pesquisa',
       ];
     },
