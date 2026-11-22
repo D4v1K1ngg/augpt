@@ -1452,7 +1452,11 @@ function citadosNaComunidade(fontes, pergunta, { hoje = new Date() } = {}) {
   const textoDe = (f) => (f.trechos?.length ? f.trechos.join('\n') : `${f.titulo || ''}\n${f.resumo || ''}`);
   const daComunidade = fontes.filter((f) => (f.comunidade || tipoDaPagina(f, { recomendacao: true }).tipo === 'comunidade') && String(textoDe(f)).trim().length > 20);
   if (!daComunidade.length) return [];
-  const nomes = modelosCitados(daComunidade.map(textoDe), { pergunta });
+  // 22/11: nos tópicos de entusiastas cada um cita um modelo diferente, uma vez — sem nenhum com 2+ menções, valem os de
+  // marca conhecida citados uma vez (o consenso, abaixo, põe na frente o que aparece em mais de um site)
+  const textos = daComunidade.map(textoDe);
+  let nomes = modelosCitados(textos, { pergunta });
+  if (!nomes.length) nomes = modelosCitados(textos, { pergunta, minimo: 1, soDaMarca: true });
   // 22/11 (consenso): o mais citado em tópicos de SITES diferentes vem primeiro — o que só um tópico cita fica para o
   // fim (no Qwen 9B, o "Redragon Bio H801" de um tópico só virou a 1ª opção)
   // 22/11 (recência): o tópico com mais de ANOS_DE_TOPICO_RECENTE anos não conta como site do consenso (o r/gamesEcultura
@@ -1568,19 +1572,26 @@ function blocoDosCriterios(criterios, recomendados = []) {
  * Fica o que aparece 2+ vezes, mais citado primeiro; sigla solta (PC, FPS, USB, DAC) e o que a pergunta já cita não.
  */
 const MARCAS_EXTRAS = ['kz', '7hz', 'kiwi ears', 'dunu', 'tangzu', 'tripowin', 'letshuoer', 'thieaudio', 'etymotic', 'shure', 'cca', 'trn', 'qkz', 'salnotes', 'tin hifi', 'blon', 'ziigaat', 'hifiman', 'beyerdynamic', 'audio-technica', 'akg', 'zowie', 'pulsar', 'lamzu', 'finalmouse', 'endgame gear', 'vaxee', 'wooting', 'akko', 'keychron'];
-const NAO_E_MODELO = /^(pc|fps|usb|usb-c|dac|amp|iem|iems|tws|anc|eq|hz|khz|db|ps\d|xbox|cs2|pubg|rtx|gtx|wifi|wi-fi|bluetooth|reddit|edit|update|op|lol|imo|the|and|for|with|para|com)$/i;
-function modelosCitados(textos = [], { pergunta = '' } = {}) {
+const PALAVRA_COMUM = /^(os|as|o|a|um|uma|uns|umas|eu|tenho|uso|usei|comprei|meu|minha|com|para|pra|sem|mas|e|ou|se|the|my|i|and|or|but|with|for|got|have|use|using|bought|try|tried|get|also|then|if|so|is|it|this|that|any|some)$/i;
+const NAO_E_MODELO =/^(pc|fps|usb|usb-c|dac|amp|iem|iems|tws|anc|eq|hz|khz|db|ps\d|xbox|cs2|pubg|rtx|gtx|wifi|wi-fi|bluetooth|reddit|edit|update|op|lol|imo|the|and|for|with|para|com)$/i;
+function modelosCitados(textos = [], { pergunta = '', minimo = 2, soDaMarca = false } = {}) {
   const { OFICIAIS } = require('../../tools/imitacao');
   const marcas = [...new Set([...Object.keys(OFICIAIS), ...MARCAS_EXTRAS])].filter((m) => m.length >= 2).sort((a, b) => b.length - a.length);
   // a marca em qualquer caixa ("simgot", "Simgot", "SIMGOT"), o modelo com maiúscula ou número ("and footsteps" não é modelo)
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[a-z]/g, (c) => `[${c}${c.toUpperCase()}]`).replace(/ /g, '\\s+');
-  const reMarca = new RegExp(`\\b(${marcas.map(esc).join('|')})\\s+((?:[A-Z0-9][\\w-]*)(?:\\s+(?:[A-Z0-9][\\w-]*|Pro|Max|Mini|Plus|Ultra|II|III|X)){0,2})`, 'g');
+  // 22/11: e "Simgot - EM6L" (lista de desejos no tópico)
+  // (o modelo não continua numa outra marca: em "Simgot - EM6L Truthear Hexa" são dois)
+  const outraMarca = `(?!(?:${marcas.map(esc).join('|')})\\b)`;
+  const reMarca = new RegExp(`\\b(${marcas.map(esc).join('|')})(?:\\s*[-–]\\s*|\\s+)(${outraMarca}(?:[A-Z0-9][\\w-]*)(?:\\s+${outraMarca}(?:[A-Z0-9][\\w-]*|Pro|Max|Mini|Plus|Ultra|II|III|X)){0,2})`, 'g');
   // o código tem letra E número ("EM6L", "X20", "V3"): "Postado 29" (a data do post no fórum) não é modelo
   const reCodigo = /\b([A-Z][a-zA-Z]{1,15})\s+((?=[A-Za-z0-9-]*[A-Za-z])(?=[A-Za-z-]*\d)[A-Z0-9][A-Za-z0-9-]{1,10}(?:\s+(?:Pro|Max|Mini|Plus|Ultra|II|X))?)\b/g;
   const contagem = new Map();
   const somar = (nome, daMarca = false) => {
     // 22/11: a palavra do tipo no fim não é o modelo ("KZ EDX Intra-auricular" é o "KZ EDX")
-    const n = nome.replace(/\s+/g, ' ').trim().replace(/(\s+(intra-?auricular(es)?|in-?ear|gamer|gaming|headset|earbuds?|iems?|wireless|sem fio))+$/i, '');
+    let n = nome.replace(/\s+/g, ' ').trim().replace(/(\s+(intra-?auricular(es)?|in-?ear|gamer|gaming|headset|earbuds?|iems?|wireless|sem fio))+$/i, '');
+    // e o nome para antes de outra marca ou de um rótulo do tópico ("Simgot EM6L Truthear", "Simgot EA500 POST")
+    const corte = n.split(' ').findIndex((p, i) => i >= 2 && (marcas.includes(p.toLowerCase()) || /^(POST|COMENT\w*|T[ÓO]PICO|EDIT|UPDATE)$/i.test(p)));
+    if (corte > 0) n = n.split(' ').slice(0, corte).join(' ');
     const partes = n.split(' ');
     if (partes.length < 2 || partes.some((p) => NAO_E_MODELO.test(p) && partes.length === 2) || n.length > 40) return;
     const chave = n.toLowerCase();
@@ -1592,11 +1603,12 @@ function modelosCitados(textos = [], { pergunta = '' } = {}) {
   for (const t of textos) {
     const s = String(t || '');
     for (const m of s.matchAll(reMarca)) somar(`${m[1].replace(/^\w/, (c) => c.toUpperCase())} ${m[2]}`, true);
-    for (const m of s.matchAll(reCodigo)) if (!marcas.includes(m[1].toLowerCase())) somar(`${m[1]} ${m[2]}`);
+    // 22/11: palavra comum com maiúscula no começo da frase não é marca ("Os EM6L", "Tenho G305" nos tópicos traduzidos)
+    for (const m of s.matchAll(reCodigo)) if (!marcas.includes(m[1].toLowerCase()) && !PALAVRA_COMUM.test(m[1])) somar(`${m[1]} ${m[2]}`);
   }
   const naPergunta = String(pergunta).toLowerCase();
   return [...contagem.values()]
-    .filter((c) => c.vezes >= 2 && !naPergunta.includes(c.nome.toLowerCase()))
+    .filter((c) => c.vezes >= minimo && (!soDaMarca || c.daMarca) && !naPergunta.includes(c.nome.toLowerCase()))
     // "Simgot EM6L" e "Simgot EM6L Pro": fica o mais citado
     // a regra da marca é a mais segura: vem antes ("Viper V3", mouse citado num tópico de fones, fica para depois)
     .sort((a, b) => b.daMarca - a.daMarca || b.vezes - a.vezes)
@@ -1750,11 +1762,23 @@ async function pautaDaEscrita(pergunta, usadas, { chamar, signal } = {}) {
   }
 }
 
-async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000, emit = () => {} } = {}) {
+async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000, emit = () => {}, recomenda = false } = {}) {
   const itens = fontes.map((f) => ({ f, texto: f.trechos.length ? f.trechos.join('\n…\n') : f.resumo })).filter((x) => String(x.texto || '').trim());
   const todos = await ordenar(pergunta, itens, { embed });
-  const ordenados = semFontesForaDoAssunto(pergunta, todos);
-  const fora = todos.filter((it) => !ordenados.includes(it));
+  // em recomendação, ANTES do corte do tamanho (22/11, item 5): primeiro os tópicos que citam os produtos de "quem usa
+  // cita" (no app, a lista trazia o Simgot EM6L das fontes [28] e [30], e o material ia só até a [20] — o escritor nunca
+  // as viu e escolheu pelas listas), depois a comunidade, os testes, o resto; as listas de loja e afiliado por último
+  const citadas = new Set((fontes.citadosNaComunidade || []).flatMap((c) => c.fontes));
+  const peso = (it) => {
+    if (!recomenda) return 0;
+    if (citadas.has(it.f.n)) return 0;
+    const tipo = it.f.comunidade ? 'comunidade' : tipoDaPagina(it.f, { recomendacao: true }).tipo;
+    return { comunidade: 1, 'teste próprio': 2, 'lista de afiliado': 4 }[tipo] || 3;
+  };
+  const filtradas = semFontesForaDoAssunto(pergunta, todos);
+  const noAssunto = todos.filter((it) => filtradas.includes(it) || (recomenda && citadas.has(it.f.n)));
+  const ordenados = noAssunto.map((it, i) => ({ it, i })).sort((a, b) => peso(a.it) - peso(b.it) || a.i - b.i).map((x) => x.it);
+  const fora = todos.filter((it) => !noAssunto.includes(it));
   if (fora.length) emit('aviso', { texto: `fora do assunto, ficaram de fora da resposta: ${fora.map((it) => it.f.titulo || it.f.url).slice(0, 6).join(' · ')}` });
   const usados = [];
   let total = 0;
@@ -1990,7 +2014,22 @@ function questionarioNaResposta(texto, pergunta = '') {
 const LOJA = /(^|\.)(shopee|mercadolivre|mercadolibre|amazon|magazineluiza|magalu|americanas|casasbahia|aliexpress|kabum|shein|temu|submarino|pontofrio|carrefour|extra|netshoes|centauro|drogasil|drogaraia|paguemenos|ebay|walmart|lojavirtualnuvem|nuvemshop|olist)\./i;
 const ehLoja = (url) => LOJA.test(dominio(url));
 const REGRA_DE_ANUNCIO = '\n- Fonte com anuncio="sim" é a página de venda de uma loja: o que ela diz de efeito, benefício ou indicação é o VENDEDOR dizendo, não um fato comprovado — escreva "segundo o anúncio", "o vendedor afirma". Em saúde (remédio, cosmético, suplemento, óleo), deixe claro que não são estudos e que vale falar com um profissional.';
-const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="${String(f.titulo || dominio(f.url)).replace(/"/g, "'")}" site="${dominio(f.url)}"${ehLoja(f.url) ? ' anuncio="sim"' : ''}${f.data ? ` data="${dataBr(f.data)}"` : f.recente ? ' data="último mês"' : ''}>\n${f.conteudo}\n</fonte>`).join('\n');
+/*
+ * Escolher por quem usa e por quem mede; o Brasil só para comprar (22/11, item 5 da busca de produtos): as listas em
+ * português ("os 10 melhores fones gamer de 2026", de loja ou afiliado) puxavam a escolha para o que está à venda (HyperX,
+ * JBL, KZ). Em recomendação, com 2+ fontes de outro tipo, elas vão para o fim do material, no máximo 2, marcadas com
+ * lista="sim": o escritor usa para preço e loja, não para escolher. O preço de hoje dos escolhidos vem depois, das lojas
+ * (loop-nucleo, "onde comprar").
+ */
+const MAXIMO_DE_LISTAS = 2;
+function listasSoParaComprar(usadas = []) {
+  const lista = (f) => tipoDaPagina(f, { recomendacao: true }).tipo === 'lista de afiliado';
+  const outras = usadas.filter((f) => !lista(f));
+  if (outras.length < 2) return usadas;
+  return [...outras, ...usadas.filter(lista).slice(0, MAXIMO_DE_LISTAS).map((f) => ({ ...f, lista: true }))];
+}
+const REGRA_DE_LISTA = '\n- Fonte com lista="sim" é ranking de site de compras ou de afiliado: use só para preço, disponibilidade e loja no Brasil. NÃO escolha nem ordene as opções por ela — a escolha vem de quem usa (fóruns, Reddit) e de quem mede (testes); produto que só a lista cita não entra.';
+const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="${String(f.titulo || dominio(f.url)).replace(/"/g, "'")}" site="${dominio(f.url)}"${ehLoja(f.url) ? ' anuncio="sim"' : ''}${f.lista ? ' lista="sim"' : ''}${f.data ? ` data="${dataBr(f.data)}"` : f.recente ? ' data="último mês"' : ''}>\n${f.conteudo}\n</fonte>`).join('\n');
 
 /**
  * Conferência de anos (15/10, medição: Santos Dumont "1873–1933" com a fonte
@@ -2544,7 +2583,9 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
   etapa('pesquisa', inicioDaPesquisa);
   const inicioDoMaterial = Date.now();
-  let usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit }) : [];
+  let usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit, recomenda }) : [];
+  if (recomenda) usadas = listasSoParaComprar(usadas);
+  if (process.env.DEPURAR_MATERIAL) console.error(`[material] ${usadas.map((f) => `[${f.n}]${f.lista ? 'L' : ''}`).join(' ')} · citados ${JSON.stringify((fontes.citadosNaComunidade || []).map((c) => c.fontes))}`);
   // 13/11, régua: o que foi lido e o que foi para o escritor — o ponto que falta na resposta estava no material?
   emit('nucleo-material', { lido: fontes.map((f) => `${f.titulo || ''}\n${f.resumo || ''}\n${(f.trechos || []).join('\n')}`).join('\n\n'), aberto: fontes.map((f) => (f.trechos || []).join('\n')).join('\n\n'), tipos: fontes.filter((f) => f.trechos?.length && !f.video && !f.imagem).map((f) => ({ 'lista de afiliado': 'lista', comunidade: 'comunidade', 'teste próprio': 'teste' })[tipoDaPagina(f, { recomendacao: true }).tipo] || (f.comunidade ? 'comunidade' : /referência da área/.test(f.qualidade || '') ? 'teste' : 'outro')), usado: usadas.map((f) => f.conteudo || '').join('\n\n') });
   etapa('material', inicioDoMaterial);
@@ -2573,7 +2614,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   emit('redigindo', { fontes: usadas.length });
   const preferencias = typeof deps.preferencias === 'function' ? String((await Promise.resolve(deps.preferencias(ent.pergunta || pergunta)).catch(() => '')) || '') : '';
   const mensagens = [
-    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: recomenda, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa || ent.explicacao ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length, explicacao: ent.explicacao === true && !usadas.length, enxuto: deps.escritorEnxuto === true && !ent.produto })}${PEDE_QUESTIONARIO.test(pergunta) ? INSTRUCAO_DE_QUESTIONARIO : ''}${usadas.some((f) => ehLoja(f.url)) ? REGRA_DE_ANUNCIO : ''}${fontes.linkNaoAbriu ? `\n- O link que o usuário mandou NÃO abriu (a loja bloqueia a leitura automática). Diga isso numa frase. Se as fontes trazem o mesmo anúncio, responda por elas; senão, peça o nome do produto em uma ou duas frases — sem exemplos inventados de produtos que poderia ser. Nunca deduza o que é o produto pelo número ou pelo endereço do link.` : ''}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
+    { role: 'system', content: `${sistemaDoEscritor({ hoje, comFontes: usadas.length > 0, produto: recomenda, tamanho: tamanhoNaMedida(pergunta, tamanho, { produto: ent.produto }), atual: ent.atual, sobreOUsuario, capacidadesNaEscrita: ent.conversa || ent.explicacao ? '' : capacidades.blocoParaEscrever(deps), preferencias, idioma: deps.idioma, conversa: ent.conversa === true && !usadas.length, explicacao: ent.explicacao === true && !usadas.length, enxuto: deps.escritorEnxuto === true && !ent.produto })}${PEDE_QUESTIONARIO.test(pergunta) ? INSTRUCAO_DE_QUESTIONARIO : ''}${usadas.some((f) => ehLoja(f.url)) ? REGRA_DE_ANUNCIO : ''}${usadas.some((f) => f.lista) ? REGRA_DE_LISTA : ''}${fontes.linkNaoAbriu ? `\n- O link que o usuário mandou NÃO abriu (a loja bloqueia a leitura automática). Diga isso numa frase. Se as fontes trazem o mesmo anúncio, responda por elas; senão, peça o nome do produto em uma ou duas frases — sem exemplos inventados de produtos que poderia ser. Nunca deduza o que é o produto pelo número ou pelo endereço do link.` : ''}${semVideos ? '\n- O usuário pediu vídeos do YouTube, mas o AuGPT ainda não tem como ver vídeos (falta instalar o yt-dlp em Ajustes → Componentes). Diga isso numa frase no começo e NÃO diga que pesquisou, viu ou assistiu a vídeos: as fontes são páginas da web.' : ''}${fontes.length && !usadas.length ? '\n- As buscas NÃO acharam nenhuma página sobre o que foi perguntado (as que vieram falam de outra coisa e foram descartadas). Diga isso logo na primeira frase, como "Não encontrei nas buscas de agora…" — a falha é da busca: não afirme que a informação, os rumores ou as notícias não existem. Depois, se souber, diga o que se sabe de forma geral, deixando claro que não foi confirmado agora — sem inventar datas, preços nem números, e sem citar fontes.' : ''}${usadas.length ? `\n\n<fontes>\n${blocoDeFontes(usadas)}\n</fontes>` : ''}${notas ? `\n\n<anotacoes_do_pesquisador>\n${notas}\n</anotacoes_do_pesquisador>` : ''}${vista ? `\n\n<imagem_anexada>\nO usuário anexou ${imagens.length === 1 ? 'uma imagem (está junto da pergunta)' : `${imagens.length} imagens (estão junto da pergunta)`}. O que foi visto nela${imagens.length === 1 ? '' : 's'}:\n${vista}${imagens.some((i) => i.texto) ? `\n\nTexto lido por OCR:\n${imagens.filter((i) => i.texto).map((i) => i.texto.slice(0, 4000)).join('\n\n')}` : ''}\n</imagem_anexada>\nResponda sobre a imagem que o usuário mandou. O que vem dela você diz "na imagem", sem citação. O modelo exato de um produto só é certo se estiver escrito na imagem (no texto do OCR) ou se as fontes confirmarem pela aparência; senão, diga que é provável e qual parece ser.` : ''}` },
     // 30/10 (medido: ~5 s entre o fim da pesquisa e a 1ª palavra era o modelo lendo o material): das respostas
     // anteriores vai só o começo, sem a lista de fontes — o assunto da conversa fica, o texto inteiro não precisa
     ...conversa.slice(-6).map((m) => ({ role: m.role, content: m.role === 'assistant' ? comecoDaResposta(m.content) : semImagens(m.content).slice(0, 2000) })),
@@ -2753,4 +2794,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { mesmoModelo, pareceModelo, blocoDeFontes, buscaPeloLink, LEITURAS_DO_APP, separarCartoes, questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { listasSoParaComprar, blocoDeFontes, mesmoModelo, pareceModelo, blocoDeFontes, buscaPeloLink, LEITURAS_DO_APP, separarCartoes, questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

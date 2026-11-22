@@ -61,3 +61,49 @@ module.exports = [
     },
   },
 ];
+module.exports.push({
+  nome: 'listas só para comprar (item 5): em recomendação, a lista de loja/afiliado vai para o fim do material (antes do corte do tamanho), no máximo 2, com lista="sim" e a regra do escritor; com menos de 2 fontes de outro tipo, nada muda',
+  tipo: 'unidade',
+  async executar() {
+    const f = (n, url, titulo) => ({ n, url, titulo, resumo: '', trechos: [`${titulo}: Truthear Hexa e Simgot EM6L para FPS. `.repeat(60)] });
+    const fontes = [
+      f(1, 'https://reviup.com.br/melhor-fone', 'Os 10 melhores fones intra auriculares gamer de 2026'),
+      f(2, 'https://portaltcm.com.br/top', 'Top 7 melhores fones gamer de 2026'),
+      f(3, 'https://pandalargo.com.br/x', 'Os 5 melhores fones in-ear para FPS de 2026'),
+      f(4, 'https://www.reddit.com/r/iems/comments/a/iem_for_fps/', 'IEM for FPS'),
+      f(5, 'https://www.clubedohardware.com.br/forums/topic/1-fones-fps/', 'Fones para FPS'),
+    ];
+    const comLista = nucleo.listasSoParaComprar(fontes);
+    const material = await nucleo.materialDaEscrita('melhor fone intra auricular para pubg', fontes, { limite: 9000, recomenda: true });
+    const bloco = nucleo.blocoDeFontes(comLista.map((x) => ({ ...x, conteudo: 'x' })));
+    const fonte = require('fs').readFileSync(require('path').join(__dirname, '../../src/agent/nucleo/index.js'), 'utf8');
+    return [
+      JSON.stringify(comLista.map((x) => x.n)) === '[4,5,1,2]' && comLista.filter((x) => x.lista).length === 2 || JSON.stringify(comLista.map((x) => [x.n, x.lista])),
+      /<fonte n="1"[^>]* lista="sim"/.test(bloco) && !/<fonte n="4"[^>]* lista="sim"/.test(bloco) || bloco.slice(0, 300),
+      [4, 5].every((n) => material.some((x) => x.n === n)) && !material.some((x) => x.n === 3) || `o corte do tamanho tira a lista, não o tópico: ${material.map((x) => x.n)}`,
+      JSON.stringify(nucleo.listasSoParaComprar(fontes.slice(0, 4)).map((x) => x.n)) === '[1,2,3,4]' || 'com 1 fonte de outro tipo, nada muda',
+      /usadas\.some\(\(f\) => f\.lista\) \? REGRA_DE_LISTA/.test(fonte) && /if \(recomenda\) usadas = listasSoParaComprar\(usadas\)/.test(fonte) || 'a regra e a separação ligadas na escrita',
+    ];
+  },
+});
+module.exports.push({
+  nome: 'material da recomendação: os tópicos que citam os produtos de "quem usa cita" entram primeiro (antes do corte do tamanho), depois comunidade e testes; sem recomendação, a ordem é a de sempre',
+  tipo: 'unidade',
+  async executar() {
+    const f = (n, url, titulo, texto) => ({ n, url, titulo, resumo: '', trechos: [`${texto} `.repeat(70)] });
+    const fontes = [
+      f(1, 'https://agorasonora.com.br/a', 'Melhor fone intra auricular para PUBG', 'fone intra auricular pubg KZ ZSN Pro'),
+      f(2, 'https://topcomparativos.com.br/b', 'Fone intra auricular PUBG guia', 'fone intra auricular pubg QKZ AK6'),
+      f(3, 'https://blog.x.com.br/c', 'Fone para PUBG', 'fone intra auricular pubg WAAW'),
+      f(4, 'https://outro.com.br/d', 'Fone gamer PUBG', 'fone intra auricular pubg JBL'),
+      f(5, 'https://www.reddit.com/r/iems/comments/e/iem/', 'IEM for FPS', 'Simgot EM6L imaging footsteps'),
+    ];
+    fontes.citadosNaComunidade = [{ nome: 'Simgot EM6L', fontes: [5], sites: 1 }];
+    const com = await nucleo.materialDaEscrita('melhor fone intra auricular para pubg', fontes, { limite: 9000, recomenda: true });
+    const sem = await nucleo.materialDaEscrita('melhor fone intra auricular para pubg', fontes, { limite: 9000 });
+    return [
+      com.some((x) => x.n === 5) || `o tópico citado entra: ${com.map((x) => x.n)}`,
+      !sem.some((x) => x.n === 5) || `sem recomendação, como sempre (o tópico em inglês fica para o fim): ${sem.map((x) => x.n)}`,
+    ];
+  },
+});
