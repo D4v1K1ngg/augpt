@@ -55,6 +55,8 @@ function imagensAnexadas(objetivo) {
   return { pedido: String(objetivo).replace(m[0], '').trim() || 'O que é isto? Descreva e explique o que a imagem mostra.', arquivos };
 }
 const { vetorDe } = require('./embeddings');
+const { embedDasPaginas } = require('./embed-paginas');
+const { rerankerDe } = require('../reranker');
 const { ACOES_SEM_SEMPRE_PERMITIR } = require('../config');
 const {
   motivoDeAprovacao,
@@ -1079,7 +1081,7 @@ class Agent extends EventEmitter {
     const { pedacos, ordenar } = require('./nucleo/ranking');
     const partes = pedacos(texto).map((t) => ({ texto: t }));
     if (!partes.length) return { origem, url, texto: `(nada relevante ao pedido em ${origem})`, bruto: texto, fatos: 0, destilado: true, pulado: true };
-    const embed = (textos) => ollama.embed({ host: this.config.host, model: this.config.embedModel || 'nomic-embed-text', input: textos, signal: this.controller?.signal });
+    const embed = await embedDasPaginas(this.config, { signal: this.controller?.signal, reranker: rerankerDe(this.userDataPath) });
     const melhores = (await ordenar(`${foco} ${objetivo}`.trim(), partes, { embed, maximo: 5 })).filter((m, i) => i === 0 || m.nota >= 0.2);
     this.emit('destilado', { n: this.iteracao, origem, fatos: melhores.length, de: texto.length, para: melhores.reduce((s, m) => s + m.texto.length, 0), modo: 'trechos' });
     return { origem, url, texto: melhores.map((m) => m.texto).join('\n…\n').slice(0, 5000), bruto: texto, fatos: melhores.length, destilado: true, trechos: true };

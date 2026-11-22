@@ -115,9 +115,13 @@ const RRF_K = 60;
  * pode não ser o mais próximo em embedding, e uma reformulação sem repetir
  * a palavra pode não bater lexicalmente.
  */
-function ordenarPorHibrido({ itens, vec, consultaTokens, k, tokensDoItem }) {
+// 22/11: o vetor de cada item leva o nome do modelo que o fez — modelos diferentes com o mesmo tamanho (nomic e
+// embeddinggemma, 768) dariam semelhanças sem sentido. Item antigo, sem o nome: era do nomic (o único padrão até aqui).
+const mesmoModelo = (a, b) => String(a || 'nomic-embed-text').replace(/:latest$/, '') === String(b || 'nomic-embed-text').replace(/:latest$/, '');
+
+function ordenarPorHibrido({ itens, vec, consultaTokens, k, tokensDoItem, modelo }) {
   const rankVetor = itens
-    .filter((i) => Array.isArray(i.vec) && i.vec.length === vec.length)
+    .filter((i) => Array.isArray(i.vec) && i.vec.length === vec.length && mesmoModelo(i.vecModelo, modelo))
     .map((item) => ({ item, score: cosine(vec, item.vec) }))
     .filter((r) => r.score > 0.15)
     .sort((a, b) => b.score - a.score)
@@ -243,12 +247,14 @@ class Memory {
    */
   async add(texto, tipo = 'passo', { idConversa = null, bruto } = {}) {
     if (!texto || !String(texto).trim()) return;
+    const vec = await this.vetor(texto);
     const item = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       texto: String(texto).slice(0, 4000),
       tipo,
       em: new Date().toISOString(),
-      vec: await this.vetor(texto),
+      vec,
+      ...(vec ? { vecModelo: this.config.embedModel || 'nomic-embed-text' } : {}),
       idConversa: idConversa || null,
       diasVelhoQuandoSalvo: bruto ? diasDesdeDataMaisRecente(bruto) : null,
     };
@@ -275,6 +281,7 @@ class Memory {
       consultaTokens: [...tokens(consulta)],
       k,
       tokensDoItem: (item) => this._tokensDoItem(item),
+      modelo: this.config.embedModel,
     });
   }
 

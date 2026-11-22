@@ -149,7 +149,8 @@ function pintar() {
         ? h('span', { class: 'bv-instalado' }, t('instalado ✓'))
         : h('button', { class: 'btn-secundario', disabled: !ollamaOk || bv.ocupado, onclick: () => baixarModelos([m.nome]) }, bv.baixando === m.nome ? t('baixando…') : t('Baixar'))
     );
-  const faltam = [escolhido, rec.embedding].filter((m) => !temModelo(m.nome)).map((m) => m.nome);
+  const daLista = [escolhido, rec.embedding, ...(rec.memoria ? [rec.memoria] : [])];
+  const faltam = daLista.filter((m) => !temModelo(m.nome)).map((m) => m.nome);
   const seletor = h('select', { class: 'bv-seletor', 'aria-label': t('Outro modelo principal'), disabled: bv.ocupado },
     ...[rec.principal, ...rec.alternativas].map((m) => {
       const op = h('option', { value: m.nome }, `${m.rotulo} · ${gb(m.downloadGB)}${m.nome === rec.principal.nome ? t(' · recomendado') : m.cabe === false ? t(' · pesado para este PC') : ''}`);
@@ -161,15 +162,15 @@ function pintar() {
     bv.escolhido = seletor.value;
     pintar();
   });
-  const tamanhoQueFalta = gb([escolhido, rec.embedding].filter((m) => faltam.includes(m.nome)).reduce((s, m) => s + m.downloadGB, 0));
+  const tamanhoQueFalta = gb(daLista.filter((m) => faltam.includes(m.nome)).reduce((s, m) => s + m.downloadGB, 0));
   lista.append(
     etapa({
       titulo: t('Modelos de IA'),
       situacao: faltam.length ? 'falta' : 'ok',
       texto: t('Recomendado para este PC: {rotulo} — {motivo}.', { rotulo: rec.principal.rotulo, motivo: tt(rec.principal.motivo) }),
-      corpo: [h('ul', { class: 'bv-modelos' }, linhaModelo(escolhido, t('responde e pesquisa')), linhaModelo(rec.embedding, t('escolhe os trechos das páginas'))), h('label', { class: 'bv-outro' }, t('Modelo principal: '), seletor)],
+      corpo: [h('ul', { class: 'bv-modelos' }, linhaModelo(escolhido, t('responde e pesquisa')), linhaModelo(rec.embedding, t('escolhe os trechos das páginas')), ...(rec.memoria ? [linhaModelo(rec.memoria, t('memória e busca nos seus arquivos'))] : [])), h('label', { class: 'bv-outro' }, t('Modelo principal: '), seletor)],
       progresso: bv.progressoModelo,
-      acoes: faltam.length ? [h('button', { class: 'btn-primario', disabled: !ollamaOk || bv.ocupado, onclick: () => baixarModelos(faltam) }, faltam.length === 2 ? t('Baixar os dois ({gb})', { gb: tamanhoQueFalta }) : t('Baixar o que falta ({gb})', { gb: tamanhoQueFalta }))] : [],
+      acoes: faltam.length ? [h('button', { class: 'btn-primario', disabled: !ollamaOk || bv.ocupado, onclick: () => baixarModelos(faltam) }, faltam.length === daLista.length ? t('Baixar todos ({gb})', { gb: tamanhoQueFalta }) : t('Baixar o que falta ({gb})', { gb: tamanhoQueFalta }))] : [],
     })
   );
 

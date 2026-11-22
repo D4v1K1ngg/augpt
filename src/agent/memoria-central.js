@@ -139,9 +139,11 @@ class MemoriaCentral {
     let melhorScore = 0;
     for (const candidato of candidatos) {
       // eslint-disable-next-line no-await-in-loop -- lista cabe em LIMITE_ITENS (40), e a maioria já vem cacheada em candidato.vec
-      const vetorCandidato = candidato.vec || (await vetorDe(`${candidato.chave} ${candidato.valor}`.trim(), { host, embedModel }));
+      // 22/11: o vetor guardado só vale se foi feito pelo mesmo modelo (nome junto; sem nome = nomic, o padrão até aqui)
+      const doMesmo = candidato.vec && String(candidato.vecModelo || 'nomic-embed-text').replace(/:latest$/, '') === String(embedModel).replace(/:latest$/, '');
+      const vetorCandidato = doMesmo ? candidato.vec : await vetorDe(`${candidato.chave} ${candidato.valor}`.trim(), { host, embedModel });
       if (!vetorCandidato) continue;
-      if (!candidato.vec) candidato.vec = vetorCandidato;
+      if (!doMesmo) Object.assign(candidato, { vec: vetorCandidato, vecModelo: embedModel });
       const score = cosine(vetorNovo, vetorCandidato);
       if (score > melhorScore) {
         melhorScore = score;

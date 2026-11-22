@@ -2327,15 +2327,16 @@ async function criarImagem({ pergunta, conversa, imagens, vista, ent, deps }) {
  */
 function medirDeps(deps) {
   const somas = deps.tempos.somas;
+  // as propriedades da função vão junto (o embed das páginas leva o peso das palavras e o reranker)
   const medir = (nome, fn) => (typeof fn === 'function'
-    ? async (...a) => {
+    ? Object.assign(async (...a) => {
       const t = Date.now();
       try {
         return await fn(...a);
       } finally {
         somas[nome] = (somas[nome] || 0) + (Date.now() - t);
       }
-    }
+    }, fn)
     : fn);
   return { ...deps, medido: true, chamar: medir('modelo', deps.chamar), escrever: medir('escrita', deps.escrever), embed: medir('embeddings', deps.embed), buscar: medir('buscas', deps.buscar), buscarNaComunidade: medir('buscas', deps.buscarNaComunidade), lerPagina: medir('paginas', deps.lerPagina) };
 }

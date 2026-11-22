@@ -26,7 +26,7 @@ module.exports = [
     },
   },
   {
-    nome: 'boas-vindas: recomendação pelo hardware — VRAM decide quando há placa (27B / 9B / 4B), RAM quando não há (2B / 0.8B); placa de 3 a 4,5 GB → 2B; sempre com o nomic-embed-text; avisa disco curto e falta de placa',
+    nome: 'boas-vindas: recomendação pelo hardware — VRAM decide quando há placa (27B / 9B / 4B), RAM quando não há (2B / 0.8B); placa de 3 a 4,5 GB → 2B; sempre com o embeddinggemma (páginas) e o nomic-embed-text (memória); avisa disco curto e falta de placa',
     tipo: 'unidade',
     executar() {
       const r = (hw) => v.recomendarModelos(hw);
@@ -40,7 +40,8 @@ module.exports = [
         semPlaca.principal.nome === 'qwen3.5:2b' && semPlaca.avisos.some((a) => /processador/.test(a)) || 'sem placa, 16 GB → 2B no processador (mais rápido, mesma nota do 4B), com aviso',
         r({ vramGB: 4, ramTotalGB: 16 }).principal.nome === 'qwen3.5:2b' || 'placa de 3 a 4,5 GB → 2B inteiro nela',
         r({ vramGB: 0, ramTotalGB: 8 }).principal.nome === 'qwen3.5:2b' && r({ vramGB: 0, ramTotalGB: 4 }).principal.nome === 'qwen3.5:0.8b' || 'pouca RAM → 2B / 0.8B',
-        pc.embedding.nome === 'nomic-embed-text' && pc.downloadTotalGB === 6.9 || `embedding e total: ${pc.downloadTotalGB}`,
+        // 22/11: as páginas com o embeddinggemma e a memória com o nomic — os dois entram no total
+        pc.embedding.nome === 'embeddinggemma:300m' && pc.memoria.nome === 'nomic-embed-text' && pc.downloadTotalGB === 7.5 || `embedding e total: ${pc.downloadTotalGB}`,
         semDisco.avisos.some((a) => /pouco espaço/.test(a)) || 'disco curto avisa',
         !pc.alternativas.some((m) => m.nome === pc.principal.nome) && pc.alternativas.length === 4 || 'alternativas sem o principal',
       ];

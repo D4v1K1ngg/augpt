@@ -169,6 +169,8 @@ contextBridge.exposeInMainWorld('augpt', {
     instalarFfmpeg: () => ipcRenderer.invoke('componentes:instalarFfmpeg'),
     voltarFfmpeg: () => ipcRenderer.invoke('componentes:voltarFfmpeg'),
     instalarTesseract: () => ipcRenderer.invoke('componentes:instalarTesseract'),
+    instalarReranker: () => ipcRenderer.invoke('componentes:instalarReranker'),
+    removerReranker: () => ipcRenderer.invoke('componentes:removerReranker'),
     instalarImagem: () => ipcRenderer.invoke('componentes:instalarImagem'),
     voltarImagem: () => ipcRenderer.invoke('componentes:voltarImagem'),
     testarPlaca: () => ipcRenderer.invoke('componentes:testarPlaca'),

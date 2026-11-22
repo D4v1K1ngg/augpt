@@ -41,6 +41,7 @@ const { Ffmpeg } = require('../src/ffmpeg');
 const ffmpeg = () => new Ffmpeg(path.join(app.getPath('userData'), 'componentes', 'ffmpeg'));
 const { Tesseract } = require('../src/tesseract');
 const tesseract = () => new Tesseract(path.join(app.getPath('userData'), 'componentes'));
+const reranker = () => require('../src/reranker').rerankerDe(app.getPath('userData'));
 const { GeradorDeImagens, recomendar: recomendarGerador, pastaPadrao: pastaDoGerador } = require('../src/gerador-de-imagens');
 const gerador = () => new GeradorDeImagens(pastaDoGerador(app.getPath('userData')));
 
@@ -2401,7 +2402,8 @@ ipcMain.handle('utilitarios:listar', () => require('../src/agent/capacidades').u
 ipcMain.handle('componentes:estado', async () => {
   const computador = await verificadorDeHardware.verificarComputador();
   const [o, y, t, g, f] = await Promise.all([instaladorOllama.versoesDoOllama(config.data.host), ytdlp().estado(), tesseract().estado(), gerador().estado(computador), ffmpeg().estado()]);
-  return { ollama: o, ytdlp: y, tesseract: t, imagem: g, ffmpeg: f, busca: searxngRuntime.estado() };
+  const modeloDasPaginas = await require('../src/agent/embed-paginas').modeloDasPaginas(config.data);
+  return { ollama: o, ytdlp: y, tesseract: t, imagem: g, ffmpeg: f, busca: searxngRuntime.estado(), reranker: { ...reranker().estado(), ligado: config.data.reranker === true, quantos: config.data.rerankerQuantos, modeloDasPaginas } };
 });
 
 // ffmpeg (30/10): instala/atualiza conferindo o SHA-256; a versão de antes fica guardada — igual ao yt-dlp
@@ -2551,6 +2553,24 @@ ipcMain.handle('componentes:voltarFfmpeg', async () => {
 ipcMain.handle('componentes:instalarYtdlp', async () => {
   try {
     return { ok: true, estado: await ytdlp().instalar({ emitir: (p) => enviar('ytdlp-progresso', p) }) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+// reranker (22/11): programa (llama.cpp, versão fixa) + modelo, com SHA-256; liga sozinho ao instalar, "Remover" apaga e desliga
+ipcMain.handle('componentes:instalarReranker', async () => {
+  try {
+    const estado = await reranker().instalar({ emitir: (p) => enviar('reranker-progresso', p) });
+    config.save({ reranker: true });
+    return { ok: true, estado };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('componentes:removerReranker', () => {
+  try {
+    config.save({ reranker: false });
+    return { ok: true, estado: reranker().remover() };
   } catch (err) {
     return { ok: false, error: err.message };
   }
@@ -3391,6 +3411,7 @@ app.on('before-quit', () => {
   agent?.parar();
   mcp?.desconectar();
   searxngRuntime?.parar();
+  require('../src/reranker').pararTodos();
   navegador?.fechar();
   // 12/11: o "Sair" da bandeja e o desligar do Windows não passam pelo fechar da janela — o Python da voz sai aqui também
   estudio?.fechar('qwen');

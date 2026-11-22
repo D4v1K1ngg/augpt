@@ -11,6 +11,12 @@ const DEFAULTS = {
   // especialistas (19/11): { prova: 'modelo', imagem: 'modelo' } — vazio = o modelo do topo (src/agent/especialistas.js)
   especialistas: {},
   embedModel: 'nomic-embed-text',
+  // 22/11: o embedding que escolhe os trechos das páginas, separado da memória (src/agent/embed-paginas.js); sem ele
+  // instalado, as páginas usam o embedModel, como antes
+  embedPaginas: 'embeddinggemma:300m',
+  // reranker (Ajustes → Componentes, src/reranker.js): liga sozinho ao instalar; quantos dos primeiros trechos ele reordena
+  reranker: false,
+  rerankerQuantos: 20,
   temperature: 0.4,
   numCtx: 16384,
   // Pedido do Davi 2026-09-20: as 3 IAs que podem rodar como modelos

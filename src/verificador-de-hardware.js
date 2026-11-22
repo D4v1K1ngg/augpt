@@ -111,7 +111,10 @@ const MODELOS = {
   gemma4: { nome: 'gemma4:26b-a4b-it-qat', rotulo: 'Gemma 4 26B', downloadGB: 15.6, precisaVramGB: 15, motivo: 'alternativa para placas de 16 GB: escreve mais rápido e com mais fluidez, com nota quase igual à do 9B nos testes' },
   gptoss: { nome: 'gpt-oss:20b', rotulo: 'gpt-oss 20B', downloadGB: 14, precisaVramGB: 14, motivo: 'alternativa para placas de 16 GB: o mais rápido de todos, mas erra mais fatos que o 9B nos testes' },
 };
-const EMBEDDING = { nome: 'nomic-embed-text', rotulo: 'Nomic Embed Text', downloadGB: 0.3, motivo: 'escolhe os melhores trechos das páginas lidas (obrigatório, leve)' };
+// 22/11: as páginas com o embeddinggemma (multilíngue: 19 → 29 de 31 trechos certos, src/agent/embed-paginas.js); a memória e a
+// busca nos arquivos do PC seguem no nomic (guardam vetores em disco)
+const EMBEDDING = { nome: 'embeddinggemma:300m', rotulo: 'EmbeddingGemma', downloadGB: 0.6, motivo: 'escolhe os melhores trechos das páginas lidas (obrigatório, leve)' };
+const MEMORIA = { nome: 'nomic-embed-text', rotulo: 'Nomic Embed Text', downloadGB: 0.3, motivo: 'memória entre conversas e busca nos seus arquivos (leve)' };
 
 /**
  * Qual modelo cabe. Com placa de vídeo, decide a VRAM (o modelo inteiro na
@@ -144,11 +147,11 @@ function recomendarModelos({ vramGB = 0, ramTotalGB = 0, discoLivreGB = null, gp
   const ordem = ['27b', '9b', ...(vramGB >= 14 && !antiga ? ['gemma4', 'gptoss'] : []), '4b', '2b', '0.8b'];
   const alternativas = ordem.filter((k) => k !== chave).map((k) => ({ ...MODELOS[k], cabe: vramGB >= MODELOS[k].precisaVramGB || (!vramGB && ramTotalGB >= MODELOS[k].precisaVramGB * 2) }));
   const avisos = [];
-  const total = principal.downloadGB + EMBEDDING.downloadGB;
+  const total = principal.downloadGB + EMBEDDING.downloadGB + MEMORIA.downloadGB;
   if (discoLivreGB != null && discoLivreGB < total + 2) avisos.push(`pouco espaço no disco dos modelos: ${discoLivreGB} GB livres, precisa de uns ${Math.ceil(total + 2)} GB`);
   if (!vramGB) avisos.push('não achei placa de vídeo com memória dedicada: o modelo roda no processador e cada resposta demora bem mais');
   if (antiga) avisos.push('placa AMD antiga: depois de instalar, use "Testar a placa de vídeo" em Ajustes → Componentes para conferir se o Ollama está usando ela');
-  return { principal, embedding: EMBEDDING, alternativas, avisos, downloadTotalGB: arred(total) };
+  return { principal, embedding: EMBEDDING, memoria: MEMORIA, alternativas, avisos, downloadTotalGB: arred(total) };
 }
 
 /**

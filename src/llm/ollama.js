@@ -503,6 +503,13 @@ async function chat({
  * cai para o antigo (/api/embeddings) em instalações mais velhas.
  */
 async function embed({ host = DEFAULT_HOST, model = 'nomic-embed-text', input, signal }) {
+  // 22/11: lote grande demais (663 trechos com o embeddinggemma) volta erro do Ollama ("dial tcp … /tokenize"), e o
+  // ordenar caía calado só na palavra exata — vai de 64 em 64
+  if (Array.isArray(input) && input.length > 64) {
+    const saida = [];
+    for (let i = 0; i < input.length; i += 64) saida.push(...(await embed({ host, model, input: input.slice(i, i + 64), signal })));
+    return saida;
+  }
   try {
     const data = await request(host, '/api/embed', { body: { model, input }, signal, timeout: 60000 });
     if (Array.isArray(data.embeddings)) return data.embeddings;

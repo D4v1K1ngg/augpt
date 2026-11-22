@@ -36,6 +36,8 @@ const { comLinks } = require('./escritor-de-cartoes');
 const { notaSemNasLojas } = require('./compras-no-chat');
 const { mesmaResposta } = require('./resposta-repetida');
 const { escolherEspecialista } = require('./especialistas');
+const { embedDasPaginas } = require('./embed-paginas');
+const { rerankerDe } = require('../reranker');
 
 /**
  * Imagem no tamanho que o modelo lê bem (16/10, foto de 474 px de um EPOS H6PRO:
@@ -235,7 +237,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
         return { nome: path.basename(rel), arquivo, base64: imagemParaOModelo(arquivo), texto };
       }
       : null,
-    embed: (textos) => ollama.embed({ host: cfg.host, model: cfg.embedModel || 'nomic-embed-text', input: textos, signal }),
+    // 22/11: as páginas com o embedding delas (embeddinggemma; a memória segue no embedModel) e o reranker, se instalado
+    embed: await embedDasPaginas(cfg, { signal, reranker: rerankerDe(this.userDataPath) }),
     // Reddit e fóruns cadastrados (dados/fontes-da-comunidade.json): "site:reddit.com …", "site:clubedohardware.com.br …"
     forumEmIngles: (texto) => forumEmInglesDoAssunto(texto, cfg),
     buscarNaComunidade: async (q) => {

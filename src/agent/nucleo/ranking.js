@@ -106,17 +106,30 @@ async function ordenar(consulta, itens, { embed = null, peso = 0.5, maximo = Inf
   }
   // `nota` é relativa (o melhor vale 1); `semelhanca` e `palavras` são as brutas — o filtro de assunto
   // da escrita (25/10) precisa saber o quanto cada um está longe do melhor, não só a ordem
-  const notas = itens.map((it, i) => ({ ...it, nota: sentido ? peso * palavra[i] + (1 - peso) * sentido[i] : palavra[i], palavras: brutas[i], semelhanca: cossenos ? cossenos[i] : null }));
+  // o peso da palavra exata vem do modelo (src/agent/embed-paginas.js: 0 com o embeddinggemma, 0,5 com o nomic)
+  const p = typeof embed?.pesoPalavras === 'number' ? embed.pesoPalavras : peso;
+  const notas = itens.map((it, i) => ({ ...it, nota: sentido ? p * palavra[i] + (1 - p) * sentido[i] : palavra[i], palavras: brutas[i], semelhanca: cossenos ? cossenos[i] : null }));
   notas.sort((a, b) => b.nota - a.nota);
   const vistos = new Set();
-  return notas
-    .filter((it) => {
-      const chave = normalizar(it.texto).slice(0, 80);
-      if (vistos.has(chave)) return false;
-      vistos.add(chave);
-      return true;
-    })
-    .slice(0, maximo);
+  const unicos = notas.filter((it) => {
+    const chave = normalizar(it.texto).slice(0, 80);
+    if (vistos.has(chave)) return false;
+    vistos.add(chave);
+    return true;
+  });
+  // reranker (22/11, componente opcional): reordena os `quantos` primeiros lendo pergunta e trecho juntos. Só a ordem
+  // muda — `nota` e `semelhanca` continuam as do embedding (os filtros de nota e de assunto foram medidos nelas). Fora do
+  // ar ou com erro: fica a ordem do embedding.
+  if (typeof embed?.reordenar === 'function' && unicos.length > 1) {
+    const n = Math.min(unicos.length, embed.quantos || 20);
+    const topo = unicos.slice(0, n);
+    const r = await Promise.resolve(embed.reordenar(consulta, topo.map((it) => String(it.texto || '').slice(0, 2000)))).catch(() => null);
+    if (Array.isArray(r) && r.length === n && r.every((x) => typeof x === 'number')) {
+      const reordenados = topo.map((it, i) => ({ ...it, notaReranker: r[i] })).sort((a, b) => b.notaReranker - a.notaReranker);
+      return [...reordenados, ...unicos.slice(n)].slice(0, maximo);
+    }
+  }
+  return unicos.slice(0, maximo);
 }
 
 module.exports = { pedacos, bm25, cosseno, ordenar, termos, normalizar };

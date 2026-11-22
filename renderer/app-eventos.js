@@ -592,6 +592,10 @@ const manipuladores = {
     if (texto) $('compOcrStatus').textContent = texto;
   },
 
+  'reranker-progresso'({ texto }) {
+    if (texto && $('compRerStatus')) $('compRerStatus').textContent = texto;
+  },
+
   'atualizacao-disponivel'(info) {
     mostrarFaixaAtualizacao(info);
   },

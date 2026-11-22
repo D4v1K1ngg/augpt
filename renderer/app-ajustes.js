@@ -1189,7 +1189,7 @@ function pintarSugestoesModelos() {
     return;
   }
   const instalados = new Set(verificacao.modelos || []);
-  const lista = [{ ...r.principal, recomendado: true }, ...r.alternativas, { ...r.embedding, cabe: true }];
+  const lista = [{ ...r.principal, recomendado: true }, ...r.alternativas, { ...r.embedding, cabe: true }, ...(r.memoria ? [{ ...r.memoria, cabe: true }] : [])];
   alvo.innerHTML = lista
     .map((m) => {
       const nota = instalados.has(m.nome) || instalados.has(`${m.nome}:latest`)
@@ -1244,6 +1244,16 @@ function pintarComponentes() {
   $('btnCompOcrInstalar').hidden = t.instalado && !t.atualizar;
   $('btnCompOcrInstalar').textContent = t.manual ? 'Como instalar' : t.faltamIdiomas ? 'Baixar os idiomas' : t.instalado ? 'Atualizar o Tesseract' : 'Instalar o Tesseract (cerca de 50 MB)';
   $('sitOcr').textContent = t.instalado ? (t.atualizar ? `atualização ${t.disponivel} disponível` : 'instalado') : 'não instalado';
+  // reranker (22/11)
+  const rr = componentes?.reranker || {};
+  if ($('compRerInstalado')) {
+    const emb = rr.modeloDasPaginas || config.embedModel || 'nomic-embed-text';
+    $('compRerEmbed').textContent = /embeddinggemma/.test(emb) ? `${emb} ✓` : `${emb} — instale o embeddinggemma:300m em "Modelos por função" (mais preciso em português)`;
+    $('compRerInstalado').textContent = rr.suportado === false ? 'por enquanto só no Windows' : rr.instalado ? `instalado (llama.cpp ${rr.versao})${rr.ligado ? ` · reordena os ${rr.quantos || 20} primeiros` : ' · desligado'}${rr.ultimoErro ? ` · último erro: ${rr.ultimoErro}` : ''}` : 'não instalado';
+    $('btnCompRerInstalar').hidden = rr.suportado === false || (rr.instalado && rr.ligado);
+    $('btnCompRerInstalar').textContent = rr.instalado ? 'Ligar' : `Instalar (${rr.tamanhoMB || 674} MB)`;
+    $('btnCompRerRemover').hidden = !rr.instalado;
+  }
   const g = componentes?.imagem || {};
   $('compImgRec').textContent = g.pode ? `comporta — ${g.motivo}` : g.motivo ? `não comporta — ${g.motivo}` : '—';
   $('compImgInstalada').textContent = g.instalado ? `${g.instalada || 'sim'} (${g.motor === 'cuda' ? 'CUDA' : 'Vulkan'})` : g.faltamModelos ? 'programa instalado, faltam os modelos' : 'não instalado';
@@ -1262,7 +1272,8 @@ function pintarComponentes() {
   const tem = (n) => n && instalados.some((i) => i === n || i === `${n}:latest`);
   $('compModelos').innerHTML = [
     ['Responder e pesquisar', config.model],
-    ['Escolher os trechos das páginas', config.embedModel || 'nomic-embed-text'],
+    ['Escolher os trechos das páginas', config.embedPaginas || config.embedModel || 'nomic-embed-text'],
+    ['Memória e busca nos seus arquivos', config.embedModel || 'nomic-embed-text'],
   ]
     .map(
       ([papel, nome]) =>
@@ -1329,6 +1340,23 @@ $('btnCompOcrInstalar').addEventListener('click', async () => {
   const r = await api.componentes.instalarTesseract();
   btn.disabled = false;
   $('compOcrStatus').textContent = r.ok ? 'pronto ✓ — o texto das imagens anexadas passa a ser lido' : `erro: ${r.error}`;
+  await carregarModelosEComponentes();
+});
+
+$('btnCompRerInstalar').addEventListener('click', async () => {
+  const btn = $('btnCompRerInstalar');
+  btn.disabled = true;
+  $('compRerStatus').textContent = 'começando…';
+  const r = await api.componentes.instalarReranker();
+  btn.disabled = false;
+  $('compRerStatus').textContent = r.ok ? 'pronto ✓ — as próximas pesquisas já usam o reranker' : `erro: ${r.error}`;
+  await carregarModelosEComponentes();
+});
+
+$('btnCompRerRemover').addEventListener('click', async () => {
+  if (!confirm('Remover o reranker? Os arquivos dele (cerca de 670 MB) são apagados e a pesquisa volta a usar só o embedding.')) return;
+  const r = await api.componentes.removerReranker();
+  $('compRerStatus').textContent = r.ok ? 'removido' : `erro: ${r.error}`;
   await carregarModelosEComponentes();
 });
 

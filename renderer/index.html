@@ -1514,6 +1514,17 @@
           <div class="teste-resultado" id="compOcrStatus"></div>
         </section>
         <section class="grupo">
+          <h2>Reordenar os trechos das pesquisas (reranker)</h2>
+          <p class="dica">Opcional. Depois que o modelo de embedding escolhe os trechos das páginas lidas, o bge-reranker-v2-m3 lê a pergunta e cada trecho juntos e põe os melhores na frente. Nos testes (31 perguntas, 25 páginas reais), o trecho certo ficou em 1º lugar em 25 em vez de 20, por cerca de 0,2 s a cada 20 trechos. Usa o llama.cpp numa versão fixa; tudo baixado é conferido pelo SHA-256 publicado. Liga no primeiro uso e desliga depois de 5 minutos parado; se falhar, a pesquisa segue sem ele.</p>
+          <div class="linha"><span>Trechos das páginas</span><span class="situacao" id="compRerEmbed">—</span></div>
+          <div class="linha"><span>Reranker</span><span class="situacao" id="compRerInstalado">—</span></div>
+          <div class="linha-botoes">
+            <button class="btn-primario" id="btnCompRerInstalar" hidden>Instalar</button>
+            <button class="btn-secundario" id="btnCompRerRemover" hidden>Remover</button>
+          </div>
+          <div class="teste-resultado" id="compRerStatus"></div>
+        </section>
+        <section class="grupo">
           <h2>Criar imagens (FLUX.2 Klein)</h2>
           <p class="dica">Gera imagens no seu computador, sem internet: "crie uma imagem de…", "desenhe um logo…", ou anexe uma foto e peça para transformá-la. Usa o FLUX.2 Klein 4B pelo stable-diffusion.cpp; o modelo de texto sai da placa de vídeo enquanto a imagem é feita e volta depois. Tudo baixado é conferido pelo SHA-256 publicado.</p>
           <div class="linha"><span>Neste computador</span><span class="situacao" id="compImgRec">—</span></div>

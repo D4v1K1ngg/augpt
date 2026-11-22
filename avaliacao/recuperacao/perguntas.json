@@ -1,0 +1,249 @@
+{
+ "sobre": "31 perguntas sobre 25 páginas reais do cache do AuGPT (22/11/2026). Cada pergunta tem a página onde está a resposta (url), o trecho exato que o trecho escolhido precisa conter (agulha) e o fato que a resposta precisa ter (fato, regex). Os textos das páginas não ficam aqui: o medir.js lê do cache do AuGPT (cache-paginas).",
+ "paginas": [
+  "https://valor.globo.com/brasil/noticia/2026/11/20/correios-funcionam-hoje-veja-o-que-abre-e-fecha-no-feriado-de-20-de-novembro-em-sao-paulo.ghtml",
+  "https://geekhunk.com/simgot-em6l-review/",
+  "https://www.aficionados.com.br/ordem-cronologica-universo-harry-potter/",
+  "https://pubg.com/pt-br/main",
+  "https://resources.devweekends.com/operating-systems/cpu-architectures",
+  "https://www.idinheiro.com.br/telecom/streaming/amazon-prime-ou-hbo-max/",
+  "https://guiadecompra.org/como-escolher-uma-placa-de-som/",
+  "https://napista.com.br/radar/primeiro-carro-economico-usado/",
+  "https://www.cin.ufpe.br/~can/Arquivos/gerenciamento-de-memoria.htm",
+  "https://iegems.nk-tran.com/2024/07/20/review-Simgot-Supermix4.html",
+  "https://seucarango.com/fiat-uno-ou-renault-kwid/",
+  "https://www.techtudo.com.br/noticias/2026/10/gta-6-sera-lancado-no-pc-no-1o-trimestre-de-2027-diz-site-edjogos.ghtml",
+  "https://www.minhaconexao.com.br/planos/streaming/onde-assistir-harry-potter",
+  "https://auto.nd1.com.br/2026/06/quanto-custa-manter-um-fiat-uno.html",
+  "https://pt.wikiversity.org/wiki/Introdu%C3%A7%C3%A3o_aos_Sistemas_Operacionais/Ger%C3%AAncia_de_Mem%C3%B3ria",
+  "https://www.enternity.gr/Article/Gadgets/Reviews/Creative-SoundBlaster-X-G6-Review/56655.html",
+  "https://achadosgeek.com.br/melhor-placa-de-som",
+  "https://blog.veek.com.br/blog/qual-e-melhor-hbo-max-ou-prime-video",
+  "https://hiendportable.com/simgot-supermix-4-english-review/",
+  "https://www.mercadolivre.com.br/blog/reviews/dunu-titan-s-titans",
+  "https://tecnologiamoderna.com.br/gta-6-data-lancamento-requisitos-pc/",
+  "https://kernel-internals.org/mm/page-tables/",
+  "https://powershellfaqs.com/powershell-get-item/",
+  "https://www.scielo.br/j/pvb/a/8LmPK994KRm54RTLJLfjGXp/?lang=en",
+  "https://ocw.mit.edu/courses/6-004-computation-structures-spring-2017/pages/c16/c16s1/"
+ ],
+ "perguntas": [
+  {
+   "p": 0,
+   "tema": "feriado",
+   "q": "O Poupatempo abre na sexta-feira do feriado da Consciência Negra?",
+   "agulha": "Poupatempo em todo o estado",
+   "fato": "fechad"
+  },
+  {
+   "p": 0,
+   "tema": "feriado",
+   "q": "Qual horário a CET recomenda evitar para viajar pela estrada no feriado?",
+   "agulha": "evitem deslocamentos entre as 14h e 22h",
+   "fato": "14 ?h"
+  },
+  {
+   "p": 1,
+   "tema": "fone",
+   "q": "O grave do Simgot EM6L vaza para os médios e deixa o som embolado?",
+   "agulha": "rolls off around the 150Hz mark",
+   "fato": "150"
+  },
+  {
+   "p": 1,
+   "tema": "fone",
+   "q": "Dá para usar o EM6L no chat de voz dos jogos ou preciso de outro microfone?",
+   "agulha": "need a separate microphone",
+   "fato": "separad|outro microfone|à parte|externo|dedicado"
+  },
+  {
+   "p": 2,
+   "tema": "harry",
+   "q": "Qual filme vem primeiro na ordem cronológica do universo de Harry Potter?",
+   "agulha": "Animais Fantásticos e Onde Habitam é o primeiro nesta linha cronológica",
+   "fato": "animais fant"
+  },
+  {
+   "p": 2,
+   "tema": "harry",
+   "q": "Quem dirigiu o terceiro filme de Harry Potter e o que mudou no clima dele?",
+   "agulha": "direção de Alfonso Cuarón",
+   "fato": "cuar"
+  },
+  {
+   "p": 4,
+   "tema": "cpu",
+   "q": "Como o processador evita a falsa dependência entre duas instruções que usam o mesmo registrador?",
+   "agulha": "Register Renaming",
+   "fato": "renomea|renaming"
+  },
+  {
+   "p": 4,
+   "tema": "cpu",
+   "q": "Usar volatile em C garante sincronização entre threads?",
+   "agulha": "does not provide atomicity or ordering across threads",
+   "fato": "não|nao"
+  },
+  {
+   "p": 5,
+   "tema": "streaming",
+   "q": "Quantos títulos posso baixar no Prime Video para assistir sem internet?",
+   "agulha": "armazenar até 25 títulos",
+   "fato": "25"
+  },
+  {
+   "p": 5,
+   "tema": "streaming",
+   "q": "Quanto custa o plano sem anúncios do HBO Max em comparação com o Prime?",
+   "agulha": "R$ 19,95/mês na versão Standard",
+   "fato": "19,95"
+  },
+  {
+   "p": 5,
+   "tema": "streaming",
+   "q": "O HBO Max tem 4K em todos os planos?",
+   "agulha": "restritos ao plano Premium",
+   "fato": "premium"
+  },
+  {
+   "p": 6,
+   "tema": "som",
+   "q": "Qual é a impedância de saída da Sound Blaster AE-5 Plus?",
+   "agulha": "impedância ultra baixa de 1Ω",
+   "fato": "1 ?(Ω|ohm)"
+  },
+  {
+   "p": 6,
+   "tema": "som",
+   "q": "Qual placa de som USB simples e barata serve para trocar um áudio onboard com defeito?",
+   "agulha": "placa de som externa USB Orico",
+   "fato": "orico"
+  },
+  {
+   "p": 7,
+   "tema": "carro",
+   "q": "Os preços dos carros usados citados se baseiam em qual tabela e de que mês?",
+   "agulha": "Tabela FIPE de junho de 2026",
+   "fato": "junho"
+  },
+  {
+   "p": 8,
+   "tema": "memoria",
+   "q": "Qual algoritmo de alocação procura o buraco de memória de tamanho mais próximo do que o processo precisa?",
+   "agulha": "Best Fit (melhor encaixe)",
+   "fato": "best fit|melhor encaixe"
+  },
+  {
+   "p": 8,
+   "tema": "memoria",
+   "q": "Como a MMU sabe se uma página virtual está carregada na memória?",
+   "agulha": "indica se a mesma está presente ou não na memória",
+   "fato": "\\bbit\\b"
+  },
+  {
+   "p": 9,
+   "tema": "fone",
+   "q": "Quanto custa o Simgot Supermix 4 e por que é incomum um fone desse tipo nesse preço?",
+   "agulha": "quadbrid IEM at $135",
+   "fato": "135"
+  },
+  {
+   "p": 9,
+   "tema": "fone",
+   "q": "O grave do Supermix 4 tem impacto e punch?",
+   "agulha": "emphasizes subbass over midbass",
+   "fato": "sub.?(bass|grave)"
+  },
+  {
+   "p": 10,
+   "tema": "carro",
+   "q": "Quantos km por litro o Kwid 1.0 Zen faz na cidade?",
+   "agulha": "14,7 km/l na cidade",
+   "fato": "14,7"
+  },
+  {
+   "p": 12,
+   "tema": "harry",
+   "q": "O que Harry organiza no quinto filme enquanto o Ministério nega a volta de Voldemort?",
+   "agulha": "Armada de Dumbledore",
+   "fato": "armada"
+  },
+  {
+   "p": 13,
+   "tema": "carro",
+   "q": "O motor do Fiat Uno aguenta rodar muito tempo sem quebrar?",
+   "agulha": "mais de 200 mil quilômetros",
+   "fato": "200 mil"
+  },
+  {
+   "p": 14,
+   "tema": "memoria",
+   "q": "Qual algoritmo de troca de página remove a página que vai demorar mais para ser usada de novo?",
+   "agulha": "algoritmo de substituição de página ótimo",
+   "fato": "ótim|otim"
+  },
+  {
+   "p": 16,
+   "tema": "som",
+   "q": "Placa de som interna é melhor que a USB?",
+   "agulha": "placas internas oferecem melhor qualidade",
+   "fato": "intern"
+  },
+  {
+   "p": 19,
+   "tema": "fone",
+   "q": "Em quais cores o Dunu Titan S é vendido?",
+   "agulha": "disponível na cor Cinza",
+   "fato": "cinza"
+  },
+  {
+   "p": 20,
+   "tema": "gta",
+   "q": "Quanta memória RAM o GTA 6 deve exigir no PC?",
+   "agulha": "16GB de RAM como recomendado",
+   "fato": "16 ?gb"
+  },
+  {
+   "p": 20,
+   "tema": "gta",
+   "q": "Qual é a data de lançamento do GTA 6?",
+   "agulha": "19 de novembro de 2026",
+   "fato": "19 de novembro"
+  },
+  {
+   "p": 11,
+   "tema": "gta",
+   "q": "Quanto tempo o GTA 5 demorou para sair no PC depois dos consoles?",
+   "agulha": "foi adiada para abril de 2015",
+   "fato": "2015"
+  },
+  {
+   "p": 21,
+   "tema": "memoria",
+   "q": "Quantos níveis de tabela de páginas o Linux usava nos processadores i386?",
+   "agulha": "two-level page tables (PGD + PTE)",
+   "fato": "dois|2 níveis|two|duas"
+  },
+  {
+   "p": 22,
+   "tema": "powershell",
+   "q": "Por que usar -LiteralPath no Get-Item do PowerShell?",
+   "agulha": "Use -LiteralPath, and single quotes",
+   "fato": "curinga|wildcard|colchete|especia|literal"
+  },
+  {
+   "p": 23,
+   "tema": "ozonio",
+   "q": "Quantos ratos foram usados no estudo sobre cicatrização com ozônio?",
+   "agulha": "Forty-eight female Wistar",
+   "fato": "48|quarenta e oito"
+  },
+  {
+   "p": 24,
+   "tema": "memoria",
+   "q": "No exemplo da aula do MIT, qual é o endereço físico do endereço virtual 0x1080?",
+   "agulha": "0x1480 as the physical address",
+   "fato": "0x1480"
+  }
+ ]
+}
