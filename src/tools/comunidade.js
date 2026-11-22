@@ -180,6 +180,8 @@ function topicoDoReddit(dados, { maximo = 40 } = {}) {
   return {
     titulo: String(post.title).slice(0, 200),
     via: 'topico-reddit',
+    // a data do tópico (22/11): o consenso da comunidade pesa menos o tópico antigo
+    data: post.created_utc ? new Date(Number(post.created_utc) * 1000).toISOString().slice(0, 10) : null,
     comentarios: escolhidos.length,
     texto: [
       `TÓPICO DO REDDIT (r/${post.subreddit || '?'}): ${post.title}`,

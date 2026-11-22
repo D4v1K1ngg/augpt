@@ -479,7 +479,7 @@ async function lerTopicoDoReddit(url, jsonReddit, { render, conferir, tentativas
       const html = await render(url);
       const topico = comunidade.topicoDoRedditNovo(html);
       marcar('novo', Boolean(topico));
-      if (topico) return { ...topico, via: 'topico-reddit-novo+render-js' };
+      if (topico) return { ...topico, data: topico.data || dataDePublicacao(html), via: 'topico-reddit-novo+render-js' };
       tentativas.push(`reddit novo no navegador: sem comentário reconhecível (${String(html || '').length} caracteres)`);
       const id = /\/comments\/([a-z0-9]+)/i.exec(url)?.[1] || 'x';
       salvarDiagnostico(`reddit-${id}.html`, html);
@@ -574,7 +574,7 @@ async function lerEmCamadas(url, { render, permitirExterno = true, minimo = 250,
       // do Hardware ficou marcado como "render-js" na memória operacional e
       // os tópicos saíam pela extração genérica, que poda os comentários)
       const topico = html ? comunidade.topicoDeForum(html) : null;
-      if (topico && topico.texto.length >= 120) return { ...topico, via: `${topico.via}+render-js`, url };
+      if (topico && topico.texto.length >= 120) return { ...topico, data: topico.data || dataDePublicacao(html), via: `${topico.via}+render-js`, url };
       const pronto = html ? extrairDoHtml(html, url) : null;
       if (pronto && pronto.texto.length >= minimo && !pareceMalcodificado(pronto.texto)) {
         return { ...pronto, via: 'render-js', url };
@@ -628,7 +628,7 @@ async function lerEmCamadas(url, { render, permitirExterno = true, minimo = 250,
       } else {
         // tópico de fórum: posts em ordem, sem citação repetida nem assinatura
         const topico = comunidade.topicoDeForum(r.texto);
-        if (topico && topico.texto.length >= 120) return { ...topico, url: r.url };
+        if (topico && topico.texto.length >= 120) return { ...topico, data: topico.data || dataDePublicacao(r.texto), url: r.url };
         direto = extrairDoHtml(r.texto, r.url || url);
         if (direto && direto.texto.length >= minimo) {
           if (!pareceMalcodificado(direto.texto)) return { ...direto, url: r.url };
@@ -650,7 +650,7 @@ async function lerEmCamadas(url, { render, permitirExterno = true, minimo = 250,
     try {
       const html = await render(url);
       const topico = html ? comunidade.topicoDeForum(html) : null;
-      if (topico && topico.texto.length >= 120) return { ...topico, via: `${topico.via}+render-js`, url };
+      if (topico && topico.texto.length >= 120) return { ...topico, data: topico.data || dataDePublicacao(html), via: `${topico.via}+render-js`, url };
       const rendered = html ? extrairDoHtml(html, url) : null;
       if (rendered && rendered.texto.length >= minimo && !pareceMalcodificado(rendered.texto)) {
         return { ...rendered, via: 'render-js', url };

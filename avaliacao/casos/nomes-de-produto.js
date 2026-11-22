@@ -31,6 +31,28 @@ module.exports = [
     },
   },
   {
+    nome: 'nomes de produto (recência): tópico com mais de 4 anos não conta como site do consenso; o citado só em tópicos antigos vai para o fim, com o ano no bloco do escritor; página sem data conta como recente; a data do tópico do Reddit vem do JSON',
+    tipo: 'unidade',
+    executar() {
+      const hoje = new Date('2026-11-22');
+      const fontes = [
+        { n: 1, url: 'https://www.reddit.com/r/gamesEcultura/a', titulo: 'Fone para PUBG', comunidade: true, data: '2018-03-02', trechos: ['HyperX Cloud Stinger é o melhor, HyperX Cloud Stinger sempre. Tem o Truthear Hexa também.'] },
+        { n: 2, url: 'https://forum.adrenaline.com.br/b', titulo: 'Fones FPS', comunidade: true, data: '2019-05-01', trechos: ['HyperX Cloud Stinger de novo.'] },
+        { n: 3, url: 'https://www.reddit.com/r/iems/c', titulo: 'IEM for FPS', comunidade: true, data: '2025-01-10', trechos: ['Truthear Hexa for footsteps.'] },
+        { n: 4, url: 'https://www.head-fi.org/d', titulo: 'FPS IEM', comunidade: true, trechos: ['Truthear Hexa is great.'] },
+      ];
+      const c = nucleo.citadosNaComunidade(fontes, 'melhor fone intra auricular para pubg', { hoje });
+      const bloco = nucleo.blocoDaComunidade(c);
+      const { topicoDoReddit } = require('../../src/tools/comunidade');
+      const reddit = topicoDoReddit([{ data: { children: [{ data: { title: 'IEM for FPS', subreddit: 'iems', created_utc: 1704067200 } }] } }, { data: { children: [] } }]);
+      return [
+        c[0]?.nome === 'Truthear Hexa' && c[0].sites === 2 && c[1]?.nome === 'HyperX Cloud Stinger' && c[1].soAntigos === 2019 || JSON.stringify(c),
+        /HyperX Cloud Stinger \[1\]\[2\] — só em tópico antigo \(2019\)/.test(bloco) || bloco,
+        reddit?.data === '2024-01-01' || `data do Reddit: ${reddit?.data}`,
+      ];
+    },
+  },
+  {
     nome: 'nomes de produto: na pesquisa, o candidato de outro tipo (headset num pedido de intra-auricular) sai da lista da comunidade, com aviso; a busca pelo nome é feita uma vez; a resposta quebrada não tira ninguém',
     tipo: 'unidade',
     async executar() {

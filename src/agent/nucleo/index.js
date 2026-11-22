@@ -1295,7 +1295,7 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
     citados = citados.filter((c) => servem.includes(c.nome));
     if (process.env.DEPURAR_MATERIAL) {
       const com = fontes.filter((f) => f.trechos?.length && (f.comunidade || tipoDaPagina(f, { recomendacao: true }).tipo === 'comunidade'));
-      console.error(`[lista] ${com.length} tópicos lidos: ${com.map((f) => `${dominio(f.url)} "${String(f.titulo).slice(0, 40)}"`).join(' | ')}`);
+      console.error(`[lista] ${com.length} tópicos lidos: ${com.map((f) => `${dominio(f.url)} "${String(f.titulo).slice(0, 40)}" (${f.data || "sem data"})`).join(' | ')}`);
       for (const f of com) console.error(`[lista]   ${dominio(f.url)}: ${f.trechos.join(' ').replace(/\s+/g, ' ').slice(0, 400)}`);
       console.error(`[lista] citados: ${JSON.stringify(citados)} · todos: ${JSON.stringify(modelosCitados(com.map((f) => f.trechos.join('\n')), { pergunta }))}`);
     }
@@ -1434,7 +1434,7 @@ async function anotarPaginas(pergunta, usadas, { chamar, signal } = {}) {
  * Os produtos citados nos tópicos de comunidade lidos, com as fontes de cada um (16/11, a lista principal): os nomes
  * pelo código (modelosCitados, 2+ menções no conjunto), e a fonte é cada tópico que cita o nome.
  */
-function citadosNaComunidade(fontes, pergunta) {
+function citadosNaComunidade(fontes, pergunta, { hoje = new Date() } = {}) {
   // o texto lido do tópico ou, se a leitura foi bloqueada (o Reddit pede verificação anti-robô), o resumo que a busca
   // mostrou dele — muitas vezes já com os modelos citados
   const textoDe = (f) => (f.trechos?.length ? f.trechos.join('\n') : `${f.titulo || ''}\n${f.resumo || ''}`);
@@ -1443,15 +1443,28 @@ function citadosNaComunidade(fontes, pergunta) {
   const nomes = modelosCitados(daComunidade.map(textoDe), { pergunta });
   // 22/11 (consenso): o mais citado em tópicos de SITES diferentes vem primeiro — o que só um tópico cita fica para o
   // fim (no Qwen 9B, o "Redragon Bio H801" de um tópico só virou a 1ª opção)
+  // 22/11 (recência): o tópico com mais de ANOS_DE_TOPICO_RECENTE anos não conta como site do consenso (o r/gamesEcultura
+  // de 2018 pesava igual ao r/inearfidelity de 2024); o produto que só os antigos citam vai para o fim, com o ano
+  const antigo = (f) => idadeEmAnos(f.data, hoje) > ANOS_DE_TOPICO_RECENTE;
   return nomes
     .map((nome, ordem) => {
       const lista = daComunidade.filter((f) => compactoDoNome(textoDe(f)).includes(compactoDoNome(nome)));
-      return { nome, fontes: lista.map((f) => f.n), sites: new Set(lista.map((f) => dominio(f.url))).size, ordem };
+      const recentes = lista.filter((f) => !antigo(f));
+      const c = { nome, fontes: lista.map((f) => f.n), sites: new Set(recentes.map((f) => dominio(f.url))).size, ordem, antigos: lista.length - recentes.length };
+      if (lista.length && !recentes.length) c.soAntigos = Math.max(...lista.map((f) => Number(String(f.data).slice(0, 4))));
+      return c;
     })
     .filter((c) => c.fontes.length)
-    .sort((a, b) => b.sites - a.sites || b.fontes.length - a.fontes.length || a.ordem - b.ordem)
-    .map(({ ordem, ...c }) => c)
+    .sort((a, b) => b.sites - a.sites || (b.fontes.length - b.antigos) - (a.fontes.length - a.antigos) || b.fontes.length - a.fontes.length || a.ordem - b.ordem)
+    .map(({ ordem, antigos, ...c }) => c)
     .slice(0, 5);
+}
+// ponytail: um corte só para toda categoria; com 3, tópicos de 2023 (DeathAdder, TIN T2) já saíam — por categoria se precisar
+const ANOS_DE_TOPICO_RECENTE = 4;
+/** Anos desde a data ("2018-03-02"); sem data, 0 (página sem data conta como recente). */
+function idadeEmAnos(data, hoje = new Date()) {
+  const t = Date.parse(String(data || '').slice(0, 10));
+  return Number.isFinite(t) ? (new Date(hoje).getTime() - t) / (365.25 * 24 * 3600 * 1000) : 0;
 }
 const compactoDoNome = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 /** "Technica ATH-M40x" e "Audio-Technica ATH-M40x", "Bio H801" e "Redragon Bio H801": o mesmo modelo, um com o nome cortado. */
@@ -1486,7 +1499,7 @@ function pedeRecomendacao(pergunta, conversa = []) {
 /** A lista principal para o redator (16/11): os produtos que quem usa cita, na ordem, com as fontes. */
 function blocoDaComunidade(citados = []) {
   if (!Array.isArray(citados) || !citados.length) return '';
-  const linhas = citados.map((c, i) => `${i + 1}. ${c.nome} ${c.fontes.map((n) => `[${n}]`).join('')}${c.fontes.length === 1 ? ' — citado em um tópico só' : ''}`);
+  const linhas = citados.map((c, i) => `${i + 1}. ${c.nome} ${c.fontes.map((n) => `[${n}]`).join('')}${c.soAntigos ? ` — só em tópico antigo (${c.soAntigos}): pode já ter sido substituído` : c.fontes.length === 1 ? ' — citado em um tópico só' : ''}`);
   const consenso = citados.some((c) => c.fontes.length >= 2) && citados.some((c) => c.fontes.length === 1) ? ' A 1ª opção é um dos citados em mais de um tópico; o citado em um tópico só entra depois.' : '';
   return `\n\n(Os produtos que quem usa cita nos fóruns lidos — monte as opções a partir desta lista, nesta ordem, e só complete com outro produto das fontes se faltar opção:${consenso}\n${linhas.join('\n')})`;
 }
