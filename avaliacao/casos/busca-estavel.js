@@ -37,7 +37,7 @@ module.exports.push({
     const txt = 'Intro.\n\n#### 1. KZ EDX Pro\nLista.\n\n#### 2. Simgot EM6L\nComunidade.\n\n#### 3. Truthear Hexa\nComunidade.\n\n### ⚖️ Comparação\nfim\n';
     const r = nucleo.comunidadePrimeiro(txt, c.map((x) => x.nome));
     return [
-      JSON.stringify(c) === '[{"nome":"Simgot EM6L","fontes":[3,5]},{"nome":"Truthear Hexa","fontes":[3,5]}]' || JSON.stringify(c),
+      JSON.stringify(c) === '[{"nome":"Simgot EM6L","fontes":[3,5],"sites":2},{"nome":"Truthear Hexa","fontes":[3,5],"sites":2}]' || JSON.stringify(c),
       /monte as opções a partir desta lista[\s\S]*1\. Simgot EM6L \[3\]\[5\]/.test(nucleo.blocoDaComunidade(c)) || 'o redator recebe a lista com as fontes',
       /#### 1\. Simgot EM6L[\s\S]*#### 2\. Truthear Hexa[\s\S]*#### 3\. KZ EDX Pro[\s\S]*### ⚖️ Comparação\nfim/.test(r) || r,
       nucleo.comunidadePrimeiro(txt, []) === txt && nucleo.blocoDaComunidade([]) === '' || 'sem comunidade, nada muda',

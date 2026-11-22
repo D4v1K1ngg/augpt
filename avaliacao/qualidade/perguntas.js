@@ -258,7 +258,25 @@ module.exports = [
       'justifica com o que importa em jogo de tiro (imaging, separação, ouvir passos), sem dizer que graves fortes ajudam a ouvir passos',
       'cita o que a comunidade (Reddit ou fórum) recomenda',
     ],
-    checagens: checagensDaResposta(),
+    checagens: [
+      { nome: 'as opções são intra-auriculares (nenhum headset ou fone de cabeça)', ok: (r) => !nomesDasOpcoes(r).some((t) => /headset|over-ear|stinger|bio h801|ath-m\d|hd ?\d{3}/i.test(t)) },
+      ...checagensDaResposta(),
+    ],
+  },
+  {
+    // 22/11 (Davi: "não só para fones de ouvido, mais para qualquer outro tipo"): outra categoria para medir a escolha
+    id: 'air-fryer-familia',
+    tipo: 'produto',
+    pedido: 'Qual a melhor air fryer para uma família de 4 pessoas?',
+    criterios: [
+      'recomenda air fryers específicas, com marca e modelo',
+      'justifica com o que importa para 4 pessoas (capacidade em litros, potência, cesto/gaveta, facilidade de limpar)',
+      'deixa claro qual é a primeira recomendação',
+    ],
+    checagens: [
+      { nome: 'as opções são air fryers (nenhum forno elétrico, micro-ondas ou acessório)', ok: (r) => !nomesDasOpcoes(r).some((t) => /forno el[eé]trico|micro-?ondas|forma|tapete|papel/i.test(t)) },
+      ...checagensDaResposta(),
+    ],
   },
   {
     id: 'fones-pubg',

@@ -1015,6 +1015,36 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
   let criteriosDoUso = [];
   let sinaisDeEvitar = [];
   let recomendadosPelaComunidade = [];
+  /*
+   * O candidato é do TIPO pedido? (22/11, Davi: "ele ainda traz nomes estranhos" — num pedido de fone intra-auricular
+   * vinham HyperX Stinger e Redragon H801, que são headsets, e o ATH-M40x, fone de cabeça). Uma busca pelo nome de cada
+   * candidato (só os títulos e resumos, sem ler páginas) e uma chamada curta: o que não é do tipo pedido sai. Na dúvida
+   * fica; falhou, ficam todos. Cada nome é conferido uma vez por pesquisa.
+   */
+  const categoriaDe = new Map();
+  const daCategoria = async (nomes) => {
+    const novos = nomes.filter((n) => !categoriaDe.has(n.toLowerCase())).slice(0, 6);
+    if (novos.length && typeof buscar === 'function' && typeof chamar === 'function' && deps.conferirCategoria !== false && !signal?.aborted) {
+      const achados = await Promise.all(novos.map((n) => Promise.resolve().then(() => buscar(n, {})).then((r) => (Array.isArray(r) ? r.slice(0, 3) : [])).catch(() => [])));
+      const lista = novos
+        .map((n, i) => `${i + 1}. ${n}\n${achados[i].map((r) => `   - ${String(r.titulo || '').slice(0, 100)}: ${String(r.resumo || '').replace(/\s+/g, ' ').slice(0, 160)}`).join('\n') || '   (a busca não trouxe nada)'}`)
+        .join('\n');
+      try {
+        const r = await chamar([{ role: 'user', content: `Pedido: ${pergunta}\n\nCandidatos citados nas fontes, cada um com o que uma busca pelo nome mostra:\n${lista}\n\nPara cada candidato, diga que produto ele é e se é do TIPO de produto que o pedido quer (ex. do formato: num pedido de fone intra-auricular, um headset ou um fone de cabeça não serve; num pedido de air fryer, um forno elétrico não serve; num pedido de mouse, um mousepad não serve). Se a busca não mostra o que é, "serve": true. Responda só com um JSON: {"candidatos": [{"n": 1, "tipo": "...", "serve": true}]}` }], { json: true, numPredict: 60 + 40 * novos.length, signal });
+        const bruto = String(r?.content || '');
+        for (const c of safeJson(bruto.slice(bruto.indexOf('{')))?.candidatos || []) {
+          const nome = novos[Number(c?.n) - 1];
+          if (nome) categoriaDe.set(nome.toLowerCase(), { serve: c.serve !== false, tipo: String(c.tipo || '').slice(0, 40) });
+        }
+      } catch {
+        // falhou: ficam todos
+      }
+      const fora = novos.filter((n) => categoriaDe.get(n.toLowerCase())?.serve === false);
+      if (fora.length) emit('aviso', { texto: `fora do tipo pedido: ${fora.map((n) => `${n} (${categoriaDe.get(n.toLowerCase()).tipo || 'outro tipo'})`).join(' · ')}` });
+      if (process.env.DEPURAR_MATERIAL) console.error(`[categoria] ${novos.map((n) => `${n}: ${JSON.stringify(categoriaDe.get(n.toLowerCase()) || null)}`).join(' · ')}`);
+    }
+    return nomes.filter((n) => categoriaDe.get(n.toLowerCase())?.serve !== false);
+  };
   const buscarCriterios = async () => {
     if (!produto || !recomendacao || deps.criteriosAntes === false || typeof chamar !== 'function' || typeof buscarNaComunidade !== 'function' || signal?.aborted) return;
     try {
@@ -1073,10 +1103,10 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       // produtos da comunidade (14/11): os que quem usa recomenda nesses tópicos ganham um review lido cada — as listas
       // de afiliado não citam EM6L, Truthear e Simgot, o r/iems cita
       // os do código primeiro (o 9B devolveu "recomendados": [] nas rodadas medidas), depois os do modelo
-      const doModelo = (Array.isArray(j2.recomendados) ? j2.recomendados : []).map((n) => limpo(n, 50)).filter((n) => n.length >= 3 && /\s|\d/.test(n));
+      const doModelo = (Array.isArray(j2.recomendados) ? j2.recomendados : []).map((n) => limpo(n, 50)).filter(pareceModelo);
       const textosDaComunidade = fontes.filter((f) => f.trechos.length && (f.comunidade || lidasAqui.includes(f) || tipo(f) === 'comunidade')).map((f) => f.trechos.join('\n'));
       const doCodigo = modelosCitados(textosDaComunidade, { pergunta });
-      const nomes = [...doCodigo, ...doModelo].filter((n, i, todos) => todos.findIndex((m) => m.toLowerCase() === n.toLowerCase()) === i).slice(0, 3);
+      const nomes = (await daCategoria([...doCodigo, ...doModelo].filter((n, i, todos) => todos.findIndex((m) => mesmoModelo(m, n)) === i))).slice(0, 3);
       if (process.env.DEPURAR_MATERIAL) console.error(`[critérios] citados na comunidade: código ${JSON.stringify(doCodigo)} · modelo ${JSON.stringify(doModelo)}`);
       recomendadosPelaComunidade = nomes;
       if (!nomes.length || signal?.aborted) return;
@@ -1261,6 +1291,8 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
   let citados = [];
   if (produto && recomendacao && !signal?.aborted) {
     citados = citadosNaComunidade(fontes, pergunta);
+    const servem = await daCategoria(citados.map((c) => c.nome));
+    citados = citados.filter((c) => servem.includes(c.nome));
     if (process.env.DEPURAR_MATERIAL) {
       const com = fontes.filter((f) => f.trechos?.length && (f.comunidade || tipoDaPagina(f, { recomendacao: true }).tipo === 'comunidade'));
       console.error(`[lista] ${com.length} tópicos lidos: ${com.map((f) => `${dominio(f.url)} "${String(f.titulo).slice(0, 40)}"`).join(' | ')}`);
@@ -1409,12 +1441,30 @@ function citadosNaComunidade(fontes, pergunta) {
   const daComunidade = fontes.filter((f) => (f.comunidade || tipoDaPagina(f, { recomendacao: true }).tipo === 'comunidade') && String(textoDe(f)).trim().length > 20);
   if (!daComunidade.length) return [];
   const nomes = modelosCitados(daComunidade.map(textoDe), { pergunta });
-  const compacto = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  // 22/11 (consenso): o mais citado em tópicos de SITES diferentes vem primeiro — o que só um tópico cita fica para o
+  // fim (no Qwen 9B, o "Redragon Bio H801" de um tópico só virou a 1ª opção)
   return nomes
-    .map((nome) => ({ nome, fontes: daComunidade.filter((f) => compacto(textoDe(f)).includes(compacto(nome))).map((f) => f.n) }))
+    .map((nome, ordem) => {
+      const lista = daComunidade.filter((f) => compactoDoNome(textoDe(f)).includes(compactoDoNome(nome)));
+      return { nome, fontes: lista.map((f) => f.n), sites: new Set(lista.map((f) => dominio(f.url))).size, ordem };
+    })
     .filter((c) => c.fontes.length)
+    .sort((a, b) => b.sites - a.sites || b.fontes.length - a.fontes.length || a.ordem - b.ordem)
+    .map(({ ordem, ...c }) => c)
     .slice(0, 5);
 }
+const compactoDoNome = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+/** "Technica ATH-M40x" e "Audio-Technica ATH-M40x", "Bio H801" e "Redragon Bio H801": o mesmo modelo, um com o nome cortado. */
+function mesmoModelo(a, b) {
+  const x = compactoDoNome(a);
+  const y = compactoDoNome(b);
+  return Boolean(x && y) && (x.startsWith(y) || y.startsWith(x) || ((x.endsWith(y) || y.endsWith(x)) && Math.min(x.length, y.length) >= 5));
+}
+/** Nome que o modelo devolveu como "recomendado" e não é marca e modelo ("IEMs com tuning de graves baixos…", "Opções entre 20-50 dólares"). */
+const pareceModelo = (n) => {
+  const t = String(n || '').trim();
+  return t.length >= 3 && t.length <= 40 && /\s|\d/.test(t) && !/\b(com|de|do|da|para|entre|ou|modelos?|op[cç](ao|oes|ão|ões)|tipo|with|for|and|models?|options?)\b/i.test(t);
+};
 
 /**
  * Produto não é sempre pedido de recomendação (16/11, Davi: "o nome desse fone que eu mandei é o simgot supermix 4"
@@ -1436,8 +1486,9 @@ function pedeRecomendacao(pergunta, conversa = []) {
 /** A lista principal para o redator (16/11): os produtos que quem usa cita, na ordem, com as fontes. */
 function blocoDaComunidade(citados = []) {
   if (!Array.isArray(citados) || !citados.length) return '';
-  const linhas = citados.map((c, i) => `${i + 1}. ${c.nome} ${c.fontes.map((n) => `[${n}]`).join('')}`);
-  return `\n\n(Os produtos que quem usa cita nos fóruns lidos — monte as opções a partir desta lista, nesta ordem, e só complete com outro produto das fontes se faltar opção:\n${linhas.join('\n')})`;
+  const linhas = citados.map((c, i) => `${i + 1}. ${c.nome} ${c.fontes.map((n) => `[${n}]`).join('')}${c.fontes.length === 1 ? ' — citado em um tópico só' : ''}`);
+  const consenso = citados.some((c) => c.fontes.length >= 2) && citados.some((c) => c.fontes.length === 1) ? ' A 1ª opção é um dos citados em mais de um tópico; o citado em um tópico só entra depois.' : '';
+  return `\n\n(Os produtos que quem usa cita nos fóruns lidos — monte as opções a partir desta lista, nesta ordem, e só complete com outro produto das fontes se faltar opção:${consenso}\n${linhas.join('\n')})`;
 }
 
 /**
@@ -1503,7 +1554,8 @@ function modelosCitados(textos = [], { pergunta = '' } = {}) {
   const reCodigo = /\b([A-Z][a-zA-Z]{1,15})\s+((?=[A-Za-z0-9-]*[A-Za-z])(?=[A-Za-z-]*\d)[A-Z0-9][A-Za-z0-9-]{1,10}(?:\s+(?:Pro|Max|Mini|Plus|Ultra|II|X))?)\b/g;
   const contagem = new Map();
   const somar = (nome, daMarca = false) => {
-    const n = nome.replace(/\s+/g, ' ').trim();
+    // 22/11: a palavra do tipo no fim não é o modelo ("KZ EDX Intra-auricular" é o "KZ EDX")
+    const n = nome.replace(/\s+/g, ' ').trim().replace(/(\s+(intra-?auricular(es)?|in-?ear|gamer|gaming|headset|earbuds?|iems?|wireless|sem fio))+$/i, '');
     const partes = n.split(' ');
     if (partes.length < 2 || partes.some((p) => NAO_E_MODELO.test(p) && partes.length === 2) || n.length > 40) return;
     const chave = n.toLowerCase();
@@ -1523,7 +1575,8 @@ function modelosCitados(textos = [], { pergunta = '' } = {}) {
     // "Simgot EM6L" e "Simgot EM6L Pro": fica o mais citado
     // a regra da marca é a mais segura: vem antes ("Viper V3", mouse citado num tópico de fones, fica para depois)
     .sort((a, b) => b.daMarca - a.daMarca || b.vezes - a.vezes)
-    .filter((c, i, todos) => !todos.slice(0, i).some((o) => c.nome.toLowerCase().startsWith(o.nome.toLowerCase()) || o.nome.toLowerCase().startsWith(c.nome.toLowerCase())))
+    // 22/11: e o mesmo nome cortado ("Technica ATH-M40x" de "Audio-Technica ATH-M40x", "Bio H801" de "Redragon Bio H801")
+    .filter((c, i, todos) => !todos.slice(0, i).some((o) => mesmoModelo(c.nome, o.nome)))
     .slice(0, 4)
     .map((c) => c.nome);
 }
@@ -2675,4 +2728,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { blocoDeFontes, buscaPeloLink, LEITURAS_DO_APP, separarCartoes, questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { mesmoModelo, pareceModelo, blocoDeFontes, buscaPeloLink, LEITURAS_DO_APP, separarCartoes, questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
