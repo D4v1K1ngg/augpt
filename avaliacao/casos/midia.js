@@ -74,8 +74,10 @@ module.exports = [
         JSON.stringify(p('baixa a música Bohemian Rhapsody em MP3')) === '{"consulta":"Bohemian Rhapsody","tipo":"audio"}' || JSON.stringify(p('baixa a música Bohemian Rhapsody em MP3')),
         p('Jarvis, baixa essa música do Queen, Bohemian Rhapsody')?.consulta === 'Queen Bohemian Rhapsody' || 'pela voz, com o nome',
         p('Faz o download desse vídeo pra mim: https://youtu.be/jNQXAC9IVRw.')?.url === 'https://youtu.be/jNQXAC9IVRw' || 'ponto final fora do link',
+        p('faz o download do clipe de Thriller')?.consulta === 'Thriller' || JSON.stringify(p('faz o download do clipe de Thriller')),
+        p('baixa a música Believer?')?.consulta === 'Believer' || 'imperativo com ? segue pedido',
         p('Você consegue baixar esse vídeo https://youtu.be/jNQXAC9IVRw ?')?.url === 'https://youtu.be/jNQXAC9IVRw' || 'pergunta com link é pedido',
-        ['baixar o modelo qwen3.5', 'baixou o preço da RTX?', 'Quero baixar o Ollama', 'baixe a planilha', 'Qual a melhor música do Queen?', 'Como baixar música do YouTube?', 'Dá pra baixar vídeo do Instagram?', 'Quantos títulos dá para baixar no Prime Video para assistir offline?', 'Netflix, dá para baixar filmes e vídeos no celular?', 'Quantas músicas posso baixar no Spotify Premium?', 'É verdade que pode baixar vídeo no YouTube Premium?'].every((t) => p(t) === null) || 'o que não é pedido de download',
+        ['baixar o modelo qwen3.5', 'baixou o preço da RTX?', 'Quero baixar o Ollama', 'baixe a planilha', 'Qual a melhor música do Queen?', 'Como baixar música do YouTube?', 'Dá pra baixar vídeo do Instagram?', 'Quantos títulos dá para baixar no Prime Video para assistir offline?', 'Netflix, dá para baixar filmes e vídeos no celular?', 'Quantas músicas posso baixar no Spotify Premium?', 'É verdade que pode baixar vídeo no YouTube Premium?', 'baixar vídeo do Instagram é legal?', 'o Prime Video deixa baixar quantos filmes ao mesmo tempo?'].every((t) => p(t) === null) || 'o que não é pedido de download',
       ];
     },
   },

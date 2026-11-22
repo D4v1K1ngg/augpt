@@ -34,7 +34,9 @@ function pedidoDeMidia(texto) {
   // dúvida, não pedido ("como baixar música do YouTube?", "dá pra baixar vídeo do Instagram?") — sem link, a pesquisa responde
   // 22/11: "Quantos títulos dá para baixar no Prime Video para assistir offline?" — a dúvida no meio da frase também
   if (!url && (/^\s*(como|onde|da pra|da para|e possivel|tem como|qual|quais|quantos|quantas|quanto|quando|sera|por que|porque|e legal|pode(m)?|posso|devo)\b/.test(t)
-    || /(?<![a-z])(como|da pra|da para|e possivel|tem como|consigo|consegue|pode(m)?|posso|quantos|quantas)( se)? baixar(?![a-z])/.test(t))) return null;
+    || /(?<![a-z])(como|da pra|da para|e possivel|tem como|consigo|consegue|pode(m)?|posso|quantos|quantas)( se)? baixar(?![a-z])/.test(t)
+    // pergunta com o verbo no infinitivo ("baixar vídeo do Instagram é legal?"); "baixa a música X?" segue pedido
+    || (/\?\s*$/.test(original) && /(?<![a-z])baixar(?![a-z])/.test(t) && !/(?<![a-z])baix(a|e)(?![a-z])/.test(t)))) return null;
   const tipo = AUDIO.test(t) ? 'audio' : /(?<![a-z])(videos?|mp4|clipes?)(?![a-z])/.test(t) ? 'video' : null;
   // com link, só site de vídeo/música ou pedido que fala de mídia (19/11, Davi: "acessa esse site, faz login e baixa o meu
   // contracheque" caía aqui e pedia para instalar o yt-dlp)
@@ -42,7 +44,7 @@ function pedidoDeMidia(texto) {
   // a busca: o pedido sem o verbo, as palavras de mídia e o enchimento
   const consulta = original
     .replace(/^\s*(ei|ok|hey)?\s*(jarvis|gpt|augpt)[,!.]?\s*/i, '')
-    .replace(/\b(baix(a|e|ar)|fa[cç]a o download d[aeo]s?|download d[aeo]s?|pra mim|para mim|por favor|aqui|ai|aí)\b/gi, ' ')
+    .replace(/\b(baix(a|e|ar)|fa(z|[cç]a) o download d[aeo]s?|download d[aeo]s?|pra mim|para mim|por favor|aqui|ai|aí)\b/gi, ' ')
     .replace(/\b(a|o|as|os|um|uma|essa|esse|esta|este|do|da|de|no|na|em|pelo|pela|youtube)\b/gi, ' ')
     .replace(/\b(m[uú]sicas?|v[ií]deos?|[aá]udios?|mp3|mp4|clipes?|faixas?|can[cç][aã]o|can[cç][oõ]es|podcasts?|epis[oó]dios?|som)\b/gi, ' ')
     .replace(/[?!.,;"'“”]+/g, ' ')
