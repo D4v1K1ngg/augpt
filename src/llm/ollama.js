@@ -145,7 +145,7 @@ async function request(host, path, { method = 'POST', body, signal, timeout = 30
   try {
     const doLlama = body?.model ? llamacpp.doLlamaCpp(body.model) : null;
     const res = doLlama
-      ? await llamacpp.responderComoOllama(doLlama, path, body, { signal: controller.signal })
+      ? await llamacpp.responderComoOllama(doLlama, path, body, { signal: controller.signal, host })
       : await fetch(`${host.replace(/\/$/, '')}${path}`, {
           method,
           headers: body ? { 'Content-Type': 'application/json' } : undefined,
@@ -559,7 +559,7 @@ async function chatStreamUmaVez({
   };
   const doLlama = llamacpp.doLlamaCpp(model);
   const res = doLlama
-    ? await llamacpp.responderComoOllama(doLlama, '/api/chat', corpo, { signal })
+    ? await llamacpp.responderComoOllama(doLlama, '/api/chat', corpo, { signal, host })
     : await fetch(`${host.replace(/\/$/, '')}/api/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo), signal });
 
   if (!res.ok) {

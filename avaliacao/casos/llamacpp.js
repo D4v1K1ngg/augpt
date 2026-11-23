@@ -21,6 +21,7 @@ function montar({ respostas = [] } = {}) {
   fs.writeFileSync(arquivo, 'x'.repeat(10));
   const iniciados = [];
   const pedidos = [];
+  const descarregados = [];
   const fila = [...respostas];
   llamacpp._paraTestes({
     iniciar: (exe, args) => {
@@ -31,6 +32,8 @@ function montar({ respostas = [] } = {}) {
     },
     fetch: async (url, init = {}) => {
       if (url.endsWith('/health')) return { ok: true };
+      if (url.endsWith('/api/ps')) return new Response(JSON.stringify({ models: [{ name: 'qwen3.5:9b-q8_0', size_vram: 9063e6 }, { name: 'embeddinggemma:300m', size_vram: 650e6 }] }));
+      if (url.endsWith('/api/generate')) return (descarregados.push(JSON.parse(init.body)), new Response('{}'));
       const corpo = JSON.parse(init.body || '{}');
       pedidos.push(corpo);
       const r = fila.shift() || { choices: [{ message: { content: 'ok' } }], usage: { prompt_tokens: 5, completion_tokens: 2 } };
@@ -43,7 +46,7 @@ function montar({ respostas = [] } = {}) {
     },
   });
   llamacpp.definirModelos([{ nome: 'inkling-2-mini', servidor, arquivo, argumentos: '-ngl 99 --n-cpu-moe 6 -c 16384 --jinja --alias "meu modelo"' }]);
-  return { iniciados, pedidos, dir };
+  return { iniciados, pedidos, dir, descarregados };
 }
 
 module.exports = [
@@ -51,7 +54,7 @@ module.exports = [
     nome: 'llama.cpp: o modelo dos Ajustes vai ao llama-server no formato do Ollama — liga uma vez (chamadas juntas esperam o mesmo servidor), folga de 1024 no limite (o Inkling pensa mesmo no mínimo), esforço baixo, ferramentas ida e volta; ":latest" vale; item sem programa ou arquivo fica de fora',
     tipo: 'unidade',
     async executar() {
-      const { iniciados, pedidos } = montar({
+      const { iniciados, pedidos, descarregados } = montar({
         respostas: [
           { choices: [{ message: { content: '{"ok": true}' } }], usage: { prompt_tokens: 9, completion_tokens: 3 } },
           { choices: [{ message: { content: '{"ok": true}' } }] },
@@ -75,6 +78,7 @@ module.exports = [
       const fora = llamacpp.definirModelos([{ nome: 'sem-arquivo', servidor: 'x.exe' }, { nome: 'inkling-2-mini', ...llamacpp.estado()[0] }]);
       return [
         iniciados.length === 1 || `um servidor só para as chamadas juntas: ${iniciados.length}`,
+        JSON.stringify(descarregados) === '[{"model":"qwen3.5:9b-q8_0","keep_alive":0}]' || `antes de ligar, só o modelo grande do Ollama sai da placa (o embedding fica): ${JSON.stringify(descarregados)}`,
         JSON.stringify(iniciados[0].args.slice(-9, -1)) === '["-ngl","99","--n-cpu-moe","6","-c","16384","--jinja","--alias"]' && iniciados[0].args.at(-1) === 'meu modelo' && iniciados[0].args.includes('--port') || JSON.stringify(iniciados[0].args),
         a.content === '{"ok": true}' && a.promptTokens === 9 || JSON.stringify(a),
         pedidos[0].max_tokens >= 60 + 1024 && pedidos[0].response_format?.type && pedidos[0].reasoning_effort === 'low' || JSON.stringify(pedidos[0]),

@@ -12,6 +12,12 @@
  * tok/s lendo o prompt, 53 tok/s escrevendo; nas perguntas de produto da régua, escolhas iguais às do Qwen 3.5 9B
  * (Simgot EM6L em 1º no fone) e 1,5 a 2× mais lento. Ele pensa mesmo com o esforço no mínimo: o limite de saída ganha
  * `folga` (1024 tokens) — sem ela, o JSON das decisões curtas (60–160 tokens) voltava vazio.
+ *
+ * RAM (23/11, Davi: "está vazando para a RAM"): com o arquivo mapeado (o padrão do llama.cpp, `mmap`), o Windows
+ * deixava o modelo INTEIRO também na RAM — 14,4 GB em uso pelo processo, num PC de 32 GB, e 414/24 tok/s. Com
+ * `--load-mode dio` (leitura direta do disco) ficam só as camadas dos especialistas na CPU: 4,3 GB, 881/49 tok/s.
+ * `--load-mode none` também tira o mapa, mas leva mais de 2 minutos para carregar. Vai nos argumentos (o llama.cpp
+ * antigo usa `--no-mmap`).
  */
 
 const { spawn } = require('child_process');
@@ -92,11 +98,31 @@ function portaLivre() {
   });
 }
 
-async function _ligar(m) {
+/*
+ * A placa livre antes de ligar (23/11, Davi: "o inkling-2-mini está vazando para a RAM"): o Ollama mantém o modelo
+ * usado por 30 minutos — com o Qwen 3.5 9B (9 GB) ainda na placa, o Inkling ligou com ~5 GB dela e pôs 6,3 GB na
+ * memória compartilhada (lento). Os modelos grandes do Ollama saem da placa antes; o embedding (650 MB) fica.
+ */
+const GRANDE_NA_PLACA = 1500 * 1024 * 1024;
+async function liberarPlaca(host) {
+  if (!host) return [];
+  const base = String(host).replace(/\/$/, '');
+  try {
+    const r = await buscar(`${base}/api/ps`, { signal: AbortSignal.timeout(3000) });
+    const grandes = ((await r.json())?.models || []).filter((x) => (x.size_vram || 0) >= GRANDE_NA_PLACA).map((x) => x.name);
+    await Promise.all(grandes.map((nome) => buscar(`${base}/api/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: nome, keep_alive: 0 }), signal: AbortSignal.timeout(15000) }).catch(() => null)));
+    return grandes;
+  } catch {
+    return []; // Ollama fora do ar: liga assim mesmo
+  }
+}
+
+async function _ligar(m, host) {
   if (!fs.existsSync(m.servidor)) throw new Error(`não achei o llama-server em ${m.servidor}`);
   if (!fs.existsSync(m.arquivo)) throw new Error(`não achei o modelo em ${m.arquivo}`);
   // a placa é uma só: o outro modelo do llama.cpp desliga antes
   for (const nome of servidores.keys()) if (nome !== m.nome) parar(nome);
+  await liberarPlaca(host);
   const porta = await portaLivre();
   const args = ['-m', m.arquivo, ...(m.mmproj ? ['--mmproj', m.mmproj] : []), '--host', '127.0.0.1', '--port', String(porta), ...separarArgumentos(m.argumentos)];
   const p = iniciarProcesso(m.servidor, args, { cwd: path.dirname(m.servidor), windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
@@ -125,10 +151,10 @@ async function _ligar(m) {
 
 // as chamadas que chegam juntas no primeiro uso esperam o MESMO servidor ligar (o AuGPT faz várias em paralelo)
 const ligando = new Map();
-async function ligar(m) {
+async function ligar(m, host) {
   const s = servidores.get(m.nome);
   if (s?.url && s.assinatura === assinatura(m)) return s;
-  if (!ligando.has(m.nome)) ligando.set(m.nome, _ligar(m).finally(() => ligando.delete(m.nome)));
+  if (!ligando.has(m.nome)) ligando.set(m.nome, _ligar(m, host).finally(() => ligando.delete(m.nome)));
   return ligando.get(m.nome);
 }
 
@@ -209,7 +235,7 @@ const json = (dados, status = 200) => new Response(JSON.stringify(dados), { stat
  * Response como o do Ollama (JSON ou NDJSON no streaming). Erro do servidor volta com o texto dele (o de contexto
  * cheio é reconhecido por src/llm/ollama.js, que reduz o pedido e tenta de novo).
  */
-async function responderComoOllama(m, caminho, corpo = {}, { signal } = {}) {
+async function responderComoOllama(m, caminho, corpo = {}, { signal, host } = {}) {
   if (caminho.startsWith('/api/show')) return json({ capabilities: ['completion', 'tools', ...(m.mmproj ? ['vision'] : [])], details: { family: 'llama.cpp' } });
   if (caminho.startsWith('/api/generate')) {
     if (corpo.keep_alive === 0 || corpo.keep_alive === '0') parar(m.nome);
@@ -218,7 +244,7 @@ async function responderComoOllama(m, caminho, corpo = {}, { signal } = {}) {
   if (!caminho.startsWith('/api/chat')) return json({ error: `${caminho} não existe para modelo do llama.cpp` }, 404);
   let s;
   try {
-    s = await ligar(m);
+    s = await ligar(m, host);
   } catch (err) {
     return json({ error: err.message }, 503);
   }
@@ -301,4 +327,4 @@ function estado() {
   return modelos.map((m) => ({ ...m, ligado: Boolean(servidores.get(m.nome)?.url) }));
 }
 
-module.exports = { definirModelos, doLlamaCpp, naLista, ligados, responderComoOllama, parar, pararTodos, estado, separarArgumentos, mensagensOpenAI, pedidoOpenAI, _paraTestes };
+module.exports = { liberarPlaca, definirModelos, doLlamaCpp, naLista, ligados, responderComoOllama, parar, pararTodos, estado, separarArgumentos, mensagensOpenAI, pedidoOpenAI, _paraTestes };
