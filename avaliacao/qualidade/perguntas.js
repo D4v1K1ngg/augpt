@@ -753,6 +753,8 @@ module.exports = [
     checagens: [
       { nome: 'sem frase de anúncio como fato ("projetado para jogos", "áudio espacial preciso")', ok: (r) => !/projetado (especificamente )?para jogos|[aá]udio espacial preciso|garante (uma )?(resposta|precis)/i.test(r) },
       { nome: 'não diz que mais drivers dá mais precisão', ok: (r) => !/drivers? h[ií]bridos?[^.]{0,60}(garante|amplia|aumenta)[^.]{0,40}(precis|palco|posicion|espacial)/i.test(r) },
+      { nome: 'é um veredito (sem cartões "#### N." nem "qual eu escolheria")', ok: (r) => !/^#### \d+\. /m.test(r) && !/qual eu escolheria/i.test(r) },
+      { nome: 'traz o que criticam', ok: (r) => /👎|o que criticam|pontos? fracos?|contras?\b/i.test(r) },
       { nome: 'cita ao menos uma fonte (link ou comunidade)', ok: (r) => /https?:\/\/|— r\/\w+/.test(r) },
     ],
   },

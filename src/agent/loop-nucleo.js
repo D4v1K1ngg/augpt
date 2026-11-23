@@ -473,8 +473,10 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // pergunta de preço de UM produto, sem cartões (18/10: "melhor preço para a rtx 5080" saiu com
     // preços inventados e sem link): o preço de hoje nas lojas vai no topo, pelo assunto entendido
     const pedePreco = /\b(pre[çc]os?|quanto custa|onde comprar|link de compra|mais barat\w*|comprar)\b/i.test(objetivo);
-    const achadosDoAssunto = !nomes.length && pedePreco && cfg.ondeComprar !== false && r.assuntos?.length
-      ? (await imagens.comLimite(Promise.all(r.assuntos.slice(0, 2).map((a) => ondeComprar(a, { ler: (url) => lerComCache(url, ctxWeb) }).catch(() => []))), 30000, [])).find((x) => x.length) || []
+    // e no veredito de um produto ("X é bom para Y?", 23/11): o preço de hoje dele, sem cartão
+    const doAssunto = r.avaliado ? [r.avaliado] : r.assuntos || [];
+    const achadosDoAssunto = !nomes.length && (pedePreco || r.avaliado) && cfg.ondeComprar !== false && doAssunto.length
+      ? (await imagens.comLimite(Promise.all(doAssunto.slice(0, 2).map((a) => ondeComprar(a, { ler: (url) => lerComCache(url, ctxWeb) }).catch(() => []))), 30000, [])).find((x) => x.length) || []
       : [];
     const linhaDoAssunto = linhaOndeComprar(achadosDoAssunto);
     // o "atual" do texto bem abaixo do preço de hoje nas lojas: as páginas lidas eram antigas (2/11)

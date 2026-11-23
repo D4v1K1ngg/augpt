@@ -40,8 +40,8 @@ module.exports = [
       return [
         /'\[1:a\]aresample=48000,apad\[a\]', '-map', '0:v', '-map', '\[a\]', '-shortest'/.test(ler('src/dublagem/index.js')) || 'apad: o vídeo não é cortado na última fala',
         /String\(markdown \|\| ''\)\.trim\(\)\.length < 400/.test(ler('renderer/acoes-da-resposta.js')) || 'sugestões só com resposta de 400+ caracteres',
-        /const curta = !recomendacao && assuntos\.length \? String\(assuntos\[0\]\)/.test(nucleo) || 'sobre um produto, a busca curta é o assunto (não "nome desse fone mandei…")',
-        /recomendacao \? `\$\{curta\} recomendação` : `\$\{curta\} review`/.test(nucleo) || 'sobre um produto, a comunidade busca review, não recomendação',
+        /const curta = avaliado \? String\(avaliado\)\.slice\(0, 80\) : !recomendacao && assuntos\.length \? String\(assuntos\[0\]\)/.test(nucleo) || 'sobre um produto, a busca curta é o assunto (não "nome desse fone mandei…")',
+        /recomendacao && !avaliado \? `\$\{curta\} recomendação` : `\$\{curta\} review`/.test(nucleo) || 'sobre um produto, a comunidade busca review, não recomendação',
         /!ocrConfirma && !ehPrint && \(ent\.produto/.test(nucleo) || 'o aviso "reconhecido pela aparência" não sai em print de tela',
         /só o que ele diz; se não diz, lista vazia/.test(nucleo) && !/\(ex\.: "graves potentes", "bass boost"\)/.test(nucleo) || '"o que evitar" não copia "graves potentes" (fone de música perdia opções)',
       ];

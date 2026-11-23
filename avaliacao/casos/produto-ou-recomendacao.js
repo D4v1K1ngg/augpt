@@ -38,7 +38,7 @@ module.exports = [
         !pedeRecomendacao('e o peso dele?', [{ role: 'assistant', content: 'O SuperMix 4 tem…' }]) || 'continuação de informação',
         /if \(!produto \|\| !recomendacao \|\| deps\.criteriosAntes === false/.test(fonte) || 'a busca de critérios só em recomendação',
         /if \(produto && recomendacao && !signal\?\.aborted\) \{/.test(fonte) || '"quem usa cita" só em recomendação',
-        /produto: recomenda, tamanho:/.test(fonte) && /content: recomenda && usadas\.length \?/.test(fonte) || 'o formato de opções só em recomendação',
+        /produto: recomenda && !avaliado, tamanho:/.test(fonte) && / : recomenda && usadas\.length \? `\$\{pergunta\}\\n\\n\(Responda no formato de pedido de produto/.test(fonte) || 'o formato de opções só em recomendação (o veredito de um produto, antes)',
         /nunca invente um uso/.test(fonte) || 'a busca de critérios não inventa o uso (o exemplo de CS era copiado)',
       ];
     },
