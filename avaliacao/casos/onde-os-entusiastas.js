@@ -125,3 +125,27 @@ module.exports.push({
     ];
   },
 });
+module.exports.push({
+  nome: 'anúncio de loja só para comprar (23/11, "EM6L é bom para PUBG?", nota 6,5 do ChatGPT): Mercado Livre (anúncio e "blog"), Amazon e AliExpress vão para o fim com lista="sim" (no máximo 2), o review e os tópicos ficam na frente; a regra diz que a promessa do vendedor não prova o uso',
+  tipo: 'unidade',
+  async executar() {
+    const f = (n, url, titulo) => ({ n, url, titulo, resumo: '', trechos: [`${titulo}: Simgot EM6L para jogos. `.repeat(70)] });
+    const fontes = [
+      f(1, 'https://www.mercadolivre.com.br/blog/reviews/fone-ouvido-simgot-in-ear-em6l-em6l', 'Review fone de ouvido Simgot EM6L'),
+      f(2, 'https://produto.mercadolivre.com.br/MLB-4609888860-fones-de-ouvido-simgot-em6l-phoenix', 'Fones Simgot EM6L Phoenix perfeitos'),
+      f(3, 'https://www.amazon.com.br/HIFIXAUDIO-SIMGOT-EM6L/dp/B0F7LZW4GT', 'SIMGOT EM6L 1DD + 4BA'),
+      f(4, 'https://www.reddit.com/r/inearfidelity/comments/1bws0fa/simgot_em6l_gaming_help/', 'Simgot EM6L gaming help'),
+      f(5, 'https://pt.aliexpress.com/s/wiki-ssr/article/simgot-em6l-gaming', 'SIMGOT EM6L Gaming: Uma Análise Detalhada'),
+      f(6, 'https://www.headphoneer.com/simgot-em6l-review/', 'Simgot EM6L review'),
+      f(7, 'https://www.audiosciencereview.com/forum/index.php?threads/iem-for-gaming-competetive-esport.45023/', 'IEM for gaming'),
+    ];
+    const comLista = nucleo.listasSoParaComprar(fontes);
+    const material = await nucleo.materialDaEscrita('O fone simgot em6l é bom para se jogar pubg ?', fontes, { limite: 9000, recomenda: true });
+    const fonte = require('fs').readFileSync(require('path').join(__dirname, '../../src/agent/nucleo/index.js'), 'utf8');
+    return [
+      JSON.stringify(comLista.slice(0, 3).map((x) => x.n)) === '[4,6,7]' && comLista.length === 5 && comLista.slice(3).every((x) => x.lista) || JSON.stringify(comLista.map((x) => [x.n, Boolean(x.lista)])),
+      [4, 6, 7].every((n) => material.some((x) => x.n === n)) || `o corte do tamanho fica com quem usa e quem testa: ${material.map((x) => x.n)}`,
+      /REGRA_DE_LISTA = '[^']*anúncio de loja[^']*NÃO use o que ela promete/.test(fonte) || 'a regra fala do anúncio',
+    ];
+  },
+});

@@ -1778,6 +1778,7 @@ async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000, emit
   const peso = (it) => {
     if (!recomenda) return 0;
     if (citadas.has(it.f.n)) return 0;
+    if (ehLoja(it.f.url)) return 4; // 23/11: anúncio de loja também só no fim (o texto de venda virava fato)
     const tipo = it.f.comunidade ? 'comunidade' : tipoDaPagina(it.f, { recomendacao: true }).tipo;
     return { comunidade: 1, 'teste próprio': 2, 'lista de afiliado': 4 }[tipo] || 3;
   };
@@ -2028,13 +2029,16 @@ const REGRA_DE_ANUNCIO = '\n- Fonte com anuncio="sim" é a página de venda de u
  * (loop-nucleo, "onde comprar").
  */
 const MAXIMO_DE_LISTAS = 2;
+// 23/11 (Davi mandou a resposta do "EM6L é bom para PUBG?" ao ChatGPT, nota 6,5): 6 das 10 páginas lidas eram de loja
+// (Mercado Livre, Amazon, AliExpress) e o texto de venda virou fato — "projetado especificamente para jogos", "áudio
+// espacial preciso". O anúncio entra na mesma regra das listas: só para preço e ficha técnica.
 function listasSoParaComprar(usadas = []) {
-  const lista = (f) => tipoDaPagina(f, { recomendacao: true }).tipo === 'lista de afiliado';
+  const lista = (f) => ehLoja(f.url) || tipoDaPagina(f, { recomendacao: true }).tipo === 'lista de afiliado';
   const outras = usadas.filter((f) => !lista(f));
   if (outras.length < 2) return usadas;
   return [...outras, ...usadas.filter(lista).slice(0, MAXIMO_DE_LISTAS).map((f) => ({ ...f, lista: true }))];
 }
-const REGRA_DE_LISTA = '\n- Fonte com lista="sim" é ranking de site de compras ou de afiliado: use só para preço, disponibilidade e loja no Brasil. NÃO escolha nem ordene as opções por ela — a escolha vem de quem usa (fóruns, Reddit) e de quem mede (testes); produto que só a lista cita não entra.';
+const REGRA_DE_LISTA = '\n- Fonte com lista="sim" é anúncio de loja ou ranking de site de compras/afiliado: use só para preço, disponibilidade, loja no Brasil e ficha técnica (o que vem na caixa, os números do fabricante). NÃO escolha nem ordene as opções por ela, e NÃO use o que ela promete para dizer se o produto é bom para o uso ("projetado para jogos", "áudio espacial preciso", "mais drivers, mais precisão" é o vendedor falando) — se é bom vem de quem usa (fóruns, Reddit) e de quem mede (testes); produto que só a lista cita não entra.';
 const blocoDeFontes = (usadas) => usadas.map((f) => `<fonte n="${f.n}" titulo="${String(f.titulo || dominio(f.url)).replace(/"/g, "'")}" site="${dominio(f.url)}"${ehLoja(f.url) ? ' anuncio="sim"' : ''}${f.lista ? ' lista="sim"' : ''}${f.data ? ` data="${dataBr(f.data)}"` : f.recente ? ' data="último mês"' : ''}>\n${f.conteudo}\n</fonte>`).join('\n');
 
 /**
@@ -2591,7 +2595,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const inicioDoMaterial = Date.now();
   let usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit, recomenda }) : [];
   if (recomenda) usadas = listasSoParaComprar(usadas);
-  if (process.env.DEPURAR_MATERIAL) console.error(`[material] ${usadas.map((f) => `[${f.n}]${f.lista ? 'L' : ''}`).join(' ')} · citados ${JSON.stringify((fontes.citadosNaComunidade || []).map((c) => c.fontes))}`);
+  if (process.env.DEPURAR_MATERIAL) console.error(`[material] ${usadas.map((f) => `[${f.n}]${f.lista ? 'L' : ''}${ehLoja(f.url) ? 'A' : ''} ${dominio(f.url)}`).join(' · ')} · citados ${JSON.stringify((fontes.citadosNaComunidade || []).map((c) => c.fontes))}`);
   // 13/11, régua: o que foi lido e o que foi para o escritor — o ponto que falta na resposta estava no material?
   emit('nucleo-material', { lido: fontes.map((f) => `${f.titulo || ''}\n${f.resumo || ''}\n${(f.trechos || []).join('\n')}`).join('\n\n'), aberto: fontes.map((f) => (f.trechos || []).join('\n')).join('\n\n'), tipos: fontes.filter((f) => f.trechos?.length && !f.video && !f.imagem).map((f) => ({ 'lista de afiliado': 'lista', comunidade: 'comunidade', 'teste próprio': 'teste' })[tipoDaPagina(f, { recomendacao: true }).tipo] || (f.comunidade ? 'comunidade' : /referência da área/.test(f.qualidade || '') ? 'teste' : 'outro')), usado: usadas.map((f) => f.conteudo || '').join('\n\n') });
   etapa('material', inicioDoMaterial);

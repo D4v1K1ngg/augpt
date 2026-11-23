@@ -739,6 +739,24 @@ module.exports = [
     ],
   },
   {
+    // 23/11 (Davi mandou a resposta ao ChatGPT, nota 6,5): 6 das 10 páginas lidas eram de loja (Mercado Livre, Amazon,
+    // AliExpress) e o texto de anúncio virou fato — "projetado especificamente para jogos competitivos", "áudio espacial
+    // preciso", "drivers híbridos ampliam o palco"
+    id: 'em6l-pubg',
+    tipo: 'produto',
+    pedido: 'O fone simgot em6l é bom para se jogar pubg ?',
+    criterios: [
+      'dá uma resposta clara (serve ou não para PUBG competitivo, e com que ressalvas)',
+      'justifica com o que quem usa e quem testa dizem (separação, passos, imaging, graves que não mascaram) — não com a quantidade de drivers nem com frase de anúncio',
+      'traz pelo menos um ponto fraco ou uma experiência negativa de quem usa',
+    ],
+    checagens: [
+      { nome: 'sem frase de anúncio como fato ("projetado para jogos", "áudio espacial preciso")', ok: (r) => !/projetado (especificamente )?para jogos|[aá]udio espacial preciso|garante (uma )?(resposta|precis)/i.test(r) },
+      { nome: 'não diz que mais drivers dá mais precisão', ok: (r) => !/drivers? h[ií]bridos?[^.]{0,60}(garante|amplia|aumenta)[^.]{0,40}(precis|palco|posicion|espacial)/i.test(r) },
+      { nome: 'cita ao menos uma fonte (link ou comunidade)', ok: (r) => /https?:\/\/|— r\/\w+/.test(r) },
+    ],
+  },
+  {
     // 12/10, uso real: este pedido (um dos exemplos da tela inicial) foi
     // respondido com trabalhos de conclusão de curso de uma faculdade de sigla FPS
     id: 'iems-planilha',
