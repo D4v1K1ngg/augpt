@@ -595,6 +595,7 @@ function filtrarPatchDeConfig(patch) {
   delete seguro.dominiosPersonalizados; // só por `domains:save`
   delete seguro.acessoCelularCodigo; // só por `remoto:novoCodigo`
   delete seguro.buscaLocalPastas; // só pela janela de escolher pasta (`buscaLocal:adicionarPasta`)
+  delete seguro.modelosLlamaCpp; // só por `llamacpp:salvar`, que confirma cada programa novo
   if (seguro.autonomy === 'auto' && config.data.autonomy !== 'auto') {
     const escolha = dialog.showMessageBoxSync(win, {
       type: 'warning',
@@ -2224,6 +2225,53 @@ ipcMain.handle('mcp:save', async (_e, servidores) => {
   return conectarMCP();
 });
 
+/* ------------------------- modelos pelo llama.cpp (22/11) -------------------------
+ * O modelo que o Ollama ainda não roda (o Inkling 2 Mini no Windows) vai pelo llama-server que o usuário escolher:
+ * src/llm/llamacpp.js liga no primeiro uso e responde no formato do Ollama. O programa roda com as permissões do
+ * usuário: como no MCP, cada programa novo (ou mudado) é confirmado antes de entrar na lista.
+ */
+const llamacppAprovados = new Set();
+function confirmarLlamaCpp(m) {
+  const linha = [m?.servidor, '-m', m?.arquivo, m?.mmproj ? `--mmproj ${m.mmproj}` : '', m?.argumentos].filter(Boolean).join(' ');
+  const jaSalvo = (config.data.modelosLlamaCpp || []).some((x) => ['servidor', 'arquivo', 'mmproj', 'argumentos'].every((k) => String(x[k] || '') === String(m?.[k] || '')));
+  if (jaSalvo || llamacppAprovados.has(linha)) return true;
+  const escolha = dialog.showMessageBoxSync(win, {
+    type: 'warning',
+    buttons: ['Usar este programa', 'Cancelar'],
+    defaultId: 1,
+    cancelId: 1,
+    title: 'Modelo pelo llama.cpp',
+    message: `Usar o modelo "${m?.nome || 'sem nome'}" pelo llama.cpp?`,
+    detail: `O AuGPT vai iniciar este programa quando o modelo for usado:
+${linha}
+
+Ele roda com as mesmas permissões que você tem neste computador. Só continue se você confia nele.`,
+  });
+  if (escolha !== 0) return false;
+  llamacppAprovados.add(linha);
+  return true;
+}
+ipcMain.handle('llamacpp:estado', () => require('../src/llm/llamacpp').estado());
+ipcMain.handle('llamacpp:escolherArquivo', async (_e, tipo) => {
+  const filtros = tipo === 'servidor' ? [{ name: 'llama-server', extensions: ['exe'] }] : [{ name: 'Modelo GGUF', extensions: ['gguf'] }];
+  const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: filtros });
+  return r.canceled ? null : r.filePaths[0];
+});
+ipcMain.handle('llamacpp:salvar', (_e, lista) => {
+  const llamacpp = require('../src/llm/llamacpp');
+  const pedidos = (Array.isArray(lista) ? lista : []).filter((m) => m && typeof m === 'object');
+  for (const m of pedidos) {
+    for (const campo of ['servidor', 'arquivo', ...(m.mmproj ? ['mmproj'] : [])]) {
+      if (!fs.existsSync(String(m[campo] || ''))) return { ok: false, error: `não achei o arquivo: ${m[campo] || '(vazio)'}` };
+    }
+    if (!/^llama-server(\.exe)?$/i.test(path.basename(String(m.servidor)))) return { ok: false, error: 'o programa precisa ser o llama-server do llama.cpp' };
+  }
+  const aprovados = pedidos.filter(confirmarLlamaCpp);
+  config.save({ modelosLlamaCpp: aprovados });
+  llamacpp.definirModelos(aprovados);
+  return { ok: true, modelos: llamacpp.estado(), recusados: pedidos.length - aprovados.length };
+});
+
 ipcMain.handle('mcp:test', (_e, servidor) => {
   if (!confirmarServidorMCP(servidor)) return { ok: false, erro: 'Cancelado: o programa não foi iniciado.' };
   return mcp.testar(servidor);
@@ -3336,6 +3384,7 @@ app.whenReady().then(() => {
   config = new Config(app.getPath('userData'));
   conferirVersaoNova();
   aplicarCalibracoes(); // a placa calibrada (19/10): o num_gpu medido vale desde a primeira chamada
+  require('../src/llm/llamacpp').definirModelos(config.data.modelosLlamaCpp); // modelos pelo llama.cpp (22/11)
   // Fase 2: instalação nova (config.json ainda não existia) em computador com
   // pouca memória já começa com padrões mais leves — nunca mexe em quem já
   // usa o app (ver padroesPorHardware, src/primeiro-uso.js).
@@ -3412,6 +3461,7 @@ app.on('before-quit', () => {
   mcp?.desconectar();
   searxngRuntime?.parar();
   require('../src/reranker').pararTodos();
+  require('../src/llm/llamacpp').pararTodos();
   navegador?.fechar();
   // 12/11: o "Sair" da bandeja e o desligar do Windows não passam pelo fechar da janela — o Python da voz sai aqui também
   estudio?.fechar('qwen');

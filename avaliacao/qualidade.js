@@ -210,6 +210,8 @@ function configDoApp() {
     const valor = resto.join(':');
     cfg[chave] = valor === 'true' ? true : valor === 'false' ? false : /^-?\d+(\.\d+)?$/.test(valor) ? Number(valor) : valor;
   }
+  // modelos pelo llama.cpp dos Ajustes (22/11): --modelo=inkling-2-mini vai ao llama-server, como no app
+  require('../src/llm/llamacpp').definirModelos(cfg.modelosLlamaCpp);
   cfg.autonomy = 'auto';
   cfg.ferramentasDesativadas = [...new Set([...(cfg.ferramentasDesativadas || []), ...FERRAMENTAS_FORA])];
   return { cfg, modelo: args.modelo || salvo.model || DEFAULTS.model || 'llama3.1:8b' };

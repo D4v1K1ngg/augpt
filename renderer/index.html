@@ -1525,6 +1525,23 @@
           <div class="teste-resultado" id="compRerStatus"></div>
         </section>
         <section class="grupo">
+          <h2>Modelos pelo llama.cpp</h2>
+          <p class="dica">Para o modelo que o Ollama ainda não roda (ex.: o Inkling 2 Mini no Windows). Escolha o <b>llama-server.exe</b> do llama.cpp e o arquivo <b>.gguf</b>: o modelo aparece na lista de modelos como os outros, o AuGPT liga o servidor no primeiro uso e desliga depois de 10 minutos parado. Um por vez na placa de vídeo. O programa roda com as suas permissões — o AuGPT pede confirmação antes de usar um programa novo.</p>
+          <div class="mcp-lista" id="llamaLista"></div>
+          <div class="mcp-novo">
+            <input type="text" id="llamaNome" placeholder="nome na lista (ex.: inkling-2-mini)" />
+            <input type="text" id="llamaServidor" placeholder="llama-server.exe" />
+            <button class="btn-secundario" id="btnLlamaServidor">Procurar…</button>
+            <input type="text" id="llamaArquivo" placeholder="modelo .gguf" />
+            <button class="btn-secundario" id="btnLlamaArquivo">Procurar…</button>
+            <input type="text" id="llamaMmproj" placeholder="leitor de imagens .gguf (opcional)" />
+            <button class="btn-secundario" id="btnLlamaMmproj">Procurar…</button>
+            <input type="text" id="llamaArgs" placeholder="argumentos (ex.: -ngl 99 --n-cpu-moe 6 -c 16384 -fa on --jinja)" />
+          </div>
+          <div class="linha-botoes"><button class="btn-secundario" id="btnLlamaAdicionar">Adicionar</button></div>
+          <div class="teste-resultado" id="llamaStatus"></div>
+        </section>
+        <section class="grupo">
           <h2>Criar imagens (FLUX.2 Klein)</h2>
           <p class="dica">Gera imagens no seu computador, sem internet: "crie uma imagem de…", "desenhe um logo…", ou anexe uma foto e peça para transformá-la. Usa o FLUX.2 Klein 4B pelo stable-diffusion.cpp; o modelo de texto sai da placa de vídeo enquanto a imagem é feita e volta depois. Tudo baixado é conferido pelo SHA-256 publicado.</p>
           <div class="linha"><span>Neste computador</span><span class="situacao" id="compImgRec">—</span></div>

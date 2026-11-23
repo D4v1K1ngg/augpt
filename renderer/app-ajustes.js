@@ -1171,6 +1171,7 @@ manipuladores['ditado-progresso'] = ({ texto }) => {
 };
 
 async function carregarModelosEComponentes() {
+  carregarLlama();
   api.atualizacao.verificar().then((r) => ((atualizacao = r), pintarAtualizacao()));
   const [v, c] = await Promise.all([api.boasVindas.verificar().catch(() => null), api.componentes.estado().catch(() => null)]);
   verificacao = v;
@@ -1713,3 +1714,51 @@ $('btnOllamaLocal').addEventListener('click', async () => {
   await usarServidorOllama('http://127.0.0.1:11434');
   mostrarRedeOllama('O AuGPT voltou a usar o Ollama deste computador.');
 });
+
+/* ------------------------- modelos pelo llama.cpp (22/11) -------------------------
+ * O modelo que o Ollama ainda não roda vai pelo llama-server (src/llm/llamacpp.js). A lista só muda por
+ * api.llamacpp.salvar, que confere os arquivos e pede confirmação para cada programa novo.
+ */
+var llamaModelos = []; // var: carregarModelosEComponentes pode chamar antes desta linha rodar
+const nomeDoArquivo = (p) => String(p || '').split(/[\/]/).pop();
+async function carregarLlama() {
+  if (!$('llamaLista')) return;
+  llamaModelos = await api.llamacpp.estado().catch(() => []);
+  const alvo = $('llamaLista');
+  alvo.innerHTML = '';
+  if (!llamaModelos.length) alvo.innerHTML = '<p class="dica">Nenhum modelo pelo llama.cpp.</p>';
+  for (const [i, m] of llamaModelos.entries()) {
+    const div = document.createElement('div');
+    div.className = `mcp-item${m.ligado ? ' conectado' : ''}`;
+    div.innerHTML = '<div class="mcp-info"><span class="mcp-nome"></span><span class="mcp-cmd"></span><span class="mcp-status"></span></div><button class="btn-linha" title="Remover">✕</button>';
+    div.querySelector('.mcp-nome').textContent = m.nome;
+    div.querySelector('.mcp-cmd').textContent = `${nomeDoArquivo(m.arquivo)}${m.mmproj ? ' + imagens' : ''} · ${m.argumentos || 'sem argumentos'}`;
+    div.querySelector('.mcp-status').textContent = m.ligado ? 'ligado agora' : 'liga no primeiro uso';
+    div.querySelector('.btn-linha').addEventListener('click', async () => {
+      if (!confirm(`Tirar "${m.nome}" da lista? Os arquivos não são apagados.`)) return;
+      const r = await api.llamacpp.salvar(llamaModelos.filter((_, j) => j !== i).map(({ ligado, ...x }) => x));
+      $('llamaStatus').textContent = r.ok ? 'removido' : `erro: ${r.error}`;
+      await carregarLlama();
+    });
+    alvo.appendChild(div);
+  }
+}
+for (const [botao, campo, tipo] of [['btnLlamaServidor', 'llamaServidor', 'servidor'], ['btnLlamaArquivo', 'llamaArquivo', 'gguf'], ['btnLlamaMmproj', 'llamaMmproj', 'gguf']]) {
+  $(botao)?.addEventListener('click', async () => {
+    const p = await api.llamacpp.escolherArquivo(tipo);
+    if (p) $(campo).value = p;
+  });
+}
+$('btnLlamaAdicionar')?.addEventListener('click', async () => {
+  const novo = { nome: $('llamaNome').value.trim(), servidor: $('llamaServidor').value.trim(), arquivo: $('llamaArquivo').value.trim(), mmproj: $('llamaMmproj').value.trim(), argumentos: $('llamaArgs').value.trim() };
+  if (!novo.nome || !novo.servidor || !novo.arquivo) {
+    $('llamaStatus').textContent = 'preencha o nome, o llama-server.exe e o modelo .gguf';
+    return;
+  }
+  const lista = [...llamaModelos.map(({ ligado, ...x }) => x).filter((x) => x.nome !== novo.nome), novo];
+  const r = await api.llamacpp.salvar(lista);
+  $('llamaStatus').textContent = !r.ok ? `erro: ${r.error}` : r.recusados ? 'cancelado: o programa não foi aprovado' : `pronto ✓ — "${novo.nome}" já aparece na lista de modelos`;
+  if (r.ok && !r.recusados) ['llamaNome', 'llamaServidor', 'llamaArquivo', 'llamaMmproj', 'llamaArgs'].forEach((id) => ($(id).value = ''));
+  await carregarLlama();
+});
+carregarLlama();

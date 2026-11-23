@@ -175,6 +175,12 @@ contextBridge.exposeInMainWorld('augpt', {
     voltarImagem: () => ipcRenderer.invoke('componentes:voltarImagem'),
     testarPlaca: () => ipcRenderer.invoke('componentes:testarPlaca'),
   },
+  // modelos pelo llama.cpp (22/11): a lista só muda por aqui, e o processo principal confirma cada programa novo
+  llamacpp: {
+    estado: () => ipcRenderer.invoke('llamacpp:estado'),
+    escolherArquivo: (tipo) => ipcRenderer.invoke('llamacpp:escolherArquivo', tipo),
+    salvar: (lista) => ipcRenderer.invoke('llamacpp:salvar', lista),
+  },
   boasVindas: {
     verificar: () => ipcRenderer.invoke('boasVindas:verificar'),
     instalarOllama: () => ipcRenderer.invoke('boasVindas:instalarOllama'),

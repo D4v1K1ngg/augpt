@@ -6,6 +6,8 @@
  */
 
 const DEFAULT_HOST = 'http://127.0.0.1:11434';
+// modelos pelo llama.cpp (22/11, src/llm/llamacpp.js): o pedido no formato do Ollama vai ao llama-server do modelo
+const llamacpp = require('./llamacpp');
 
 /**
  * Prompt maior que a janela (08/10/2026, log do Ollama 0.40.1 no PC do Davi):
@@ -141,12 +143,15 @@ async function request(host, path, { method = 'POST', body, signal, timeout = 30
   }
 
   try {
-    const res = await fetch(`${host.replace(/\/$/, '')}${path}`, {
-      method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    });
+    const doLlama = body?.model ? llamacpp.doLlamaCpp(body.model) : null;
+    const res = doLlama
+      ? await llamacpp.responderComoOllama(doLlama, path, body, { signal: controller.signal })
+      : await fetch(`${host.replace(/\/$/, '')}${path}`, {
+          method,
+          headers: body ? { 'Content-Type': 'application/json' } : undefined,
+          body: body ? JSON.stringify(body) : undefined,
+          signal: controller.signal,
+        });
     const text = await res.text();
     if (!res.ok) {
       throw erroDoOllama(res.status, text, 400);
@@ -171,7 +176,7 @@ async function health(host = DEFAULT_HOST) {
 /** Lista os modelos já baixados localmente. */
 async function listModels(host = DEFAULT_HOST) {
   const data = await request(host, '/api/tags', { method: 'GET', timeout: 8000 });
-  const modelos = data.models || [];
+  const modelos = [...(data.models || []), ...llamacpp.naLista()];
   const vistos = new Set();
   return modelos
     .filter((m) => !vistos.has(m.name) && vistos.add(m.name)) // o Ollama 0.40 repete o nome (glm-4.7-flash duas vezes)
@@ -213,7 +218,7 @@ function rotuloDoModelo(m, todos = []) {
  */
 async function psModels(host = DEFAULT_HOST) {
   const data = await request(host, '/api/ps', { method: 'GET', timeout: 4000 });
-  return (data.models || []).map((m) => ({
+  return [...(data.models || []), ...llamacpp.ligados()].map((m) => ({
     name: m.name,
     size: m.size ?? 0,
     sizeVram: m.size_vram ?? 0,
@@ -542,21 +547,20 @@ async function chatStreamUmaVez({
   signal,
   onToken,
 }) {
-  const res = await fetch(`${host.replace(/\/$/, '')}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: true,
-      keep_alive: manterVivo,
-      // 10/10 (SR-71 com qwen3.5:9b): sem `think: false` o modelo que pensa
-      // gastava os 3.072 tokens da redação raciocinando e a resposta saía vazia
-      ...campoThink(model, pensar === undefined ? pensarPadrao : pensar),
-      options: { temperature, num_ctx: contextoSemRecarga(host, model, numCtx), num_predict: limiteDeSaida(model, numPredict), ...(numGpu === undefined ? {} : { num_gpu: numGpu }) },
-    }),
-    signal,
-  });
+  const corpo = {
+    model,
+    messages,
+    stream: true,
+    keep_alive: manterVivo,
+    // 10/10 (SR-71 com qwen3.5:9b): sem `think: false` o modelo que pensa
+    // gastava os 3.072 tokens da redação raciocinando e a resposta saía vazia
+    ...campoThink(model, pensar === undefined ? pensarPadrao : pensar),
+    options: { temperature, num_ctx: contextoSemRecarga(host, model, numCtx), num_predict: limiteDeSaida(model, numPredict), ...(numGpu === undefined ? {} : { num_gpu: numGpu }) },
+  };
+  const doLlama = llamacpp.doLlamaCpp(model);
+  const res = doLlama
+    ? await llamacpp.responderComoOllama(doLlama, '/api/chat', corpo, { signal })
+    : await fetch(`${host.replace(/\/$/, '')}/api/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo), signal });
 
   if (!res.ok) {
     throw erroDoOllama(res.status, await res.text(), 300);
