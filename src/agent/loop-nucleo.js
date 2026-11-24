@@ -37,6 +37,7 @@ const { notaSemNasLojas } = require('./compras-no-chat');
 const { mesmaResposta } = require('./resposta-repetida');
 const { escolherEspecialista } = require('./especialistas');
 const { embedDasPaginas } = require('./embed-paginas');
+const { tev1DaPlaca } = require('./tev1-da-placa');
 const { rerankerDe } = require('../reranker');
 
 /**
@@ -93,6 +94,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
   if (especialista?.faltando) this.emit('aviso', { texto: `especialista de ${especialista.nome.toLowerCase()}: o modelo "${especialista.faltando}" não está instalado — segue com o modelo principal` });
   else if (especialista?.modelo) this.emit('aviso', { texto: `especialista de ${especialista.nome.toLowerCase()}: ${especialista.modelo}` });
   const modelo = especialista?.modelo || cfg.model;
+  // um Tev1 só, escolhido pela placa (24/11, src/agent/tev1-da-placa.js): o do tipo de fonte é o mesmo do roteador
+  const tev1 = await tev1DaPlaca({ config: cfg, listar: async () => (await ollama.listModels(cfg.host)).map((m) => m.name), principalNoLlamaCpp: Boolean(require('../llm/llamacpp').doLlamaCpp(modelo)) }).catch(() => ({ tipos: '' }));
   const signal = this.controller.signal;
   const ctxWeb = {
     estado: {},
@@ -200,6 +203,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     // caminho (a impressora 3D virou produto: 26 → 55 s, nota igual) — desligado; liga com "decisorDoNucleo": "tev1"
     decisorDoNucleo: String(cfg.decisorDoNucleo || '').trim(),
     decidir: (o) => ollama.decidir({ host: cfg.host, keepAlive: '30m', ...o }),
+    // o tipo de cada fonte lida (24/11, fase 1): o Tev1 da placa (src/agent/tev1-da-placa.js); '' = as regras
+    modeloTipoDeFonte: tev1.tipos,
     // em notícia (pergunta que muda com o tempo), com a data de cada fonte: 5 perguntas × 4 rodadas, nota 8.9 → 9.6
     // (midterms 5.7 → 8.8, as outras iguais), +5 s; desliga com "cruzarNoticias": false
     cruzarNoticias: cfg.cruzarNoticias !== false,

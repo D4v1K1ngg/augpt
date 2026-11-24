@@ -23,6 +23,7 @@ const { MemoriaCentral } = require('./memoria-central');
 const { Tarefa, ESTADOS: ESTADOS_TAREFA, normalizarSubtarefa, itemDaLeitura } = require('./tarefa');
 const { tipoDoPedido, comEnderecoDaConversa } = require('./tipo-de-pedido');
 const { decidirRota } = require('./roteador');
+const { tev1DaPlaca } = require('./tev1-da-placa');
 const { Retomada } = require('./retomada');
 const { classificarErro, anotarErro, comNovaTentativa } = require('../tools/erros');
 const { montarQuadroDeModelos } = require('../modelos-carregados');
@@ -1162,7 +1163,8 @@ class Agent extends EventEmitter {
   async fotografarModelos() {
     try {
       const carregados = await ollama.psModels(this.config.host);
-      this.emit('modelos-na-execucao', { linhas: montarQuadroDeModelos({ config: this.config, carregados }) });
+      const tev1 = !this.config.roteadorDecisor ? { tipos: '' } : await tev1DaPlaca({ config: this.config, listar: async () => (await ollama.listModels(this.config.host)).map((m) => m.name), principalNoLlamaCpp: Boolean(require('../llm/llamacpp').doLlamaCpp(this.config.model)) }).catch(() => ({ tipos: '' }));
+      this.emit('modelos-na-execucao', { linhas: montarQuadroDeModelos({ config: { ...this.config, tev1DaPlaca: tev1.tipos }, carregados }) });
     } catch {
       /* Ollama ocupado ou versão sem /api/ps: o relatório só não mostra o quadro */
     }
@@ -1646,11 +1648,15 @@ class Agent extends EventEmitter {
     // espera em fila, depois dela. Quem precisa do resultado espera a
     // promessa mais abaixo; o caminho rápido do AUTO simplesmente a abandona.
     const pedirRota = (texto) => {
-      const promessa = decidirRota(texto, {
-        config: this.config,
-        decidir: (args) => ollama.decidir({ host: this.config.host, ...args }),
-        signal: this.controller?.signal,
-      });
+      // um Tev1 só, escolhido pela placa (24/11, src/agent/tev1-da-placa.js): com placa boa, o roteador usa o mesmo do tipo de
+      // fonte (na placa) em vez do 0.8B na CPU — o Ollama segura 3 modelos e, com 4, recarregava um a cada poucos segundos
+      const promessa = (this.config.roteadorDecisor ? tev1DaPlaca({ config: this.config, listar: async () => (await ollama.listModels(this.config.host)).map((m) => m.name), principalNoLlamaCpp: Boolean(require('../llm/llamacpp').doLlamaCpp(this.config.model)) }) : Promise.resolve({ roteador: null }))
+        .catch(() => ({ roteador: null }))
+        .then((t) => decidirRota(texto, {
+          config: t.roteador ? { ...this.config, ...t.roteador } : this.config,
+          decidir: (args) => ollama.decidir({ host: this.config.host, ...args }),
+          signal: this.controller?.signal,
+        }));
       promessa.catch(() => {}); // abandonada ou interrompida: sem "unhandled rejection"
       return { objetivo: texto, promessa };
     };

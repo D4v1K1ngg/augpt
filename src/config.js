@@ -84,6 +84,9 @@ const DEFAULTS = {
   // de cima só entra quando este não tem confiança. Vazio = só o de cima.
   // Sugestão: "tev1-0.8b-cpu" (FROM tev1:0.8b + PARAMETER num_gpu 0).
   modeloDecisorRapido: '',
+  // o tipo de cada fonte lida na pesquisa (24/11, src/agent/tipo-de-fonte.js): 'auto' = o Tev1 da placa, o mesmo do
+  // roteador (src/agent/tev1-da-placa.js: 4B com 14 GB ou mais, 0.8B com 7,5 GB, regras abaixo); um nome fixa; '' = regras
+  modeloTipoDeFonte: 'auto',
   // AUTO: quanto esperar pelo decisor antes de escolher o nível, quando a
   // regra não tem opinião ('livre'). O decisor roda em paralelo desde o início.
   autoEsperaDecisorMs: 1500,

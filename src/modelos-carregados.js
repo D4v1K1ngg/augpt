@@ -46,8 +46,10 @@ function papeisDaConfig(config = {}) {
   add('decisão', config.modelDecisao, 'GPU');
   add('redação', config.modelRedacao, 'GPU');
   add('memória (embedding)', config.embedModel, 'GPU');
-  if (config.roteadorDecisor) add('roteador (Tev1)', config.modeloDecisor || 'tev1', 'CPU', 'use um Modelfile com PARAMETER num_gpu 0 (ex.: tev1-cpu)');
-  if (config.roteadorDecisor) add('roteador rápido', config.modeloDecisorRapido, 'CPU', 'use um Modelfile com PARAMETER num_gpu 0 (ex.: tev1-0.8b-cpu)');
+  // um Tev1 só, escolhido pela placa (24/11, src/agent/tev1-da-placa.js): o do roteador e do tipo de fonte, na placa
+  if (config.tev1DaPlaca) add(config.roteadorDecisor ? 'roteador + tipo de fonte (Tev1)' : 'tipo de fonte (Tev1)', config.tev1DaPlaca, 'GPU');
+  else if (config.roteadorDecisor) add('roteador (Tev1)', config.modeloDecisor || 'tev1', 'CPU', 'use um Modelfile com PARAMETER num_gpu 0 (ex.: tev1-cpu)');
+  if (config.roteadorDecisor && !config.tev1DaPlaca) add('roteador rápido', config.modeloDecisorRapido, 'CPU', 'use um Modelfile com PARAMETER num_gpu 0 (ex.: tev1-0.8b-cpu)');
   if (config.copiloto2Modo === 'doisModelos') add('copiloto dedicado', config.modelCopiloto2, 'CPU');
   return papeis;
 }

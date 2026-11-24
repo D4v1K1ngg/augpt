@@ -68,6 +68,7 @@ const { oficiaisDaPergunta, doSiteOficial } = require('../../tools/imitacao');
 const { separarGraficos, recolocarGraficos, graficoDoTexto, pedeGrafico, INSTRUCAO_DE_GRAFICO, INSTRUCAO_DE_VISUAL } = require('./graficos');
 const capacidades = require('../capacidades');
 const { pareceIngles } = require('../traducao');
+const { classificarFontes } = require('../tipo-de-fonte');
 const { ondeOsEntusiastas } = require('../../tools/comunidade');
 
 /**
@@ -1063,7 +1064,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       // outros leram listas de afiliado em português e escolheram HyperX e JBL): os tópicos em inglês de quem usa, pelos
       // produtos, são lidos sempre. Em paralelo com os critérios; o "quem usa cita" sai deles.
       const buscaProdutos = String(j1.busca_produtos || '').trim().slice(0, 100);
-      const tiposDe = (f) => tipoDaPagina(f, { recomendacao: true }).tipo;
+      const tiposDe = (f) => tipoDaFonte(f);
       // 22/11 (item 4): onde os entusiastas da categoria conversam (dados/comunidades.json, porCategoria) — o tópico do
       // subreddit da categoria (r/iems, r/MouseReview) vem antes dos outros, e o site que mede (RTINGS, TechPowerUp) ganha
       // uma busca "site:" e uma página lida
@@ -1092,7 +1093,7 @@ async function pesquisar({ pergunta, modo = 'normal', deps, hoje, produto = fals
       // só as páginas DESTA busca (a lista devolvida, na ordem da relevância): as buscas em paralelo também somam fontes
       const daBusca = [...String(lista).matchAll(/^\[(\d+)\]/gm)].map((m) => fontes.find((f) => f.n === Number(m[1]))).filter(Boolean);
       // quem usa primeiro (Reddit, fórum), lista de afiliado nunca: a busca em português trouxe o "top opções para comprar" do TechTudo
-      const tipo = (f) => tipoDaPagina(f, { recomendacao: true }).tipo;
+      const tipo = (f) => tipoDaFonte(f);
       const novas = daBusca
         .filter((f) => !f.trechos.length && tipo(f) !== 'lista de afiliado')
         .sort((a, b) => (tipo(b) === 'comunidade') - (tipo(a) === 'comunidade'))
@@ -1302,6 +1303,14 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
   // as garantias do fim (comunidade e mínimo de leituras): o que a pesquisa ainda não leu
   await garantirComunidade();
   await lerAsMaisLigadas();
+  // o tipo de cada fonte lida (24/11, fase 1): Tev1, com as regras de reserva — antes da lista da comunidade e da escrita
+  if (!signal?.aborted) {
+    const t0 = Date.now();
+    const tipos = await classificarFontes(fontes, { decidir: deps.decidir, modelo: deps.modeloTipoDeFonte, signal });
+    fontes.tempoDosTipos = Date.now() - t0;
+    if (tipos.classificadas) emit('aviso', { texto: `tipo das fontes (${tipos.pelo ? `Tev1 em ${tipos.pelo} de ${tipos.classificadas}` : 'pelas regras'}, ${(fontes.tempoDosTipos / 1000).toFixed(1)} s): ${Object.entries(tipos.contagem).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${v} ${k}`).join(' · ')}` });
+    if (process.env.DEPURAR_MATERIAL) console.error(`[tipos] ${fontes.filter((f) => f.tipoFonte).map((f) => `[${f.n}] ${dominio(f.url)}=${f.tipoFonte}${f.confTipo ? `(${f.confTipo.toFixed(2)})` : `/${f.tipoPor}`}`).join(' · ')}`);
+  }
   // a lista principal (16/11): os produtos citados em TODOS os tópicos de comunidade lidos (não só nos dos critérios),
   // com as fontes de cada um; os 2 mais citados sem review lido ganham um
   let citados = [];
@@ -1310,7 +1319,7 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
     const servem = await daCategoria(citados.map((c) => c.nome));
     citados = citados.filter((c) => servem.includes(c.nome));
     if (process.env.DEPURAR_MATERIAL) {
-      const com = fontes.filter((f) => f.trechos?.length && (f.comunidade || tipoDaPagina(f, { recomendacao: true }).tipo === 'comunidade'));
+      const com = fontes.filter((f) => f.trechos?.length && (f.comunidade || tipoDaFonte(f) === 'comunidade'));
       console.error(`[lista] ${com.length} tópicos lidos: ${com.map((f) => `${dominio(f.url)} "${String(f.titulo).slice(0, 40)}" (${f.data || "sem data"})`).join(' | ')}`);
       for (const f of com) console.error(`[lista]   ${dominio(f.url)}: ${f.trechos.join(' ').replace(/\s+/g, ' ').slice(0, 400)}`);
       console.error(`[lista] citados: ${JSON.stringify(citados)} · todos: ${JSON.stringify(modelosCitados(com.map((f) => f.trechos.join('\n')), { pergunta }))}`);
@@ -1318,7 +1327,7 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
     const semReview = citados.filter((c) => !fontes.some((f) => f.trechos.length && !c.fontes.includes(f.n) && tituloCita(`${f.titulo} ${f.resumo}`, c.nome))).slice(0, 2);
     if (semReview.length) {
       const lista = await executarBusca(semReview.map((c) => `${c.nome} review`), { maximo: semReview.length, porSite: 6 });
-      const achados = [...String(lista).matchAll(/^\[(\d+)\]/gm)].map((m) => fontes.find((f) => f.n === Number(m[1]))).filter((f) => f && !f.trechos.length && tipoDaPagina(f, { recomendacao: true }).tipo !== 'lista de afiliado');
+      const achados = [...String(lista).matchAll(/^\[(\d+)\]/gm)].map((m) => fontes.find((f) => f.n === Number(m[1]))).filter((f) => f && !f.trechos.length && tipoDaFonte(f) !== 'lista de afiliado');
       const umPorNome = semReview.map((c) => achados.find((f) => tituloCita(`${f.titulo} ${f.resumo}`, c.nome))).filter(Boolean);
       await Promise.all([...new Set(umPorNome)].map((f) => executarLeitura({ fonte: f.n, foco: 'o que quem testou diz deste produto para este uso' }, { garantia: true })));
     }
@@ -1454,7 +1463,7 @@ function citadosNaComunidade(fontes, pergunta, { hoje = new Date() } = {}) {
   // o texto lido do tópico ou, se a leitura foi bloqueada (o Reddit pede verificação anti-robô), o resumo que a busca
   // mostrou dele — muitas vezes já com os modelos citados
   const textoDe = (f) => (f.trechos?.length ? f.trechos.join('\n') : `${f.titulo || ''}\n${f.resumo || ''}`);
-  const daComunidade = fontes.filter((f) => (f.comunidade || tipoDaPagina(f, { recomendacao: true }).tipo === 'comunidade') && String(textoDe(f)).trim().length > 20);
+  const daComunidade = fontes.filter((f) => (f.comunidade || tipoDaFonte(f) === 'comunidade') && String(textoDe(f)).trim().length > 20);
   if (!daComunidade.length) return [];
   // 22/11: nos tópicos de entusiastas cada um cita um modelo diferente, uma vez — sem nenhum com 2+ menções, valem os de
   // marca conhecida citados uma vez (o consenso, abaixo, põe na frente o que aparece em mais de um site)
@@ -1652,7 +1661,7 @@ function modelosCitados(textos = [], { pergunta = '', minimo = 2, soDaMarca = fa
  * sem citação vira "não encontrei nas fontes lidas.". Devolve { texto, semComunidade, semFonteDePreco }.
  */
 function conferirCamposDoProduto(texto, fontes = []) {
-  const daComunidade = new Set(fontes.filter((f) => f.comunidade || /comunidade|fórum/.test(f.qualidade || '') || tipoDaPagina(f, { recomendacao: true }).tipo === 'comunidade').map((f) => f.n));
+  const daComunidade = new Set(fontes.filter((f) => f.comunidade || /comunidade|fórum/.test(f.qualidade || '') || tipoDaFonte(f) === 'comunidade').map((f) => f.n));
   const citadas = (linha) => [...linha.matchAll(/\[\(?(\d+)\)?\]/g)].map((m) => Number(m[1]));
   let semComunidade = 0;
   let semFonteDePreco = 0;
@@ -1799,8 +1808,9 @@ async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000, emit
   const peso = (it) => {
     if (!recomenda) return 0;
     if (citadas.has(it.f.n)) return 0;
-    if (ehLoja(it.f.url)) return 4; // 23/11: anúncio de loja também só no fim (o texto de venda virava fato)
-    const tipo = it.f.comunidade ? 'comunidade' : tipoDaPagina(it.f, { recomendacao: true }).tipo;
+    if (ehLoja(it.f.url) || it.f.tipoFonte === 'loja') return 4; // 23/11: anúncio de loja também só no fim (o texto de venda virava fato)
+    if (it.f.tipoFonte === 'vazio') return 5; // página sem conteúdo (índice, bloqueio): por último
+    const tipo = it.f.comunidade ? 'comunidade' : tipoDaFonte(it.f);
     return { comunidade: 1, 'teste próprio': 2, 'lista de afiliado': 4 }[tipo] || 3;
   };
   const filtradas = semFontesForaDoAssunto(pergunta, todos);
@@ -2041,6 +2051,15 @@ function questionarioNaResposta(texto, pergunta = '') {
  */
 const LOJA = /(^|\.)(shopee|mercadolivre|mercadolibre|amazon|magazineluiza|magalu|americanas|casasbahia|aliexpress|kabum|shein|temu|submarino|pontofrio|carrefour|extra|netshoes|centauro|drogasil|drogaraia|paguemenos|ebay|walmart|lojavirtualnuvem|nuvemshop|olist)\./i;
 const ehLoja = (url) => LOJA.test(dominio(url));
+/*
+ * O tipo da fonte (24/11, fase 1): o que o Tev1 classificou no fim da pesquisa (src/agent/tipo-de-fonte.js), no nome
+ * que o resto do núcleo já usa; sem classificação (bancada, fonte ainda não lida), as regras de antes.
+ */
+const TIPO_NO_NUCLEO = { afiliado: 'lista de afiliado', comunidade: 'comunidade', teste: 'teste próprio' };
+function tipoDaFonte(f) {
+  if (f?.tipoFonte) return TIPO_NO_NUCLEO[f.tipoFonte] || f.tipoFonte;
+  return tipoDaPagina(f || {}, { recomendacao: true }).tipo;
+}
 const REGRA_DE_ANUNCIO = '\n- Fonte com anuncio="sim" é a página de venda de uma loja: o que ela diz de efeito, benefício ou indicação é o VENDEDOR dizendo, não um fato comprovado — escreva "segundo o anúncio", "o vendedor afirma". Em saúde (remédio, cosmético, suplemento, óleo), deixe claro que não são estudos e que vale falar com um profissional.';
 /*
  * Escolher por quem usa e por quem mede; o Brasil só para comprar (22/11, item 5 da busca de produtos): as listas em
@@ -2054,7 +2073,7 @@ const MAXIMO_DE_LISTAS = 2;
 // (Mercado Livre, Amazon, AliExpress) e o texto de venda virou fato — "projetado especificamente para jogos", "áudio
 // espacial preciso". O anúncio entra na mesma regra das listas: só para preço e ficha técnica.
 function listasSoParaComprar(usadas = []) {
-  const lista = (f) => ehLoja(f.url) || tipoDaPagina(f, { recomendacao: true }).tipo === 'lista de afiliado';
+  const lista = (f) => ehLoja(f.url) || f.tipoFonte === 'loja' || tipoDaFonte(f) === 'lista de afiliado';
   const outras = usadas.filter((f) => !lista(f));
   if (outras.length < 2) return usadas;
   return [...outras, ...usadas.filter(lista).slice(0, MAXIMO_DE_LISTAS).map((f) => ({ ...f, lista: true }))];
@@ -2620,7 +2639,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   if (recomenda) usadas = listasSoParaComprar(usadas);
   if (process.env.DEPURAR_MATERIAL) console.error(`[material] ${usadas.map((f) => `[${f.n}]${f.lista ? 'L' : ''}${ehLoja(f.url) ? 'A' : ''} ${dominio(f.url)}`).join(' · ')} · citados ${JSON.stringify((fontes.citadosNaComunidade || []).map((c) => c.fontes))}`);
   // 13/11, régua: o que foi lido e o que foi para o escritor — o ponto que falta na resposta estava no material?
-  emit('nucleo-material', { lido: fontes.map((f) => `${f.titulo || ''}\n${f.resumo || ''}\n${(f.trechos || []).join('\n')}`).join('\n\n'), aberto: fontes.map((f) => (f.trechos || []).join('\n')).join('\n\n'), tipos: fontes.filter((f) => f.trechos?.length && !f.video && !f.imagem).map((f) => ({ 'lista de afiliado': 'lista', comunidade: 'comunidade', 'teste próprio': 'teste' })[tipoDaPagina(f, { recomendacao: true }).tipo] || (f.comunidade ? 'comunidade' : /referência da área/.test(f.qualidade || '') ? 'teste' : 'outro')), usado: usadas.map((f) => f.conteudo || '').join('\n\n') });
+  emit('nucleo-material', { lido: fontes.map((f) => `${f.titulo || ''}\n${f.resumo || ''}\n${(f.trechos || []).join('\n')}`).join('\n\n'), aberto: fontes.map((f) => (f.trechos || []).join('\n')).join('\n\n'), tipos: fontes.filter((f) => f.trechos?.length && !f.video && !f.imagem).map((f) => ({ 'lista de afiliado': 'lista', comunidade: 'comunidade', 'teste próprio': 'teste' })[tipoDaFonte(f)] || (f.comunidade ? 'comunidade' : /referência da área/.test(f.qualidade || '') ? 'teste' : 'outro')), usado: usadas.map((f) => f.conteudo || '').join('\n\n') });
   etapa('material', inicioDoMaterial);
   if (deps.notasPorPagina === true && usadas.length && !ent.produto && !ent.conversa && !ehAnaliseDePreco(pergunta) && !pedeGrafico(pergunta) && !pedeVisual(pergunta)) {
     const inicioDasNotas = Date.now();
