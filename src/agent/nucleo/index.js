@@ -1798,20 +1798,55 @@ async function pautaDaEscrita(pergunta, usadas, { chamar, signal } = {}) {
   }
 }
 
-async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000, emit = () => {}, recomenda = false } = {}) {
+/*
+ * A fonte certa para cada tipo de pergunta (24/11, fase 2 do sistema global): o tipo de cada fonte (o Tev1, fase 1)
+ * decide a ordem do material ANTES do corte do tamanho, e a ordem depende do perfil da pergunta. Dentro de cada faixa,
+ * fica a ordem da relevância (o embedding). O produto mantém a ordem de 22–23/11 (quem usa, quem testa; loja e lista
+ * por último); notícia põe a notícia e a fonte oficial na frente; estudo, a referência (acadêmica, documentação,
+ * enciclopédia); guia, a documentação, quem usa e quem testa. Em todos, afiliado/SEO, loja e página vazia vão para o fim.
+ */
+// o PEDE_GUIA é o de cima (o mesmo do entendimento: como fazer, dicas, táticas, passo a passo…)
+// notícia sem depender do \b antes de letra acentuada ("últimas notícias" escapava do PISTA_DE_ATUAL) nem do entendimento
+const PISTA_DE_NOTICIA = /(?<![a-zà-ú])(not[ií]cias?|aconteceu|acontecendo|vazamentos?|vazou|an[uú]ncio|anunciou|lan[cç]amento|lan[cç]ou|situa[cç][aã]o d[aoe]s?|[uú]ltim[oa]s?)(?![a-zà-ú])/i;
+function perfilDaPergunta(pergunta, ent = {}, recomenda = false) {
+  if (recomenda) return 'produto';
+  const t = String(pergunta || '');
+  if (QUESTAO_DE_PROVA(t)) return 'estudo';
+  if (ent?.atual || PISTA_DE_ATUAL.test(t) || PISTA_DE_NOTICIA.test(t)) return 'noticia';
+  if (PEDE_GUIA.test(t)) return 'guia';
+  if (ent?.explicacao || EXPLICACAO.test(t.trim()) || /^\s*(quem (foi|era|é|e)|o que foi|quando (foi|aconteceu|come[cç]ou))\b/i.test(t)) return 'estudo';
+  return 'geral';
+}
+const PESOS_DO_PERFIL = {
+  produto: { comunidade: 1, teste: 2, referencia: 3, noticia: 3, outro: 3, afiliado: 4, loja: 4, vazio: 5 },
+  noticia: { noticia: 1, referencia: 1, teste: 2, comunidade: 3, outro: 3, afiliado: 4, loja: 5, vazio: 5 },
+  estudo: { referencia: 1, teste: 2, comunidade: 2, noticia: 3, outro: 4, afiliado: 4, loja: 5, vazio: 5 },
+  guia: { referencia: 1, comunidade: 1, teste: 1, noticia: 3, outro: 3, afiliado: 4, loja: 5, vazio: 5 },
+  geral: { referencia: 2, teste: 2, comunidade: 2, noticia: 2, outro: 3, afiliado: 4, loja: 4, vazio: 5 },
+};
+const CLASSE_DO_NUCLEO = { 'lista de afiliado': 'afiliado', 'teste próprio': 'teste', comunidade: 'comunidade' };
+/** A classe da fonte (as da fase 1): loja e vazia primeiro, o tópico de comunidade marcado na busca, o Tev1 ou a regra. */
+function classeDaFonte(f) {
+  if (ehLoja(f.url) || f.tipoFonte === 'loja') return 'loja';
+  if (f.tipoFonte === 'vazio') return 'vazio';
+  if (f.comunidade) return 'comunidade';
+  if (f.tipoFonte) return f.tipoFonte;
+  return CLASSE_DO_NUCLEO[tipoDaPagina(f, { recomendacao: true }).tipo] || 'outro';
+}
+
+async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000, emit = () => {}, recomenda = false, perfil = recomenda ? 'produto' : null } = {}) {
   const itens = fontes.map((f) => ({ f, texto: f.trechos.length ? f.trechos.join('\n…\n') : f.resumo })).filter((x) => String(x.texto || '').trim());
   const todos = await ordenar(pergunta, itens, { embed });
   // em recomendação, ANTES do corte do tamanho (22/11, item 5): primeiro os tópicos que citam os produtos de "quem usa
   // cita" (no app, a lista trazia o Simgot EM6L das fontes [28] e [30], e o material ia só até a [20] — o escritor nunca
   // as viu e escolheu pelas listas), depois a comunidade, os testes, o resto; as listas de loja e afiliado por último
   const citadas = new Set((fontes.citadosNaComunidade || []).flatMap((c) => c.fontes));
+  // o perfil da pergunta (fase 2, perfilDaPergunta); sem perfil (a bancada antiga), a ordem da relevância
+  const pesos = PESOS_DO_PERFIL[perfil];
   const peso = (it) => {
-    if (!recomenda) return 0;
-    if (citadas.has(it.f.n)) return 0;
-    if (ehLoja(it.f.url) || it.f.tipoFonte === 'loja') return 4; // 23/11: anúncio de loja também só no fim (o texto de venda virava fato)
-    if (it.f.tipoFonte === 'vazio') return 5; // página sem conteúdo (índice, bloqueio): por último
-    const tipo = it.f.comunidade ? 'comunidade' : tipoDaFonte(it.f);
-    return { comunidade: 1, 'teste próprio': 2, 'lista de afiliado': 4 }[tipo] || 3;
+    if (!pesos) return 0;
+    if (perfil === 'produto' && citadas.has(it.f.n)) return 0;
+    return pesos[classeDaFonte(it.f)] ?? 3;
   };
   const filtradas = semFontesForaDoAssunto(pergunta, todos);
   const noAssunto = todos.filter((it) => filtradas.includes(it) || (recomenda && citadas.has(it.f.n)));
@@ -2635,8 +2670,10 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   const notas = (fontes.notas || []).join('\n\n').slice(-4000);
   etapa('pesquisa', inicioDaPesquisa);
   const inicioDoMaterial = Date.now();
-  let usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit, recomenda }) : [];
+  const perfil = perfilDaPergunta(pergunta, ent, recomenda);
+  let usadas = fontes.length ? await materialDaEscrita(ent.pergunta, fontes, { embed, emit, recomenda, perfil }) : [];
   if (recomenda) usadas = listasSoParaComprar(usadas);
+  if (process.env.DEPURAR_MATERIAL) console.error(`[perfil] ${perfil}`);
   if (process.env.DEPURAR_MATERIAL) console.error(`[material] ${usadas.map((f) => `[${f.n}]${f.lista ? 'L' : ''}${ehLoja(f.url) ? 'A' : ''} ${dominio(f.url)}`).join(' · ')} · citados ${JSON.stringify((fontes.citadosNaComunidade || []).map((c) => c.fontes))}`);
   // 13/11, régua: o que foi lido e o que foi para o escritor — o ponto que falta na resposta estava no material?
   emit('nucleo-material', { lido: fontes.map((f) => `${f.titulo || ''}\n${f.resumo || ''}\n${(f.trechos || []).join('\n')}`).join('\n\n'), aberto: fontes.map((f) => (f.trechos || []).join('\n')).join('\n\n'), tipos: fontes.filter((f) => f.trechos?.length && !f.video && !f.imagem).map((f) => ({ 'lista de afiliado': 'lista', comunidade: 'comunidade', 'teste próprio': 'teste' })[tipoDaFonte(f)] || (f.comunidade ? 'comunidade' : /referência da área/.test(f.qualidade || '') ? 'teste' : 'outro')), usado: usadas.map((f) => f.conteudo || '').join('\n\n') });
@@ -2846,4 +2883,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, avaliado, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { avaliaUmProduto, formatoDoVeredito, listasSoParaComprar, blocoDeFontes, mesmoModelo, pareceModelo, blocoDeFontes, buscaPeloLink, LEITURAS_DO_APP, separarCartoes, questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { perfilDaPergunta, classeDaFonte, PESOS_DO_PERFIL, avaliaUmProduto, formatoDoVeredito, listasSoParaComprar, blocoDeFontes, mesmoModelo, pareceModelo, blocoDeFontes, buscaPeloLink, LEITURAS_DO_APP, separarCartoes, questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
