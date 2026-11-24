@@ -69,3 +69,21 @@ module.exports.push({
     ];
   },
 });
+module.exports.push({
+  nome: 'régua da fase 4 (24/11): "táticas" é guia mesmo com "muda com o tempo"; "o que caracteriza… teoria" é estudo; as não lidas mais ligadas (o resumo vai para o escritor) também são classificadas',
+  tipo: 'unidade',
+  async executar() {
+    const tipos = require('../../src/agent/tipo-de-fonte');
+    tipos._limparMemoria();
+    const lida = { n: 1, url: 'https://ign.com/a', titulo: 'GTA 6', trechos: ['texto'] };
+    const naoLida = { n: 2, url: 'https://exame.com/b', titulo: 'IA', resumo: 'resumo da busca', trechos: [] };
+    const longe = { n: 3, url: 'https://x.com/c', titulo: 'outra', resumo: 'resumo', trechos: [] };
+    await tipos.classificarFontes([lida, naoLida, longe], { decidir: async () => ({ tipo: { choice: 'noticia', confidence: 0.9 } }), modelo: 'm', naoLidas: [naoLida] });
+    return [
+      nucleo.perfilDaPergunta('Quais as melhores táticas para vencer partidas de PUBG no PC?', { atual: true }) === 'guia' || 'táticas com "muda com o tempo"',
+      nucleo.perfilDaPergunta('O que caracteriza uma linguagem como decidível na teoria da computação?', {}) === 'estudo' || 'o que caracteriza',
+      nucleo.perfilDaPergunta('dicas sobre o vazamento do GTA 6', {}) === 'noticia' || 'dica sobre notícia continua notícia',
+      lida.tipoFonte === 'noticia' && naoLida.tipoFonte === 'noticia' && !longe.tipoFonte || JSON.stringify([lida.tipoFonte, naoLida.tipoFonte, longe.tipoFonte]),
+    ];
+  },
+});

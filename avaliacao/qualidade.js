@@ -71,11 +71,15 @@ const media = (l) => (l.length ? l.reduce((a, b) => a + b, 0) / l.length : 0);
 
 /* ------------------------------ juiz ------------------------------ */
 
-/** Checagens por código do gabarito (`checagens: [{ nome, ok(resposta) }]`): o que dá para conferir sem juiz. */
-function rodarChecagens(pergunta, resposta) {
+/**
+ * Checagens por código do gabarito (`checagens: [{ nome, ok(resposta, contexto) }]`): o que dá para conferir sem juiz.
+ * `contexto` (24/11, fase 4): { tiposLidos, tiposUsados, perfil } — os tipos de fonte (os da fase 1) das páginas abertas e
+ * do material que foi para o escritor, para conferir se a fonte certa foi usada (qualidade/perguntas.js, fontesCertas).
+ */
+function rodarChecagens(pergunta, resposta, contexto = {}) {
   return (pergunta.checagens || []).map((c) => {
     try {
-      return c.ok(String(resposta || '')) === true;
+      return c.ok(String(resposta || ''), contexto) === true;
     } catch {
       return false;
     }
@@ -113,7 +117,7 @@ function lerVeredito(texto, pergunta) {
   return { fatos: fatos.slice(0, nFatos), criterios: criterios.slice(0, nCriterios) };
 }
 
-async function julgar({ juiz, pergunta, resposta }) {
+async function julgar({ juiz, pergunta, resposta, contexto = {} }) {
   const fatos = pergunta.fatos || [];
   const criterios = pergunta.criterios || [];
   const sistema =
@@ -158,7 +162,7 @@ async function julgar({ juiz, pergunta, resposta }) {
         numPredict: 800,
         pensar: false,
       });
-      const veredito = { ...lerVeredito(r.content, pergunta), checagens: rodarChecagens(pergunta, resposta) };
+      const veredito = { ...lerVeredito(r.content, pergunta), checagens: rodarChecagens(pergunta, resposta, contexto) };
       return { ...veredito, nota: notaDe(pergunta, veredito) };
     } catch (err) {
       ultimoErro = err;
@@ -254,13 +258,16 @@ function versaoDoCodigo() {
 function contarTipos(execucoes) {
   const listas = execucoes.map((e) => e.tiposDasFontes).filter(Array.isArray);
   if (!listas.length) return null;
-  const c = { lista: 0, comunidade: 0, teste: 0, outro: 0 };
-  for (const t of listas.flat()) c[t] = (c[t] || 0) + 1;
+  const c = {};
+  // 'lista' é o nome antigo (antes de 24/11) de 'afiliado'
+  for (const t of listas.flat()) c[t === 'lista' ? 'afiliado' : t] = (c[t === 'lista' ? 'afiliado' : t] || 0) + 1;
   return c;
 }
+// os 8 tipos da fase 1 (src/agent/tipo-de-fonte.js), na ordem do mais útil ao menos; os de 0% não aparecem
+const NOME_DO_TIPO = { teste: 'teste', comunidade: 'quem usa', referencia: 'oficial', noticia: 'notícia', outro: 'outro', afiliado: 'afiliado/SEO', loja: 'loja', vazio: 'vazia' };
 const textoDosTipos = (c) => {
   const total = Object.values(c).reduce((a, b) => a + b, 0) || 1;
-  return ['lista', 'comunidade', 'teste', 'outro'].map((k) => `${Math.round((c[k] / total) * 100)}% ${k === 'lista' ? 'listas de afiliado' : k}`).join(' · ') + ` (${total})`;
+  return Object.keys(NOME_DO_TIPO).filter((k) => c[k]).map((k) => `${Math.round((c[k] / total) * 100)}% ${NOME_DO_TIPO[k]}`).join(' · ') + ` (${total})`;
 };
 
 // média das frações de gabarito que existem (null se nenhuma)
@@ -307,6 +314,9 @@ async function responder(pergunta, { cfg, modelo }) {
       noMaterial: obtido.material ? { lido: cobertura(pergunta.id, obtido.material.lido), aberto: obtido.material.aberto != null ? cobertura(pergunta.id, obtido.material.aberto) : null, usado: cobertura(pergunta.id, obtido.material.usado) } : null,
       // 14/11: de que tipo são as páginas abertas (lista de afiliado, comunidade, teste próprio, outro)
       tiposDasFontes: obtido.material?.tipos || null,
+      // 24/11 (fase 4): o tipo das fontes que foram para o escritor, e o perfil da pergunta
+      tiposUsados: obtido.material?.tiposUsados || null,
+      perfil: obtido.material?.perfil || null,
     };
   } catch (err) {
     return { resposta: '', seg: Math.round((Date.now() - inicio) / 1000), passos: 0, tokens: 0, busca: { provedores: [], ok: 0, semProvedor: 0, semLeitura: 0 }, fontes: 0, erro: err.message };
@@ -400,7 +410,7 @@ async function principal() {
     for (const r of respostas[i]) {
       const v = r.erro || !r.resposta.trim()
         ? { fatos: [], criterios: [], checagens: [], nota: 0, erro: r.erro || 'resposta vazia' }
-        : await julgar({ juiz, pergunta: p, resposta: r.resposta });
+        : await julgar({ juiz, pergunta: p, resposta: r.resposta, contexto: { tiposLidos: r.tiposDasFontes || [], tiposUsados: r.tiposUsados || [], perfil: r.perfil || null } });
       execucoes.push({ ...r, nota: v.nota, veredito: { fatos: v.fatos, criterios: v.criterios, checagens: v.checagens || [] }, erroDoJuiz: v.erro || null, cobertura: cobertura(p.id, r.resposta) });
     }
     // gabarito (12/11): a fração dos pontos que a resposta cobre — média e pior das rodadas
@@ -443,6 +453,10 @@ async function principal() {
     const tipos = contarTipos(execucoes);
     noMat.tiposDasFontes = tipos;
     if (tipos) console.log(cinza(`          páginas abertas: ${textoDosTipos(tipos)}`));
+    // 24/11 (fase 4): o tipo do que foi para o escritor, e o perfil que a pergunta recebeu
+    const usados = contarTipos(execucoes.map((e) => ({ tiposDasFontes: e.tiposUsados })));
+    noMat.tiposUsados = usados;
+    if (usados) console.log(cinza(`          no escritor (${[...new Set(execucoes.map((e) => e.perfil).filter(Boolean))].join('/') || 'sem perfil'}): ${textoDosTipos(usados)}`));
     if (noMat.coberturaLido != null) console.log(cinza(`          no material: ${Math.round(noMat.coberturaLido * 100)}% do gabarito no que foi lido (${Math.round((noMat.coberturaAberto ?? 0) * 100)}% nas páginas abertas, o resto só no resumo da busca) · ${Math.round(noMat.coberturaUsado * 100)}% no que foi para o escritor · ${Math.round((noMat.cobertura || 0) * 100)}% na resposta`));
     if (pior.erroDoJuiz) console.log(cinza(`          ${pior.erroDoJuiz}`));
     for (const x of contradisse) console.log(vermelho(`          contradiz: ${x}`));

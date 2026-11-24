@@ -360,6 +360,7 @@ module.exports = [
       { nome: 'pelo menos quatro itens em lista', ok: (r) => (r.match(/^\s*(?:[-*]|\d+\.)\s+\S/gm) || []).length >= 4 },
       { nome: 'cita ao menos uma fonte (link ou comunidade)', ok: (r) => /https?:\/\/|— r\/\w+/.test(r) },
       { nome: 'nenhum produto à venda no meio das dicas', ok: (r) => !/R\$\s?\d|\*\*Faixa de preço/.test(r) },
+      ...fontesCertas({ boas: ['referencia', 'comunidade', 'teste'], nomeBoas: 'guia oficial, quem joga ou quem testou' }),
     ],
   },
 
@@ -378,6 +379,7 @@ module.exports = [
     ],
     checagens: [
       { nome: 'pelo menos seis itens em lista ou seções', ok: (r) => (r.match(/^\s*(?:[-*]|\d+\.)\s+\S|^#{2,4}\s+\S/gm) || []).length >= 6 },
+      ...fontesCertas({ boas: ['referencia', 'comunidade', 'teste'], nomeBoas: 'documentação oficial, fórum ou teste' }),
       {
         nome: 'pelo menos cinco das dicas principais',
         ok: (r) => [/modo de jogo|game mode/i, /plano de energia|desempenho m[aá]ximo|alto desempenho/i, /driver/i, /agendamento (de )?gpu|hags/i, /segundo plano|inicializa[cç][aã]o/i, /\bvbs\b|integridade de mem[oó]ria/i, /efeitos visuais/i, /game bar/i].filter((re) => re.test(r)).length >= 5,
@@ -912,8 +914,37 @@ module.exports = [
       'cada fato tem a fonte citada; o que mais de um veículo noticia aparece com mais de uma fonte',
       'quando as fontes discordam (números, placar, versões), mostra as versões ou fica com a mais recente dizendo isso',
     ],
-    checagens: checagensDaResposta(),
+    checagens: [...checagensDaResposta(), ...fontesCertas({ boas: ['noticia', 'referencia'], nomeBoas: 'notícia ou fonte oficial' })],
   })),
+  {
+    // 24/11 (fase 4): notícia em andamento, de uso real (23/11) — o material misturava IGN e VideoCardz com a Binance
+    id: 'gta6-vazamento',
+    tipo: 'fato',
+    pedido: 'Como está a situação do vazamento do executável do GTA 6 que o Cyberleek fez?',
+    criterios: [
+      'resume a situação de agora do vazamento, com as datas',
+      'separa o que foi confirmado (pela Rockstar ou por veículos) do que é alegação do grupo ou rumor',
+      'diz de onde vem cada informação (veículo de notícia, a Rockstar, redes sociais)',
+    ],
+    checagens: [
+      { nome: 'traz data', ok: (r) => /\b\d{1,2}\/\d{1,2}\b|\b\d{1,2} de (janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/i.test(r) },
+      ...fontesCertas({ boas: ['noticia', 'referencia'], nomeBoas: 'notícia ou fonte oficial' }),
+      ...checagensDaResposta(),
+    ],
+  },
+  {
+    // 24/11 (fase 4): questão de estudo, de uso real (23/11) — o material trouxe Prezi, Brainly e uma página bloqueada
+    id: 'decidivel',
+    tipo: 'explicacao',
+    pedido: 'O que caracteriza uma linguagem como decidível na teoria da computação? E qual a diferença para uma linguagem reconhecível?',
+    fatos: [
+      'uma linguagem é decidível quando existe uma máquina de Turing que sempre para, aceitando ou rejeitando, para qualquer entrada',
+      'uma linguagem reconhecível (Turing-reconhecível, recursivamente enumerável) tem uma máquina que aceita as palavras dela, mas pode não parar nas que não são',
+      'toda linguagem decidível é reconhecível, mas nem toda reconhecível é decidível (ex.: o problema da parada)',
+    ],
+    criterios: ['explica com as próprias palavras, sem só listar definições', 'dá um exemplo de linguagem decidível e um de reconhecível que não é decidível'],
+    checagens: [...fontesCertas({ boas: ['referencia', 'teste', 'comunidade'], nomeBoas: 'referência (acadêmica, enciclopédia) ou fórum técnico' }), ...checagensDaResposta()],
+  },
   {
     // 15/11 (Davi): virou "conversa" — 4 frases e uma pergunta de volta; o Qwen sozinho no Ollama deu a comparação inteira
     id: 'impressora-3d',
@@ -1043,6 +1074,19 @@ module.exports = [
  * o núcleo novo escreve livre): título "### 1. Nome"/"#### 1. Nome", lista
  * "1. **Nome**" ou linha de tabela "| 1 | **Nome** |". Sem repetição.
  */
+/*
+ * A fonte certa (24/11, fase 4 do sistema global): o tipo do que foi para o escritor (os da fase 1, src/agent/tipo-de-fonte.js)
+ * — "pelo menos metade do material é notícia ou fonte oficial", "no máximo 20% é afiliado, loja ou página vazia". Sem
+ * material (a resposta saiu de cabeça, o que o AuGPT faz de propósito em explicação estável), não se aplica: passa.
+ */
+const fracaoDosTipos = (tipos, quais) => (tipos?.length ? tipos.filter((t) => quais.includes(t)).length / tipos.length : null);
+function fontesCertas({ boas, nomeBoas, minimo = 0.5, ruins = ['afiliado', 'loja', 'vazio'], maximo = 0.2 }) {
+  return [
+    { nome: `pelo menos ${Math.round(minimo * 100)}% do material é ${nomeBoas}`, ok: (_, c = {}) => (fracaoDosTipos(c.tiposUsados, boas) ?? 1) >= minimo },
+    { nome: `no máximo ${Math.round(maximo * 100)}% do material é afiliado/SEO, loja ou página vazia`, ok: (_, c = {}) => (fracaoDosTipos(c.tiposUsados, ruins) ?? 0) <= maximo },
+  ];
+}
+
 /** Os defeitos de formato achados nas conversas de 2/11 (a conferência pelo código), em qualquer resposta. */
 function checagensDaResposta() {
   return [

@@ -1306,7 +1306,9 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
   // o tipo de cada fonte lida (24/11, fase 1): Tev1, com as regras de reserva — antes da lista da comunidade e da escrita
   if (!signal?.aborted) {
     const t0 = Date.now();
-    const tipos = await classificarFontes(fontes, { decidir: deps.decidir, modelo: deps.modeloTipoDeFonte, signal });
+    // e as não lidas mais ligadas à pergunta (o resumo da busca delas também vai para o escritor): até 8
+    const naoLidas = (await ordenar(pergunta, fontes.filter((f) => !f.trechos?.length && f.resumo && !f.imagem).map((f) => ({ f, texto: `${f.titulo || ''} ${f.resumo}` })), { embed, maximo: 8 }).catch(() => [])).map((x) => x.f);
+    const tipos = await classificarFontes(fontes, { decidir: deps.decidir, modelo: deps.modeloTipoDeFonte, signal, naoLidas });
     fontes.tempoDosTipos = Date.now() - t0;
     if (tipos.classificadas) emit('aviso', { texto: `tipo das fontes (${tipos.pelo ? `Tev1 em ${tipos.pelo} de ${tipos.classificadas}` : 'pelas regras'}, ${(fontes.tempoDosTipos / 1000).toFixed(1)} s): ${Object.entries(tipos.contagem).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${v} ${k}`).join(' · ')}` });
     if (process.env.DEPURAR_MATERIAL) console.error(`[tipos] ${fontes.filter((f) => f.tipoFonte).map((f) => `[${f.n}] ${dominio(f.url)}=${f.tipoFonte}${f.confTipo ? `(${f.confTipo.toFixed(2)})` : `/${f.tipoPor}`}`).join(' · ')}`);
@@ -1812,9 +1814,10 @@ function perfilDaPergunta(pergunta, ent = {}, recomenda = false) {
   if (recomenda) return 'produto';
   const t = String(pergunta || '');
   if (QUESTAO_DE_PROVA(t)) return 'estudo';
+  // pedido de dica ou tática é guia, mesmo que o entendimento marque "muda com o tempo" (24/11, régua: "táticas de PUBG" saía notícia)
+  if (PEDE_GUIA.test(t) && !PISTA_DE_NOTICIA.test(t)) return 'guia';
   if (ent?.atual || PISTA_DE_ATUAL.test(t) || PISTA_DE_NOTICIA.test(t)) return 'noticia';
-  if (PEDE_GUIA.test(t)) return 'guia';
-  if (ent?.explicacao || EXPLICACAO.test(t.trim()) || /^\s*(quem (foi|era|é|e)|o que foi|quando (foi|aconteceu|come[cç]ou))\b/i.test(t)) return 'estudo';
+  if (ent?.explicacao || EXPLICACAO.test(t.trim()) || /^\s*(quem (foi|era|é|e)|o que foi|quando (foi|aconteceu|come[cç]ou))\b/i.test(t) || /(?<![a-zà-ú])(o que caracteriza|diferen[cç]a entre|defini[cç][aã]o|conceito|teoria d[aeo]s?|teorema)(?![a-zà-ú])/i.test(t)) return 'estudo';
   return 'geral';
 }
 const PESOS_DO_PERFIL = {
@@ -2683,7 +2686,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   if (process.env.DEPURAR_MATERIAL) console.error(`[perfil] ${perfil}`);
   if (process.env.DEPURAR_MATERIAL) console.error(`[material] ${usadas.map((f) => `[${f.n}]${f.lista ? 'L' : ''}${ehLoja(f.url) ? 'A' : ''} ${dominio(f.url)}`).join(' · ')} · citados ${JSON.stringify((fontes.citadosNaComunidade || []).map((c) => c.fontes))}`);
   // 13/11, régua: o que foi lido e o que foi para o escritor — o ponto que falta na resposta estava no material?
-  emit('nucleo-material', { lido: fontes.map((f) => `${f.titulo || ''}\n${f.resumo || ''}\n${(f.trechos || []).join('\n')}`).join('\n\n'), aberto: fontes.map((f) => (f.trechos || []).join('\n')).join('\n\n'), tipos: fontes.filter((f) => f.trechos?.length && !f.video && !f.imagem).map((f) => ({ 'lista de afiliado': 'lista', comunidade: 'comunidade', 'teste próprio': 'teste' })[tipoDaFonte(f)] || (f.comunidade ? 'comunidade' : /referência da área/.test(f.qualidade || '') ? 'teste' : 'outro')), usado: usadas.map((f) => f.conteudo || '').join('\n\n') });
+  emit('nucleo-material', { lido: fontes.map((f) => `${f.titulo || ''}\n${f.resumo || ''}\n${(f.trechos || []).join('\n')}`).join('\n\n'), aberto: fontes.map((f) => (f.trechos || []).join('\n')).join('\n\n'), tipos: fontes.filter((f) => f.trechos?.length && !f.video && !f.imagem).map(classeDaFonte), tiposUsados: usadas.filter((f) => !f.video && !f.imagem).map(classeDaFonte), perfil, usado: usadas.map((f) => f.conteudo || '').join('\n\n') });
   etapa('material', inicioDoMaterial);
   if (deps.notasPorPagina === true && usadas.length && !ent.produto && !ent.conversa && !ehAnaliseDePreco(pergunta) && !pedeGrafico(pergunta) && !pedeVisual(pergunta)) {
     const inicioDasNotas = Date.now();

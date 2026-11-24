@@ -94,9 +94,12 @@ const CONFIANCA_MINIMA = 0.4;
  * (null pela regra) e `tipoPor` ('tev1' | 'regra' | 'site' | 'loja' | 'tabela'). `decidir` é o ollama.decidir do app; sem ele ou
  * sem `modelo`, ficam as regras. Nunca segura a pesquisa: erro ou demora vira regra. Devolve o resumo para o aviso.
  */
-async function classificarFontes(fontes, { decidir, modelo, paralelo = 4, timeoutMs = 5000, signal } = {}) {
+async function classificarFontes(fontes, { decidir, modelo, paralelo = 4, timeoutMs = 5000, signal, naoLidas = [] } = {}) {
   // só as LIDAS (24/11, no app: com os resultados de busca não lidos eram 35 a 46 por pergunta e 6 a 10 s)
-  const alvos = (fontes || []).filter((f) => f && f.url && !f.tipoFonte && !f.imagem && f.trechos?.length);
+  // as LIDAS (24/11, no app: com todos os resultados de busca eram 35 a 46 por pergunta e 6 a 10 s) e, pelo resumo da busca,
+  // as não lidas que podem ir para o escritor (`naoLidas`, as mais ligadas à pergunta — a régua da fase 4 mostrou 57–88% do
+  // material sem tipo: o escritor também recebe o resumo das que não foram abertas)
+  const alvos = [...new Set([...(fontes || []).filter((f) => f && f.trechos?.length), ...naoLidas])].filter((f) => f && f.url && !f.tipoFonte && !f.imagem && (f.trechos?.length || f.resumo));
   let usarTev1 = typeof decidir === 'function' && Boolean(modelo);
   let falhas = 0;
   const um = async (f) => {
