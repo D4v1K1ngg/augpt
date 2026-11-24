@@ -54,3 +54,18 @@ module.exports = [
     },
   },
 ];
+module.exports.push({
+  nome: 'tipo da fonte para o escritor (fase 3): o <fonte> classificado leva tipo= ("teste", "quem usa", "oficial", "notícia", "loja", "afiliado"), o não classificado não leva, e a regra diz como atribuir cada um (promessa de loja ou afiliado não vira fato)',
+  tipo: 'unidade',
+  executar() {
+    const f = (n, url, tipoFonte) => ({ n, url, titulo: `p${n}`, tipoFonte, conteudo: 'x' });
+    const bloco = nucleo.blocoDeFontes([f(1, 'https://www.rtings.com/a', 'teste'), f(2, 'https://www.reddit.com/r/x', 'comunidade'), f(3, 'https://support.microsoft.com/a', 'referencia'), f(4, 'https://www.amazon.com.br/x', 'teste'), f(5, 'https://seo.com.br/a', 'afiliado'), { n: 6, url: 'https://x.com/y', titulo: 'p6', conteudo: 'x' }]);
+    const tipo = (n) => new RegExp(`<fonte n="${n}" tipo="([^"]+)"`).exec(bloco)?.[1] || null;
+    return [
+      tipo(1) === 'teste' && tipo(2) === 'quem usa' && tipo(3) === 'oficial' && tipo(5) === 'afiliado' || bloco.slice(0, 400),
+      tipo(4) === 'loja' || 'a loja da lista vale mais que o Tev1',
+      tipo(6) === null || 'sem classificação, sem tipo',
+      /"usuários relatam"/.test(nucleo.REGRA_DE_TIPO) && /promessa de venda, não fato/.test(nucleo.REGRA_DE_TIPO) && /Não repita o tipo em toda frase/.test(nucleo.REGRA_DE_TIPO) || 'a regra',
+    ];
+  },
+});
