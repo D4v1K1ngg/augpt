@@ -2653,7 +2653,9 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
         lidoPelasFerramentas = `O AuGPT consultou agora (dados reais, de agora; só leitura, nada foi mudado):\n${resto.slice(0, 3500)}`;
         // pergunta direta sobre o dado ("vai chover amanhã?", "quanto espaço tenho?"): os dados respondem, sem web
         // ("como está o bitcoin hoje?" é leitura, não pergunta aberta — 19/11: pesquisou junto, 32 s, e o preço sumiu)
-        if (!PERGUNTA_ABERTA.test(String(pergunta || '')) || COMO_ESTA.test(String(pergunta || ''))) Object.assign(ent, { precisaBuscar: false, conversa: false, explicacao: false });
+        // 24/11 (régua: "Quais as melhores táticas para vencer partidas de PUBG no PC?" leu o PC e a internet do Davi e
+        // respondeu sem a web — "táticas" não era "pergunta aberta"): guia e produto continuam pesquisando com os dados juntos
+        if ((!PERGUNTA_ABERTA.test(String(pergunta || '')) && !PEDE_GUIA.test(String(pergunta || '')) && !ent.produto) || COMO_ESTA.test(String(pergunta || ''))) Object.assign(ent, { precisaBuscar: false, conversa: false, explicacao: false });
       }
     } else {
       const feita = await deps.executarAcao(ent.acao, { pergunta, ent });
