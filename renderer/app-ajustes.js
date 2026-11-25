@@ -70,6 +70,7 @@ function preencherConfig() {
   $('cfgRenderJs').checked = config.renderizarJs !== false;
   $('cfgDestilarComModelo').checked = config.destilarComModelo === true;
   $('cfgConferirAfirmacoes').checked = config.conferirAfirmacoes !== false;
+  $('cfgTipoDeFonte').value = config.modeloTipoDeFonte ?? 'principal';
   // Padrão desligado desde a Fase 1 de segurança — só marcado com opt-in explícito.
   $('cfgLeitorExterno').checked = config.permitirLeitorExterno === true;
   $('cfgRedeLocal').checked = config.permitirRedeLocal === true;
@@ -132,6 +133,7 @@ async function salvarAjustes() {
     renderizarJs: $('cfgRenderJs').checked,
     destilarComModelo: $('cfgDestilarComModelo').checked,
     conferirAfirmacoes: $('cfgConferirAfirmacoes').checked,
+    modeloTipoDeFonte: $('cfgTipoDeFonte').value,
     permitirLeitorExterno: $('cfgLeitorExterno').checked,
     permitirRedeLocal: $('cfgRedeLocal').checked,
     navegacaoInterativa: $('cfgNavegacao').checked,

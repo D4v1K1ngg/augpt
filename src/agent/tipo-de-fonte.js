@@ -101,13 +101,36 @@ const CONFIANCA_MINIMA = 0.4;
  */
 const NA_CPU = { paralelo: 1, timeoutMs: 3000, maxTev1: 6 };
 
-async function classificarFontes(fontes, { decidir, modelo, naCpu = false, paralelo = naCpu ? NA_CPU.paralelo : 4, timeoutMs = naCpu ? NA_CPU.timeoutMs : 5000, maxTev1 = naCpu ? NA_CPU.maxTev1 : Infinity, signal, naoLidas = [] } = {}) {
+/*
+ * O modelo principal julgando as fontes (25/11, Davi: "deixe o tev1 4B desativado por padrão deixando o modelo principal
+ * fazer isso"). Medido nas mesmas 164 páginas marcadas à mão: o Qwen 3.5 9B, uma página por chamada, 140/164 (85%) — o
+ * Tev1 4B, 137 (84%); 12 páginas numa chamada só caía para 126 (77%). 0,23 s por página, uma de cada vez (o Ollama atende o
+ * mesmo modelo em fila): até 16 páginas, ~4 s. Nenhum modelo a mais na placa.
+ */
+const PELO_PRINCIPAL = { paralelo: 1, timeoutMs: 6000, maxTev1: 16 };
+const DEFINICOES = Object.entries(PERGUNTA.tipo.criteria).map(([k, v]) => `- ${k}: ${v}`).join('\n');
+function pedidoAoPrincipal(estado) {
+  return `The item is a web page that a research assistant opened (site, title and the start of the text). What kind of source is it? Classes:\n${DEFINICOES}\n\n${estado}\n\nAnswer only with JSON: {"tipo": "<class>"} using exactly one of: ${CLASSES.join(', ')}.`;
+}
+const RE_CLASSE = new RegExp(`\\b(${CLASSES.join('|')})\\b`);
+function classeDaResposta(texto) {
+  const t = String(texto || '');
+  try {
+    return String(JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)).tipo || '').trim().toLowerCase();
+  } catch {
+    return (t.toLowerCase().match(RE_CLASSE) || [])[1] || '';
+  }
+}
+
+async function classificarFontes(fontes, { decidir, modelo, perguntar, naCpu = false, paralelo = perguntar ? PELO_PRINCIPAL.paralelo : naCpu ? NA_CPU.paralelo : 4, timeoutMs = perguntar ? PELO_PRINCIPAL.timeoutMs : naCpu ? NA_CPU.timeoutMs : 5000, maxTev1 = perguntar ? PELO_PRINCIPAL.maxTev1 : naCpu ? NA_CPU.maxTev1 : Infinity, signal, naoLidas = [] } = {}) {
   // só as LIDAS (24/11, no app: com os resultados de busca não lidos eram 35 a 46 por pergunta e 6 a 10 s)
   // as LIDAS (24/11, no app: com todos os resultados de busca eram 35 a 46 por pergunta e 6 a 10 s) e, pelo resumo da busca,
   // as não lidas que podem ir para o escritor (`naoLidas`, as mais ligadas à pergunta — a régua da fase 4 mostrou 57–88% do
   // material sem tipo: o escritor também recebe o resumo das que não foram abertas)
   const alvos = [...new Set([...(fontes || []).filter((f) => f && f.trechos?.length), ...naoLidas])].filter((f) => f && f.url && !f.tipoFonte && !f.imagem && (f.trechos?.length || f.resumo));
-  let usarTev1 = typeof decidir === 'function' && Boolean(modelo);
+  // `perguntar(prompt, { timeoutMs }) → texto`: o modelo principal no lugar do Tev1
+  let usarTev1 = typeof perguntar === 'function' || (typeof decidir === 'function' && Boolean(modelo));
+  const quem = typeof perguntar === 'function' ? 'principal' : 'tev1';
   let falhas = 0;
   let perguntas = 0;
   const um = async (f) => {
@@ -122,12 +145,15 @@ async function classificarFontes(fontes, { decidir, modelo, naCpu = false, paral
       perguntas += 1;
       const texto = String(f.trechos?.length ? f.trechos.join(' ') : f.resumo || '').replace(/\s+/g, ' ').slice(0, 500);
       try {
-        const a = await decidir({ model: modelo, state: `Site: ${site}\nTitle: ${String(f.titulo || '').slice(0, 160)}\nStart of the text: ${texto}`, questions: PERGUNTA, timeout: timeoutMs, signal });
+        const estado = `Site: ${site}\nTitle: ${String(f.titulo || '').slice(0, 160)}\nStart of the text: ${texto}`;
+        const a = quem === 'principal'
+          ? { tipo: { choice: classeDaResposta(await perguntar(pedidoAoPrincipal(estado), { timeoutMs })), confidence: null } }
+          : await decidir({ model: modelo, state: estado, questions: PERGUNTA, timeout: timeoutMs, signal });
         const classe = a?.tipo?.choice;
         const conf = typeof a?.tipo?.confidence === 'number' ? a.tipo.confidence : null;
         if (CLASSES.includes(classe) && (conf === null || conf >= CONFIANCA_MINIMA)) {
           lembrar(site, classe);
-          return Object.assign(f, { tipoFonte: classe, confTipo: conf, tipoPor: 'tev1' });
+          return Object.assign(f, { tipoFonte: classe, confTipo: conf, tipoPor: quem });
         }
       } catch {
         // o Tev1 caiu ou não está instalado: depois de 2 falhas, a pesquisa inteira fica com as regras
@@ -140,10 +166,10 @@ async function classificarFontes(fontes, { decidir, modelo, naCpu = false, paral
   for (let i = 0; i < alvos.length; i += paralelo) await Promise.all(alvos.slice(i, i + paralelo).map(um));
   const contagem = {};
   for (const f of alvos) contagem[f.tipoFonte] = (contagem[f.tipoFonte] || 0) + 1;
-  return { classificadas: alvos.length, pelo: alvos.filter((f) => f.tipoPor === 'tev1').length, contagem };
+  return { classificadas: alvos.length, pelo: alvos.filter((f) => f.tipoPor === quem).length, quem, contagem };
 }
 
 /** Para a bancada. */
 const _limparMemoria = () => porSite.clear();
 
-module.exports = { classificarFontes, pelasRegras, CLASSES, PERGUNTA, _limparMemoria };
+module.exports = { classificarFontes, pelasRegras, pedidoAoPrincipal, classeDaResposta, CLASSES, PERGUNTA, _limparMemoria };

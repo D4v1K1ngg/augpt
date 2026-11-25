@@ -1312,9 +1312,9 @@ Continue a pesquisa com as ferramentas, ou chame pronto.` });
     const t0 = Date.now();
     // e as não lidas mais ligadas à pergunta (o resumo da busca delas também vai para o escritor): até 8
     const naoLidas = (await ordenar(pergunta, fontes.filter((f) => !f.trechos?.length && f.resumo && !f.imagem).map((f) => ({ f, texto: `${f.titulo || ''} ${f.resumo}` })), { embed, maximo: 8 }).catch(() => [])).map((x) => x.f);
-    const tipos = await classificarFontes(fontes, { decidir: deps.decidir, modelo: deps.modeloTipoDeFonte, naCpu: deps.tipoDeFonteNaCpu === true, signal, naoLidas });
+    const tipos = await classificarFontes(fontes, { decidir: deps.decidir, modelo: deps.modeloTipoDeFonte, perguntar: typeof deps.julgarFonte === 'function' ? deps.julgarFonte : undefined, naCpu: deps.tipoDeFonteNaCpu === true, signal, naoLidas });
     fontes.tempoDosTipos = Date.now() - t0;
-    if (tipos.classificadas) emit('aviso', { texto: `tipo das fontes (${tipos.pelo ? `Tev1 em ${tipos.pelo} de ${tipos.classificadas}` : 'pelas regras'}, ${(fontes.tempoDosTipos / 1000).toFixed(1)} s): ${Object.entries(tipos.contagem).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${v} ${k}`).join(' · ')}` });
+    if (tipos.classificadas) emit('aviso', { texto: `tipo das fontes (${tipos.pelo ? `${tipos.quem === 'principal' ? 'modelo principal' : 'Tev1'} em ${tipos.pelo} de ${tipos.classificadas}` : 'pelas regras'}, ${(fontes.tempoDosTipos / 1000).toFixed(1)} s): ${Object.entries(tipos.contagem).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${v} ${k}`).join(' · ')}` });
     if (process.env.DEPURAR_MATERIAL) console.error(`[tipos] ${fontes.filter((f) => f.tipoFonte).map((f) => `[${f.n}] ${dominio(f.url)}=${f.tipoFonte}${f.confTipo ? `(${f.confTipo.toFixed(2)})` : `/${f.tipoPor}`}`).join(' · ')}`);
   }
   // a lista principal (16/11): os produtos citados em TODOS os tópicos de comunidade lidos (não só nos dos critérios),

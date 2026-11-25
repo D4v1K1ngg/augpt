@@ -84,9 +84,10 @@ const DEFAULTS = {
   // de cima só entra quando este não tem confiança. Vazio = só o de cima.
   // Sugestão: "tev1-0.8b-cpu" (FROM tev1:0.8b + PARAMETER num_gpu 0).
   modeloDecisorRapido: '',
-  // o tipo de cada fonte lida na pesquisa (24/11, src/agent/tipo-de-fonte.js): 'auto' = o Tev1 da placa, o mesmo do
-  // roteador (src/agent/tev1-da-placa.js: 4B com 14 GB ou mais, 0.8B com 7,5 GB, regras abaixo); um nome fixa; '' = regras
-  modeloTipoDeFonte: 'auto',
+  // quem julga o tipo de cada fonte lida (24/11, src/agent/tipo-de-fonte.js; Ajustes → Pesquisa): 'principal' (o padrão desde
+  // 25/11: o modelo principal, 85% nas 164 páginas marcadas, sem modelo a mais na placa); 'auto' = o Tev1 que couber na placa
+  // (src/agent/tev1-da-placa.js); um nome fixa o modelo ('tev1:latest' = o 4B, 84%); '' = as regras (48%)
+  modeloTipoDeFonte: 'principal',
   // AUTO: quanto esperar pelo decisor antes de escolher o nível, quando a
   // regra não tem opinião ('livre'). O decisor roda em paralelo desde o início.
   autoEsperaDecisorMs: 1500,
@@ -486,6 +487,7 @@ class Config {
       if (salvo.modoAvancado === undefined && salvo.boasVindasConcluida === true) this.data.modoAvancado = true;
       // a conferência das afirmações virou padrão (25/11): o false gravado é o padrão antigo (os Ajustes gravam toda caixa)
       // — liga uma vez; se o usuário desligar depois, a marca fica e o desligado vale
+      if (salvo.tipoDeFonteRevisto !== true) Object.assign(this.data, { tipoDeFonteRevisto: true, ...(salvo.modeloTipoDeFonte === undefined || salvo.modeloTipoDeFonte === 'auto' ? { modeloTipoDeFonte: 'principal' } : {}) });
       if (salvo.conferirAfirmacoesRevista !== true) Object.assign(this.data, { conferirAfirmacoes: true, conferirAfirmacoesRevista: true });
       if (!('nivelRaciocinio' in salvo)) {
         const inverso = { normal: 'leve', media: 'medio', alta: 'alto' };

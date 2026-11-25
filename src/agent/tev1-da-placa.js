@@ -23,7 +23,8 @@
  * o principal, se ele ainda não foi carregado (1ª pergunta). Sem nvidia-smi (AMD, Intel), a conta é pelo /api/ps: o total menos os modelos
  * carregados.
  *
- * Os Ajustes mandam: "modeloTipoDeFonte" com um nome fixa o modelo; "" desliga; "auto" (o padrão) é esta escolha. O
+ * Os Ajustes mandam (Ajustes → Pesquisa → "Quem julga as fontes"): "principal" (o padrão desde 25/11) — o modelo principal
+ * julga as fontes e o Tev1 pequeno fica só no roteador; "auto" é a escolha acima; um nome fixa o modelo; "" são as regras. O
  * roteador só é trocado quando os Ajustes usam um Tev1 nele (quem escolheu outro decisor continua com o seu).
  */
 
@@ -91,8 +92,8 @@ let criando = null;
  * Devolve { tipos: nome | '', roteador: { modeloDecisor, modeloDecisorRapido } | null (fica como está), naCpu }.
  */
 async function tev1DaPlaca({ config = {}, listar, carregados, criarCpu, principal, principalNoLlamaCpp = false, vramGB, livreNaPlaca } = {}) {
-  const pedido = config.modeloTipoDeFonte === undefined || config.modeloTipoDeFonte === null ? 'auto' : String(config.modeloTipoDeFonte).trim();
-  if (pedido !== 'auto') return { tipos: principalNoLlamaCpp ? '' : pedido, roteador: null, naCpu: /cpu/i.test(pedido) };
+  const pedido = config.modeloTipoDeFonte === undefined || config.modeloTipoDeFonte === null ? 'principal' : String(config.modeloTipoDeFonte).trim();
+  if (pedido !== 'auto' && pedido !== 'principal') return { tipos: principalNoLlamaCpp ? '' : pedido, roteador: null, naCpu: /cpu/i.test(pedido), principal: false };
   const lista = typeof listar === 'function' ? await listar().catch(() => []) : [];
   const instalados = lista.map((m) => (typeof m === 'string' ? m : m.name));
   const vram = vramGB ?? (await vramDaPlaca());
@@ -100,13 +101,18 @@ async function tev1DaPlaca({ config = {}, listar, carregados, criarCpu, principa
   const doPrincipal = lista.find((m) => typeof m === 'object' && m.name === principal);
   const livre = principalNoLlamaCpp ? undefined : livreParaOTev1({ vramGB: vram, livreNaPlaca: livreNaPlaca ?? (await memoriaLivreDaPlaca().catch(() => null)), carregados: ps, principal: doPrincipal ? { nome: doPrincipal.name, tamanho: doPrincipal.size } : null });
   const naPlaca = ps.find((m) => ehTev1(m.name) && m.sizeVram > 0 && m.sizeVram >= m.size * 0.95)?.name || '';
-  const e = escolherTev1({ vramGB: vram, livreGB: livre, instalados, principalNoLlamaCpp, naPlaca: instalado(instalados, [naPlaca]) });
+  // "principal" (o padrão desde 25/11): o modelo principal julga as fontes; o Tev1 fica só no roteador — o pequeno (o 4B
+  // ocupa 4,4 GB para uma chamada por pergunta), na placa se couber, senão na CPU
+  const sem4B = pedido === 'principal' ? instalados.filter((m) => !GRANDE.includes(m) && !GRANDE.some((g) => m === `${g}:latest`)) : instalados;
+  const e = escolherTev1({ vramGB: vram, livreGB: livre, instalados: sem4B, principalNoLlamaCpp, naPlaca: instalado(sem4B, [naPlaca]) });
   if (e.criarCpu) {
     const ok = typeof criarCpu === 'function' && (await (criando ||= criarCpu(e.nome, instalado(instalados, PEQUENO)).then(() => true, () => ((criando = null), false))));
-    if (!ok) return { tipos: '', roteador: null, naCpu: false };
+    if (!ok) return { tipos: '', roteador: null, naCpu: false, principal: pedido === 'principal' };
   }
   const roteadorEhTev1 = ehTev1(config.modeloDecisor || 'tev1');
-  return { tipos: e.nome, roteador: e.nome && roteadorEhTev1 ? { modeloDecisor: e.nome, modeloDecisorRapido: '' } : null, naCpu: e.naCpu };
+  const roteador = e.nome && roteadorEhTev1 ? { modeloDecisor: e.nome, modeloDecisorRapido: '' } : null;
+  if (pedido === 'principal') return { tipos: '', roteador, naCpu: false, principal: true, roteadorNaCpu: e.naCpu };
+  return { tipos: e.nome, roteador, naCpu: e.naCpu, principal: false };
 }
 
 /** As dependências do Ollama para `tev1DaPlaca` (as 3 chamadas do app). */

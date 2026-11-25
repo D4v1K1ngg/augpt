@@ -40,14 +40,14 @@ module.exports = [
     async executar() {
       const listar = async () => instalados;
       const base = { listar, vramGB: 16, livreNaPlaca: 8, carregados: async () => [] };
-      const auto = await tev1DaPlaca({ ...base, config: { modeloDecisor: 'tev1-0.8b', modeloDecisorRapido: 'tev1-0.8b-cpu' } });
+      const auto = await tev1DaPlaca({ ...base, config: { modeloTipoDeFonte: 'auto', modeloDecisor: 'tev1-0.8b', modeloDecisorRapido: 'tev1-0.8b-cpu' } });
       const fixo = await tev1DaPlaca({ ...base, config: { modeloTipoDeFonte: 'tev1:0.8b', modeloDecisor: 'tev1-0.8b' } });
       const desligado = await tev1DaPlaca({ ...base, config: { modeloTipoDeFonte: '' } });
-      const outroDecisor = await tev1DaPlaca({ ...base, config: { modeloDecisor: 'nimble' } });
-      const cheia = await tev1DaPlaca({ ...base, livreNaPlaca: 0.2, config: { modeloDecisor: 'tev1-0.8b' } });
+      const outroDecisor = await tev1DaPlaca({ ...base, config: { modeloTipoDeFonte: 'auto', modeloDecisor: 'nimble' } });
+      const cheia = await tev1DaPlaca({ ...base, livreNaPlaca: 0.2, config: { modeloTipoDeFonte: 'auto', modeloDecisor: 'tev1-0.8b' } });
       const criadas = [];
       const criar = async (nome, de) => criadas.push(`${nome}<-${de}`);
-      const semCpu = { listar: async () => ['tev1:0.8b'], vramGB: 0, carregados: async () => [], criarCpu: criar, config: {} };
+      const semCpu = { listar: async () => ['tev1:0.8b'], vramGB: 0, carregados: async () => [], criarCpu: criar, config: { modeloTipoDeFonte: 'auto' } };
       const c1 = await tev1DaPlaca(semCpu);
       await tev1DaPlaca(semCpu);
       const quadro = montarQuadroDeModelos({ config: { model: 'qwen3.5:9b-q8_0', roteadorDecisor: true, modeloDecisor: 'tev1-0.8b', modeloDecisorRapido: 'tev1-0.8b-cpu', tev1DaPlaca: 'tev1:latest' }, carregados: [{ name: 'tev1:latest', size: 4.5e9, sizeVram: 4.5e9 }] });
@@ -95,6 +95,38 @@ module.exports.push({
       placa.pelo === 10 && placa.maximo === 4 || `placa: ${JSON.stringify(placa)}`,
       fixo.naCpu === true || 'nome fixo com cpu',
       /naCpu: deps\.tipoDeFonteNaCpu === true/.test(fs.readFileSync(path.join(__dirname, '../../src/agent/nucleo/index.js'), 'utf8')) || 'o núcleo passa a CPU',
+    ];
+  },
+});
+module.exports.push({
+  nome: 'quem julga as fontes (25/11, Davi: "deixe o tev1 4B desativado por padrão deixando o modelo principal fazer isso"): o padrão é o modelo principal — nenhum Tev1 no tipo de fonte, e o roteador Tev1 fica com o pequeno (na placa se couber, senão na CPU), nunca o 4B; o "auto" gravado vira "principal" uma vez; o modelo principal julga uma página por vez e marca "principal"',
+  tipo: 'unidade',
+  async executar() {
+    const listar = async () => instalados;
+    const padrao = await tev1DaPlaca({ config: { modeloDecisor: 'tev1:latest' }, listar, vramGB: 16, livreNaPlaca: 8, carregados: async () => [] });
+    const cheia = await tev1DaPlaca({ config: { modeloTipoDeFonte: 'principal', modeloDecisor: 'tev1' }, listar, vramGB: 16, livreNaPlaca: 0.3, carregados: async () => [] });
+    const { Config } = require('../../src/config');
+    const os = require('os');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-cfg-'));
+    const ler = (salvo) => {
+      fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(salvo));
+      return new Config(dir).load();
+    };
+    const antigo = ler({ modeloTipoDeFonte: 'auto' });
+    const fixo = ler({ modeloTipoDeFonte: 'tev1:latest' });
+    const escolheuAuto = ler({ modeloTipoDeFonte: 'auto', tipoDeFonteRevisto: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+    const tipos = require('../../src/agent/tipo-de-fonte');
+    tipos._limparMemoria();
+    const pedidos = [];
+    const pags = Array.from({ length: 3 }, (_, i) => ({ url: `https://q${i}.exemplo${i}.com/a`, titulo: `p${i}`, trechos: ['texto'] }));
+    const r = await tipos.classificarFontes(pags, { perguntar: async (p) => (pedidos.push(p), '{"tipo": "noticia"}') });
+    return [
+      padrao.principal && padrao.tipos === '' && padrao.roteador?.modeloDecisor === 'tev1:0.8b' || JSON.stringify(padrao),
+      cheia.roteador?.modeloDecisor === 'tev1-0.8b-cpu' && cheia.tipos === '' || JSON.stringify(cheia),
+      antigo.modeloTipoDeFonte === 'principal' && fixo.modeloTipoDeFonte === 'tev1:latest' && escolheuAuto.modeloTipoDeFonte === 'auto' || JSON.stringify([antigo.modeloTipoDeFonte, fixo.modeloTipoDeFonte, escolheuAuto.modeloTipoDeFonte]),
+      r.quem === 'principal' && r.pelo === 3 && pags.every((p) => p.tipoFonte === 'noticia' && p.tipoPor === 'principal') && pedidos.length === 3 && /exactly one of: teste/.test(pedidos[0]) || JSON.stringify(r),
+      /julgarFonte: tev1\.principal/.test(fs.readFileSync(path.join(__dirname, '../../src/agent/loop-nucleo.js'), 'utf8')) || 'o app passa o modelo principal',
     ];
   },
 });

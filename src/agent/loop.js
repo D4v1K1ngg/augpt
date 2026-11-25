@@ -1164,7 +1164,7 @@ class Agent extends EventEmitter {
     try {
       const carregados = await ollama.psModels(this.config.host);
       const tev1 = !this.config.roteadorDecisor ? { tipos: '' } : await tev1DaPlaca({ config: this.config, ...doOllama(ollama, this.config.host), principal: this.config.model, principalNoLlamaCpp: Boolean(require('../llm/llamacpp').doLlamaCpp(this.config.model)) }).catch(() => ({ tipos: '' }));
-      this.emit('modelos-na-execucao', { linhas: montarQuadroDeModelos({ config: { ...this.config, tev1DaPlaca: tev1.tipos, tev1NaCpu: tev1.naCpu }, carregados }) });
+      this.emit('modelos-na-execucao', { linhas: montarQuadroDeModelos({ config: { ...this.config, tev1DaPlaca: tev1.tipos || tev1.roteador?.modeloDecisor || '', tev1NaCpu: tev1.principal ? tev1.roteadorNaCpu : tev1.naCpu, tev1SoRoteador: Boolean(tev1.principal) }, carregados }) });
     } catch {
       /* Ollama ocupado ou versão sem /api/ps: o relatório só não mostra o quadro */
     }
