@@ -1085,6 +1085,20 @@ module.exports = [
     ],
   },
   {
+    // de uso real (25/11): a 3ª mensagem da conversa do ângulo do mouse — o usuário conta o teste que fez no Paint; virou
+    // "agir num programa aberto" e saiu sem pesquisa ("A busca não retornou material…", sem busca nenhuma)
+    id: 'metodo-angulo-resultado',
+    tipo: 'metodo',
+    conversa: require('./conversas/mouse-angulo.json').conversa,
+    pedido: require('./conversas/mouse-angulo.json').pedido,
+    criterios: [
+      'responde ao resultado do teste que o usuário contou (com -1 as linhas ficaram regulares) e diz se vale manter o -1',
+      'recomenda confirmar no jogo (comparar -1 com 0 nos mesmos exercícios) ou testar valores vizinhos, em vez de dar o teste do Paint como prova definitiva',
+      'não confunde o ajuste de ângulo (rotação do sensor) com o angle snapping (a correção que endireita o traço)',
+    ],
+    checagens: [...checagensDaResposta(), { nome: 'não diz que a busca não achou nada sem ter buscado', ok: (r) => !/A busca não retornou material/.test(r) }],
+  },
+  {
     id: 'metodo-drivers-fone',
     tipo: 'metodo',
     pedido: 'Um fone com mais drivers tem melhor posicionamento sonoro para jogos?',

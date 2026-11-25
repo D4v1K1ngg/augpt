@@ -207,7 +207,11 @@ const ENDERECO = /\bhttps?:\/\/[^\s)'"]+|\bwww\.[a-z0-9-]+\.[a-z]{2,}/i;
 // os ajustes de rede; "desliga o pc" fica com o controle do PC)
 const PROGRAMA_DO_PC = /\b(bloco de notas|notepad|calculadora|paint|word|excel|powerpoint|explorador de arquivos|configuracoes( do windows)?|painel de controle|modo de jogo|modo escuro|tema escuro|luz noturna|nao perturbe|assistente de foco|game bar|xbox game bar)\b/;
 const NA_TELA = /\b(na|nessa|nesta|da) (minha )?(tela|janela)\b|\b(aberto|aberta) (na tela|no (meu )?navegador|no (meu )?(pc|computador))\b|\bno (programa|aplicativo|app) (aberto|que esta aberto)\b/;
-const ACAO_NA_TELA = /\b(jog(a|ue|ar)|digit\w*|escrev\w*|preench\w*|cliqu\w*|clica|aperte|aperta|selecion\w*|marqu\w*|marca|preencha|preenche|ativ[ae]r?|desativ[ae]r?|lig[ae]r?|deslig[ae]r?|habilit[ae]r?|desabilit[ae]r?)\b/;
+// o usuário CONTANDO o que fez (25/11, no app: "eu fiz o teste no paint… após ativar o recurso de correção de ângulo e
+// setar o valor para '-1' eu percebi que as linhas ficavam mais regulares" virou "agir num programa aberto" — a resposta
+// saiu sem pesquisa, pelo caminho das tarefas, com a skill de revisão de código): é conversa sobre o resultado, não pedido
+const CONTA_O_QUE_FEZ = /\b(eu (fiz|testei|usei|tentei|coloquei|deixei|ativei|desativei|mudei)|percebi|notei|reparei|senti|vi que|ficavam|ficaram|ficou|funcionou|deu certo|aconteceu)\b/;
+const ACAO_NA_TELA =/\b(jog(a|ue|ar)|digit\w*|escrev\w*|preench\w*|cliqu\w*|clica|aperte|aperta|selecion\w*|marqu\w*|marca|preencha|preenche|ativ[ae]r?|desativ[ae]r?|lig[ae]r?|deslig[ae]r?|habilit[ae]r?|desabilit[ae]r?)\b/;
 // 2ª revisão: só IMPERATIVO dirigido ao agente — "Resuma … notas fiscais
 // emitidas", "o que … diz sobre login com OAuth", "o preço baixa quando?" são leitura
 // 19/11 (Davi: "acessa esse site para min, faz login e baixa o meu contracheque"): também o imperativo do dia a dia —
@@ -247,7 +251,7 @@ function tipoDoPedido(objetivo) {
 
   // agir num programa do Windows (19/11, ver e agir na tela): "abre o bloco de notas e digita…", "preenche o formulário
   // que está aberto na tela", "clica em Salvar nessa janela" — sem endereço (com endereço é o navegador do AuGPT)
-  if (!ENDERECO.test(String(objetivo)) && !/^\s*(como|qual|quais|o que|por ?que|da pra|e possivel|tem como|onde|quando)\b/.test(t) && ACAO_NA_TELA.test(t) && (PROGRAMA_DO_PC.test(t) || NA_TELA.test(t))) return { tipo: 'tela', motivo: 'agir num programa aberto no computador (ver e clicar na tela)' };
+  if (!ENDERECO.test(String(objetivo)) && !/^\s*(como|qual|quais|o que|por ?que|da pra|e possivel|tem como|onde|quando)\b/.test(t) && !CONTA_O_QUE_FEZ.test(t) && ACAO_NA_TELA.test(t) && (PROGRAMA_DO_PC.test(t) || NA_TELA.test(t))) return { tipo: 'tela', motivo: 'agir num programa aberto no computador (ver e clicar na tela)' };
 
   if (LOCAL.test(t)) {
     // 12/10: "Compare 3 IEMs para FPS e gere uma planilha com o comparativo"

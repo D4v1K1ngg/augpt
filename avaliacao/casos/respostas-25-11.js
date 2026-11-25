@@ -91,3 +91,15 @@ module.exports.push({
     ];
   },
 });
+module.exports.push({
+  nome: 'tela (25/11, no app): o usuário contando o teste que fez no Paint ("eu fiz o teste… após ativar o recurso… eu percebi que as linhas ficavam mais regulares") não é pedido de agir num programa; "ativa o modo de jogo" e "abre o bloco de notas e digita…" continuam',
+  tipo: 'unidade',
+  executar() {
+    const { tipoDoPedido } = require('../../src/agent/tipo-de-pedido');
+    const contou = "eu fiz o teste no paint usando '0' e depois '-1' e senti diferença, ao testar usando o ajuste do mouse '0' desligado as linhas que fiz com o olho fechado ficavam irregulares e pendiam 'caiam' para a direita, porém apos ativar o recurso de correção de angulo e setar o valor para '-1' eu percebi que as linhas ficavam mais regulares e não pendiam mais para nenhum lado";
+    return [
+      tipoDoPedido(contou).tipo !== 'tela' || 'contou o que fez',
+      tipoDoPedido('ativa o modo de jogo').tipo === 'tela' && tipoDoPedido('abre o bloco de notas e digita ola').tipo === 'tela' || 'pedidos de tela',
+    ];
+  },
+});
