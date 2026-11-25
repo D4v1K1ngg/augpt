@@ -87,3 +87,19 @@ module.exports.push({
     ];
   },
 });
+module.exports.push({
+  nome: 'notícia velha (25/11, "últimas notícias sobre IA" 6,7: "até setembro de 2026" e o Claude Sonnet 4 misturado com os de agora): no perfil notícia, a página com mais de 30 dias vai para trás das recentes (sem data fica); fora da notícia, a data não muda a ordem',
+  tipo: 'unidade',
+  async executar() {
+    const hoje = Date.now();
+    const dias = (d) => (d === null ? null : new Date(hoje - d * 864e5).toISOString().slice(0, 10));
+    const p = (n, d) => ({ n, url: `https://site${n}.com/a`, titulo: `p${n}`, tipoFonte: 'noticia', data: dias(d), trechos: [`Notícia ${n} sobre inteligência artificial e modelos novos. `.repeat(60)] });
+    const fontes = [p(1, 200), p(2, 90), p(3, 2), p(4, 5), p(5, null), p(6, 10)];
+    const noticia = (await nucleo.materialDaEscrita('últimas notícias sobre IA', fontes, { limite: 9000, perfil: 'noticia' })).map((f) => f.n);
+    const geral = (await nucleo.materialDaEscrita('últimas notícias sobre IA', fontes, { limite: 9000, perfil: 'geral' })).map((f) => f.n);
+    return [
+      JSON.stringify(noticia) === '[3,4,5,6]' || `notícia: ${noticia}`,
+      geral.includes(1) && geral.includes(2) || `geral: ${geral}`,
+    ];
+  },
+});

@@ -1827,6 +1827,8 @@ const PESOS_DO_PERFIL = {
   guia: { referencia: 1, comunidade: 1, teste: 1, noticia: 3, outro: 3, afiliado: 4, loja: 5, vazio: 5 },
   geral: { referencia: 2, teste: 2, comunidade: 2, noticia: 2, outro: 3, afiliado: 4, loja: 4, vazio: 5 },
 };
+// ponytail: um corte só (30 dias) para toda notícia; por assunto se precisar (eleição, mercado: dias; ciência: meses)
+const DIAS_DE_NOTICIA_RECENTE = 30;
 const CLASSE_DO_NUCLEO = { 'lista de afiliado': 'afiliado', 'teste próprio': 'teste', comunidade: 'comunidade' };
 /** A classe da fonte (as da fase 1): loja e vazia primeiro, o tópico de comunidade marcado na busca, o Tev1 ou a regra. */
 function classeDaFonte(f) {
@@ -1849,7 +1851,11 @@ async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000, emit
   const peso = (it) => {
     if (!pesos) return 0;
     if (perfil === 'produto' && citadas.has(it.f.n)) return 0;
-    return pesos[classeDaFonte(it.f)] ?? 3;
+    // 25/11 (régua, "últimas notícias sobre IA" 6,7): notícia velha conta como notícia — a resposta disse "até setembro de
+    // 2026" e misturou o Claude Sonnet 4 com os lançamentos de agora. Na notícia, a página com mais de 30 dias vai para trás
+    // das recentes do mesmo tipo (sem data, fica onde está)
+    const velha = perfil === 'noticia' && it.f.data && idadeEmAnos(it.f.data) * 365 > DIAS_DE_NOTICIA_RECENTE ? 1.5 : 0;
+    return (pesos[classeDaFonte(it.f)] ?? 3) + velha;
   };
   const filtradas = semFontesForaDoAssunto(pergunta, todos);
   const noAssunto = todos.filter((it) => filtradas.includes(it) || (recomenda && citadas.has(it.f.n)));
