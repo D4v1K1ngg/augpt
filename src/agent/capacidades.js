@@ -266,6 +266,9 @@ function semEnchimento(texto) {
       .replace(/^\s*Como o AuGPT,\s*/i, '');
   }
   if (corpo === antes) return s;
+  // a data que sobrou do "Com base nas fontes de hoje, **25 de novembro de 2026**, aqui estão…" (25/11, régua: a resposta
+  // abria com "25 de novembro de 2026**,") — só depois de tirar uma abertura: a resposta que começa pela data fica
+  corpo = corpo.replace(/^\s*(?:hoje,?\s*)?(?:\*\*)?(?:\d{1,2}º? de \p{L}+(?: de \d{4})?|\d{1,2}\/\d{1,2}\/\d{2,4})(?:\*\*)?[,:]\s*/iu, '');
   corpo = corpo.replace(/^(\s*\**)(\p{Ll})/u, (m, pre, letra) => pre + letra.toUpperCase());
   return topo + corpo;
 }

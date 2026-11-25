@@ -273,6 +273,14 @@ async function listModelsComCapacidades(host = DEFAULT_HOST) {
  * roda no caminho de FECHAR a janela — não pode deixar o usuário preso
  * tentando fechar o próprio app se o Ollama estiver lento ou travado.
  */
+/**
+ * Uma cópia de um modelo instalado com outros parâmetros (25/11: o Tev1 0.8B na CPU, "tev1-0.8b-cpu" = tev1:0.8b com
+ * num_gpu 0). Usa o mesmo arquivo — nada a baixar.
+ */
+async function criarVariante(host, nome, de, parametros = {}) {
+  await request(host, '/api/create', { body: { model: nome, from: de, parameters: parametros, stream: false }, timeout: 60000 });
+}
+
 async function unloadModel(host, model, { timeout = 8000 } = {}) {
   await request(host, '/api/generate', { body: { model, keep_alive: 0 }, timeout });
 }
@@ -702,5 +710,5 @@ module.exports = {
   chat: (opcoes) => comCamadas(opcoes, chat),
   chatStream: (opcoes) => comCamadas(opcoes, chatStream),
   definirCamadasNaPlaca,
-  estimarTokens, reduzirParaCaber, erroDoOllama, MARCA_DE_CORTE, capacidades, listModelsComCapacidades, decidir,
+  estimarTokens, reduzirParaCaber, erroDoOllama, MARCA_DE_CORTE, capacidades, listModelsComCapacidades, decidir, criarVariante,
 };

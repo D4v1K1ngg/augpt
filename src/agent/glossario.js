@@ -43,7 +43,9 @@ const TERMOS = [
   { termo: /\bnits\b/i, explica: 'medida de brilho da tela' },
   // eletrodomésticos
   { termo: /\bfrost free\b/i, explica: 'sistema que não deixa formar gelo, sem precisar descongelar' },
-  { termo: /\binverter\b/i, explica: 'motor que muda de velocidade em vez de liga-desliga, gastando menos energia' },
+  // o aparelho, não o verbo (25/11, otimizar o Windows: "Você precisa inverter (motor que muda…) isso"): "Inverter" com
+  // maiúscula (fora o verbo no começo da frase: "Inverter a ordem") ou depois de compressor/tecnologia/ar-condicionado…
+  { termo: /\bInverter\b(?! (?:a|o|as|os|isso|isto|esse|essa|este|esta|seu|sua|meu|minha)\b)|\b(?:[Tt]ecnologia|[Cc]ompressor|[Mm]otor|[Ss]plit|[Cc]ondicionados?|[Mm]odelos?|[Ll]inha|[Ss]istema|[Vv]ers[ãa]o) inverter\b/, explica: 'motor que muda de velocidade em vez de liga-desliga, gastando menos energia' },
   { termo: /\bkWh\b/, explica: 'quilowatt-hora, a unidade da conta de luz' },
   { termo: /\bselo Procel\b|\bProcel\b/, explica: 'selo de eficiência energética do Inmetro; A é o mais econômico' },
 ];

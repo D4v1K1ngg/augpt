@@ -62,6 +62,19 @@ async function detectarGpus({ plataforma = process.platform, executar = rodar } 
   return [];
 }
 
+/**
+ * A memória livre da placa agora (GiB, a maior entre as placas) ou null sem nvidia-smi (25/11: o Tev1 é escolhido pelo que
+ * cabe, não pelo total). Guardada por 15 s — o roteador, o núcleo e o quadro de modelos perguntam na mesma pergunta.
+ */
+let livreCache = { em: 0, valor: null };
+async function memoriaLivreDaPlaca({ executar = rodar, agora = Date.now() } = {}) {
+  if (agora - livreCache.em < 15000) return livreCache.valor;
+  const saida = await executar('nvidia-smi', ['--query-gpu=memory.free', '--format=csv,noheader,nounits'], { timeout: 4000 });
+  const mib = String(saida || '').split(/\s+/).map(Number).filter((n) => n > 0);
+  livreCache = { em: agora, valor: mib.length ? arred(Math.max(...mib) / 1024) : null };
+  return livreCache.valor;
+}
+
 /** Pasta onde o Ollama guarda os modelos (OLLAMA_MODELS ou a padrão). */
 function pastaDosModelos(env = process.env) {
   return env.OLLAMA_MODELS || path.join(os.homedir(), '.ollama', 'models');
@@ -214,4 +227,4 @@ async function testarAceleracao({ host, modelo, buscar = (...a) => fetch(...a), 
   return { modelo, naPlaca, placas, tokensPorSegundo, carregouEmS: r.load_duration ? Math.round(r.load_duration / 1e8) / 10 : null, veredito };
 }
 
-module.exports = { placasDoOllama, avisoDeDuasPlacas, testarAceleracao, placaAntiga, PLACA_AMD_ANTIGA, verificarComputador, detectarGpus, lerGpusNvidiaSmi, lerGpusDoRegistro, recomendarModelos, espacoLivreGB, pastaDosModelos, MODELOS, EMBEDDING };
+module.exports = { placasDoOllama, avisoDeDuasPlacas, testarAceleracao, placaAntiga, PLACA_AMD_ANTIGA, verificarComputador, detectarGpus, memoriaLivreDaPlaca, lerGpusNvidiaSmi, lerGpusDoRegistro, recomendarModelos, espacoLivreGB, pastaDosModelos, MODELOS, EMBEDDING };

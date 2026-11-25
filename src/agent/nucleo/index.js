@@ -287,6 +287,9 @@ const usaComoFerramenta = (id, pergunta) => {
  * entendimento, só LEEM; o que leram vai para o escritor. Fora daqui (resposta própria): o teste de velocidade (gasta
  * dados, pede confirmação) e os ajustes de rede (mudam o PC, pedem aprovação).
  */
+// 25/11 (régua): o dólar abriu com "os dados consultados para o seu computador (Windows NT 10.0.26200…)" e as táticas de PUBG
+// diziam que, com o processador dele, dá para usar "sensibilidade mais alta"
+const SO_O_QUE_MUDA = 'Use cada dado só onde ele muda a resposta; o que não muda nada para esta pergunta (o sistema, a data, uma peça que não importa aqui) não cite, nem invente uma ligação.';
 const LEITURAS_DO_APP = ['consultar_pc', 'diagnostico_da_rede', 'trafego_de_rede', 'rota_de_jogo', 'clima', 'mapa', 'calendario', 'cotacao'];
 const CARTOES_DO_APP = /```(clima|mapa|calendario|timer|compras|midia|arquivos)\s*\n?[\s\S]*?```/g;
 /** Os cartões (vão para a tela como estão) e o resto (os dados, para o escritor). */
@@ -1982,7 +1985,7 @@ function escritorEnxuto({ hoje, comFontes, produto = false, atual = false, prefe
   ].filter(Boolean);
   const extras = [
     preferencias ? `<preferencias_do_usuario>\n${preferencias}\n</preferencias_do_usuario>\nSiga essas preferências quando valerem para a pergunta; não cite este bloco como fonte.` : '',
-    sobreOUsuario ? `<sobre_o_usuario>\n${sobreOUsuario.slice(0, 4500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados.` : '',
+    sobreOUsuario ? `<sobre_o_usuario>\n${sobreOUsuario.slice(0, 4500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados. ${SO_O_QUE_MUDA}` : '',
   ].filter(Boolean);
   return [regras.join('\n'), ...extras].join('\n\n');
 }
@@ -2025,7 +2028,7 @@ ${SEM_ANUNCIO_NEM_REPETICAO}
     : explicacao
     ? `${EXPLICACAO_DE_PESSOA}${tamanho === 'detalhada' ? '\n- O usuário quer respostas DETALHADAS: em vez da resposta média, de 5 a 7 seções desenvolvidas (1 a 3 parágrafos cada), com o mecanismo passo a passo, os termos técnicos explicados, um exemplo do dia a dia e o que muda na prática.' : ''}\n${SEM_ANUNCIO_NEM_REPETICAO}`
     : `- Responda direto e bem explicado. Se não tiver certeza de algum dado, diga.\n${SEM_ANUNCIO_NEM_REPETICAO}${INSTRUCAO_DE_GRAFICO}${INSTRUCAO_DE_VISUAL}`
-}${capacidadesNaEscrita ? `\n\n${capacidadesNaEscrita}` : ''}${preferencias ? `\n\n<preferencias_do_usuario>\n${preferencias}\n</preferencias_do_usuario>\nO usuário pediu para você guardar isto: siga as preferências e use os fatos quando ajudarem, sem citá-los à toa. Uma linha "Quando o assunto for X: …" é instrução só para pedidos sobre X: siga-a quando a pergunta for sobre X (mesmo com outras palavras) e ignore-a nas outras. Só isto está guardado: nunca diga que algo é \"preferência registrada\" ou está guardado se não estiver nesta lista, e não cite este bloco como fonte.` : ''}${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 4500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou), e não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
+}${capacidadesNaEscrita ? `\n\n${capacidadesNaEscrita}` : ''}${preferencias ? `\n\n<preferencias_do_usuario>\n${preferencias}\n</preferencias_do_usuario>\nO usuário pediu para você guardar isto: siga as preferências e use os fatos quando ajudarem, sem citá-los à toa. Uma linha "Quando o assunto for X: …" é instrução só para pedidos sobre X: siga-a quando a pergunta for sobre X (mesmo com outras palavras) e ignore-a nas outras. Só isto está guardado: nunca diga que algo é \"preferência registrada\" ou está guardado se não estiver nesta lista, e não cite este bloco como fonte.` : ''}${sobreOUsuario ? `\n\n<sobre_o_usuario>\n${sobreOUsuario.slice(0, 4500)}\n</sobre_o_usuario>\nA pergunta é sobre a situação do próprio usuário: responda para o caso dele, com estes dados (diga quais usou). ${SO_O_QUE_MUDA} Não recomende comprar o que ele já tem ou algo pior do que já tem.` : ''}`;
 }
 
 // 15/10 (pedido do Davi): resposta de produto em cartões — o renderer desenha
@@ -2675,7 +2678,7 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   emit('nucleo-entendimento', { ...ent, modo: modoUsado });
   // a pergunta depende do usuário (18/10, "meu computador"): o que o AuGPT já sabe dele vai junto
   // na conversa, não (28/10: "estou cansado" respondeu falando do Ryzen do usuário)
-  const sobreOUsuario = [(ent.sobreOUsuario || (lidoPelasFerramentas && !['clima', 'mapa', 'calendario'].includes(ent.acao))) && !ent.conversa && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '', lidoPelasFerramentas].filter(Boolean).join('\n\n');
+  const sobreOUsuario = [(ent.sobreOUsuario || (lidoPelasFerramentas && !['clima', 'mapa', 'calendario', 'cotacao'].includes(ent.acao))) && !ent.conversa && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '', lidoPelasFerramentas].filter(Boolean).join('\n\n');
   // os links que o usuário colou (da pergunta original — a reescrita do entendimento pode perder o endereço)
   const linksDoUsuario = [...new Set(String(pergunta || '').match(/https?:\/\/[^\s'"<>)\]]+/g) || [])];
   etapa('entendimento', inicioDoEntendimento);

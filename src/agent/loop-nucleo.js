@@ -22,7 +22,7 @@ const search = require('../tools/search');
 const { lerComCache } = require('../tools/web');
 const nucleo = require('./nucleo');
 const { investigar } = require('./nucleo/investigacao');
-const { ondeComprar, linhaOndeComprar, avisoDePrecoAntigo } = require('./onde-comprar');
+const { ondeComprar, linhaOndeComprar, avisoDePrecoAntigo, semPrecoComLoja } = require('./onde-comprar');
 const { protegerGraficos } = require('./nucleo/graficos');
 const catalogo = require('./capacidades');
 const rotas = require('./rotas-do-codigo');
@@ -35,9 +35,10 @@ const { explicarTermos } = require('./glossario');
 const { comLinks } = require('./escritor-de-cartoes');
 const { notaSemNasLojas } = require('./compras-no-chat');
 const { mesmaResposta } = require('./resposta-repetida');
+const { semPalavrao } = require('./sem-palavrao');
 const { escolherEspecialista } = require('./especialistas');
 const { embedDasPaginas } = require('./embed-paginas');
-const { tev1DaPlaca } = require('./tev1-da-placa');
+const { tev1DaPlaca, doOllama } = require('./tev1-da-placa');
 const { rerankerDe } = require('../reranker');
 
 /**
@@ -95,7 +96,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
   else if (especialista?.modelo) this.emit('aviso', { texto: `especialista de ${especialista.nome.toLowerCase()}: ${especialista.modelo}` });
   const modelo = especialista?.modelo || cfg.model;
   // um Tev1 só, escolhido pela placa (24/11, src/agent/tev1-da-placa.js): o do tipo de fonte é o mesmo do roteador
-  const tev1 = await tev1DaPlaca({ config: cfg, listar: async () => (await ollama.listModels(cfg.host)).map((m) => m.name), principalNoLlamaCpp: Boolean(require('../llm/llamacpp').doLlamaCpp(modelo)) }).catch(() => ({ tipos: '' }));
+  const tev1 = await tev1DaPlaca({ config: cfg, ...doOllama(ollama, cfg.host), principal: modelo, principalNoLlamaCpp: Boolean(require('../llm/llamacpp').doLlamaCpp(modelo)) }).catch(() => ({ tipos: '' }));
   const signal = this.controller.signal;
   const ctxWeb = {
     estado: {},
@@ -459,6 +460,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
         this.emit('aviso', { texto: `negação de um recurso do AuGPT, tirada da resposta: ${negacoes.tiradas.join(' | ').slice(0, 300)}` });
       }
     }
+    r.texto = semPalavrao(r.texto, objetivo);
     const promessas = catalogo.conferirPromessas(r.texto);
     if (promessas.tiradas.length) {
       r.texto = promessas.texto;
@@ -516,7 +518,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
           const img = fotos.get(limparNome(nome));
           const lojas = linhaOndeComprar(precosNasLojas.get(limparNome(nome)) || []);
           return `${linha}${img ? `\n${imagens.marcacao(limparNome(nome), img)}\n` : ''}${lojas ? `\n${lojas}\n` : ''}`;
-        })
+        }).split(/(?=^#### \d+\. )/m).map(semPrecoComLoja).join('')
       : comItens;
     // gráfico protegido: o link das citações e o glossário não entram no JSON dele
     const corpo = protegerGraficos(linhaDoAssunto ? `${linhaDoAssunto}\n\n${comCartoes}` : comCartoes, (t) => explicarTermos(comLinks(t, r.fontes)));

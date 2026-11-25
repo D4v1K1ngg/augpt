@@ -129,4 +129,14 @@ function avisoDePrecoAntigo(texto, achados = []) {
   return `*Atenção: os preços citados como atuais (até ${reais(Math.max(...ditos))}) vêm de páginas antigas — hoje, nas lojas, o menor é ${reais(menor)}${quem ? ` (${quem.loja})` : ''}.*`;
 }
 
-module.exports = { ondeComprar, linhaOndeComprar, avisoDePrecoAntigo, casa, LOJAS };
+
+/**
+ * No cartão que tem a linha "Onde comprar" com o preço de hoje, o "**Preço:** não especificado nas fontes" do escritor
+ * sai (25/11, régua: o EM6L com "Zoom: a partir de R$ 946" e, duas linhas abaixo, "Preço: Não especificado nas fontes").
+ */
+function semPrecoComLoja(bloco) {
+  if (!/\*\*Onde comprar/.test(bloco)) return bloco;
+  return bloco.replace(/^[ \t]*(?:[-*][ \t]+)?\*\*Pre[çc]o:?\*\*:?[^\n]*(?:n[ãa]o (?:especific|inform|encontr|mencion|dispon[ií]ve|h[áa] pre[çc]o|traz|d[ãa]o|cita)|sem pre[çc]o|nenhuma fonte)[^\n]*\n?/gim, '');
+}
+
+module.exports = { ondeComprar, linhaOndeComprar, avisoDePrecoAntigo, semPrecoComLoja, casa, LOJAS };

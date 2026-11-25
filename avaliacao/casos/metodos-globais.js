@@ -135,7 +135,7 @@ module.exports = [
       await nucleo.responder({ pergunta: 'como funciona o DLSS?', modo: 'rapido', deps: x2.d, hoje: '18/10/2026' });
       return [
         /RTX 3060 Ti/.test(pesquisador) || 'o pesquisador recebe a máquina',
-        /<sobre_o_usuario>[\s\S]*RTX 3060 Ti/.test(m.escritas[0][0].content) && /não recomende comprar o que ele já tem/.test(m.escritas[0][0].content) || 'a escrita recebe a máquina',
+        /<sobre_o_usuario>[\s\S]*RTX 3060 Ti/.test(m.escritas[0][0].content) && /[Nn]ão recomende comprar o que ele já tem/.test(m.escritas[0][0].content) || 'a escrita recebe a máquina',
         chamado === 0 || 'pergunta comum não lê os dados do usuário',
       ];
     },

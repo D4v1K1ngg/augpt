@@ -208,6 +208,25 @@ function pintar() {
       acoes: busca.instalado ? [] : [h('button', { class: 'btn-secundario', disabled: bv.ocupado, onclick: instalarBusca }, t('Instalar a busca'))],
     })
   );
+  // 25/11 (Davi: "um aviso nas boas-vindas para dizer que o augpt usa o tev1 para as buscas web e que daria para usar sem
+  // ele também, porém com menos qualidade"): o Tev1 julga cada site da pesquisa (src/agent/tipo-de-fonte.js) e escolhe o
+  // caminho do pedido. Placa de 14 GB ou mais: o 4B (84% de acerto nos sites) e o 0.8B para quando a placa estiver cheia;
+  // menos: só o 0.8B (66%; na placa ou na CPU — src/agent/tev1-da-placa.js)
+  const vramMax = Math.max(0, ...((e.computador?.gpus || []).map((g) => Number(g.vramGB) || 0)));
+  const tev1s = vramMax >= 14 ? [{ nome: 'tev1', gb: 4.5 }, { nome: 'tev1:0.8b', gb: 0.8 }] : [{ nome: 'tev1:0.8b', gb: 0.8 }];
+  const tev1Falta = tev1s.filter((m) => !temModelo(m.nome));
+  const tev1Algum = temModelo('tev1') || temModelo('tev1:0.8b');
+  opcionais.append(
+    etapa({
+      titulo: t('Escolha das fontes da pesquisa (Tev1)'),
+      situacao: tev1Algum ? 'ok' : 'opcional',
+      texto: tev1Algum
+        ? t('Instalado — o Tev1 julga cada site que a pesquisa abre (teste de verdade, fórum, notícia, loja ou lista de propaganda) e as respostas usam as fontes melhores. Ele roda na placa de vídeo quando cabe e, quando ela está cheia, na CPU.')
+        : t('Recomendado: o Tev1 é um modelo pequeno que julga cada site que a pesquisa abre — teste de verdade, fórum, notícia, loja ou lista de propaganda — para a resposta usar as fontes melhores. O AuGPT funciona sem ele, com regras fixas, mas a escolha das fontes fica pior (nos testes, acerta 48% dos sites sem o Tev1 e 84% com ele).'),
+      progresso: tev1Falta.some((m) => m.nome === bv.baixando) ? bv.progressoModelo : null,
+      acoes: tev1Falta.length ? [h('button', { class: 'btn-secundario', disabled: !ollamaOk || bv.ocupado, onclick: () => baixarModelos(tev1Falta.map((m) => m.nome)) }, t('Baixar o Tev1 ({gb})', { gb: gb(tev1Falta.reduce((s, m) => s + m.gb, 0)) }))] : [],
+    })
+  );
   const youtube = e.youtube || {};
   opcionais.append(
     etapa({
