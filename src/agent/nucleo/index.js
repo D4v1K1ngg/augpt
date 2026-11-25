@@ -2425,6 +2425,9 @@ Responda só com JSON: {"afirmacoes": [{"trecho": "…", "problema": "contradiz"
     .filter((c) => !c.troca || mesmasPalavras(c.trecho, c.troca) >= 0.2)
     .filter((c) => c.problema !== 'sem_fonte' || material === null || semFonteConfirmado(c.trecho, material, extra))
     .filter((c, i, todas) => todas.findIndex((x) => x.trecho === c.trecho) === i)
+    // a mesma troca para dois trechos (25/11, no app, o teste do ângulo do mouse: "Se a linha subir à esquerda… ajuste para
+    // um número negativo" saiu duas vezes) ou uma troca que a resposta já tem: entra uma vez só
+    .filter((c, i, todas) => !c.troca || (!String(resposta).includes(c.troca) && todas.findIndex((x) => x.troca === c.troca) === i))
     .slice(0, 6);
 }
 

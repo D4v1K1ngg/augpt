@@ -97,3 +97,15 @@ module.exports.push({
     return [JSON.stringify(t) === JSON.stringify(['A RTX 5080 tem 56 GFLOPS de poder.', 'Existe também uma versão Bluetooth do EM6L.', 'Dados de dezembro de 2026 mostram isso.']) || JSON.stringify(t)];
   },
 });
+module.exports.push({
+  nome: 'conferir afirmações (25/11, o teste do ângulo do mouse): dois trechos com a mesma troca, ou uma troca que a resposta já tem, entram uma vez só — a frase não sai repetida',
+  tipo: 'unidade',
+  async executar() {
+    const r = 'Se a linha subir, você tem inclinação. Depois, se subiu, use um número negativo. Use o lápis depois.';
+    const troca = 'Se a linha subir à esquerda, ajuste para um número negativo.';
+    const lista = [{ trecho: 'Se a linha subir, você tem inclinação.', problema: 'contradiz', troca, n: 1 }, { trecho: 'Depois, se subiu, use um número negativo.', problema: 'contradiz', troca, n: 1 }, { trecho: 'Use o lápis depois.', problema: 'contradiz', troca: 'Se a linha subir, você tem inclinação.', n: 1 }];
+    const achadas = await nucleo.contradicoesComAsFontes(r, [{ n: 1, titulo: 'x', trechos: ['linha subir esquerda negativo inclinação lápis'] }], async () => ({ content: JSON.stringify({ afirmacoes: lista }) }));
+    const texto = nucleo.corrigirAfirmacoes(r, achadas);
+    return [texto.split(troca).length === 2 && achadas.length === 1 || `${achadas.length}: ${texto}`];
+  },
+});
