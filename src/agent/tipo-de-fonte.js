@@ -94,7 +94,14 @@ const CONFIANCA_MINIMA = 0.4;
  * (null pela regra) e `tipoPor` ('tev1' | 'regra' | 'site' | 'loja' | 'tabela'). `decidir` é o ollama.decidir do app; sem ele ou
  * sem `modelo`, ficam as regras. Nunca segura a pesquisa: erro ou demora vira regra. Devolve o resumo para o aviso.
  */
-async function classificarFontes(fontes, { decidir, modelo, paralelo = 4, timeoutMs = 5000, signal, naoLidas = [] } = {}) {
+/*
+ * Na CPU (25/11, medido: o 0.8B leva 1,25 s por página e o Ollama atende uma de cada vez — com 4 juntas, a 4ª saía em 5 s,
+ * estourava o limite e, depois de 2 estouros, a pesquisa inteira ia pelas regras: "Tev1 em 2 de 12, 10,1 s"): uma página
+ * por vez e até 6 pelo Tev1 (as lidas primeiro); o resto, pelas regras.
+ */
+const NA_CPU = { paralelo: 1, timeoutMs: 3000, maxTev1: 6 };
+
+async function classificarFontes(fontes, { decidir, modelo, naCpu = false, paralelo = naCpu ? NA_CPU.paralelo : 4, timeoutMs = naCpu ? NA_CPU.timeoutMs : 5000, maxTev1 = naCpu ? NA_CPU.maxTev1 : Infinity, signal, naoLidas = [] } = {}) {
   // só as LIDAS (24/11, no app: com os resultados de busca não lidos eram 35 a 46 por pergunta e 6 a 10 s)
   // as LIDAS (24/11, no app: com todos os resultados de busca eram 35 a 46 por pergunta e 6 a 10 s) e, pelo resumo da busca,
   // as não lidas que podem ir para o escritor (`naoLidas`, as mais ligadas à pergunta — a régua da fase 4 mostrou 57–88% do
@@ -102,6 +109,7 @@ async function classificarFontes(fontes, { decidir, modelo, paralelo = 4, timeou
   const alvos = [...new Set([...(fontes || []).filter((f) => f && f.trechos?.length), ...naoLidas])].filter((f) => f && f.url && !f.tipoFonte && !f.imagem && (f.trechos?.length || f.resumo));
   let usarTev1 = typeof decidir === 'function' && Boolean(modelo);
   let falhas = 0;
+  let perguntas = 0;
   const um = async (f) => {
     const site = dominio(f.url);
     // a lista de lojas é certeira (24/31 na medição; o Tev1 chamou 2 de vazias)
@@ -110,7 +118,8 @@ async function classificarFontes(fontes, { decidir, modelo, paralelo = 4, timeou
     if (tabela) return Object.assign(f, { tipoFonte: tabela, confTipo: null, tipoPor: 'tabela' });
     const fixado = fixadoDoSite(site, f);
     if (fixado) return Object.assign(f, { tipoFonte: fixado, confTipo: null, tipoPor: 'site' });
-    if (usarTev1 && !signal?.aborted) {
+    if (usarTev1 && !signal?.aborted && perguntas < maxTev1) {
+      perguntas += 1;
       const texto = String(f.trechos?.length ? f.trechos.join(' ') : f.resumo || '').replace(/\s+/g, ' ').slice(0, 500);
       try {
         const a = await decidir({ model: modelo, state: `Site: ${site}\nTitle: ${String(f.titulo || '').slice(0, 160)}\nStart of the text: ${texto}`, questions: PERGUNTA, timeout: timeoutMs, signal });

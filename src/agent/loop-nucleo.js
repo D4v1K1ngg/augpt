@@ -208,6 +208,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     decidir: (o) => ollama.decidir({ host: cfg.host, keepAlive: '30m', ...o }),
     // o tipo de cada fonte lida (24/11, fase 1): o Tev1 da placa (src/agent/tev1-da-placa.js); '' = as regras
     modeloTipoDeFonte: tev1.tipos,
+    tipoDeFonteNaCpu: tev1.naCpu === true,
     // em notícia (pergunta que muda com o tempo), com a data de cada fonte: 5 perguntas × 4 rodadas, nota 8.9 → 9.6
     // (midterms 5.7 → 8.8, as outras iguais), +5 s; desliga com "cruzarNoticias": false
     cruzarNoticias: cfg.cruzarNoticias !== false,

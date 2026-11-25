@@ -67,3 +67,34 @@ module.exports = [
     },
   },
 ];
+module.exports.push({
+  nome: 'Tev1 na CPU (25/11, medido: 1,25 s por página e uma de cada vez — 4 juntas estouravam os 5 s e a pesquisa ia pelas regras): uma página por vez, até 6 pelo Tev1, o resto pelas regras; na placa, 4 juntas e sem limite; o nome fixo com "cpu" conta como CPU',
+  tipo: 'unidade',
+  async executar() {
+    const tipos = require('../../src/agent/tipo-de-fonte');
+    const pags = () => Array.from({ length: 10 }, (_, i) => ({ url: `https://p${i}.exemplo${i}.com/a`, titulo: `p${i}`, trechos: ['texto'] }));
+    const rodar = async (naCpu) => {
+      tipos._limparMemoria();
+      let juntas = 0;
+      let maximo = 0;
+      const decidir = async () => {
+        juntas += 1;
+        maximo = Math.max(maximo, juntas);
+        await new Promise((r) => setTimeout(r, 5));
+        juntas -= 1;
+        return { tipo: { choice: 'teste', confidence: 0.9 } };
+      };
+      const r = await tipos.classificarFontes(pags(), { decidir, modelo: 'm', naCpu });
+      return { pelo: r.pelo, maximo };
+    };
+    const cpu = await rodar(true);
+    const placa = await rodar(false);
+    const fixo = await tev1DaPlaca({ config: { modeloTipoDeFonte: 'tev1-0.8b-cpu' } });
+    return [
+      cpu.pelo === 6 && cpu.maximo === 1 || `CPU: ${JSON.stringify(cpu)}`,
+      placa.pelo === 10 && placa.maximo === 4 || `placa: ${JSON.stringify(placa)}`,
+      fixo.naCpu === true || 'nome fixo com cpu',
+      /naCpu: deps\.tipoDeFonteNaCpu === true/.test(fs.readFileSync(path.join(__dirname, '../../src/agent/nucleo/index.js'), 'utf8')) || 'o núcleo passa a CPU',
+    ];
+  },
+});

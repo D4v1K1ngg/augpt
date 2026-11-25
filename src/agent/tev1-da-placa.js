@@ -92,7 +92,7 @@ let criando = null;
  */
 async function tev1DaPlaca({ config = {}, listar, carregados, criarCpu, principal, principalNoLlamaCpp = false, vramGB, livreNaPlaca } = {}) {
   const pedido = config.modeloTipoDeFonte === undefined || config.modeloTipoDeFonte === null ? 'auto' : String(config.modeloTipoDeFonte).trim();
-  if (pedido !== 'auto') return { tipos: principalNoLlamaCpp ? '' : pedido, roteador: null, naCpu: false };
+  if (pedido !== 'auto') return { tipos: principalNoLlamaCpp ? '' : pedido, roteador: null, naCpu: /cpu/i.test(pedido) };
   const lista = typeof listar === 'function' ? await listar().catch(() => []) : [];
   const instalados = lista.map((m) => (typeof m === 'string' ? m : m.name));
   const vram = vramGB ?? (await vramDaPlaca());
