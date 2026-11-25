@@ -32,3 +32,45 @@ module.exports = [
     },
   },
 ];
+module.exports.push({
+  nome: 'fontes (25/11): a página vazia (índice, grade de programa) não vai para o escritor — só se não sobrar nada; em produto, na mesma faixa, a fonte do Brasil (.br ou em português) antes da de fora',
+  tipo: 'unidade',
+  async executar() {
+    const nucleo = require('../../src/agent/nucleo');
+    const p = (n, url, tipoFonte, texto) => ({ n, url, titulo: `p${n}`, tipoFonte, trechos: [`Página ${n}: ${texto}. `.repeat(80)] });
+    const pt = 'A air fryer de 5 litros serve uma família de quatro pessoas e esquenta rápido';
+    const en = 'This air fryer with a 6 quart basket is great for a family of four and heats up quickly';
+    const noticias = [p(1, 'https://band.com.br/brasil-urgente', 'vazio', pt), p(2, 'https://g1.globo.com/a', 'noticia', pt), p(3, 'https://uol.com.br/b', 'noticia', pt)];
+    const n1 = (await nucleo.materialDaEscrita('air fryer família', noticias, { limite: 9000, perfil: 'noticia' })).map((f) => f.n);
+    const soVazias = (await nucleo.materialDaEscrita('air fryer família', [noticias[0]], { limite: 9000, perfil: 'noticia' })).map((f) => f.n);
+    const compra = [...[1, 2, 3, 4, 5].map((n) => p(n, `https://www.reddit.com/r/airfryer/${n}`, 'comunidade', en)), p(6, 'https://www.clubedohardware.com.br/x', 'comunidade', pt)];
+    const ordem = (await nucleo.materialDaEscrita('air fryer basket family quart', compra, { limite: 2500, perfil: 'produto' })).map((f) => f.n);
+    const fonte = require('fs').readFileSync(require('path').join(__dirname, '../../src/agent/nucleo/index.js'), 'utf8');
+    return [
+      !n1.includes(1) && n1.includes(2) || `vazia: ${n1}`,
+      soVazias.includes(1) || 'só vazias: ficam',
+      ordem.includes(6) && ordem.length === 4 || `o do Brasil entra antes do corte: ${ordem}`,
+      /Medidas do Brasil: litros, °C/.test(fonte) || 'a regra das medidas no formato de produto',
+    ];
+  },
+});
+module.exports.push({
+  nome: 'config (25/11): o "conferirAfirmacoes": false gravado antes vira true uma vez; desligado depois da revisão, fica desligado',
+  tipo: 'unidade',
+  executar() {
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+    const { Config } = require('../../src/config');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'augpt-cfg-'));
+    const ler = (salvo) => {
+      fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(salvo));
+      const c = new Config(dir);
+      return c.load();
+    };
+    const antigo = ler({ conferirAfirmacoes: false });
+    const desligou = ler({ conferirAfirmacoes: false, conferirAfirmacoesRevista: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+    return [antigo.conferirAfirmacoes === true || 'o antigo liga', desligou.conferirAfirmacoes === false || 'o desligado depois fica'];
+  },
+});

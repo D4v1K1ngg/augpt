@@ -149,8 +149,9 @@ const DEFAULTS = {
   // páginas da web nas tarefas (27/10): false = os trechos mais ligados ao pedido, sem o modelo (~0,3 s);
   // true = o resumo pelo modelo (~7 s por página), como antes
   destilarComModelo: false,
-  // conferir as afirmações da resposta com as fontes e corrigir o que elas contradizem (27/10)
-  conferirAfirmacoes: false,
+  // conferir as afirmações da resposta com as fontes (27/10): o que elas contradizem e o específico sem fonte é corrigido no
+  // trecho; ligado por padrão desde 25/11 (o "Bluetooth" do EM6L, o "Ti = Top" da RTX)
+  conferirAfirmacoes: true,
   // Imagens nas respostas (src/tools/imagens.js, 11/10): foto de cada produto
   // nos cartões da recomendação e imagem de referência nas explicações.
   imagensNasRespostas: true,
@@ -483,6 +484,9 @@ class Config {
       if (salvo.tempoMaximoPorPaginaMs === 15000) this.data.tempoMaximoPorPaginaMs = DEFAULTS.tempoMaximoPorPaginaMs;
       // modo simples (30/10): quem já usava o AuGPT continua vendo tudo; só a instalação nova começa no simples
       if (salvo.modoAvancado === undefined && salvo.boasVindasConcluida === true) this.data.modoAvancado = true;
+      // a conferência das afirmações virou padrão (25/11): o false gravado é o padrão antigo (os Ajustes gravam toda caixa)
+      // — liga uma vez; se o usuário desligar depois, a marca fica e o desligado vale
+      if (salvo.conferirAfirmacoesRevista !== true) Object.assign(this.data, { conferirAfirmacoes: true, conferirAfirmacoesRevista: true });
       if (!('nivelRaciocinio' in salvo)) {
         const inverso = { normal: 'leve', media: 'medio', alta: 'alto' };
         this.data.nivelRaciocinio = inverso[this.data.profundidadePesquisa] || 'leve';

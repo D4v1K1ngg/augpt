@@ -1861,9 +1861,18 @@ async function materialDaEscrita(pergunta, fontes, { embed, limite = 14000, emit
     return (pesos[classeDaFonte(it.f)] ?? 3) + velha;
   };
   const filtradas = semFontesForaDoAssunto(pergunta, todos);
-  const noAssunto = todos.filter((it) => filtradas.includes(it) || (recomenda && citadas.has(it.f.n)));
-  const ordenados = noAssunto.map((it, i) => ({ it, i })).sort((a, b) => peso(a.it) - peso(b.it) || a.i - b.i).map((x) => x.it);
-  const fora = todos.filter((it) => !noAssunto.includes(it));
+  const noAssuntoComVazias = todos.filter((it) => filtradas.includes(it) || (recomenda && citadas.has(it.f.n)));
+  // a página sem conteúdo (índice, grade de programa, bloqueio) não vai para o escritor (25/11, régua: nas notícias do Brasil,
+  // 4 de 7 fontes eram vazias — a grade do Brasil Urgente virou "notícia do dia"); só fica se não sobrar nada
+  const semVazias = noAssuntoComVazias.filter((it) => it.f.doUsuario || classeDaFonte(it.f) !== 'vazio');
+  const noAssunto = semVazias.length ? semVazias : noAssuntoComVazias;
+  const vazias = noAssuntoComVazias.filter((it) => !noAssunto.includes(it));
+  if (vazias.length) emit('aviso', { texto: `páginas sem conteúdo, fora da resposta: ${vazias.map((it) => it.f.titulo || it.f.url).slice(0, 6).join(' · ')}` });
+  // em produto, dentro da mesma faixa, a fonte do Brasil antes da de fora (25/11, régua: a air fryer e o ar-condicionado
+  // saíram em quarts, °F e SEER2, com modelos dos EUA): os modelos vendidos aqui, as medidas daqui
+  const doBrasil = (it) => (perfil === 'produto' && !(/\.br(\/|$)/i.test(it.f.url || '') || !pareceIngles(String(it.texto || '').slice(0, 600))) ? 1 : 0);
+  const ordenados = noAssunto.map((it, i) => ({ it, i })).sort((a, b) => peso(a.it) - peso(b.it) || doBrasil(a.it) - doBrasil(b.it) || a.i - b.i).map((x) => x.it);
+  const fora = todos.filter((it) => !noAssuntoComVazias.includes(it));
   if (fora.length) emit('aviso', { texto: `fora do assunto, ficaram de fora da resposta: ${fora.map((it) => it.f.titulo || it.f.url).slice(0, 6).join(' · ')}` });
   const usados = [];
   let total = 0;
@@ -2045,7 +2054,8 @@ FORMATO (pedido de produto — uma recomendação de quem entende, não uma fich
   **Na comunidade:** o que quem usa no Reddit e nos fóruns relata, com as suas palavras, citando a fonte. Não cole o comentário.
 - Com 2 ou mais opções: "### ⚖️ [1ª opção] ou [2ª opção]: qual eu escolheria" — uma tabela com os tópicos de "O que importa" nas linhas e as duas primeiras opções nas colunas, e 2 ou 3 frases com a escolha e o porquê.
 - Uma ressalva honesta em caixa: "> ⚠️ **Ressalva:** …" — o que as fontes NÃO provam sobre ESTE pedido (o que ninguém mediu ou testou; escreva com o assunto da pergunta, sem copiar exemplos), em 1 ou 2 frases.
-- Termine com "### Para acertar na escolha": 1 ou 2 perguntas curtas que mudariam a recomendação (orçamento, o que é mais importante, o que o usuário já tem), numa lista numerada, cada uma com 2 a 4 respostas prováveis entre parênteses separadas por " | ", sem preço — ex.: "1. Você joga mais no PC ou no console? (PC | console | os dois)". A tela mostra as respostas como botões.`;
+- Termine com "### Para acertar na escolha": 1 ou 2 perguntas curtas que mudariam a recomendação (orçamento, o que é mais importante, o que o usuário já tem), numa lista numerada, cada uma com 2 a 4 respostas prováveis entre parênteses separadas por " | ", sem preço — ex.: "1. Você joga mais no PC ou no console? (PC | console | os dois)". A tela mostra as respostas como botões.
+- Medidas do Brasil: litros, °C, cm, kg, BTU, kWh. Fonte de fora em quarts, °F, polegadas ou SEER2: converta a MEDIDA (o preço não) e, se o modelo citado for de fora, diga que ele pode não ser vendido no Brasil.`;
 
 /**
  * Questionário no chat (18/11, Davi: "se eu pedir para o AuGPT criar um formulário ou um questionário, ele faz um no
@@ -2349,34 +2359,87 @@ function conferirFatos(texto, { material = '', extra = '', semNumeros = false } 
   return { texto: marcado, numeros: [...numeros], nomes: [...nomes], conferidos };
 }
 
-/**
- * As afirmações da resposta que as fontes contradizem (27/10). Uma chamada curta em JSON; o que vier sem
- * a fonte, sem o trecho ou com fonte que não existe é descartado (o modelo pequeno inventa contradição).
+/** Quanto da troca fala das mesmas palavras do trecho (0 a 1): a "correção" que é outra frase qualquer não entra. */
+function mesmasPalavras(a, b) {
+  const p = (t) => new Set(palavrasDoMaterial(t).filter((w) => w.length >= 4));
+  const x = p(a);
+  const y = p(b);
+  if (!x.size || !y.size) return 0;
+  return [...x].filter((w) => y.has(w)).length / Math.min(x.size, y.size);
+}
+const MESES = 'janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro';
+/** O "sem fonte" do modelo confirmado pelo código: número, nome ou sigla fora do material, ou um mês de ano que ele não traz. */
+function semFonteConfirmado(trecho, material, extra = '') {
+  const f = conferirFatos(trecho, { material, extra });
+  if (f.numeros.length || f.nomes.length) return true;
+  const base = String(`${material} ${extra}`).toLowerCase();
+  return [...String(trecho).matchAll(new RegExp(`(${MESES}) de (\\d{4})`, 'gi'))].some((m) => !base.includes(m[0].toLowerCase()));
+}
+
+/*
+ * Conferir as afirmações com as fontes (27/10; 25/11 refeita e ligada por padrão — régua: o EM6L com "versão Bluetooth",
+ * que não existe; a RTX 5070 Ti com "Ti (Top)" e "vantagem clara da Ti"; as táticas de PUBG com "dados de dezembro de
+ * 2026" em novembro). Duas falhas: o que a fonte CONTRADIZ e a afirmação específica (característica, versão, número,
+ * comparação, data) que NENHUMA fonte sustenta. A correção é só no trecho (troca ou sai), sem reescrever a resposta:
+ * uma chamada ao modelo, de 5 a 10 s.
  */
-async function contradicoesComAsFontes(resposta, usadas, chamar) {
-  const fontesTexto = usadas.map((f) => `[${f.n}] ${f.titulo || ''}\n${(f.trechos || []).join(' … ') || f.resumo || ''}`).join('\n\n').slice(0, 12000);
-  const prompt = `Confira a RESPOSTA contra as FONTES. Liste SÓ as afirmações da resposta que as fontes CONTRADIZEM: a fonte diz outra coisa sobre o MESMO ponto (data, lugar, número, nome, causa). Não liste o que as fontes apenas não mencionam, nem diferenças de redação.
+async function contradicoesComAsFontes(resposta, usadas, chamar, { hoje = '', material = null, extra = '' } = {}) {
+  const fontesTexto = usadas.map((f) => `[${f.n}] ${f.titulo || ''}\n${f.conteudo || (f.trechos || []).join(' … ') || f.resumo || ''}`).join('\n\n').slice(0, 12000);
+  const prompt = `Confira a RESPOSTA contra as FONTES${hoje ? ` (hoje é ${hoje})` : ''}. Liste só as afirmações com um destes problemas:
+- "contradiz": a fonte diz outra coisa sobre o MESMO ponto (data, lugar, número, nome, característica);
+- "sem_fonte": uma afirmação ESPECÍFICA sobre o que a pergunta trata — característica, versão ou modelo de um produto, especificação, número, comparação ("X é melhor/mais forte que Y"), significado de um nome, data de um fato — que nenhuma fonte diz, ou uma data depois de hoje contada como passada.
+Não liste explicação geral, conselho, opinião marcada como opinião, nem diferença de redação. Na dúvida, não liste.
+Para cada uma: "trecho" = a frase exata da resposta (copie igual); "troca" = a frase corrigida pelo que as fontes dizem, ou "" para tirar a frase; "n" = a fonte que mostra o problema (0 se nenhuma fala disso).
 
 FONTES:
 ${fontesTexto}
 
 RESPOSTA:
-${String(resposta).slice(0, 6000)}
+${String(resposta).slice(0, 7000)}
 
-Responda só com JSON: {"contradicoes": [{"afirmacao": "o trecho exato da resposta", "fonte_diz": "o que a fonte diz", "n": número da fonte}]} — ou {"contradicoes": []}.`;
-  const r = await chamar([{ role: 'user', content: prompt }], { json: true, numPredict: 600 }).catch(() => null);
+Responda só com JSON: {"afirmacoes": [{"trecho": "…", "problema": "contradiz" ou "sem_fonte", "troca": "…", "n": número}]} — ou {"afirmacoes": []}.`;
+  const r = await chamar([{ role: 'user', content: prompt }], { json: true, numPredict: 1000 }).catch(() => null);
   let lista = [];
   try {
     const t = String(r?.content || '');
-    lista = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)).contradicoes || [];
+    const j = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1));
+    lista = j.afirmacoes || j.contradicoes || [];
   } catch {
     return [];
   }
   const numeros = new Set(usadas.map((f) => f.n));
   return (Array.isArray(lista) ? lista : [])
-    .map((c) => ({ afirmacao: String(c?.afirmacao || '').trim().slice(0, 300), fonte_diz: String(c?.fonte_diz || '').trim().slice(0, 300), n: Number(c?.n) }))
-    .filter((c) => c.afirmacao.length >= 8 && c.fonte_diz.length >= 4 && numeros.has(c.n) && String(resposta).includes(c.afirmacao.slice(0, 40)))
+    .map((c) => ({
+      trecho: String(c?.trecho || c?.afirmacao || '').trim().slice(0, 400),
+      troca: String(c?.troca ?? '').trim().slice(0, 500),
+      problema: c?.problema === 'sem_fonte' ? 'sem_fonte' : 'contradiz',
+      n: Number(c?.n) || 0,
+    }))
+    // a contradição precisa de uma fonte que existe; o trecho tem de estar na resposta (o modelo pode inventar)
+    .filter((c) => c.trecho.length >= 8 && String(resposta).includes(c.trecho) && (c.problema === 'sem_fonte' || numeros.has(c.n)) && c.troca !== c.trecho)
+    // 25/11 (régua, no app): o 9B chamava de "sem fonte" o que as fontes diziam com outras palavras ("palco amplo"), trocava
+    // uma frase por outra sem relação e tirava o título de uma lista. Agora: o título de lista (termina em ":") e o preço
+    // ficam; a troca tem de falar da mesma coisa; e "sem fonte" só sai quando o código confirma — um número, nome ou sigla
+    // que não está no material (o conferirFatos), ou um "mês de ano" que nenhuma fonte traz
+    .filter((c) => !/:\s*(\*\*)?\s*$/.test(c.trecho) && !/\bPre[çc]o:/i.test(c.trecho))
+    .filter((c) => !c.troca || mesmasPalavras(c.trecho, c.troca) >= 0.2)
+    .filter((c) => c.problema !== 'sem_fonte' || material === null || semFonteConfirmado(c.trecho, material, extra))
+    .filter((c, i, todas) => todas.findIndex((x) => x.trecho === c.trecho) === i)
     .slice(0, 6);
+}
+
+/** Aplica as correções: o trecho vira a troca; sem troca, sai (numa linha de tabela, fica "não informado nas fontes"). */
+function corrigirAfirmacoes(texto, lista) {
+  let s = String(texto || '');
+  for (const c of lista) {
+    const i = s.indexOf(c.trecho);
+    if (i < 0) continue;
+    const linha = s.slice(s.lastIndexOf('\n', i) + 1, i);
+    const troca = c.troca || (/^\s*\|/.test(linha) ? 'não informado nas fontes' : '');
+    s = s.slice(0, i) + troca + s.slice(i + c.trecho.length);
+  }
+  // (os espaços do começo da linha são a indentação da lista: ficam)
+  return s.replace(/(\S)[ \t]{2,}/g, '$1 ').replace(/(\S) +([.,;:])/g, '$1$2').replace(/^[ \t]*[-*][ \t]*$\n?/gm, '');
 }
 
 /** Muitos fatos sem fonte (3+ e pelo menos 1 em cada 4 conferidos): a resposta é reescrita sem eles. */
@@ -2798,24 +2861,17 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
       else emit('resposta-reinicia', { motivo: 'a reescrita não ficou melhor — mantendo a primeira versão' });
     }
   }
-  // conferir as afirmações (27/10, opção em Ajustes, desligada por padrão): o que as fontes CONTRADIZEM
-  // — não o que elas só não citam — é corrigido pelo que elas dizem ("Dom Pedro I nasceu na Espanha")
+  // conferir as afirmações (27/10; 25/11 ligada por padrão e só no trecho — contradicoesComAsFontes): o que as fontes
+  // contradizem e o específico que nenhuma sustenta ("versão Bluetooth" de um fone só com fio) é trocado ou sai
   let afirmacoes = null;
-  if (usadas.length && deps.conferirAfirmacoes === true && !deps.signal?.aborted) {
-    const contradicoes = await contradicoesComAsFontes(escrito, usadas, chamar);
-    afirmacoes = { contradicoes: contradicoes.length, ficou: 'original' };
-    if (contradicoes.length) {
-      emit('aviso', { texto: `conferência das afirmações: ${contradicoes.length} contradiz(em) as fontes — corrigindo` });
-      emit('resposta-reinicia', { motivo: `conferindo as afirmações: ${contradicoes.length} contradiz(em) as fontes — corrigindo` });
-      const lista = contradicoes.map((c) => `- "${c.afirmacao}" → a fonte [${c.n}] diz: "${c.fonte_diz}"`).join('\n');
-      const nova = limparEscrita(await escrever(
-        [...mensagens, { role: 'assistant', content: escrito }, { role: 'user', content: `Conferi sua resposta com as fontes. Estas afirmações contradizem o que elas dizem:\n${lista}\nReescreva a resposta inteira corrigindo só esses pontos pelo que as fontes dizem. Mantenha o resto, o formato e as citações [n]. Escreva só a nova resposta.` }],
-        (pedaco) => emit('resposta-token', { pedaco })
-      ));
-      if (nova.trim().length >= escrito.trim().length * 0.6) {
-        escrito = nova;
-        afirmacoes.ficou = 'nova';
-      } else emit('resposta-reinicia', { motivo: 'a correção não ficou boa — mantendo a primeira versão' });
+  if (usadas.length && deps.conferirAfirmacoes !== false && !ent.conversa && !deps.signal?.aborted) {
+    const achadas = await contradicoesComAsFontes(escrito, usadas, chamar, { hoje, material, extra: extraDaConferencia });
+    afirmacoes = { contradicoes: achadas.filter((c) => c.problema === 'contradiz').length, semFonte: achadas.filter((c) => c.problema === 'sem_fonte').length, ficou: 'original' };
+    if (achadas.length) {
+      escrito = corrigirAfirmacoes(escrito, achadas);
+      afirmacoes.ficou = 'corrigida';
+      const um = (c) => `${c.problema === 'contradiz' ? 'contradiz' : 'sem fonte'}: "${c.trecho.slice(0, 80)}" → ${c.troca ? `"${c.troca.slice(0, 80)}"` : 'saiu'}`;
+      emit('aviso', { texto: `conferência das afirmações: ${achadas.length} corrigida(s) — ${achadas.map(um).join(' · ')}` });
     }
   }
   // só ficam na lista as fontes que a resposta citou (ou todas as usadas, se ela não citou nenhuma)
@@ -2904,4 +2960,4 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   return { vista, texto, fontes: lista, entendimento: ent, buscou: fontes.length > 0, produto: ent.produto, avaliado, assuntos: ent.assuntos || [], modo: modoUsado, anosSemFonte: conferido.faltam, fatosSemFonte: conferido.fatosSemFonte || [], reescrita: conferido.reescrita || null, afirmacoes: conferido.afirmacoes || null };
 }
 
-module.exports = { REGRA_DE_TIPO, perfilDaPergunta, classeDaFonte, PESOS_DO_PERFIL, avaliaUmProduto, formatoDoVeredito, listasSoParaComprar, blocoDeFontes, mesmoModelo, pareceModelo, blocoDeFontes, buscaPeloLink, LEITURAS_DO_APP, separarCartoes, questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };
+module.exports = { REGRA_DE_TIPO, perfilDaPergunta, classeDaFonte, PESOS_DO_PERFIL, avaliaUmProduto, formatoDoVeredito, listasSoParaComprar, blocoDeFontes, mesmoModelo, pareceModelo, blocoDeFontes, buscaPeloLink, LEITURAS_DO_APP, separarCartoes, questionarioNaResposta, PEDE_QUIZ, PEDE_QUESTIONARIO, INSTRUCAO_DE_QUESTIONARIO, pedeRecomendacao, comAjustesDeImagem, citadosNaComunidade, blocoDaComunidade, comunidadePrimeiro, consultaCurta, comDecisao, decisaoDoDecisor, PERGUNTAS_DO_DECISOR, modelosCitados, conferirCamposDoProduto, semOpcoesContraOsCriterios, blocoDosCriterios, cruzarFontes, pautaDaEscrita, anotarPaginas, usaComoFerramenta, PISTA_DO_USUARIO, acaoValida, opcoesPedidas, avisoDeCautela, questaoDeProva: (t) => QUESTAO_DE_PROVA(String(t || "")), contradicoesComAsFontes, corrigirAfirmacoes, pedeATela, soCumprimento, soSobreAImagem, tamanhoNaMedida, comCredibilidade, listaParaOModelo, pedeVisual, comoVisual, conferirFatos, precisaReescrever, assuntoConcreto, regrasDoModo, conferirEntendimento, semImagens, blocoDeFontes, temPistaDeProduto, conferirResposta, listaDeBuscas, MODOS, podeFicarSemBusca, pedeImagem, lerPrompt, lerRevisao, pedidoDeVisao, responder, pesquisar, materialDaEscrita, semFontesForaDoAssunto, padraoDoProduto, conferirAnos, pedidoDeEntendimento, lerEntendimento, sistemaDoPesquisador, sistemaDoEscritor, FERRAMENTAS, FERRAMENTAS_DO_YOUTUBE, RODADAS };

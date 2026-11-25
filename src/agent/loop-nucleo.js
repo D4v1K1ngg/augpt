@@ -179,8 +179,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     preferencias: (pergunta) => preferenciasDaPergunta(this.userDataPath, cfg, { pergunta, chamar: (m, o) => deps.chamar(m, o) }),
     // o idioma das telas (22/10): 'en' faz o escritor responder em inglês
     idioma: cfg.idiomaEfetivo === 'en' ? 'en' : 'pt',
-    // conferir as afirmações com as fontes (27/10, Ajustes → Pesquisa; desligado por padrão)
-    conferirAfirmacoes: cfg.conferirAfirmacoes === true,
+    // conferir as afirmações com as fontes (27/10, Ajustes → Pesquisa; ligado por padrão desde 25/11)
+    conferirAfirmacoes: cfg.conferirAfirmacoes !== false,
     // a pauta antes da escrita (12/11): DESLIGADA por padrão — na régua, com o qwen3.5:9b, não melhorou (notas iguais,
     // 5 a 9 dicas de 12 com ou sem) e custa 3–5 s; com o gpt-oss, respostas mais completas. Liga com "pautaDaEscrita": true
     pautaDaEscrita: cfg.pautaDaEscrita === true,
