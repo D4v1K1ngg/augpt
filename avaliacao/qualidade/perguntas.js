@@ -1067,6 +1067,67 @@ module.exports = [
     ],
     checagens: [...checagensDaResposta()],
   },
+  /* ------- método (25/11, a avaliação do ChatGPT do teste do ângulo do mouse): o teste ou a medida mede o que promete? ------- */
+  {
+    // de uso real (25/11): a resposta mandou usar a ferramenta de LINHA do Paint — ela força o traço reto e não mostra nada
+    id: 'metodo-angulo-mouse',
+    tipo: 'metodo',
+    pedido: 'como saber se eu preciso ajustar o ângulo do sensor no meu mouse ? como eu devo testar ?',
+    criterios: [
+      'o teste registra o movimento livre do mouse (pincel/lápis, ou um programa que grava a trajetória pelo Raw Input), não uma ferramenta que força o traço reto',
+      'pede várias repetições (ou movimentos nos dois sentidos) e olha se a inclinação é consistente, em vez de decidir por um traço só',
+      'mantém o mesmo DPI, sensibilidade e pegada durante o teste (sem dizer que baixar o DPI revela o erro)',
+      'recomenda confirmar no jogo (comparar o ajuste com o ângulo em 0°) ou avisa que o sinal da correção depende do software',
+    ],
+    checagens: [
+      ...checagensDaResposta(),
+      { nome: 'não manda usar a ferramenta de linha reta (ou diz que ela não serve)', ok: (r) => !/ferramenta (de )?linha|line tool/i.test(r) || /linha[^.\n]{0,160}(força|forca|não (registra|mostra|serve)|evite|não use)/i.test(r) },
+    ],
+  },
+  {
+    id: 'metodo-drivers-fone',
+    tipo: 'metodo',
+    pedido: 'Um fone com mais drivers tem melhor posicionamento sonoro para jogos?',
+    criterios: [
+      'diz que não: o número de drivers sozinho não garante melhor posicionamento (imaging) nem palco',
+      'explica o que pesa de verdade: a afinação (tuning/resposta de frequência), o encaixe/vedação e o áudio do próprio jogo',
+      'recomenda olhar medições ou testes de quem usou, não a ficha técnica',
+    ],
+    checagens: [...checagensDaResposta(), { nome: 'não afirma que mais drivers = melhor posicionamento', ok: (r) => /n[ãa]o (garante|significa|necessariamente|é o que)|nem sempre|por si s[óo]|sozinho/i.test(r) }],
+  },
+  {
+    id: 'metodo-fps-medio',
+    tipo: 'metodo',
+    pedido: 'Para comparar duas placas de vídeo para jogos, basta olhar o FPS médio nos benchmarks?',
+    criterios: [
+      'diz que não basta: o FPS médio esconde travadas',
+      'fala do 1% low (ou 0,1% low) e/ou do tempo de quadro (frametime)',
+      'diz que a comparação precisa das mesmas condições (mesmos jogos, resolução, processador, configurações)',
+    ],
+    checagens: [...checagensDaResposta(), { nome: 'fala de 1% low ou frametime', ok: (r) => /1\s?% (low|m[íi]nimo)|0,1\s?%|frame ?time|tempo de quadro/i.test(r) }],
+  },
+  {
+    id: 'metodo-teste-velocidade',
+    tipo: 'metodo',
+    pedido: 'Fiz um teste de velocidade e deu 500 Mbps. Isso quer dizer que minha internet está estável para jogar?',
+    criterios: [
+      'diz que não: um teste de velocidade mostra a banda naquele momento, não a estabilidade',
+      'fala de ping/latência, jitter (variação) e perda de pacotes',
+      'recomenda medir por mais tempo ou em horários diferentes (ou durante o jogo), de preferência no cabo',
+    ],
+    checagens: [...checagensDaResposta(), { nome: 'fala de jitter ou perda de pacotes', ok: (r) => /jitter|perda de pacotes?|packet loss|varia[çc][ãa]o (do|da|de) (ping|lat[êe]ncia)/i.test(r) }],
+  },
+  {
+    id: 'metodo-megapixels',
+    tipo: 'metodo',
+    pedido: 'Uma câmera de celular com 200 megapixels tira fotos melhores que uma de 50 megapixels?',
+    criterios: [
+      'diz que não necessariamente: megapixel sozinho não define a qualidade',
+      'explica o que pesa: tamanho do sensor/pixel, lente/abertura, processamento (e o agrupamento de pixels, pixel binning)',
+      'recomenda comparar fotos reais ou testes (DXOMARK, reviews) nas mesmas condições',
+    ],
+    checagens: [...checagensDaResposta(), { nome: 'fala do sensor ou do processamento', ok: (r) => /sensor|binning|processamento/i.test(r) }],
+  },
 ];
 
 /**

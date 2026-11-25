@@ -289,6 +289,7 @@ const usaComoFerramenta = (id, pergunta) => {
  */
 // 25/11 (régua): o dólar abriu com "os dados consultados para o seu computador (Windows NT 10.0.26200…)" e as táticas de PUBG
 // diziam que, com o processador dele, dá para usar "sensibilidade mais alta"
+const PISTA_DO_PC = /(?<![a-zà-ú])(pc|computador|notebook|laptop|windows|linux|mac|jogos?|games?|fps|desempenho|performance|placa|gpu|processador|cpu|mem[óo]ria|ram|ssd|hd|disco|programas?|apps?|instal\w*|drivers?|rodar|roda|rodaria|aguenta|upgrade|setup|ia local|modelos? de ia)(?![a-zà-ú])/i;
 const SO_O_QUE_MUDA = 'Use cada dado só onde ele muda a resposta; o que não muda nada para esta pergunta (o sistema, a data, uma peça que não importa aqui) não cite, nem invente uma ligação.';
 const LEITURAS_DO_APP = ['consultar_pc', 'diagnostico_da_rede', 'trafego_de_rede', 'rota_de_jogo', 'clima', 'mapa', 'calendario', 'cotacao'];
 const CARTOES_DO_APP = /```(clima|mapa|calendario|timer|compras|midia|arquivos)\s*\n?[\s\S]*?```/g;
@@ -2383,11 +2384,21 @@ function semFonteConfirmado(trecho, material, extra = '') {
  * comparação, data) que NENHUMA fonte sustenta. A correção é só no trecho (troca ou sai), sem reescrever a resposta:
  * uma chamada ao modelo, de 5 a 10 s.
  */
-async function contradicoesComAsFontes(resposta, usadas, chamar, { hoje = '', material = null, extra = '' } = {}) {
+/*
+ * O método (25/11, a avaliação do ChatGPT do teste do ângulo do mouse: a resposta mandou usar a ferramenta de LINHA do
+ * Paint, que força o traço reto — e a fonte dizia isso; conferir com a fonte não pega). Uma fonte confiável pode ensinar um
+ * teste que não mede o que promete. Fica na mesma chamada da conferência (nada de regra nova no escritor: o 9B escreve
+ * pior com mais regras, 15/11). O código não tem como confirmar: o "método" só entra com a troca (o procedimento
+ * corrigido), nunca apaga.
+ */
+const PROBLEMA_DE_METODO = `
+- "metodo": um teste, medição ou critério que a resposta recomenda e que NÃO consegue mostrar o que promete — a ferramenta força ou muda o resultado (ex.: a ferramenta de linha reta deixa qualquer traço reto), um número só usado como prova de qualidade (ex.: mais drivers = melhor som, mais megapixels = foto melhor, só o FPS médio), uma medida de um momento usada como prova de estabilidade, ou um ajuste que não tem a ver com o que se mede. A "troca" é o procedimento corrigido, curto.`;
+
+async function contradicoesComAsFontes(resposta, usadas, chamar, { hoje = '', material = null, extra = '', metodo = false } = {}) {
   const fontesTexto = usadas.map((f) => `[${f.n}] ${f.titulo || ''}\n${f.conteudo || (f.trechos || []).join(' … ') || f.resumo || ''}`).join('\n\n').slice(0, 12000);
   const prompt = `Confira a RESPOSTA contra as FONTES${hoje ? ` (hoje é ${hoje})` : ''}. Liste só as afirmações com um destes problemas:
 - "contradiz": a fonte diz outra coisa sobre o MESMO ponto (data, lugar, número, nome, característica);
-- "sem_fonte": uma afirmação ESPECÍFICA sobre o que a pergunta trata — característica, versão ou modelo de um produto, especificação, número, comparação ("X é melhor/mais forte que Y"), significado de um nome, data de um fato — que nenhuma fonte diz, ou uma data depois de hoje contada como passada.
+- "sem_fonte": uma afirmação ESPECÍFICA sobre o que a pergunta trata — característica, versão ou modelo de um produto, especificação, número, comparação ("X é melhor/mais forte que Y"), significado de um nome, data de um fato — que nenhuma fonte diz, ou uma data depois de hoje contada como passada.${metodo ? PROBLEMA_DE_METODO : ''}
 Não liste explicação geral, conselho, opinião marcada como opinião, nem diferença de redação. Na dúvida, não liste.
 Para cada uma: "trecho" = a frase exata da resposta (copie igual); "troca" = a frase corrigida pelo que as fontes dizem, ou "" para tirar a frase; "n" = a fonte que mostra o problema (0 se nenhuma fala disso).
 
@@ -2397,7 +2408,7 @@ ${fontesTexto}
 RESPOSTA:
 ${String(resposta).slice(0, 7000)}
 
-Responda só com JSON: {"afirmacoes": [{"trecho": "…", "problema": "contradiz" ou "sem_fonte", "troca": "…", "n": número}]} — ou {"afirmacoes": []}.`;
+Responda só com JSON: {"afirmacoes": [{"trecho": "…", "problema": "contradiz"${metodo ? ', "sem_fonte" ou "metodo"' : ' ou "sem_fonte"'}, "troca": "…", "n": número}]} — ou {"afirmacoes": []}.`;
   const r = await chamar([{ role: 'user', content: prompt }], { json: true, numPredict: 1000 }).catch(() => null);
   let lista = [];
   try {
@@ -2412,11 +2423,13 @@ Responda só com JSON: {"afirmacoes": [{"trecho": "…", "problema": "contradiz"
     .map((c) => ({
       trecho: String(c?.trecho || c?.afirmacao || '').trim().slice(0, 400),
       troca: String(c?.troca ?? '').trim().slice(0, 500),
-      problema: c?.problema === 'sem_fonte' ? 'sem_fonte' : 'contradiz',
+      problema: c?.problema === 'sem_fonte' ? 'sem_fonte' : c?.problema === 'metodo' && metodo ? 'metodo' : 'contradiz',
       n: Number(c?.n) || 0,
     }))
     // a contradição precisa de uma fonte que existe; o trecho tem de estar na resposta (o modelo pode inventar)
-    .filter((c) => c.trecho.length >= 8 && String(resposta).includes(c.trecho) && (c.problema === 'sem_fonte' || numeros.has(c.n)) && c.troca !== c.trecho)
+    .filter((c) => c.trecho.length >= 8 && String(resposta).includes(c.trecho) && (c.problema !== 'contradiz' || numeros.has(c.n)) && c.troca !== c.trecho)
+    // o método só entra corrigido (o código não confirma: apagar seria confiar no 9B sozinho)
+    .filter((c) => c.problema !== 'metodo' || c.troca.length >= 12)
     // 25/11 (régua, no app): o 9B chamava de "sem fonte" o que as fontes diziam com outras palavras ("palco amplo"), trocava
     // uma frase por outra sem relação e tirava o título de uma lista. Agora: o título de lista (termina em ":") e o preço
     // ficam; a troca tem de falar da mesma coisa; e "sem fonte" só sai quando o código confirma — um número, nome ou sigla
@@ -2744,7 +2757,11 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   emit('nucleo-entendimento', { ...ent, modo: modoUsado });
   // a pergunta depende do usuário (18/10, "meu computador"): o que o AuGPT já sabe dele vai junto
   // na conversa, não (28/10: "estou cansado" respondeu falando do Ryzen do usuário)
-  const sobreOUsuario = [(ent.sobreOUsuario || (lidoPelasFerramentas && !['clima', 'mapa', 'calendario', 'cotacao'].includes(ent.acao))) && !ent.conversa && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '', lidoPelasFerramentas].filter(Boolean).join('\n\n');
+  // 25/11 (régua): "como saber se preciso ajustar o ângulo do sensor no meu mouse?" abriu com "Com base no seu hardware
+  // (Ryzen 7 7800X3D, RTX 5070 Ti e Windows 10)" — o "meu" do mouse trazia a ficha do PC. A ficha (deps.sobreOUsuario é só
+  // ela) vai quando a pergunta fala do computador, ou quando uma leitura do app já foi feita
+  const doPc = PISTA_DO_PC.test(String(pergunta || '')) || (lidoPelasFerramentas && !['clima', 'mapa', 'calendario', 'cotacao'].includes(ent.acao));
+  const sobreOUsuario = [(ent.sobreOUsuario || (lidoPelasFerramentas && !['clima', 'mapa', 'calendario', 'cotacao'].includes(ent.acao))) && doPc && !ent.conversa && typeof deps.sobreOUsuario === 'function' ? String((await deps.sobreOUsuario().catch(() => '')) || '').trim() : '', lidoPelasFerramentas].filter(Boolean).join('\n\n');
   // os links que o usuário colou (da pergunta original — a reescrita do entendimento pode perder o endereço)
   const linksDoUsuario = [...new Set(String(pergunta || '').match(/https?:\/\/[^\s'"<>)\]]+/g) || [])];
   etapa('entendimento', inicioDoEntendimento);
@@ -2839,7 +2856,9 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     }
   }
   // o que a conferência aceita: o que foi lido, a pergunta, a conversa e o que se sabe do usuário
-  const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')}`).join(' ')} ${notas} ${vista}` : '';
+  // o endereço também (25/11, régua: "AbcTester [1], MouseTestPro [7], TestYourMouse [8]" saiu como sem fonte — o nome do
+  // site estava só no link, abctester.net; o palavrasDoMaterial separa "abctester" do domínio)
+  const material = fontes.length ? `${fontes.map((f) => `${f.titulo} ${f.resumo} ${f.trechos.join(' ')} ${String(f.url || '').replace(/[./-]/g, ' ')}`).join(' ')} ${notas} ${vista}` : '';
   const extraDaConferencia = `${pergunta} ${ent.pergunta} ${conversa.map((m) => m.content).join(' ')} ${hoje} ${sobreOUsuario}`;
   let reescrita = null;
   // reescreve só pergunta que muda com o tempo: ali o que o modelo "sabe" envelheceu e o inventado
@@ -2868,12 +2887,12 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
   // contradizem e o específico que nenhuma sustenta ("versão Bluetooth" de um fone só com fio) é trocado ou sai
   let afirmacoes = null;
   if (usadas.length && deps.conferirAfirmacoes !== false && !ent.conversa && !deps.signal?.aborted) {
-    const achadas = await contradicoesComAsFontes(escrito, usadas, chamar, { hoje, material, extra: extraDaConferencia });
-    afirmacoes = { contradicoes: achadas.filter((c) => c.problema === 'contradiz').length, semFonte: achadas.filter((c) => c.problema === 'sem_fonte').length, ficou: 'original' };
+    const achadas = await contradicoesComAsFontes(escrito, usadas, chamar, { hoje, material, extra: extraDaConferencia, metodo: deps.conferirMetodo === true });
+    afirmacoes = { contradicoes: achadas.filter((c) => c.problema === 'contradiz').length, semFonte: achadas.filter((c) => c.problema === 'sem_fonte').length, metodo: achadas.filter((c) => c.problema === 'metodo').length, ficou: 'original' };
     if (achadas.length) {
       escrito = corrigirAfirmacoes(escrito, achadas);
       afirmacoes.ficou = 'corrigida';
-      const um = (c) => `${c.problema === 'contradiz' ? 'contradiz' : 'sem fonte'}: "${c.trecho.slice(0, 80)}" → ${c.troca ? `"${c.troca.slice(0, 80)}"` : 'saiu'}`;
+      const um = (c) => `${{ contradiz: 'contradiz', sem_fonte: 'sem fonte', metodo: 'método' }[c.problema]}: "${c.trecho.slice(0, 80)}" → ${c.troca ? `"${c.troca.slice(0, 80)}"` : 'saiu'}`;
       emit('aviso', { texto: `conferência das afirmações: ${achadas.length} corrigida(s) — ${achadas.map(um).join(' · ')}` });
     }
   }

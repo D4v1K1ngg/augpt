@@ -75,6 +75,16 @@ async function memoriaLivreDaPlaca({ executar = rodar, agora = Date.now() } = {}
   return livreCache.valor;
 }
 
+/**
+ * O nome do sistema como o usuário conhece (25/11: "Windows_NT 10.0.26200" virou "Windows 10 (versão 26200)" na resposta —
+ * o build 22000 em diante é o Windows 11, que também se apresenta como 10.0).
+ */
+function nomeDoSistema(plataforma = process.platform, versao = os.release(), tipo = os.type()) {
+  if (plataforma !== 'win32') return `${tipo} ${versao}`;
+  const build = Number(String(versao).split('.')[2]) || 0;
+  return `${build >= 22000 ? 'Windows 11' : 'Windows 10'}${build ? ` (build ${build})` : ''}`;
+}
+
 /** Pasta onde o Ollama guarda os modelos (OLLAMA_MODELS ou a padrão). */
 function pastaDosModelos(env = process.env) {
   return env.OLLAMA_MODELS || path.join(os.homedir(), '.ollama', 'models');
@@ -100,7 +110,7 @@ async function verificarComputador(opcoes = {}) {
   const gpus = await detectarGpus(opcoes);
   const pasta = pastaDosModelos(opcoes.env);
   return {
-    sistema: `${os.type()} ${os.release()}`,
+    sistema: nomeDoSistema(),
     plataforma: opcoes.plataforma || process.platform,
     cpu: (os.cpus()[0]?.model || '').replace(/\s+/g, ' ').trim(),
     nucleos: os.cpus().length,
@@ -227,4 +237,4 @@ async function testarAceleracao({ host, modelo, buscar = (...a) => fetch(...a), 
   return { modelo, naPlaca, placas, tokensPorSegundo, carregouEmS: r.load_duration ? Math.round(r.load_duration / 1e8) / 10 : null, veredito };
 }
 
-module.exports = { placasDoOllama, avisoDeDuasPlacas, testarAceleracao, placaAntiga, PLACA_AMD_ANTIGA, verificarComputador, detectarGpus, memoriaLivreDaPlaca, lerGpusNvidiaSmi, lerGpusDoRegistro, recomendarModelos, espacoLivreGB, pastaDosModelos, MODELOS, EMBEDDING };
+module.exports = { placasDoOllama, avisoDeDuasPlacas, testarAceleracao, placaAntiga, PLACA_AMD_ANTIGA, verificarComputador, detectarGpus, memoriaLivreDaPlaca, nomeDoSistema, lerGpusNvidiaSmi, lerGpusDoRegistro, recomendarModelos, espacoLivreGB, pastaDosModelos, MODELOS, EMBEDDING };

@@ -74,3 +74,20 @@ module.exports.push({
     return [antigo.conferirAfirmacoes === true || 'o antigo liga', desligou.conferirAfirmacoes === false || 'o desligado depois fica'];
   },
 });
+module.exports.push({
+  nome: 'régua do método (25/11): "fiz um teste de velocidade e deu 500 Mbps, isso quer dizer…?" não vira a oferta de medir ("testa de novo agora" vira); o Windows pelo build (26200 = Windows 11); a ficha do PC só quando a pergunta fala do computador ("meu mouse", não)',
+  tipo: 'unidade',
+  executar() {
+    const rede = require('../../src/agent/rede-no-chat');
+    const { nomeDoSistema } = require('../../src/verificador-de-hardware');
+    const fonte = require('fs').readFileSync(require('path').join(__dirname, '../../src/agent/nucleo/index.js'), 'utf8');
+    const PISTA = new RegExp(/const PISTA_DO_PC = \/(.+)\/i;/.exec(fonte)[1], 'i');
+    return [
+      rede.pedidoDeRede('Fiz um teste de velocidade e deu 500 Mbps. Isso quer dizer que minha internet está estável para jogar?') === null || 'teste já feito',
+      Boolean(rede.pedidoDeRede('o speedtest deu 20 mega, testa de novo agora') && rede.pedidoDeRede('faz um teste de velocidade')) || 'pedido de medir',
+      nomeDoSistema('win32', '10.0.26200') === 'Windows 11 (build 26200)' && nomeDoSistema('win32', '10.0.19045') === 'Windows 10 (build 19045)' || 'Windows',
+      !PISTA.test('como saber se eu preciso ajustar o ângulo do sensor no meu mouse ?') && PISTA.test('como melhorar o desempenho do meu computador para jogos fps') || 'ficha do PC',
+      /doPc && !ent\.conversa/.test(fonte) || 'a ficha depende da pista',
+    ];
+  },
+});

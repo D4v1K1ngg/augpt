@@ -109,3 +109,22 @@ module.exports.push({
     return [texto.split(troca).length === 2 && achadas.length === 1 || `${achadas.length}: ${texto}`];
   },
 });
+module.exports.push({
+  nome: 'conferir o método (25/11, em medição): só com a opção, o "metodo" entra — e só corrigido (sem troca, não apaga); sem a opção, o "metodo" do modelo não vira contradição',
+  tipo: 'unidade',
+  async executar() {
+    const r = 'Selecione a ferramenta de linha reta e desenhe uma linha horizontal. Se ficar reta, o sensor está alinhado.';
+    const lista = [
+      { trecho: 'Selecione a ferramenta de linha reta e desenhe uma linha horizontal.', problema: 'metodo', troca: 'Use o lápis (traço livre), não a ferramenta de linha reta, que deixa qualquer traço reto; desenhe uma linha horizontal.', n: 0 },
+      { trecho: 'Se ficar reta, o sensor está alinhado.', problema: 'metodo', troca: '', n: 0 },
+    ];
+    const com = (metodo) => nucleo.contradicoesComAsFontes(r, [{ n: 1, titulo: 'x', trechos: ['linha reta sensor'] }], async (msgs) => ({ content: JSON.stringify({ afirmacoes: lista }), prompt: msgs[0].content }), { metodo });
+    const ligado = await com(true);
+    const desligado = await com(false);
+    return [
+      ligado.length === 1 && ligado[0].problema === 'metodo' && /lápis/.test(ligado[0].troca) || JSON.stringify(ligado),
+      desligado.length === 0 || `desligado: ${JSON.stringify(desligado)}`,
+      /PROBLEMA_DE_METODO/.test(require('fs').readFileSync(require('path').join(__dirname, '../../src/agent/nucleo/index.js'), 'utf8')) || 'a regra',
+    ];
+  },
+});

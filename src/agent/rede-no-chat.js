@@ -32,6 +32,8 @@ const SIM = /^\s*(sim|pode|ok|okay|blz|beleza|manda|vai|claro|confirmo|bora|pode
  * O pedido é de teste de rede? → null ou { modo: 'ping' | 'completo', confirmado }.
  * `conversa`: a última resposta do AuGPT pode ser a pergunta de confirmação.
  */
+const JA_TESTOU = /\b(fiz|fizemos|rodei|deu|deram|mostrou|mostra que|apareceu|resultado)\b/;
+const PEDE_AGORA = /\b(testa|testar|teste (a|minha)|mede|meca|medir|rode|roda|faz (um|o)|faca (um|o)|de novo|agora)\b/;
 function pedidoDeRede(texto, conversa = []) {
   const t = norm(texto);
   const ultima = [...conversa].reverse().find((m) => m.role === 'assistant');
@@ -41,6 +43,10 @@ function pedidoDeRede(texto, conversa = []) {
   }
   const pede = (DIRETO.test(t) || (ACAO.test(t) && ALVO.test(t) && (DO_USUARIO.test(t) || /\binternet\b/.test(t)))) && !(EXPLICACAO.test(t) && !DO_USUARIO.test(t));
   if (!pede) return null;
+  // o teste que o usuário JÁ fez (25/11, régua: "Fiz um teste de velocidade e deu 500 Mbps. Isso quer dizer que minha
+  // internet está estável?" virou a oferta de medir): a pergunta é sobre o resultado — vai para a resposta, a não ser que
+  // ele peça para medir agora
+  if (JA_TESTOU.test(t) && !PEDE_AGORA.test(t)) return null;
   const modo = (SO_PING.test(t) || /\b(ping|latencia|jitter)\b/.test(t)) && !QUER_VELOCIDADE.test(t) ? 'ping' : 'completo';
   return { modo, confirmado: modo === 'ping' || /\b(pode (usar|gastar)|sem problema|confirmo|pode testar)\b/.test(t) };
 }

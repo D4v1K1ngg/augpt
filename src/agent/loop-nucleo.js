@@ -181,6 +181,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     idioma: cfg.idiomaEfetivo === 'en' ? 'en' : 'pt',
     // conferir as afirmações com as fontes (27/10, Ajustes → Pesquisa; ligado por padrão desde 25/11)
     conferirAfirmacoes: cfg.conferirAfirmacoes !== false,
+    // 25/11: o método (o teste mede o que promete?) na mesma conferência — em medição; liga com "conferirMetodo": true
+    conferirMetodo: cfg.conferirMetodo === true,
     // a pauta antes da escrita (12/11): DESLIGADA por padrão — na régua, com o qwen3.5:9b, não melhorou (notas iguais,
     // 5 a 9 dicas de 12 com ou sem) e custa 3–5 s; com o gpt-oss, respostas mais completas. Liga com "pautaDaEscrita": true
     pautaDaEscrita: cfg.pautaDaEscrita === true,
