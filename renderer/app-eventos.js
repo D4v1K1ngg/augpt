@@ -278,6 +278,7 @@ const manipuladores = {
     t.buffer = (t.buffer || '') + pedaco;
     t.resposta.classList.remove('provisoria'); // o texto de verdade substitui o resultado parcial
     t.resposta.innerHTML = `${window.md.render(t.buffer)}<span class="cursor"></span>`;
+    window.efeitosDeEscrita?.animar(t.resposta); // o efeito de escrita escolhido em Aparência (26/11)
     rolar(el.aRolagem);
   },
 
@@ -423,6 +424,7 @@ const manipuladores = {
     t.resposta.hidden = false;
     t.resposta.classList.remove('provisoria');
     t.resposta.innerHTML = window.md.render(resumo); // troca o texto em streaming pelo definitivo
+    window.efeitosDeEscrita?.animar(t.resposta, { fim: true }); // o fim do texto termina de animar
     window.md.montarGraficos(t.resposta);
     window.acoesDaResposta?.(t.resposta, resumo, { ultima: true });
     window.botaoDeAudio?.(t.resposta, resumo);

@@ -326,6 +326,7 @@ api.chat.onToken(({ id, pedaco }) => {
   if (id !== chat.idAtual || !chat.alvo) return;
   chat.buffer += pedaco;
   chat.alvo.innerHTML = `${window.md.render(chat.buffer)}<span class="cursor"></span>`;
+  window.efeitosDeEscrita?.animar(chat.alvo); // o efeito de escrita escolhido em Aparência (26/11)
   rolar(el.cRolagem);
 });
 
@@ -364,6 +365,7 @@ async function enviarMensagem() {
 
   if (r.ok) {
     chat.alvo.innerHTML = window.md.render(r.conteudo);
+    window.efeitosDeEscrita?.animar(chat.alvo, { fim: true });
     window.md.montarGraficos(chat.alvo);
     window.acoesDaResposta?.(chat.alvo, r.conteudo);
     window.botaoDeAudio?.(chat.alvo, r.conteudo);

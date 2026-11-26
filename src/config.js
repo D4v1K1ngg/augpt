@@ -182,6 +182,11 @@ const DEFAULTS = {
   narrarNoChat: true,
   // 1/11: as ondas da tela inicial — 'auto' segue o "Efeitos de animação" do Windows; 'animado' ou 'parado'
   ondasInicio: 'auto',
+  // 26/11: o efeito de escrita no chat (renderer/efeitos-escrita.js): 'nenhum' = o texto aparece como chega;
+  // com os efeitos de animação do Windows desligados, só anima se escritaComAnimacaoDesligada
+  efeitoEscrita: 'nenhum',
+  velocidadeEscrita: 1,
+  escritaComAnimacaoDesligada: false,
   // 30/10: modo simples para quem está começando (falso): Ajustes só com o essencial, dois modos de pesquisa e o
   // menu enxuto; ligado, aparece tudo (renderer/modo-simples.js)
   modoAvancado: false,

@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="tema.css" />
 <link rel="stylesheet" href="tema-lume.css" />
 <link rel="stylesheet" href="tema-vidro.css" />
+<link rel="stylesheet" href="efeitos-escrita.css" />
 <script src="tema.js"></script>
 <script src="i18n.js"></script>
 </head>
@@ -1187,6 +1188,22 @@
           </label>
         </section>
         <section class="grupo">
+          <h2>Efeitos de escrita</h2>
+          <p class="dica grupo-sub">Como a resposta aparece no chat enquanto o modelo escreve. O texto nunca espera o efeito: ele anima o que acabou de chegar. Código, links, citações, tabelas, fotos, gráficos e cartões aparecem como sempre.</p>
+          <label class="linha"><span>Efeito</span>
+            <select id="cfgEfeitoEscrita"></select>
+          </label>
+          <label class="linha"><span>Velocidade do efeito <small id="cfgVelocidadeEscritaValor" class="ajuste-status">1×</small></span>
+            <input type="range" id="cfgVelocidadeEscrita" min="0.5" max="3" step="0.25" value="1" />
+          </label>
+          <label class="linha"><span class="linha-texto"><span>Animar mesmo com os efeitos de animação do Windows desligados</span><small>Com eles desligados, o chat fica sem efeito, a não ser que você marque aqui.</small></span>
+            <input type="checkbox" id="cfgEscritaSempre" class="caixa" />
+          </label>
+          <p class="dica" id="escritaAviso" hidden>Os efeitos de animação do Windows estão desligados: no chat, a resposta aparece sem efeito. A prévia também.</p>
+          <div class="msg-corpo escrita-previa" id="escritaPrevia" aria-live="off"></div>
+          <div class="linha-botoes"><button type="button" class="btn-secundario" id="btnEscritaPrevia">Ver de novo</button></div>
+        </section>
+        <section class="grupo">
           <h2>Abertura e tela inicial</h2>
           <p class="dica grupo-sub">A caixa pequena que cresce até virar a janela do app. Dura uns 6 segundos; um clique ou Esc pula. Vale na próxima vez que o AuGPT abrir.</p>
           <label class="linha"><span>Animação ao abrir o AuGPT</span>
@@ -1899,6 +1916,7 @@
 <script src="app-historico.js"></script>
 <script src="inicio.js"></script>
 <script src="tema-vidro.js"></script>
+<script src="efeitos-escrita.js"></script>
 <script src="painel-navegador.js"></script>
 <script src="boas-vindas.js"></script>
 <script src="agenda.js"></script>

@@ -1,0 +1,77 @@
+/* Efeitos de escrita no chat (26/11, renderer/efeitos-escrita.js). Só valem num elemento com data-escrita: sem efeito
+   escolhido, nada aqui se aplica. As cores vêm do tema (--gold, --text), então valem no café e no vidro, Dia e Noite. */
+[data-escrita] { position: relative; --esc-brilho: #fff1c9; --esc-luz: rgba(242, 207, 126, .95); }
+html[data-theme="light"] [data-escrita] { --esc-brilho: var(--gold); --esc-luz: rgba(217, 165, 74, .55); }
+
+[data-escrita] .esc-w { white-space: nowrap; }
+[data-escrita] .esc-u { display: inline-block; white-space: pre; }
+/* longhands com !important: o styles.css desliga TODA animação com "reduzir animações" do Windows (animation: none
+   !important em *). Sem a opção "Animar mesmo com…", o efeitos-escrita.js nem marca o texto; com ela, estas vencem
+   (mais específicas) e o atraso de cada pedaço vem inline, também !important. */
+[data-escrita] .esc-u, [data-escrita] .esc-b { animation-fill-mode: both !important; animation-iteration-count: 1 !important; }
+[data-escrita] .esc-u.esc-emb { color: var(--gold); opacity: .85; }
+
+[data-escrita="surge"] .esc-u { animation-name: esc-surge !important; animation-duration: 1ms !important; animation-timing-function: linear !important; }
+[data-escrita="fade"] .esc-u { animation-name: esc-fade !important; animation-duration: .14s !important; animation-timing-function: ease-out !important; }
+[data-escrita="up"] .esc-u { animation-name: esc-up !important; animation-duration: .5s !important; animation-timing-function: cubic-bezier(.2, .7, .2, 1) !important; }
+[data-escrita="blur"] .esc-u { animation-name: esc-blur !important; animation-duration: .75s !important; animation-timing-function: ease-out !important; }
+[data-escrita="gold"] .esc-u { animation-name: esc-gold !important; animation-duration: 1.2s !important; animation-timing-function: ease-out !important; }
+[data-escrita="gold-soft"] .esc-u { animation-name: esc-gold !important; animation-duration: .8s !important; animation-timing-function: ease-out !important; }
+[data-escrita="wave"] .esc-u { animation-name: esc-wave !important; animation-duration: .6s !important; animation-timing-function: cubic-bezier(.3, .7, .3, 1) !important; }
+[data-escrita="drop"] .esc-u { animation-name: esc-drop !important; animation-duration: .65s !important; animation-timing-function: cubic-bezier(.3, .7, .3, 1) !important; }
+[data-escrita="pop"] .esc-u { animation-name: esc-pop !important; animation-duration: .5s !important; animation-timing-function: cubic-bezier(.3, .7, .3, 1) !important; }
+[data-escrita="glitch"] .esc-u { animation-name: esc-glitch !important; animation-duration: .45s !important; animation-timing-function: linear !important; }
+[data-escrita="pulse"] .esc-u { animation-name: esc-pulse !important; animation-duration: .9s !important; animation-timing-function: ease-out !important; }
+[data-escrita="mask"] .esc-b { animation-name: esc-mask !important; animation-duration: .7s !important; animation-timing-function: cubic-bezier(.2, .8, .2, 1) !important; }
+[data-escrita="brush"] .esc-b {
+  animation-name: esc-brush !important; animation-duration: 1s !important; animation-timing-function: cubic-bezier(.4, .1, .2, 1) !important;
+  -webkit-mask-image: linear-gradient(90deg, #000 44%, transparent 56%); mask-image: linear-gradient(90deg, #000 44%, transparent 56%);
+  -webkit-mask-size: 230% 100%; mask-size: 230% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+}
+
+@keyframes esc-surge { from { opacity: 0; } to { opacity: 1; } }
+@keyframes esc-fade { from { opacity: 0; } }
+@keyframes esc-up { from { opacity: 0; transform: translateY(.5em); } }
+@keyframes esc-blur { from { opacity: 0; filter: blur(8px); } }
+@keyframes esc-gold {
+  0% { opacity: 0; color: var(--esc-brilho); text-shadow: 0 0 14px var(--esc-luz); }
+  12% { opacity: 1; color: var(--esc-brilho); text-shadow: 0 0 14px var(--esc-luz); }
+}
+@keyframes esc-wave { 0% { opacity: 0; transform: translateY(.75em); } 60% { opacity: 1; transform: translateY(-.14em); } }
+@keyframes esc-drop {
+  0% { opacity: 0; transform: translateY(-1.1em) rotate(-9deg); }
+  55% { opacity: 1; transform: translateY(.09em) rotate(2deg); }
+  78% { transform: translateY(-.06em); }
+}
+@keyframes esc-pop { 0% { opacity: 0; transform: scale(.3); } 65% { opacity: 1; transform: scale(1.13); } }
+@keyframes esc-glitch {
+  0% { opacity: 0; transform: translateX(-5px) skewX(14deg); text-shadow: 3px 0 #ff5f4a, -3px 0 #5fd0ff; }
+  20% { opacity: 1; transform: translateX(3px); clip-path: inset(0 0 55% 0); }
+  40% { transform: translateX(-2px) skewX(-7deg); text-shadow: -2px 0 #ff5f4a, 2px 0 #5fd0ff; clip-path: inset(40% 0 0 0); }
+  60% { transform: translateX(1px); clip-path: none; }
+  80% { text-shadow: 1px 0 #ff5f4a, -1px 0 #5fd0ff; }
+  100% { transform: none; text-shadow: none; }
+}
+@keyframes esc-pulse { 0% { opacity: 0; transform: scale(1.6); filter: blur(4px); color: var(--gold); } 40% { opacity: 1; filter: none; } }
+@keyframes esc-mask { from { opacity: 0; clip-path: inset(0 0 100% 0); transform: translateY(16px); } to { opacity: 1; clip-path: inset(0 0 0 0); transform: none; } }
+@keyframes esc-brush { from { -webkit-mask-position: 100% 0; mask-position: 100% 0; } to { -webkit-mask-position: 0 0; mask-position: 0 0; } }
+
+/* o cursor de cada efeito (sem cursor próprio, fica o de sempre) */
+[data-escrita-cursor] .cursor { margin-left: 1px; vertical-align: -.17em; }
+[data-escrita-cursor="bar"] .cursor { width: 2px; height: 1.15em; background: var(--gold); animation: pisca 1s steps(2) infinite; }
+[data-escrita-cursor="block"] .cursor { width: .55em; height: 1.05em; background: color-mix(in srgb, var(--gold) 85%, transparent); border-radius: 2px; }
+[data-escrita-cursor="orb"] .cursor {
+  width: 9px; height: 9px; border-radius: 50%; vertical-align: .05em; margin-left: 3px; animation: none;
+  background: var(--esc-brilho); box-shadow: 0 0 8px 2px var(--esc-luz), 0 0 22px 6px rgba(217, 165, 74, .45);
+}
+.esc-faisca {
+  position: fixed; z-index: 60; width: 4px; height: 4px; border-radius: 50%; pointer-events: none;
+  background: #ffe3a0; box-shadow: 0 0 6px var(--gold);
+  animation-name: esc-faisca !important; animation-duration: .7s !important; animation-timing-function: ease-out !important; animation-fill-mode: forwards !important;
+}
+@keyframes esc-faisca { to { transform: translate(var(--dx), var(--dy)) scale(.2); opacity: 0; } }
+
+/* Ajustes → Aparência: a prévia */
+.escrita-previa { min-height: 150px; margin: 4px 0 2px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.escrita-previa p:last-child { margin-bottom: 0; }
+.grupo .linha input[type="range"]#cfgVelocidadeEscrita { width: 200px; accent-color: var(--gold); }
