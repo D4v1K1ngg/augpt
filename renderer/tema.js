@@ -23,6 +23,11 @@
     if (document.readyState !== 'loading') pintarBotoesDoWindows();
   };
   aplicar(guardado === 'light' || guardado === 'dark' ? guardado : doSistema());
+  // o estilo (26/11): "vidro" = o tema Vidro líquido (tema-vidro.css e tema-vidro.js); sem nada, o padrão (café)
+  try {
+    if (localStorage.getItem('augpt:estilo') === 'vidro') document.documentElement.setAttribute('data-estilo', 'vidro');
+  } catch {}
+  window.pintarBotoesDoWindows = pintarBotoesDoWindows;
 
   window.addEventListener('DOMContentLoaded', () => {
     pintarBotoesDoWindows();

@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="styles.css" />
 <link rel="stylesheet" href="tema.css" />
 <link rel="stylesheet" href="tema-lume.css" />
+<link rel="stylesheet" href="tema-vidro.css" />
 <script src="tema.js"></script>
 <script src="i18n.js"></script>
 </head>
@@ -1177,6 +1178,15 @@
       <div class="ajustes-painel" id="ajAparencia" hidden>
         <header class="pagina-topo"><div><h1>Aparência</h1><p>Como o AuGPT abre e o que aparece na tela enquanto ele trabalha.</p></div></header>
         <section class="grupo">
+          <h2>Tema</h2>
+          <label class="linha"><span class="linha-texto"><span>Tema do AuGPT</span><small>"Vidro líquido": fundo quente em degradê e painéis de vidro. O botão de sol e lua na barra troca entre Dia e Noite nos dois temas.</small></span>
+            <select id="cfgEstilo"><option value="padrao">Padrão (café)</option><option value="vidro">Vidro líquido</option></select>
+          </label>
+          <label class="linha"><span class="linha-texto"><span>Animação do fundo de vidro</span><small>As luzes que flutuam, a lente que segue o cursor e a ondulação ao clicar no fundo. Usa um pouco da placa de vídeo: para sozinha com a janela fora de foco e com o modelo trabalhando. "Seguir o Windows" deixa parada quando os efeitos de animação do Windows estão desligados; "Parado" desliga só a animação.</small></span>
+            <select id="cfgVidroAnimacao"><option value="auto">Seguir o Windows</option><option value="animado">Animado</option><option value="parado">Parado</option></select>
+          </label>
+        </section>
+        <section class="grupo">
           <h2>Abertura e tela inicial</h2>
           <p class="dica grupo-sub">A caixa pequena que cresce até virar a janela do app. Dura uns 6 segundos; um clique ou Esc pula. Vale na próxima vez que o AuGPT abrir.</p>
           <label class="linha"><span>Animação ao abrir o AuGPT</span>
@@ -1888,6 +1898,7 @@
 <script src="app-ajustes.js"></script>
 <script src="app-historico.js"></script>
 <script src="inicio.js"></script>
+<script src="tema-vidro.js"></script>
 <script src="painel-navegador.js"></script>
 <script src="boas-vindas.js"></script>
 <script src="agenda.js"></script>

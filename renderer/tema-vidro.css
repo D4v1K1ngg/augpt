@@ -1,0 +1,112 @@
+/* =========================================================================
+   AuGPT — tema "Vidro líquido" (26/11, a partir do protótipo do Davi
+   "rodapé de vidro líquido"). Um tema a mais na aba Aparência: tudo aqui só
+   vale com html[data-estilo="vidro"]; o padrão (café) não muda. Dia e Noite
+   são o data-theme de sempre (light/dark), trocados pelo mesmo botão da barra.
+
+   Do protótipo: o fundo quente em degradê, os painéis de vidro (translúcidos,
+   com blur, borda clara e brilho interno) e, no tema-vidro.js, as luzes que
+   flutuam, a lente que segue o cursor e a ondulação do clique (WebGL, atrás
+   da interface). O blur fica só nos painéis grandes: cada um custa à placa.
+   ========================================================================= */
+
+/* Noite (data-theme dark) */
+html[data-estilo="vidro"] {
+  --vidro-fundo: linear-gradient(180deg, #2a2230 0%, #3b2c2a 55%, #56392a 100%);
+  --vidro: rgba(255, 255, 255, .08);
+  --vidro-forte: rgba(32, 24, 22, .55);
+  --vidro-borda: rgba(255, 255, 255, .2);
+  --vidro-brilho: inset 0 1px 0 rgba(255, 255, 255, .28), 0 24px 70px rgba(0, 0, 0, .35);
+
+  --void: #2f2629;           /* opaco: barra do Windows e campos */
+  --rail: transparent;
+  --panel: rgba(255, 255, 255, .07);
+  --panel-2: rgba(255, 255, 255, .11);
+  --caixa: rgba(36, 27, 25, .62);
+  --caixa-borda: rgba(255, 255, 255, .22);
+  --line: rgba(255, 255, 255, .12);
+  --line-forte: rgba(255, 255, 255, .18);
+  --line-viva: rgba(255, 255, 255, .3);
+  --hover: rgba(255, 255, 255, .09);
+  --codigo: rgba(18, 13, 11, .72);
+  --codigo-topo: rgba(255, 255, 255, .06);
+  --text: #f1e6db;
+  --text-forte: #fbf4ec;
+  --muted: #dccdbf;
+  --fraco: #c9b8a7;
+  --sombra: rgba(0, 0, 0, .35);
+}
+
+/* Dia (data-theme light) */
+html[data-estilo="vidro"][data-theme="light"] {
+  --vidro-fundo: linear-gradient(180deg, #ece1d2 0%, #dcc7ac 55%, #c6a584 100%);
+  --vidro: rgba(255, 255, 255, .22);
+  --vidro-forte: rgba(255, 250, 244, .62);
+  --vidro-borda: rgba(255, 255, 255, .5);
+  --vidro-brilho: inset 0 1px 0 rgba(255, 255, 255, .8), inset 0 -1px 0 rgba(255, 255, 255, .12), 0 24px 70px rgba(50, 30, 15, .18);
+
+  --void: #e4d4bf;
+  --panel: rgba(255, 255, 255, .34);
+  --panel-2: rgba(255, 255, 255, .5);
+  --caixa: rgba(255, 251, 246, .66);
+  --caixa-borda: rgba(255, 255, 255, .7);
+  --line: rgba(60, 40, 25, .12);
+  --line-forte: rgba(60, 40, 25, .18);
+  --line-viva: rgba(60, 40, 25, .3);
+  --hover: rgba(255, 255, 255, .35);
+  --codigo: rgba(255, 252, 248, .72);
+  --codigo-topo: rgba(255, 255, 255, .55);
+  --text: #2a1f18;
+  --text-forte: #1d140e;
+  --muted: #4d3a2c;
+  --fraco: #554030;
+  --sombra: rgba(50, 30, 15, .16);
+}
+
+/* o fundo: o degradê fica no html (por baixo do canvas do WebGL); o body fica transparente */
+html[data-estilo="vidro"] { background: var(--vidro-fundo) fixed; background-color: var(--void); }
+html[data-estilo="vidro"] body { background: transparent; }
+html[data-estilo="vidro"] body::before {
+  /* as luzes paradas: o que se vê sem a animação (e por baixo dela) */
+  content: ""; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(40vmax 34vmax at 28% 44%, rgba(255, 220, 170, .2), transparent 70%),
+    radial-gradient(44vmax 36vmax at 74% 30%, rgba(220, 150, 110, .16), transparent 70%);
+}
+html[data-estilo="vidro"][data-theme="dark"] body::before {
+  background:
+    radial-gradient(40vmax 34vmax at 28% 44%, rgba(255, 160, 80, .14), transparent 70%),
+    radial-gradient(44vmax 36vmax at 74% 30%, rgba(130, 90, 215, .16), transparent 70%);
+}
+#vidroFundo { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; display: block; }
+#vidroFundo[hidden] { display: none; }
+/* as ondas douradas da tela inicial disputariam com o fundo de vidro */
+html[data-estilo="vidro"] .ondas-inicio { display: none; }
+
+/* ------------------------------ os painéis de vidro ------------------------------ */
+html[data-estilo="vidro"] .barra,
+html[data-estilo="vidro"] .lateral,
+html[data-estilo="vidro"] .ajustes-lado,
+html[data-estilo="vidro"] .composer-caixa,
+html[data-estilo="vidro"] dialog,
+html[data-estilo="vidro"] .painel-execucao {
+  background: var(--vidro);
+  -webkit-backdrop-filter: blur(16px) saturate(175%);
+  backdrop-filter: blur(16px) saturate(175%);
+  border-color: var(--vidro-borda);
+  box-shadow: var(--vidro-brilho);
+}
+html[data-estilo="vidro"] .barra { border-bottom: 1px solid var(--vidro-borda); box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .08); }
+html[data-estilo="vidro"] .lateral { border-right: 1px solid var(--vidro-borda); box-shadow: inset -1px 0 0 rgba(255, 255, 255, .1); }
+html[data-estilo="vidro"] .ajustes-lado { border-right-color: var(--vidro-borda); box-shadow: none; }
+/* a caixa de texto e os menus abertos ficam mais opacos: o texto em cima tem de ler bem */
+html[data-estilo="vidro"] .composer-caixa,
+html[data-estilo="vidro"] dialog,
+html[data-estilo="vidro"] .painel-execucao { background: var(--vidro-forte); }
+html[data-estilo="vidro"] .composer-caixa { border-radius: 30px; }
+html[data-estilo="vidro"] .lateral-direita { background: none; }
+/* boas-vindas: o mesmo fundo do app, o topo em vidro */
+html[data-estilo="vidro"] .boas-vindas { background: var(--vidro-fundo); }
+html[data-estilo="vidro"] .bv-topo { background: var(--vidro); border-bottom: 1px solid var(--vidro-borda); }
+/* os menus nativos (select) continuam opacos: o Chromium não desfoca por trás deles */
+html[data-estilo="vidro"] select option { background: var(--void); color: var(--text); }
