@@ -107,6 +107,7 @@ const CAPACIDADES = [
   { id: 'grafico', faz: 'monta gráficos interativos na resposta (colunas, linhas, área, pizza, projeção com estimativas) com dados pesquisados ou dados que o usuário der', quando: 'comparar números, evolução no tempo, partes de um total', comoUsar: 'peça "monte um gráfico com…"' },
   { id: 'visual', faz: 'cria uma página interativa que roda na resposta (calculadora, simulação, animação, quiz, painel)', quando: 'o usuário quer uma ferramenta interativa', comoUsar: 'peça "crie uma calculadora/simulação de…"' },
   { id: 'criar_imagem', precisa: 'gerarImagem', faz: 'cria e edita imagens no computador do usuário (FLUX.2 Klein)', quando: 'o usuário quer uma imagem, ilustração, logo ou edição de foto', comoUsar: 'peça "crie uma imagem de…" ou anexe a foto e peça a edição' },
+  { id: 'peca_3d', precisa: 'compilarPeca', faz: 'cria peças para impressão 3D (OpenSCAD: STL e 3MF na pasta de trabalho, com visualizador 3D no chat) e ajusta a peça que acabou de criar', quando: 'o usuário quer uma peça, suporte, caixa, gancho ou objeto para imprimir na impressora 3D', comoUsar: 'peça "cria uma peça 3D de…" com as medidas; depois "deixa a parede com 3 mm"' },
   { id: 'buscar_imagens', executa: true, faz: 'busca fotos na internet de qualquer coisa e mostra numa galeria (com o site de cada foto)', quando: 'o usuário quer ver como algo é: um carro, um lugar, um setup, um produto, uma pessoa conhecida', oferta: 'Posso **buscar fotos** disso para você ver. Quer? É só responder **"sim"**.' },
   { id: 'ver_imagem', faz: 'olha fotos e prints anexados e lê o texto deles', quando: 'o usuário fala de algo que está numa foto ou print', comoUsar: 'anexe a imagem pelo + da caixa de mensagem' },
   { id: 'memoria', faz: 'guarda o que o usuário pede sobre ele (nome, cidade, preferências de resposta) e usa em todas as conversas', quando: 'o usuário quer que o AuGPT lembre algo dele ou se adapte de vez', comoUsar: 'diga "lembre que…"; para ver, "o que você sabe sobre mim?"; para apagar, "esqueça que…"' },
@@ -352,6 +353,7 @@ const UTILITARIOS = [
   { id: 'visual', grupo: 'Criar', icone: 'codigo', nome: 'Páginas interativas', descricao: 'Calculadoras, simulações, animações e quizzes que rodam dentro da resposta.', exemplo: 'crie uma calculadora de IMC interativa' },
   { id: 'buscar_imagens', rota: 'buscar_imagens', grupo: 'Pesquisa', icone: 'fotos', nome: 'Buscar imagens', descricao: 'Fotos de qualquer coisa — um carro, um lugar, um setup — numa galeria, com o site de onde cada uma veio.', exemplo: 'busque imagens de carros esportivos' },
   { id: 'criar_imagem', grupo: 'Criar', icone: 'pincel', nome: 'Criar imagens', descricao: 'Cria e edita imagens no seu computador, com o FLUX.2 Klein.', exemplo: 'crie uma imagem de um gato astronauta', precisa: 'imagem' },
+  { id: 'peca_3d', grupo: 'Criar', icone: 'cubo', nome: 'Peças para impressão 3D', descricao: 'Cria a peça em OpenSCAD, mostra em 3D no chat para girar e salva o STL e o 3MF na pasta de trabalho.', exemplo: 'cria uma peça 3D de um suporte de celular', precisa: 'peca3d' },
   { id: 'ver_imagem', grupo: 'Criar', icone: 'olho', nome: 'Ler fotos e prints', descricao: 'Olha a foto ou o print que você anexar e lê o texto dele.', dica: 'Anexe a imagem pelo + da caixa de mensagem e faça a pergunta.' },
   { id: 'navegador', grupo: 'Sites e arquivos', icone: 'globo', nome: 'Navegar em sites', descricao: 'Abre sites no navegador do AuGPT, faz login, clica, preenche formulários e baixa arquivos.', exemplo: 'acesse https://www.kabum.com.br e procure monitores de 144 Hz' },
   { id: 'arquivos', grupo: 'Sites e arquivos', icone: 'arquivo', nome: 'Ler e criar arquivos', descricao: 'Lê e cria planilhas, documentos, PDFs e código na sua pasta de trabalho.', exemplo: 'crie uma planilha para eu anotar meus gastos do mês' },
@@ -374,7 +376,7 @@ const UTILITARIOS = [
 /** Os cartões com a disponibilidade neste PC: { ...cartão, disponivel, falta }. */
 function utilitarios({ instalados = {}, plataforma = process.platform } = {}) {
   return UTILITARIOS.map((u) => {
-    const falta = u.so && u.so !== plataforma ? 'só no Windows, por enquanto' : u.precisa && !instalados[u.precisa] ? `instale o ${u.precisa === 'imagem' ? 'Criar imagens' : 'YouTube'} em Ajustes → Componentes` : null;
+    const falta = u.so && u.so !== plataforma ? 'só no Windows, por enquanto' : u.precisa && !instalados[u.precisa] ? `instale o ${u.precisa === 'imagem' ? 'Criar imagens' : u.precisa === 'peca3d' ? 'Peças 3D' : 'YouTube'} em Ajustes → Componentes` : null;
     return { ...u, disponivel: !falta, falta };
   });
 }

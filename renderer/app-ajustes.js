@@ -1247,6 +1247,14 @@ function pintarComponentes() {
   $('btnCompOcrInstalar').hidden = t.instalado && !t.atualizar;
   $('btnCompOcrInstalar').textContent = t.manual ? 'Como instalar' : t.faltamIdiomas ? 'Baixar os idiomas' : t.instalado ? 'Atualizar o Tesseract' : 'Instalar o Tesseract (cerca de 50 MB)';
   $('sitOcr').textContent = t.instalado ? (t.atualizar ? `atualização ${t.disponivel} disponível` : 'instalado') : 'não instalado';
+  // peças 3D (27/11)
+  const sc = componentes?.openscad || {};
+  if ($('compScadInstalado')) {
+    $('compScadInstalado').textContent = sc.suportado === false ? 'por enquanto só no Windows' : sc.instalado ? `instalado (OpenSCAD ${sc.versao})` : 'não instalado';
+    $('btnCompScadInstalar').hidden = sc.suportado === false || sc.instalado;
+    $('btnCompScadInstalar').textContent = `Instalar (${sc.tamanhoMB || 71} MB)`;
+    $('btnCompScadRemover').hidden = !sc.instalado;
+  }
   // reranker (22/11)
   const rr = componentes?.reranker || {};
   if ($('compRerInstalado')) {
@@ -1343,6 +1351,23 @@ $('btnCompOcrInstalar').addEventListener('click', async () => {
   const r = await api.componentes.instalarTesseract();
   btn.disabled = false;
   $('compOcrStatus').textContent = r.ok ? 'pronto ✓ — o texto das imagens anexadas passa a ser lido' : `erro: ${r.error}`;
+  await carregarModelosEComponentes();
+});
+
+$('btnCompScadInstalar').addEventListener('click', async () => {
+  const btn = $('btnCompScadInstalar');
+  btn.disabled = true;
+  $('compScadStatus').textContent = 'começando…';
+  const r = await api.componentes.instalarOpenscad();
+  btn.disabled = false;
+  $('compScadStatus').textContent = r.ok ? 'pronto ✓ — peça, por exemplo, "cria uma peça 3D de um suporte de celular"' : `erro: ${r.error}`;
+  await carregarModelosEComponentes();
+});
+
+$('btnCompScadRemover').addEventListener('click', async () => {
+  if (!confirm('Remover o OpenSCAD? As peças já criadas continuam na pasta de trabalho.')) return;
+  const r = await api.componentes.removerOpenscad();
+  $('compScadStatus').textContent = r.ok ? 'removido' : `erro: ${r.error}`;
   await carregarModelosEComponentes();
 });
 

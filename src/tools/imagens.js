@@ -28,7 +28,8 @@ const ESQUEMA = 'augpt-img';
 const MAX_BYTES = 1_500_000;
 const TIPOS = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 /** Nome de arquivo aceito — o mesmo teste vale em quem serve e em quem desenha. */
-const NOME_VALIDO = /^[a-z]{20,64}\.(jpg|png|webp)$/;
+// .stl (27/11): a peça 3D que o visualizador do chat abre (renderer/peca-3d.js)
+const NOME_VALIDO = /^[a-z]{20,64}\.(jpg|png|webp|stl)$/;
 // miniatura de vídeo e mural de imagens não são foto do produto
 const FONTES_FORA = /(ytimg\.com|youtube\.com|pinimg\.com|pinterest\.|facebook\.|fbcdn\.|instagram\.|tiktok\.)/i;
 

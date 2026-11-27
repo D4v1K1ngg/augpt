@@ -1880,3 +1880,9 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .parar-voz { position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%); z-index: 60; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line-forte); background: var(--panel-2); color: var(--text-forte); font: inherit; font-size: 13px; cursor: pointer; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); }
 .parar-voz:hover { border-color: var(--amber); }
 .parar-voz[hidden] { display: none; }
+
+/* Peça 3D no chat (27/11, renderer/peca-3d.js): o visualizador no lugar da foto */
+.md-peca3d { max-width: 640px; }
+.md-peca3d .peca3d-tela { display: block; width: 100%; height: 360px; border-radius: 12px; background: radial-gradient(ellipse at 50% 35%, rgba(127, 127, 127, 0.16), rgba(127, 127, 127, 0.05)); cursor: grab; touch-action: none; }
+.md-peca3d .peca3d-tela:active { cursor: grabbing; }
+.md-peca3d .peca3d-dica { margin: 6px 2px 0; font-size: 12px; opacity: 0.65; }

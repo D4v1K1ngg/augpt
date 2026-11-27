@@ -178,7 +178,7 @@ const ROTAS = [
     detecta: ({ objetivo }) => catalogo.pedeOQueFaz(objetivo),
     responde: ({ deps, config }) => {
       const idioma = config?.idiomaEfetivo === 'en' ? 'en' : 'pt';
-      const texto = catalogo.textoDosUtilitarios(catalogo.utilitarios({ instalados: { imagem: !!deps.gerarImagem, youtube: !!deps.buscarNoYoutube } }), idioma);
+      const texto = catalogo.textoDosUtilitarios(catalogo.utilitarios({ instalados: { imagem: !!deps.gerarImagem, youtube: !!deps.buscarNoYoutube, peca3d: !!deps.compilarPeca } }), idioma);
       deps.emit('resposta-token', { pedaco: texto, noIdioma: idioma === 'en' });
       // já sai no idioma da tela: a tradução pelo modelo (traducao.js) não é preciso
       return { ...SEM_PESQUISA, texto, modo: 'utilitarios', noIdioma: idioma === 'en' };

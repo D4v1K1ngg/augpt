@@ -594,6 +594,10 @@ const manipuladores = {
     if (texto) $('compOcrStatus').textContent = texto;
   },
 
+  'openscad-progresso'({ texto }) {
+    if (texto && $('compScadStatus')) $('compScadStatus').textContent = texto;
+  },
+
   'reranker-progresso'({ texto }) {
     if (texto && $('compRerStatus')) $('compRerStatus').textContent = texto;
   },

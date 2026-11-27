@@ -62,7 +62,7 @@ module.exports = [
         p?.modelo === 'qwen3.8:27b' && p.tarefa === 'prova' || JSON.stringify(p),
         i?.faltando === 'nao-existe:1b' && !i.modelo || JSON.stringify(i),
         nada === null && comum === null || 'vazio e pedido comum: o do topo',
-        TAREFAS.map((t) => t.id).join() === 'prova,imagem' || 'as tarefas',
+        TAREFAS.map((t) => t.id).join() === 'prova,imagem,peca3d' || 'as tarefas', // peca3d: 27/11 (avaliacao/casos/pecas-3d.js)
         /const modelo = especialista\?\.modelo \|\| cfg\.model;/.test(loop) && /model: especialista\?\.modelo \|\| cfg\.modelRedacao \|\| modelo/.test(loop) || 'o especialista pesquisa e escreve',
         /especialistas: \{ prova: \$\('cfgEspProva'\)\.value, imagem: \$\('cfgEspImagem'\)\.value \}/.test(ler('renderer/app-ajustes.js')) && /id="cfgEspProva"/.test(ler('renderer/index.html')) || 'a opção em Ajustes',
         /quest\(\?:ão\|ao\)\|pergunta\|exerc\[ií\]cio/.test(loop) || '"Pergunta N" conta para o limite da escrita',

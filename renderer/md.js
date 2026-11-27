@@ -234,6 +234,16 @@
         continue;
       }
 
+      // Peça 3D (27/11): `![nome](augpt-img://foto.png){3d:peca.stl}` — a foto, e o visualizador (renderer/peca-3d.js)
+      // toma o lugar dela em montarGraficos
+      const peca3d = /^\s*!\[([^\]]*)\]\((augpt-img:\/\/[a-z]{20,64}\.(?:jpg|png|webp))\)\{3d:([a-z]{20,64}\.stl)\}\s*$/.exec(linha);
+      if (peca3d) {
+        fecharLista();
+        fecharCitacao();
+        saida.push(`<figure class="md-figura md-peca3d" data-stl="augpt-img://${peca3d[3]}"><img src="${peca3d[2]}" alt="${peca3d[1]}" loading="lazy" /><figcaption>${peca3d[1]}</figcaption></figure>`);
+        continue;
+      }
+
       const imagem = /^\s*!\[([^\]]*)\]\((augpt-img:\/\/[a-z]{20,64}\.(?:jpg|png|webp))\)\s*$/.exec(linha);
       if (imagem) {
         fecharLista();
@@ -355,6 +365,8 @@
         else lugar.remove();
       }
     }
+    // peça 3D (27/11): o visualizador no lugar da foto
+    for (const figura of elemento.querySelectorAll('.md-peca3d[data-stl]')) global.peca3d?.montar(figura);
     // perguntas com as respostas entre parênteses viram questionário (18/11)
     global.questionario?.converterListas(elemento);
     if (!global.grafico) return;

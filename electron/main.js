@@ -42,6 +42,7 @@ const ffmpeg = () => new Ffmpeg(path.join(app.getPath('userData'), 'componentes'
 const { Tesseract } = require('../src/tesseract');
 const tesseract = () => new Tesseract(path.join(app.getPath('userData'), 'componentes'));
 const reranker = () => require('../src/reranker').rerankerDe(app.getPath('userData'));
+const openscad = () => require('../src/cad/openscad').openscadDe(app.getPath('userData'));
 const { GeradorDeImagens, recomendar: recomendarGerador, pastaPadrao: pastaDoGerador } = require('../src/gerador-de-imagens');
 const gerador = () => new GeradorDeImagens(pastaDoGerador(app.getPath('userData')));
 
@@ -2445,13 +2446,13 @@ function procurarAtualizacaoAoAbrir() {
 /* ------------------------------ componentes (Ajustes, 16/10) ------------------------------ */
 // Versões do que o AuGPT usa por fora; atualizar só quando o usuário clica.
 // aba Utilitários (19/10): os cartões vêm do catálogo do agente, com o que está instalado
-ipcMain.handle('utilitarios:listar', () => require('../src/agent/capacidades').utilitarios({ instalados: { imagem: gerador().instalado(), youtube: ytdlp().instalado() } }));
+ipcMain.handle('utilitarios:listar', () => require('../src/agent/capacidades').utilitarios({ instalados: { imagem: gerador().instalado(), youtube: ytdlp().instalado(), peca3d: openscad().instalado() } }));
 
 ipcMain.handle('componentes:estado', async () => {
   const computador = await verificadorDeHardware.verificarComputador();
   const [o, y, t, g, f] = await Promise.all([instaladorOllama.versoesDoOllama(config.data.host), ytdlp().estado(), tesseract().estado(), gerador().estado(computador), ffmpeg().estado()]);
   const modeloDasPaginas = await require('../src/agent/embed-paginas').modeloDasPaginas(config.data);
-  return { ollama: o, ytdlp: y, tesseract: t, imagem: g, ffmpeg: f, busca: searxngRuntime.estado(), reranker: { ...reranker().estado(), ligado: config.data.reranker === true, quantos: config.data.rerankerQuantos, modeloDasPaginas } };
+  return { ollama: o, ytdlp: y, tesseract: t, imagem: g, ffmpeg: f, busca: searxngRuntime.estado(), reranker: { ...reranker().estado(), ligado: config.data.reranker === true, quantos: config.data.rerankerQuantos, modeloDasPaginas }, openscad: openscad().estado() };
 });
 
 // ffmpeg (30/10): instala/atualiza conferindo o SHA-256; a versão de antes fica guardada — igual ao yt-dlp
@@ -2611,6 +2612,21 @@ ipcMain.handle('componentes:instalarReranker', async () => {
     const estado = await reranker().instalar({ emitir: (p) => enviar('reranker-progresso', p) });
     config.save({ reranker: true });
     return { ok: true, estado };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+// OpenSCAD (27/11): peças para impressão 3D — versão fixa, SHA-256
+ipcMain.handle('componentes:instalarOpenscad', async () => {
+  try {
+    return { ok: true, estado: await openscad().instalar({ emitir: (p) => enviar('openscad-progresso', p) }) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('componentes:removerOpenscad', () => {
+  try {
+    return { ok: true, estado: openscad().remover() };
   } catch (err) {
     return { ok: false, error: err.message };
   }
@@ -3332,7 +3348,8 @@ const caixa = require('../src/caixa');
 // Mapa do chat (23/10): os pedaços do mapa vêm por augpt-mapa://, servidos por src/mapa-tiles.js
 const mapaTiles = require('../src/mapa-tiles');
 protocol.registerSchemesAsPrivileged([
-  { scheme: imagens.ESQUEMA, privileges: { standard: true, secure: true } },
+  // supportFetchAPI (27/11): o visualizador 3D do chat lê o STL da peça por fetch
+  { scheme: imagens.ESQUEMA, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
   { scheme: caixa.ESQUEMA, privileges: { standard: true, secure: true } },
   { scheme: mapaTiles.ESQUEMA, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
   // Studio de vídeo (17/11): a prévia toca por augpt-video://v/<token> — só arquivos que o Studio abriu ou gerou
@@ -3368,6 +3385,14 @@ app.whenReady().then(() => {
   protocol.handle(imagens.ESQUEMA, (pedido) => {
     const nome = new URL(pedido.url).hostname;
     if (!imagens.NOME_VALIDO.test(nome)) return new Response('', { status: 404 });
+    // o STL da peça 3D (27/11): o visualizador lê por fetch, de outra origem (a página é file://) — precisa do CORS
+    if (nome.endsWith('.stl')) {
+      try {
+        return new Response(fs.readFileSync(path.join(app.getPath('userData'), 'imagens', nome)), { headers: { 'Content-Type': 'model/stl', 'Access-Control-Allow-Origin': '*' } });
+      } catch {
+        return new Response('', { status: 404 });
+      }
+    }
     return net.fetch(pathToFileURL(path.join(app.getPath('userData'), 'imagens', nome)).toString());
   });
   protocol.handle(mapaTiles.ESQUEMA, (pedido) => mapaTiles.servir(pedido.url, { dir: path.join(app.getPath('userData'), 'mapa'), agente: `AuGPT/${app.getVersion()} (+https://github.com/D4v1K1ngg/augpt)` }));

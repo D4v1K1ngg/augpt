@@ -1,0 +1,17 @@
+[
+  {"id": "caixa", "pedido": "Uma caixa retangular aberta (sem tampa) de 80 x 50 x 30 mm, com paredes de 2 mm e fundo de 2 mm.", "caixa": [80, 50, 30]},
+  {"id": "arruela", "pedido": "Um espaçador tipo arruela: diâmetro externo 20 mm, furo de 8 mm no centro, espessura 3 mm.", "caixa": [20, 20, 3]},
+  {"id": "placa-furos", "pedido": "Uma placa de 100 x 60 x 3 mm com 4 furos de 3,5 mm nos cantos, com o centro de cada furo a 5 mm das duas bordas.", "caixa": [100, 60, 3]},
+  {"id": "porta-canetas", "pedido": "Um porta-canetas cilíndrico com 70 mm de diâmetro e 100 mm de altura, parede de 2,5 mm e fundo de 3 mm.", "caixa": [70, 70, 100]},
+  {"id": "organizador", "pedido": "Um organizador de gaveta de 150 x 100 x 40 mm, aberto em cima, paredes e fundo de 2 mm, com 3 divisórias internas que formam 4 compartimentos iguais ao longo dos 150 mm.", "caixa": [150, 100, 40]},
+  {"id": "cantoneira", "pedido": "Uma cantoneira em L com as duas abas de 40 mm, largura de 20 mm e espessura de 4 mm, com um furo de 5 mm no meio de cada aba.", "caixa": [40, 20, 40]},
+  {"id": "knob", "pedido": "Um botão (knob) cilíndrico de 30 mm de diâmetro e 15 mm de altura, com um furo em D para eixo de 6 mm de diâmetro com o lado chato a 4,5 mm (o furo com 12 mm de profundidade, por baixo).", "caixa": [30, 30, 15]},
+  {"id": "chaveiro", "pedido": "Um chaveiro retangular de 50 x 20 x 3 mm com cantos arredondados de raio 5 mm, um furo de 4 mm perto de uma ponta e o texto DAVI em relevo de 1 mm por cima.", "caixa": [50, 20, 4]},
+  {"id": "gancho", "pedido": "Um gancho de parede em formato de J: uma placa vertical de 60 x 20 x 4 mm com dois furos de 4 mm para parafuso, e embaixo um gancho curvo que sai 25 mm para a frente e sobe 15 mm na ponta.", "caixa": null},
+  {"id": "suporte-celular", "pedido": "Um suporte de mesa para celular: base de 80 x 70 mm, encosto inclinado a uns 60 graus e uma borda na frente de 10 mm para o celular não escorregar, tudo com 4 mm de espessura.", "caixa": null},
+  {"id": "engrenagem", "pedido": "Uma engrenagem reta simples com 20 dentes, módulo 2 (diâmetro primitivo de 40 mm), 5 mm de espessura e furo central de 5 mm.", "caixa": [44, 44, 5]},
+  {"id": "ponteira", "pedido": "Uma ponteira para pé de cadeira: um tronco de cone de 30 mm de diâmetro embaixo e 25 mm em cima, 20 mm de altura, com um encaixe cilíndrico de 15 mm de diâmetro e 10 mm de profundidade por cima.", "caixa": [30, 30, 20]},
+  {"id": "presilha-cabo", "pedido": "Uma presilha para prender um cabo de 6 mm embaixo da mesa: uma base de 20 x 15 x 3 mm com um furo de 3,5 mm para parafuso e, ao lado do furo, um anel aberto em C para o cabo.", "caixa": null},
+  {"id": "tampa", "pedido": "Uma tampa para uma caixa de 80 x 50 mm (medida de fora): uma placa de 80 x 50 x 2 mm com uma aba por baixo de 1,5 mm de espessura e 5 mm de altura que encaixa por dentro das paredes de 2 mm da caixa.", "caixa": [80, 50, 7]},
+  {"id": "suporte-fone", "pedido": "Um suporte de parede para headset: uma placa de 50 x 40 x 5 mm com dois furos de parafuso e um braço de 60 mm que sai reto para a frente com uma borda de 10 mm na ponta para o fone não cair.", "caixa": null}
+]

@@ -171,6 +171,8 @@ contextBridge.exposeInMainWorld('augpt', {
     instalarTesseract: () => ipcRenderer.invoke('componentes:instalarTesseract'),
     instalarReranker: () => ipcRenderer.invoke('componentes:instalarReranker'),
     removerReranker: () => ipcRenderer.invoke('componentes:removerReranker'),
+    instalarOpenscad: () => ipcRenderer.invoke('componentes:instalarOpenscad'),
+    removerOpenscad: () => ipcRenderer.invoke('componentes:removerOpenscad'),
     instalarImagem: () => ipcRenderer.invoke('componentes:instalarImagem'),
     voltarImagem: () => ipcRenderer.invoke('componentes:voltarImagem'),
     testarPlaca: () => ipcRenderer.invoke('componentes:testarPlaca'),

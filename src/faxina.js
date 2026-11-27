@@ -13,7 +13,7 @@ const fsp = require('fs/promises');
 const path = require('path');
 
 const DIA = 24 * 3600 * 1000;
-const NOME_DE_IMAGEM = /augpt-img:\/\/([a-z]{20,64}\.(?:jpg|png|webp))/g;
+const NOME_DE_IMAGEM = /augpt-img:\/\/([a-z]{20,64}\.(?:jpg|png|webp|stl))/g;
 
 async function arquivosDe(dir) {
   const saida = [];

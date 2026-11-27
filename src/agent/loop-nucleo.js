@@ -40,6 +40,10 @@ const { escolherEspecialista } = require('./especialistas');
 const { embedDasPaginas } = require('./embed-paginas');
 const { tev1DaPlaca, doOllama } = require('./tev1-da-placa');
 const { rerankerDe } = require('../reranker');
+const { openscadDe } = require('../cad/openscad');
+
+/** Nome de arquivo de imagem do app (augpt-img://), como as fotos das respostas. */
+const nomeAleatorio = (ext) => `${Array.from({ length: 32 }, () => 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]).join('')}.${ext}`;
 
 /**
  * Imagem no tamanho que o modelo lê bem (16/10, foto de 474 px de um EPOS H6PRO:
@@ -91,7 +95,7 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     }
   }
   // o especialista do tipo de pedido (19/11, Ajustes → Especialistas): prova, imagem anexada…; vazio = o modelo do topo
-  const especialista = await escolherEspecialista({ objetivo, imagens: imagensDoPedido, config: cfg, listar: async () => (await ollama.listModels(cfg.host)).map((m) => m.name) }).catch(() => null);
+  const especialista = await escolherEspecialista({ objetivo, imagens: imagensDoPedido, conversa, config: cfg, listar: async () => (await ollama.listModels(cfg.host)).map((m) => m.name) }).catch(() => null);
   if (especialista?.faltando) this.emit('aviso', { texto: `especialista de ${especialista.nome.toLowerCase()}: o modelo "${especialista.faltando}" não está instalado — segue com o modelo principal` });
   else if (especialista?.modelo) this.emit('aviso', { texto: `especialista de ${especialista.nome.toLowerCase()}: ${especialista.modelo}` });
   const modelo = especialista?.modelo || cfg.model;
@@ -273,6 +277,39 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
   const enxerga = !capacidades.length || capacidades.includes('vision'); // sem a lista (Ollama antigo): tenta
   if (!enxerga) {
     deps.semVisao = `O modelo em uso (**${modelo}**) não enxerga imagens. Para perguntar sobre fotos, escolha um **Qwen 3.5** no seletor de modelo do topo — até o de 2B enxerga. Para ler o texto de prints e documentos, instale o **Tesseract** em Ajustes → Componentes.`;
+  }
+  // peças para impressão 3D (27/11, nucleo/peca-3d.js): o OpenSCAD gera numa pasta de rascunho; a peça final vai para
+  // <pasta de trabalho>/pecas-3d/<nome>-<hora>/ e a foto e o STL para a pasta de imagens do app (o visualizador do chat)
+  const openscad = openscadDe(this.userDataPath);
+  if (openscad?.instalado()) {
+    const rascunho = path.join(this.userDataPath, 'pecas-3d-rascunho', String(Date.now()));
+    let versao = 0;
+    deps.modeloDaPeca = modelo;
+    deps.compilarPeca = async ({ codigo }) => {
+      versao += 1;
+      const r = await openscad.compilar({ codigo, pasta: rascunho, nome: `peca-${versao}` });
+      return r.ok ? { ...r, fotosBase64: r.fotos.map((f) => fs.readFileSync(f).toString('base64')) } : r;
+    };
+    deps.lerPecaAnterior = async (rel) => fs.readFileSync(new Sandbox(cfg.workspace).resolve(rel), 'utf8');
+    deps.guardarPeca = async ({ codigo, compilado, nome }) => {
+      const base = String(nome).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'peca';
+      const rel = `pecas-3d/${base}-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}`;
+      const pasta = path.join(cfg.workspace, ...rel.split('/'));
+      fs.mkdirSync(pasta, { recursive: true });
+      fs.writeFileSync(path.join(pasta, `${base}.scad`), codigo);
+      fs.copyFileSync(compilado.stl, path.join(pasta, `${base}.stl`));
+      if (compilado.tresmf) fs.copyFileSync(compilado.tresmf, path.join(pasta, `${base}.3mf`));
+      if (compilado.fotos[0]) fs.copyFileSync(compilado.fotos[0], path.join(pasta, `${base}.png`));
+      fs.mkdirSync(this.dirImagens(), { recursive: true });
+      const foto = nomeAleatorio('png');
+      const stl = nomeAleatorio('stl');
+      if (compilado.fotos[0]) fs.copyFileSync(compilado.fotos[0], path.join(this.dirImagens(), foto));
+      fs.copyFileSync(compilado.stl, path.join(this.dirImagens(), stl));
+      fs.rmSync(rascunho, { recursive: true, force: true });
+      return { nome, foto: `augpt-img://${foto}`, stl, caminhos: { stl: `${rel}/${base}.stl`, tresmf: compilado.tresmf ? `${rel}/${base}.3mf` : null, scad: `${rel}/${base}.scad` } };
+    };
+  } else if (openscad) {
+    deps.semOpenscad = 'Para criar peças para impressão 3D, o AuGPT usa o **OpenSCAD**, que roda no seu computador. Ele ainda não está instalado: em **Ajustes → Componentes → Peças 3D** é um clique (71 MB).';
   }
   // Fase 5: criar imagens com o FLUX.2 Klein (Ajustes → Componentes)
   // WebP da web (16/11): o ffmpeg do AuGPT converte para comparar e mostrar ao modelo

@@ -20,6 +20,7 @@
  */
 
 const { pedacos, ordenar, normalizar: normalizarTermos } = require('./ranking');
+const peca3d = require('./peca-3d');
 const { produtosDoPedido } = require('../serie-de-precos');
 const { idDoVideo } = require('../../ytdlp');
 const { qualidadeDoDominio, tipoDaPagina } = require('../../tools/search');
@@ -2693,6 +2694,16 @@ async function responder({ pergunta, conversa = [], modo = 'automatico', tamanho
     emit('ferramenta', { nome: 'ver_imagem', argumentos: { arquivos: imagens.map((i) => i.nome).join(', ') }, risco: 'leitura' });
     vista = String((await chamar([{ role: 'user', content: pedidoDeVisao({ pergunta, imagens }), images: imagens.map((i) => i.base64) }], { numPredict: 900 })).content || '').trim();
     emit('imagem-vista', { texto: vista });
+  }
+  // peça para impressão 3D (27/11, ./peca-3d.js): o código reconhece o pedido (ou o ajuste da peça que acabou de sair)
+  // e não pesquisa — o modelo escreve OpenSCAD, o app gera e mostra no visualizador
+  if (!imagens.length && (peca3d.pedePeca3d(pergunta) || peca3d.ajusteDaPeca(pergunta, conversa))) {
+    const entPeca = { precisaBuscar: false, produto: false, assuntos: [], pergunta };
+    if (typeof deps.compilarPeca === 'function') {
+      emit('nucleo-entendimento', { ...entPeca, modo: 'peca3d' });
+      return peca3d.criarPeca3d({ pergunta, conversa, ent: entPeca, deps });
+    }
+    if (deps.semOpenscad) return { vista, texto: deps.semOpenscad, fontes: [], entendimento: entPeca, buscou: false, produto: false, assuntos: [], modo: 'peca3d', anosSemFonte: [] };
   }
   const perguntaComImagem = vista ? `${pergunta}\n\n[Imagem anexada pelo usuário — o que se vê nela: ${vista.slice(0, 1500)}]` : pergunta;
   const inicioDoEntendimento = Date.now();
