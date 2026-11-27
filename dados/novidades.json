@@ -11,7 +11,8 @@
         "**Pesquisa conferida:** cada fonte é classificada (teste, comunidade, oficial, loja, afiliado) e o que a resposta afirma é conferido com as fontes antes de chegar a você. Notícias recentes vêm antes das antigas.",
         "**Modelos pelo llama.cpp:** em Ajustes → Componentes, escolha o llama-server do llama.cpp e o arquivo .gguf: o modelo que o Ollama ainda não roda (como o Inkling 2 Mini) aparece na lista de modelos como os outros.",
         "**gpt-oss mais completo:** com o gpt-oss 20B, o AuGPT organiza os pontos do material antes de escrever, e as respostas cobrem mais do que foi pedido.",
-        "**Correções:** citações que levavam a um link sem site, um comentário da conferência que aparecia no meio da resposta e perguntas de dicas \"no PC\" que liam o seu computador em vez de pesquisar."
+        "**Trechos certos nas pesquisas:** o AuGPT escolhe os trechos das páginas com o EmbeddingGemma, que entende perguntas em português sobre páginas em inglês — nos testes, o trecho que responde ficou entre os escolhidos em 29 de 31 perguntas, contra 19 antes. Em Ajustes → Componentes, o reranker opcional reordena os trechos e chegou a 31 de 31. A memória continua com o modelo de antes.",
+        "**Correções:** citações que levavam a um link sem site, um comentário da conferência que aparecia no meio da resposta e perguntas de dicas \"no PC\" que liam o seu computador em vez de pesquisar; e \"dá para baixar no Prime Video?\" não pede mais para instalar o yt-dlp."
       ]
     },
     "en": {
@@ -23,7 +24,8 @@
         "**Checked research:** each source is classified (test, community, official, store, affiliate) and what the answer claims is checked against the sources before it reaches you. Recent news comes before old news.",
         "**Models through llama.cpp:** in Settings → Components, pick llama.cpp's llama-server and the .gguf file: a model Ollama does not run yet (such as Inkling 2 Mini) shows up in the model list like the others.",
         "**More complete gpt-oss:** with gpt-oss 20B, AuGPT organizes the points of the material before writing, and the answers cover more of what was asked.",
-        "**Fixes:** citations that led to a link with no site, a fact-check comment that showed up in the middle of the answer, and tips questions \"on PC\" that read your computer instead of searching."
+        "**The right passages in research:** AuGPT picks the passages of pages with EmbeddingGemma, which understands Portuguese questions about English pages — in the tests, the passage with the answer was among the chosen ones in 29 of 31 questions, against 19 before. In Settings → Components, the optional reranker reorders the passages and reached 31 of 31. Memory keeps the model it had.",
+        "**Fixes:** citations that led to a link with no site, a fact-check comment that showed up in the middle of the answer, and tips questions \"on PC\" that read your computer instead of searching; and \"can I download on Prime Video?\" no longer asks to install yt-dlp."
       ]
     }
   },
