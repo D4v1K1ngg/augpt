@@ -1,5 +1,33 @@
 [
   {
+    "versao": "0.47.0",
+    "data": "2026-11-27",
+    "pt": {
+      "titulo": "Tema Vidro líquido, efeitos de escrita no chat e recomendações de quem usa e de quem mede",
+      "itens": [
+        "**Tema Vidro líquido:** em Ajustes → Aparência, um tema novo com fundo quente em degradê e painéis de vidro, nas versões Dia e Noite. A animação do fundo para sozinha com a janela fora de foco e com o modelo trabalhando, e dá para desligar só ela.",
+        "**Efeitos de escrita:** também em Aparência, 14 jeitos de a resposta aparecer no chat (máquina de escrever, névoa, tinta dourada, cometa…), com velocidade e prévia. O texto nunca espera o efeito; \"Nenhum\" deixa como sempre foi.",
+        "**Recomendações mais confiáveis:** em \"qual comprar?\", a escolha vem de quem usa e de quem mede, com 2 ou 3 opções conferidas da comunidade; \"X é bom para Y?\" sai com um veredito. Lojas entram só para preço e ficha técnica.",
+        "**Pesquisa conferida:** cada fonte é classificada (teste, comunidade, oficial, loja, afiliado) e o que a resposta afirma é conferido com as fontes antes de chegar a você. Notícias recentes vêm antes das antigas.",
+        "**Modelos pelo llama.cpp:** em Ajustes → Componentes, escolha o llama-server do llama.cpp e o arquivo .gguf: o modelo que o Ollama ainda não roda (como o Inkling 2 Mini) aparece na lista de modelos como os outros.",
+        "**gpt-oss mais completo:** com o gpt-oss 20B, o AuGPT organiza os pontos do material antes de escrever, e as respostas cobrem mais do que foi pedido.",
+        "**Correções:** citações que levavam a um link sem site, um comentário da conferência que aparecia no meio da resposta e perguntas de dicas \"no PC\" que liam o seu computador em vez de pesquisar."
+      ]
+    },
+    "en": {
+      "titulo": "Liquid glass theme, writing effects in the chat and recommendations from people who use and measure",
+      "itens": [
+        "**Liquid glass theme:** in Settings → Appearance, a new theme with a warm gradient background and glass panels, in Day and Night. The background animation stops by itself when the window is out of focus and while the model works, and you can turn off just the animation.",
+        "**Writing effects:** also in Appearance, 14 ways for the answer to appear in the chat (typewriter, mist, golden ink, comet…), with speed and a preview. The text never waits for the effect; \"None\" keeps it as always.",
+        "**More reliable recommendations:** in \"which one should I buy?\", the choice comes from people who use and people who measure, with 2 or 3 options checked against the community; \"is X good for Y?\" gets a verdict. Stores are used only for price and specs.",
+        "**Checked research:** each source is classified (test, community, official, store, affiliate) and what the answer claims is checked against the sources before it reaches you. Recent news comes before old news.",
+        "**Models through llama.cpp:** in Settings → Components, pick llama.cpp's llama-server and the .gguf file: a model Ollama does not run yet (such as Inkling 2 Mini) shows up in the model list like the others.",
+        "**More complete gpt-oss:** with gpt-oss 20B, AuGPT organizes the points of the material before writing, and the answers cover more of what was asked.",
+        "**Fixes:** citations that led to a link with no site, a fact-check comment that showed up in the middle of the answer, and tips questions \"on PC\" that read your computer instead of searching."
+      ]
+    }
+  },
+  {
     "versao": "0.46.0",
     "data": "2026-11-21",
     "pt": {
