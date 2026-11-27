@@ -12,7 +12,10 @@ const { texto, decodificar } = require('./extract');
 function normalizar(lista, fonte) {
   const vistos = new Set();
   return lista
-    .filter((r) => r.url && /^https?:\/\//i.test(r.url))
+    // com o nome do site (27/11, Davi: citações levando a "http:///go/v1/Ab7xyk…"): o Google passou a devolver o link
+    // como redirecionamento relativo ("/go/v1/<código>"), o SearXNG só desembrulha o antigo ("/url?q=") e completa com
+    // "http://" — sem site. O código expira (404 no google.com), então não dá para seguir: o resultado sai
+    .filter((r) => r.url && /^https?:\/\/[^/\s]/i.test(r.url))
     // link de redirecionamento do Google (30/10, no app: "google.com/goto?url=CAESbQ…" como fonte — o site de verdade
     // fica escondido num código, e nem o filtro de imitação nem o leitor sabem de quem é)
     .filter((r) => !/^https?:\/\/(?:www\.)?google\.[a-z.]+\/(?:goto|url)\b/i.test(r.url))

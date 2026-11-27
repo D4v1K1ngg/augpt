@@ -2368,6 +2368,8 @@ function mesmasPalavras(a, b) {
   if (!x.size || !y.size) return 0;
   return [...x].filter((w) => y.has(w)).length / Math.min(x.size, y.size);
 }
+/** A troca que comenta a fonte em vez de corrigir a frase ("A fonte diz que…", "nenhuma fonte cita…", "the source says…"). */
+const FALA_DA_FONTE = /\b(?:a|as|esta|essa|estas|essas|nenhuma|cada|outra|outras|na|nas|da|das) fontes?\b|\bthe sources?\b/i;
 const MESES = 'janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro';
 /** O "sem fonte" do modelo confirmado pelo código: número, nome ou sigla fora do material, ou um mês de ano que ele não traz. */
 function semFonteConfirmado(trecho, material, extra = '') {
@@ -2436,6 +2438,10 @@ Responda só com JSON: {"afirmacoes": [{"trecho": "…", "problema": "contradiz"
     // que não está no material (o conferirFatos), ou um "mês de ano" que nenhuma fonte traz
     .filter((c) => !/:\s*(\*\*)?\s*$/.test(c.trecho) && !/\bPre[çc]o:/i.test(c.trecho))
     .filter((c) => !c.troca || mesmasPalavras(c.trecho, c.troca) >= 0.2)
+    // 27/11 (Davi, no app, Supermix 4 vs EM6L com o Qwen 3.5 9B): a "troca" veio como comentário sobre a fonte ("A fonte
+    // menciona que em 'sweaty lobbies'… não especificamente como um defeito do EM6L") e entrou no meio da resposta. A
+    // troca é a frase da resposta, não a explicação da conferência: a que fala "da fonte" sai e o trecho fica como estava
+    .filter((c) => !FALA_DA_FONTE.test(c.troca))
     .filter((c) => c.problema !== 'sem_fonte' || material === null || semFonteConfirmado(c.trecho, material, extra))
     .filter((c, i, todas) => todas.findIndex((x) => x.trecho === c.trecho) === i)
     // a mesma troca para dois trechos (25/11, no app, o teste do ângulo do mouse: "Se a linha subir à esquerda… ajuste para

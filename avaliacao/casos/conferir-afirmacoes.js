@@ -128,3 +128,20 @@ module.exports.push({
     ];
   },
 });
+module.exports.push({
+  nome: 'conferir afirmações (27/11, Supermix 4 vs EM6L com o Qwen 3.5 9B): a "troca" que comenta a fonte ("A fonte menciona que…") não entra no texto — o trecho fica; a troca de verdade continua entrando',
+  tipo: 'unidade',
+  async executar() {
+    const r = 'O EM6L tende a ter graves que mascaram passos em lobbies suados. O Supermix 4 custa 110 dólares.';
+    const lista = [
+      { trecho: 'O EM6L tende a ter graves que mascaram passos em lobbies suados.', problema: 'contradiz', troca: "A fonte menciona que em 'sweaty lobbies' os passos do EM6L poderiam ser elevados, não especificamente como um defeito.", n: 1 },
+      { trecho: 'O Supermix 4 custa 110 dólares.', problema: 'contradiz', troca: 'O Supermix 4 custa 150 dólares.', n: 1 },
+    ];
+    const achadas = await nucleo.contradicoesComAsFontes(r, [{ n: 1, titulo: 'x', trechos: ['EM6L graves passos lobbies Supermix 4 150 dólares'] }], async () => ({ content: JSON.stringify({ afirmacoes: lista }) }));
+    const texto = nucleo.corrigirAfirmacoes(r, achadas);
+    return [
+      !/A fonte/.test(texto) && texto.includes('mascaram passos') || texto,
+      texto.includes('150 dólares') || texto,
+    ];
+  },
+});
