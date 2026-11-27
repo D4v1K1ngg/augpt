@@ -542,7 +542,8 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     if (deps.diagnostico?.lojas && r.rota === 'pesquisa' && !/R\$\s?\d/.test(r.texto)) r.texto = `${r.texto.trim()}\n\n${notaSemNasLojas(deps.diagnostico.lojas, emIngles)}`;
     // a mesma resposta da vez anterior (4/11: "qual o preço hoje dessa fonte?" abriu igual à anterior): só o aviso
     const anterior = [...conversa].reverse().find((m) => m.role === 'assistant')?.content;
-    if (r.rota === 'pesquisa' && mesmaResposta(anterior, r.texto)) {
+    // peça 3D ajustada (27/11): a mesma peça com uma fresta tem as mesmas medidas e quase o mesmo código — não é repetição
+    if (r.rota === 'pesquisa' && r.modo !== 'peca3d' && mesmaResposta(anterior, r.texto)) {
       r.texto = emIngles
         ? '*I searched again and found nothing new: my previous answer still stands. Try other words — the exact model, a store or a site.*'
         : '*Pesquisei de novo e não apareceu nada novo: a resposta anterior continua valendo. Tente com outras palavras — o modelo exato, uma loja ou um site.*';

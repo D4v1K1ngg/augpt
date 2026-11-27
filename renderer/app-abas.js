@@ -445,3 +445,9 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+
+// visualizador 3D (27/11, renderer/peca-3d.js): o pedido feito pela face da peça (botão direito → editar, furo) vai para o chat
+window.peca3dPedir = (texto) => {
+  el.aEntrada.value = texto;
+  enviarPedido();
+};

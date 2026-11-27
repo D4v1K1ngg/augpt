@@ -2418,7 +2418,7 @@ ipcMain.handle('imagem:salvar', async (e, { nome, sugestao } = {}) => {
   const base = String(sugestao || '').normalize('NFD').replace(/\p{M}/gu, '').replace(/[^\w -]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'imagem-augpt';
   const r = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), {
     defaultPath: path.join(app.getPath('downloads'), `${base}${ext}`),
-    filters: [{ name: 'Imagem', extensions: [ext.slice(1)] }],
+    filters: [{ name: ext === '.stl' ? 'Peça 3D (STL)' : 'Imagem', extensions: [ext.slice(1)] }],
   });
   if (r.canceled || !r.filePath) return { ok: false, cancelado: true };
   try {

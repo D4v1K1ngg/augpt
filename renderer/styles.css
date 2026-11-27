@@ -1886,3 +1886,12 @@ body:not(.sem-lateral) .pagina { margin-left: var(--lateral); transition: margin
 .md-peca3d .peca3d-tela { display: block; width: 100%; height: 360px; border-radius: 12px; background: radial-gradient(ellipse at 50% 35%, rgba(127, 127, 127, 0.16), rgba(127, 127, 127, 0.05)); cursor: grab; touch-action: none; }
 .md-peca3d .peca3d-tela:active { cursor: grabbing; }
 .md-peca3d .peca3d-dica { margin: 6px 2px 0; font-size: 12px; opacity: 0.65; }
+.md-peca3d .peca3d-palco { position: relative; }
+.md-peca3d .peca3d-info { position: absolute; left: 10px; bottom: 10px; padding: 6px 10px; border-radius: 8px; background: rgba(0, 0, 0, 0.62); color: #fff; font-size: 12.5px; line-height: 1.45; pointer-events: none; }
+.md-peca3d .peca3d-menu { position: absolute; z-index: 5; min-width: 230px; max-width: 300px; padding: 6px; border-radius: 10px; background: var(--fundo, #1d1b18); border: 1px solid rgba(127, 127, 127, 0.35); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); display: flex; flex-direction: column; gap: 2px; }
+.md-peca3d .peca3d-menu-titulo { padding: 4px 8px 6px; font-size: 12px; opacity: 0.7; }
+.md-peca3d .peca3d-menu-item { text-align: left; padding: 7px 10px; border: 0; border-radius: 7px; background: transparent; color: inherit; font: inherit; font-size: 13.5px; cursor: pointer; }
+.md-peca3d .peca3d-menu-item:hover, .md-peca3d .peca3d-menu-item:focus-visible { background: rgba(127, 127, 127, 0.18); }
+.md-peca3d .peca3d-menu-rotulo { padding: 2px 6px; font-size: 12.5px; }
+.md-peca3d .peca3d-menu-campo { margin: 4px; padding: 6px 8px; border-radius: 7px; border: 1px solid rgba(127, 127, 127, 0.4); background: transparent; color: inherit; font: inherit; font-size: 13px; resize: vertical; }
+.md-peca3d .peca3d-menu-enviar { margin: 2px 4px 4px; align-self: flex-end; }

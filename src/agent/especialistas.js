@@ -24,12 +24,13 @@ const TAREFAS = [
     reconhece: ({ imagens }) => imagens.length > 0,
   },
   {
-    // 27/11: 15 pedidos reais, olhando cada peça — Qwen 3.5 9B 2–3 certas, gpt-oss 20B ~7, Gemma 4 26B ~9 (src/agent/nucleo/peca-3d.js).
-    // O Gemma entra sozinho quando está instalado ('padrao'); sem ele, o modelo do topo, sem aviso.
+    // 27/11: 15 pedidos reais (avaliacao/pecas-3d/, com a biblioteca), olhando cada peça — Qwen3.8 27B 14 certas, Gemma 4 26B
+    // ~11, Mistral Small 24B ~11, GLM-4.7 Flash ~9, Qwen 3.5 9B ~5. O 1º dos 'padroes' que estiver instalado entra sozinho;
+    // sem nenhum, o modelo do topo, sem aviso.
     id: 'peca3d',
     nome: 'Peças para impressão 3D',
     descricao: 'Criar e ajustar peças em OpenSCAD (STL/3MF) — escolha um modelo com visão, que confere a peça pela foto.',
-    padrao: 'gemma4:26b-a4b-it-qat',
+    padroes: ['huggingface.co/mradermacher/Qwen3.8-27B-GGUF:Q3_K_M', 'gemma4:26b-a4b-it-qat'],
     reconhece: ({ objetivo, imagens, conversa }) => !imagens.length && (peca3d.pedePeca3d(objetivo) || Boolean(peca3d.ajusteDaPeca(objetivo, conversa))),
   },
 ];
@@ -40,12 +41,16 @@ const TAREFAS = [
  */
 async function escolherEspecialista({ objetivo = '', imagens = [], conversa = [], config = {}, listar = async () => [] }) {
   const escolhidos = config.especialistas || {};
-  const t = TAREFAS.find((x) => String(escolhidos[x.id] || x.padrao || '').trim() && x.reconhece({ objetivo: String(objetivo), imagens, conversa }));
+  const t = TAREFAS.find((x) => (String(escolhidos[x.id] || '').trim() || x.padroes?.length) && x.reconhece({ objetivo: String(objetivo), imagens, conversa }));
   if (!t) return null;
-  const modelo = String(escolhidos[t.id] || t.padrao).trim();
   const instalados = await listar().catch(() => null);
-  // o padrão da tarefa (não escolhido pelo usuário) que não está instalado: segue com o do topo, sem aviso
-  if (!String(escolhidos[t.id] || '').trim() && (!Array.isArray(instalados) || !instalados.some((n) => n === modelo || n === `${modelo}:latest`))) return null;
+  const tem = (m) => Array.isArray(instalados) && instalados.some((n) => n === m || n === `${m}:latest`);
+  // sem escolha do usuário: o 1º dos padrões da tarefa que está instalado; nenhum, segue com o do topo, sem aviso
+  if (!String(escolhidos[t.id] || '').trim()) {
+    const padrao = (t.padroes || []).find(tem);
+    return padrao ? { tarefa: t.id, nome: t.nome, modelo: padrao } : null;
+  }
+  const modelo = String(escolhidos[t.id]).trim();
   // sem a lista (Ollama remoto que não responde ao /api/tags): tenta o escolhido
   if (Array.isArray(instalados) && !instalados.some((n) => n === modelo || n === `${modelo}:latest` || `${n}:latest` === modelo)) return { tarefa: t.id, nome: t.nome, faltando: modelo };
   return { tarefa: t.id, nome: t.nome, modelo };

@@ -93,6 +93,34 @@ module.exports = [
     },
   },
   {
+    // 27/11 (Davi: "selecionar um lado da peça, botão direito, 'editar'… pense no que poderíamos fazer a mais")
+    nome: 'peças 3D pela face: o clique acha o triângulo certo e junta a face inteira (a frente da caixa: 2 triângulos, normal -y); a descrição leva o plano, a faixa e o ponto em mm; o pedido "Na peça acima…" ajusta a peça; o Qwen3.8 27B vem antes do Gemma',
+    tipo: 'unidade',
+    async executar() {
+      delete require.cache[require.resolve('../../renderer/peca-3d.js')];
+      require('../../renderer/peca-3d.js');
+      const v = [[0, 0, 0], [10, 0, 0], [10, 10, 0], [0, 10, 0], [0, 0, 10], [10, 0, 10], [10, 10, 10], [0, 10, 10]];
+      const f = [[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5], [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7]];
+      const stl = `solid c\n${f.map((t) => `facet normal 0 0 0\nouter loop\n${t.map((i) => `vertex ${v[i].join(' ')}`).join('\n')}\nendloop\nendfacet`).join('\n')}\nendsolid c\n`;
+      const p = global.peca3d.lerStl(new TextEncoder().encode(stl).buffer);
+      const alvo = global.peca3d.acertar(p, [5, -20, 5], [0, 1, 0]);
+      const face = global.peca3d.faceDe(p, alvo.tri);
+      const desc = global.peca3d.descreverFace(face, alvo.ponto);
+      const deCima = global.peca3d.acertar(p, [5, 5, 30], [0, 0, -1]);
+      const conversa = [{ role: 'assistant', content: '![Caixa](augpt-img://abcdefghijklmnopqrstuvwxyz.png){3d:abcdefghijklmnopqrstuvwxyz.stl}\n`pecas-3d/caixa-1/caixa.scad`' }];
+      const q = 'huggingface.co/mradermacher/Qwen3.8-27B-GGUF:Q3_K_M';
+      const ambos = await escolherEspecialista({ objetivo: `Na peça acima, em ${desc.texto}: adicione uma fresta`, conversa, config: {}, listar: async () => [q, 'gemma4:26b-a4b-it-qat'] });
+      return [
+        alvo.ponto.join() === '5,0,5' && face.tris.length === 2 && face.normal.join() === '0,-1,0' && face.plana && face.area === 100 || JSON.stringify({ alvo, face }),
+        desc.nome === 'a face da frente' && /no plano y = 0 mm/.test(desc.texto) && /x de 0 a 10, z de 0 a 10 mm/.test(desc.texto) && /ponto clicado: x 5, y 0, z 5 mm/.test(desc.texto) || desc.texto,
+        global.peca3d.nomeDaFace(global.peca3d.faceDe(p, deCima.tri).normal) === 'a face de cima' || 'a de cima',
+        peca.ajusteDaPeca(`Na peça acima, em ${desc.texto}: adicione uma fresta`, conversa) === 'pecas-3d/caixa-1/caixa.scad' || 'o pedido do visualizador é ajuste',
+        ambos?.modelo === q && peca.rotuloDoModelo(q) === 'Qwen3.8-27B' || JSON.stringify(ambos),
+        /window\.peca3dPedir = \(texto\) =>/.test(require('fs').readFileSync(require('path').join(__dirname, '../../renderer/app-abas.js'), 'utf8')) || 'o chat recebe o pedido do visualizador',
+      ];
+    },
+  },
+  {
     nome: 'peças 3D: o componente OpenSCAD — versão fixa com SHA-256; sem instalar, a compilação diz que falta; a biblioteca (gancho, suportes, engrenagem, caixa, tampa…) gera cada peça (só com o OpenSCAD instalado no PC)',
     tipo: 'unidade',
     async executar() {

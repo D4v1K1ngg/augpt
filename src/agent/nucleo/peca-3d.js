@@ -39,7 +39,8 @@ function ajusteDaPeca(pergunta, conversa = []) {
   const t = sem(pergunta);
   if (PERGUNTA.test(t) || t.length > 400) return null;
   const anterior = pecaAnterior(conversa);
-  return anterior && (AJUSTE.test(t) || /\b\d+([.,]\d+)?\s*(mm|cm|graus?)\b/.test(t)) ? anterior : null;
+  // "Na peça acima, em a face de trás (…)": o pedido feito pelo visualizador (botão direito numa face)
+  return anterior && (/^na peca acima\b/.test(t) || AJUSTE.test(t) || /\b\d+([.,]\d+)?\s*(mm|cm|graus?)\b/.test(t)) ? anterior : null;
 }
 
 const SISTEMA = `Você cria peças para impressão 3D escrevendo código OpenSCAD.
@@ -77,6 +78,8 @@ Responda só com o código, num bloco \`\`\`openscad.`;
 
 const codigoDe = (t) => ((/```(?:openscad|scad)?\s*\n([\s\S]*?)```/i.exec(String(t || '')) || [])[1] || String(t || '')).trim();
 const nomeDe = (codigo) => (/^\s*\/\/\s*pe[çc]a\s*:\s*(.+)$/im.exec(codigo) || [])[1]?.trim().slice(0, 60) || 'Peça 3D';
+// 'huggingface.co/mradermacher/Qwen3.8-27B-GGUF:Q3_K_M' → 'Qwen3.8-27B'; 'gemma4:26b-a4b-it-qat' fica
+const rotuloDoModelo = (m) => String(m || 'modelo').split('/').pop().replace(/-GGUF(:.*)?$/i, '');
 const fmt = (n) => String(Math.round(n * 10) / 10).replace('.', ',');
 
 async function criarPeca3d({ pergunta, conversa = [], ent = {}, deps }) {
@@ -85,7 +88,7 @@ async function criarPeca3d({ pergunta, conversa = [], ent = {}, deps }) {
   const anterior = ajusteDaPeca(pergunta, conversa);
   const codigoAnterior = anterior && typeof deps.lerPecaAnterior === 'function' ? await deps.lerPecaAnterior(anterior).catch(() => '') : '';
   const pedido = codigoAnterior
-    ? `PEÇA ATUAL:\n\`\`\`openscad\n${codigoAnterior}\n\`\`\`\nAJUSTE PEDIDO: ${pergunta}\nMande o código inteiro já ajustado (mantenha o resto da peça).`
+    ? `PEÇA ATUAL:\n\`\`\`openscad\n${codigoAnterior}\n\`\`\`\nAJUSTE PEDIDO: ${pergunta}\n${/^\s*na pe[çc]a acima/i.test(pergunta) ? 'As coordenadas do pedido (x, y, z em mm) são as da peça gerada por este código, como ela fica na mesa: x = largura, y = profundidade (y menor = frente), z = altura. "Virada para" é a direção para fora da face. Mexa SÓ nessa face/nesse ponto.\n' : ''}Mande o código inteiro já ajustado (mantenha o resto da peça).`
     : pergunta;
   const msgs = [{ role: 'system', content: SISTEMA }, { role: 'user', content: pedido }];
   emit('ferramenta', { nome: 'escrever_peca_3d', argumentos: { consulta: pergunta.slice(0, 200) }, risco: 'leitura' });
@@ -113,7 +116,7 @@ async function criarPeca3d({ pergunta, conversa = [], ent = {}, deps }) {
     const novo = codigoDe(rv);
     const r2 = await deps.compilarPeca({ codigo: novo, nome: 'peca' });
     if (!r2.ok) break; // a correção nem gera a peça: fica a anterior
-    correcoes.push(rv.replace(/```[\s\S]*?```/g, '').replace(/\s+/g, ' ').trim().slice(0, 160));
+    correcoes.push(rv.replace(/```[\s\S]*?```/g, '').replace(/\s+/g, ' ').trim().slice(0, 160) || 'ajuste sem explicação');
     [codigo, r] = [novo, r2];
   }
   const final = await deps.guardarPeca({ codigo, compilado: r, nome: nomeDe(codigo) });
@@ -125,7 +128,7 @@ async function criarPeca3d({ pergunta, conversa = [], ent = {}, deps }) {
     r.caixa ? `**Medidas:** ${fmt(x)} × ${fmt(y)} × ${fmt(z)} mm (largura × profundidade × altura, como fica na mesa da impressora)` : '',
     `**Arquivos** (na pasta de trabalho): \`${final.caminhos.stl}\`${final.caminhos.tresmf ? ` · \`${final.caminhos.tresmf}\`` : ''} · \`${final.caminhos.scad}\``,
     '',
-    `*Feita com o OpenSCAD e o ${deps.modeloDaPeca || 'modelo'} em ${segundos} s${correcoes.length ? `; corrigida ${correcoes.length === 1 ? '1 vez' : `${correcoes.length} vezes`} depois de olhar a peça (${correcoes.join('; ').slice(0, 300)})` : deps.semVisao ? '' : '; conferida pela foto'}. Confira no fatiador antes de imprimir.*`,
+    `*Feita com o OpenSCAD e o ${rotuloDoModelo(deps.modeloDaPeca)} em ${segundos} s${correcoes.length ? `; corrigida ${correcoes.length === 1 ? '1 vez' : `${correcoes.length} vezes`} depois de olhar a peça (${correcoes.join('; ').slice(0, 300)})` : deps.semVisao ? '' : '; conferida pela foto'}. Confira no fatiador antes de imprimir.*`,
     '',
     'Para mudar, é só pedir: "deixa a parede com 3 mm", "aumenta o furo para 5 mm", "arredonda os cantos".',
     '',
@@ -136,4 +139,4 @@ async function criarPeca3d({ pergunta, conversa = [], ent = {}, deps }) {
   return { vista: '', texto, fontes: [], entendimento: ent, buscou: false, produto: false, assuntos: [], modo: 'peca3d', anosSemFonte: [], pecaCriada: { nome: final.nome, caixa: r.caixa, correcoes: correcoes.length, ajuste: Boolean(codigoAnterior), caminhos: final.caminhos } };
 }
 
-module.exports = { pedePeca3d, ajusteDaPeca, pecaAnterior, criarPeca3d, SISTEMA, codigoDe, nomeDe };
+module.exports = { rotuloDoModelo, pedePeca3d, ajusteDaPeca, pecaAnterior, criarPeca3d, SISTEMA, codigoDe, nomeDe };
