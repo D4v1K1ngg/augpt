@@ -185,7 +185,9 @@ async function responderPeloNucleo({ objetivo, conversa: conversaCrua, imagens: 
     conferirMetodo: cfg.conferirMetodo === true,
     // a pauta antes da escrita (12/11): DESLIGADA por padrão — na régua, com o qwen3.5:9b, não melhorou (notas iguais,
     // 5 a 9 dicas de 12 com ou sem) e custa 3–5 s; com o gpt-oss, respostas mais completas. Liga com "pautaDaEscrita": true
-    pautaDaEscrita: cfg.pautaDaEscrita === true,
+    // 27/11 (régua, gpt-oss:20b, 10 perguntas × 4 rodadas): com a pauta, gabarito 68% → 75% e a pior rodada 50% → 62%, nota
+    // igual (9,5), +5 s; quem escreve com o gpt-oss liga sozinho ("pautaDaEscrita": false desliga)
+    pautaDaEscrita: cfg.pautaDaEscrita === true || (cfg.pautaDaEscrita !== false && /gpt-oss/i.test(especialista?.modelo || cfg.modelRedacao || modelo)),
     // 12/11 (régua, 5 guias × 2 rodadas, 9B): cobertura do gabarito 60% → 68%, +5 s; desliga com "notasPorPagina": false
     notasPorPagina: cfg.notasPorPagina !== false,
     // 13/11: cruzamento das fontes (sites que confirmam cada ponto, divergências). Régua, 14 perguntas com gabarito, 9B:

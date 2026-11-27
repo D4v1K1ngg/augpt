@@ -77,3 +77,16 @@ module.exports = [
     },
   },
 ];
+module.exports.push({
+  nome: 'leitura livre (27/11, régua com o gpt-oss): "Quais as melhores táticas para vencer partidas de PUBG no PC?" — o "no PC" é a plataforma — vai para a pesquisa, não para a leitura do PC; os pedidos do PC continuam',
+  tipo: 'unidade',
+  executar() {
+    const insp = require('../../src/pc/inspetor');
+    const pesquisa = ['Quais as melhores táticas para vencer partidas de PUBG no PC?', 'dicas para jogar melhor no pc', 'quais as melhores estratégias de Valorant no pc?'];
+    const doPc = ['verifique o chipset do meu pc', 'quais drivers estão instalados no meu pc?', 'quanto espaço livre meu pc tem?'];
+    return [
+      ...pesquisa.map((q) => (!insp.pedidoDeLeituraLivre(q) && !insp.consultasDoPedido(q).length) || `leu o PC: ${q}`),
+      ...doPc.map((q) => insp.pedidoDeLeituraLivre(q) || insp.consultasDoPedido(q).length > 0 || `não leu: ${q}`),
+    ];
+  },
+});

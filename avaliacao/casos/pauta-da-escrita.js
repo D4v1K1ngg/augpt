@@ -55,3 +55,21 @@ module.exports = [
     },
   },
 ];
+module.exports.push({
+  nome: 'pauta da escrita (27/11, régua com o gpt-oss: gabarito 68% → 75%): liga sozinha quando quem escreve é o gpt-oss; "pautaDaEscrita": false desliga; nos outros modelos, só com true',
+  tipo: 'unidade',
+  executar() {
+    const fs = require('fs');
+    const codigo = fs.readFileSync(require('path').join(__dirname, '../../src/agent/loop-nucleo.js'), 'utf8');
+    const linha = /pautaDaEscrita: (.+),\r?\n/.exec(codigo)?.[1] || '';
+    // a mesma expressão do loop-nucleo, avaliada com cada config
+    const liga = (cfg, modelo, especialista = null) => Function('cfg', 'modelo', 'especialista', `return ${linha};`)(cfg, modelo, especialista);
+    return [
+      liga({}, 'gpt-oss:20b') === true || 'gpt-oss sem ajuste: liga',
+      liga({ pautaDaEscrita: false }, 'gpt-oss:20b') === false || 'gpt-oss com false: desliga',
+      liga({}, 'qwen3.5:9b-q8_0') === false || 'qwen sem ajuste: desligada',
+      liga({ pautaDaEscrita: true }, 'qwen3.5:9b-q8_0') === true || 'qwen com true: liga',
+      liga({ modelRedacao: 'gpt-oss:20b' }, 'qwen3.5:9b-q8_0') === true || 'redação pelo gpt-oss: liga',
+    ];
+  },
+});

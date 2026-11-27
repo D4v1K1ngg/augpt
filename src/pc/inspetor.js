@@ -175,7 +175,10 @@ const DO_USUARIO = /\b(meu|minha|meus|minhas|tenho|tem no|neste|nesse|desse|dest
 // ("meu windows está atualizado?": pergunta de sim ou não também é consulta)
 const ACAO = /^\s*(veja|ve|mostre|mostra|liste|lista|verifique|verifica|confira|confere|consulte|descubra|me (diga|fala|mostra))\b|\b(quanto|quantos|quantas|qual|quais|onde|tenho|tem|esta|estao)\b/;
 // avaliação e conselho ficam com a pesquisa ("meu mouse é bom para PUBG?" pede opinião, não leitura)
-const OPINIAO = /\b(e bom|e boa|vale a pena|melhor|recomend\w*|compar\w*|devo|deveria|como (melhorar|aumentar|liberar|limpar|resolver|atualizar))\b/;
+// 27/11 (régua, gpt-oss: "Quais as melhores táticas para vencer partidas de PUBG no PC?" — o "no PC" é a plataforma — caiu
+// na leitura livre, leu os drivers da NVIDIA e a placa de rede e respondeu "não consegui ler nenhuma tática", 3 de 4
+// rodadas; "melhor" não pegava "melhores"): dica, tática e estratégia também são da pesquisa
+const OPINIAO = /\b(e bom|e boa|vale a pena|melhor(es)?|recomend\w*|compar\w*|devo|deveria|como (melhorar|aumentar|liberar|limpar|resolver|atualizar)|dicas?|taticas?|estrategias?|truques?)\b/;
 
 const ESPECIFICO = /adaptador|placa de rede|realtek|chipset|politica|gpedit|registro|regedit|servico|tarefas? agendada|firewall|defender|antivirus|bitlocker|\btpm\b|secure boot|uefi|plano de energia|\beventos?\b|tela azul|bsod|variave(l|is) de ambiente|certificado|\bdrivers?\b(?! (da|de|do) (placa|video))/;
 
